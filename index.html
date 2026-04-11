@@ -884,6 +884,7 @@ if('serviceWorker' in navigator){
 
   // সব data Firebase এ save করো
   window.fbSaveAll = function(){
+    if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
     fbStatus('saving', 'Syncing...');
     try {
       var data = {
@@ -915,6 +916,7 @@ if('serviceWorker' in navigator){
 
   // Firebase থেকে data load করো
   window.fbLoadAll = function(){
+    if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
     fbStatus('saving', 'Loading...');
     _fbDb.ref('igl_erp').once('value').then(function(snapshot){
       if(!snapshot.exists()){ fbStatus('connected', '🔗 Connected (No data)'); return; }
@@ -955,7 +957,9 @@ if('serviceWorker' in navigator){
 
   // Real-time listener
   var _fbLastTs = 0;
+  var _fbPaused = false; // Firebase manually paused flag
   _fbDb.ref('igl_erp/ts').on('value', function(snapshot){
+    if(_fbPaused) return; // Firebase paused — ignore
     if(!snapshot.exists()) return;
     var ts = snapshot.val();
     if(_fbLastTs === 0){ _fbLastTs = ts; fbStatus('connected', '🔗 Cloud Connected'); return; }
@@ -1332,6 +1336,7 @@ window.iglSaveUsers = function(){
         <div style="display:flex;gap:6px;margin-top:8px;padding-left:18px;">
           <button onclick="if(window.fbSaveAll)window.fbSaveAll();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(52,168,83,0.3);color:#a9dfbf;cursor:pointer;">💾 Save Now</button>
           <button onclick="if(window.fbLoadAll)window.fbLoadAll();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(66,133,244,0.25);color:#aed6f1;cursor:pointer;">📥 Load Now</button>
+          <button id="fb-pause-btn" onclick="toggleFirebasePause()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(231,76,60,0.2);color:#e74c3c;cursor:pointer;font-weight:600;">🔴 Firebase বন্ধ করুন</button>
         </div>
       </div>
 
@@ -3449,6 +3454,7 @@ function ok(msg) {
         <button class="btn btn-primary btn-sm" onclick="renderRetailNeedleAccount()" style="margin-top:16px;">🔍 View</button>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All Pages</button>
         <button class="btn btn-sm no-print" onclick="rnaExportExcel()" style="margin-top:16px;background:#1e7e34;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">📊 Excel Export</button>
+        <button class="btn btn-sm no-print" onclick="showUsedNeedleAccount()" style="margin-top:16px;background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">♻️ ইউজ নিডেল একাউন্ট</button>
       </div>
     </div>
     <!-- Tab buttons -->
@@ -3584,23 +3590,31 @@ async function connectSaveFile() {
     if (!choice) return;
 
     if (choice === 'new') {
+      // নতুন ফাইল — Firebase ডাটা সহ save
       window._fileHandle = await window.showSaveFilePicker(options);
-    } else {
+      _setStatus('connected', window._fileHandle.name + ' (connected)');
+      document.getElementById('btnConnect').textContent = 'Change File';
+      await _doSave();
+      toast('✅ নতুন ফাইল তৈরি হয়েছে! Firebase ডাটা save হচ্ছে...', 'success');
+
+    } else if (choice === 'open') {
+      // পুরাতন ফাইল কানেক্ট — শুধু connect, ডাটা replace নয়
       [window._fileHandle] = await window.showOpenFilePicker({
         types: [{ description: 'IGL Data File', accept: { 'application/json': ['.json'] } }],
         multiple: false
       });
-      // ⚠️ Auto-load বন্ধ: JSON file connect করলে ডাটা আসবে না।
-      // Firebase ই Master। শুধু "Restore from JSON" বাটন দিয়ে ম্যানুয়ালি আনা যাবে।
-      // await _loadFromFile(); // DISABLED - use manual restore button
+      _setStatus('connected', window._fileHandle.name + ' (connected)');
+      document.getElementById('btnConnect').textContent = 'Change File';
+      // Firebase ডাটা দিয়ে JSON overwrite করো — replace নয়
+      await _doSave();
+      toast('✅ ফাইল কানেক্ট হয়েছে! Firebase ডাটা অক্ষুণ্ণ। নতুন entry থেকে JSON এও save হবে।', 'success');
+
+    } else if (choice === 'restore') {
+      // Replace — confirmRestoreFromJson এ redirect করো
+      document.body.removeChild(document.body.lastChild); // overlay cleanup if any
+      confirmRestoreFromJson();
+      return;
     }
-
-    _setStatus('connected', window._fileHandle.name + ' (connected)');
-    document.getElementById('btnConnect').textContent = 'Change File';
-
-    // Save immediately (Firebase data → JSON file এ backup হবে)
-    await _doSave();
-    toast('✅ File connected! Firebase data is being backed up to this file.', 'success');
 
     // Update sync panel status immediately
     if (typeof _syncRefreshJson === 'function') _syncRefreshJson();
@@ -3703,30 +3717,33 @@ async function _loadFromFile() {
 // -- New or existing file -- small dialog --
 function _askFileChoice() {
   return new Promise(resolve => {
-    // Custom mini dialog
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `
-      <div style="background:#fff;border-radius:12px;padding:30px 35px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
-        <div style="font-size:36px;margin-bottom:12px;"></div>
-        <h3 style="margin-bottom:8px;color:#1a5276;">Select AutoSave File</h3>
-        <p style="font-size:13px;color:#5d6d7e;margin-bottom:22px;">Choose where to save your data:</p>
+      <div style="background:#1a2332;border:1px solid #2c3e50;border-radius:12px;padding:28px 32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.5);text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">📁</div>
+        <h3 style="margin-bottom:6px;color:#e8f4f8;font-size:15px;">JSON File অপশন বেছে নিন</h3>
+        <p style="font-size:12px;color:#8899aa;margin-bottom:20px;">নিচের যেকোনো একটি বেছে নিন</p>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <button id="btn-new-file" style="padding:12px;border:2px solid #2980b9;background:#eaf4fb;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1a5276;">
-            Create New File<br><small style="font-weight:400;color:#5d6d7e;">All data will be saved to a new file</small>
+          <button id="btn-new-file" style="padding:13px;border:2px solid #2980b9;background:rgba(41,128,185,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#aed6f1;text-align:left;">
+            📄 নতুন ফাইল তৈরি করুন<br><small style="font-weight:400;color:#5d7a8a;font-size:11px;">Firebase ডাটা নতুন JSON ফাইলে save হবে</small>
           </button>
-          <button id="btn-open-file" style="padding:12px;border:2px solid #27ae60;background:#eafaf1;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1e8449;">
-            Open Existing File<br><small style="font-weight:400;color:#5d6d7e;">Previous data will be loaded + saved</small>
+          <button id="btn-open-file" style="padding:13px;border:2px solid #27ae60;background:rgba(39,174,96,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#a9dfbf;text-align:left;">
+            🔗 পুরাতন ফাইল কানেক্ট করুন<br><small style="font-weight:400;color:#5d7a8a;font-size:11px;">শুধু কানেক্ট হবে — Firebase ডাটা অক্ষুণ্ণ থাকবে, নতুন entry থেকে save হবে</small>
           </button>
-          <button id="btn-cancel-file" style="padding:8px;border:1px solid #d5d8dc;background:#f8f9fa;border-radius:8px;cursor:pointer;font-size:12px;color:#5d6d7e;">
-            Cancel
+          <button id="btn-restore-file" style="padding:13px;border:2px solid rgba(231,76,60,0.6);background:rgba(231,76,60,0.1);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#e74c3c;text-align:left;">
+            🔄 JSON দিয়ে Replace করুন<br><small style="font-weight:400;color:#5d7a8a;font-size:11px;">⚠️ শুধু Firebase সমস্যায় — বর্তমান ডাটা replace হবে</small>
+          </button>
+          <button id="btn-cancel-file" style="padding:9px;border:1px solid #2c3e50;background:transparent;border-radius:8px;cursor:pointer;font-size:12px;color:#8899aa;">
+            বাতিল
           </button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    overlay.querySelector('#btn-new-file').onclick  = () => { document.body.removeChild(overlay); resolve('new'); };
-    overlay.querySelector('#btn-open-file').onclick = () => { document.body.removeChild(overlay); resolve('open'); };
-    overlay.querySelector('#btn-cancel-file').onclick= () => { document.body.removeChild(overlay); resolve(null); };
+    overlay.querySelector('#btn-new-file').onclick     = () => { document.body.removeChild(overlay); resolve('new'); };
+    overlay.querySelector('#btn-open-file').onclick    = () => { document.body.removeChild(overlay); resolve('open'); };
+    overlay.querySelector('#btn-restore-file').onclick = () => { document.body.removeChild(overlay); resolve('restore'); };
+    overlay.querySelector('#btn-cancel-file').onclick  = () => { document.body.removeChild(overlay); resolve(null); };
   });
 }
 
@@ -5494,7 +5511,15 @@ function stockBadge(stock) {
 
 function fmtDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('en-BD', {day:'2-digit', month:'short', year:'numeric'});
+  var parts = String(d).split('-');
+  if (parts.length === 3) {
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var day   = parts[2].substring(0,2);
+    var mon   = months[parseInt(parts[1],10)-1] || parts[1];
+    var year  = parts[0];
+    return day + ' ' + mon + ' ' + year;
+  }
+  return d;
 }
 
 function todayStr() {
@@ -6226,7 +6251,7 @@ function stnGetTableData() {
   var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
   var stnItems = DB.stnItems;
   var stnNames = stnItems.map(function(i){ return i.name; });
-  var today    = new Date().toLocaleDateString('en-BD', {day:'2-digit',month:'short',year:'numeric'});
+  var today    = fmtDate(todayStr());
   var dateInfo = (dateFrom||dateTo) ? (' | তারিখ: '+(dateFrom||'শুরু')+' → '+(dateTo||'শেষ')) : '';
 
   if (_stnTab === 'stock') {
@@ -10339,6 +10364,662 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     return html;
   }
 
+  // =============================================
+  //  ইউজ নিডেল একাউন্ট — Used Needle Retail Account
+  // =============================================
+
+  var _unaCurrentTab = 0;
+  var _unaTabData = [null,null,null,null];
+  var UNA_TAB_NAMES = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+
+  function showUsedNeedleAccount(){
+    var existing = document.getElementById('una-modal-overlay');
+    if(existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'una-modal-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px;box-sizing:border-box;';
+
+    var fromVal = document.getElementById('rna-from').value || '';
+    var toVal = document.getElementById('rna-to').value || '';
+
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;width:98%;max-width:1100px;min-height:600px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);margin:auto;">'
+      // Header
+      + '<div style="background:linear-gradient(135deg,#7d3c98,#a569bd);color:#fff;padding:14px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">'
+      + '<div><div style="font-size:16px;font-weight:800;">♻️ ইউজ নিডেল — Retail Needle Account</div>'
+      + '<div style="font-size:11px;opacity:0.85;">Islam Garments Ltd. (Knitting Unit) — সব নিডেল একসাথে</div></div>'
+      + '<button onclick="document.getElementById(\'una-modal-overlay\').remove();" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1;">✕</button>'
+      + '</div>'
+      // Controls
+      + '<div style="padding:10px 16px;background:#f8f0fd;border-bottom:1px solid #e0c8f0;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">'
+      + '<div><label style="font-size:11px;font-weight:700;color:#7d3c98;display:block;margin-bottom:3px;">FROM DATE</label><input type="date" id="una-from" value="'+fromVal+'" style="border:1.5px solid #c39bd3;border-radius:5px;padding:5px 8px;font-size:12px;width:140px;"></div>'
+      + '<div><label style="font-size:11px;font-weight:700;color:#7d3c98;display:block;margin-bottom:3px;">TO DATE</label><input type="date" id="una-to" value="'+toVal+'" style="border:1.5px solid #c39bd3;border-radius:5px;padding:5px 8px;font-size:12px;width:140px;"></div>'
+      + '<button onclick="renderUsedNeedleAccount()" style="background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;">🔍 View</button>'
+      + '<button onclick="unaPrintAll()" style="background:#2c3e50;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Print</button>'
+      + '<button onclick="unaManageNeedles()" style="background:#e67e22;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:600;">⚙️ Needle Manage</button>'
+      + '</div>'
+      // Single content area — no tabs
+      + '<div id="una-content" style="flex:1;overflow-x:auto;padding:12px 16px 16px 16px;min-height:300px;"></div>'
+      + '</div>';
+
+    document.body.appendChild(overlay);
+
+    _unaTabData = [null,null,null,null];
+
+    if(fromVal && toVal) renderUsedNeedleAccount();
+  }
+
+  function unaShowTab(idx, btn){
+    // kept for backward compat but not used in single-page mode
+  }
+
+  function renderUsedNeedleAccount(){
+    var fromDate = document.getElementById('una-from') ? document.getElementById('una-from').value : '';
+    var toDate = document.getElementById('una-to') ? document.getElementById('una-to').value : '';
+    if(!fromDate||!toDate){ return; }
+
+    var nm = ndlGetMaster();
+    var rcv = ndlGetRcv();
+    var issues = NDB.needles;
+    var content = document.getElementById('una-content');
+    if(!content) return;
+
+    content.innerHTML = buildUsedNeedleUnified(nm, rcv, issues, fromDate, toDate);
+  }
+
+  // ── একটাই unified table — সব ট্যাবের নিডেল একসাথে, নাম অনুযায়ী sort ──
+  // ── Date range থেকে সব দিনের array বানাও ──
+  function _unaGetDatesInRange(fromDate, toDate){
+    var dates=[], cur=new Date(fromDate), end=new Date(toDate);
+    while(cur<=end){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
+    return dates;
+  }
+
+  function buildUsedNeedleUnified(nmAll, rcvAll, issuesAll, fromDate, toDate){
+    var _esc2 = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var _fmtDMY = function(d){ if(!d)return ''; var p=d.split('-'); return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d; };
+    var _fmtDay = function(d){ if(!d)return ''; var p=d.split('-'); return p.length===3?p[2]+'/'+p[1]:d; };
+    var S = 'border:1px solid #c39bd3;';
+
+    // তারিখ রেঞ্জের সব দিন
+    var allDates = _unaGetDatesInRange(fromDate, toDate);
+    var isMultiDay = allDates.length > 1;
+
+    // সব ট্যাবের সিলেক্টেড নিডেল একসাথে কালেক্ট (ডুপ্লিকেট বাদ)
+    var allNeedleObjs = [];
+    var seenIds = {};
+    getUNANeedles().forEach(function(tabArr){
+      tabArr.forEach(function(obj){
+        var key = obj.id || obj.name;
+        if(!seenIds[key]){ seenIds[key]=true; allNeedleObjs.push(obj); }
+      });
+    });
+
+    // Filter: ONLY used needle issues & receives
+    var issInRange = issuesAll.filter(function(iss){
+      return iss.date>=fromDate && iss.date<=toDate
+        && ((iss.needleType||'').toLowerCase()==='used' || (iss.type||'').toLowerCase()==='used');
+    });
+    var rcvInRange = rcvAll.filter(function(r){
+      return r.date>=fromDate && r.date<=toDate
+        && (r.needleStockType||'').toLowerCase()==='used';
+    });
+
+    // Needle display names & id map
+    var needleIdSet={};
+    allNeedleObjs.forEach(function(obj){
+      if(obj.id){
+        var me=nmAll.find(function(n){return n.id===obj.id;});
+        if(me) needleIdSet[me.name||me.code||obj.name]=me.id;
+        else needleIdSet[obj.name]=obj.id;
+      } else {
+        var nL=obj.name.trim().toLowerCase();
+        var me=nmAll.find(function(n){return (n.code||'').trim().toLowerCase()===nL||(n.name||'').trim().toLowerCase()===nL;});
+        if(me) needleIdSet[me.name||me.code]=me.id;
+      }
+    });
+
+    var needleNames = allNeedleObjs.map(function(obj){
+      if(obj.id){ var me=nmAll.find(function(n){return n.id===obj.id;}); return me?(me.name||me.code||obj.name):obj.name; }
+      return obj.name;
+    });
+    var needleNamesLower = needleNames.map(function(n){return n.trim().toLowerCase();});
+    var idToName={};
+    Object.keys(needleIdSet).forEach(function(nm_){ idToName[needleIdSet[nm_]]=nm_; });
+
+    // Build rows — প্রতিটি নিডেলের জন্য প্রতিটি দিনের ইসু আলাদা
+    var rows = needleNames.map(function(nName){
+      var nNameL=nName.trim().toLowerCase();
+      var nId=needleIdSet[nName]||null;
+      var nm_entry=nId?nmAll.find(function(n){return n.id===nId;}):nmAll.find(function(n){return (n.code||'').trim().toLowerCase()===nNameL||(n.name||'').trim().toLowerCase()===nNameL;});
+      if(!nId&&nm_entry) nId=nm_entry.id;
+
+      var initialBf=nm_entry?(parseFloat(nm_entry.usedBf||nm_entry.usedBalance||0)||0):0;
+      var bfRcv=0,bfIss=0;
+      rcvAll.forEach(function(r){
+        if(r.date>=fromDate)return;
+        if((nId&&r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL){
+          if((r.needleStockType||'').toLowerCase()==='used') bfRcv+=parseFloat(r.qty||0)||0;
+        }
+      });
+      issuesAll.forEach(function(iss){
+        if(iss.date>=fromDate)return;
+        if(!((iss.needleType||'').toLowerCase()==='used'||(iss.type||'').toLowerCase()==='used'))return;
+        if((nId&&iss.needleId===nId)||(iss.needleCode||'').trim().toLowerCase()===nNameL) bfIss+=parseFloat(iss.qty||0)||0;
+      });
+      var bf=initialBf+bfRcv-bfIss;
+
+      var rcvQty=0;
+      rcvInRange.forEach(function(r){
+        if((nId&&r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL) rcvQty+=parseFloat(r.qty||0)||0;
+      });
+
+      // প্রতিটি দিনের ইসু
+      var dayIssue={};
+      allDates.forEach(function(dt){ dayIssue[dt]=0; });
+      issInRange.forEach(function(iss){
+        var matchNeedle=(nId&&iss.needleId===nId)||(iss.needle||'').trim().toLowerCase()===nNameL
+          ||(iss.needleName||'').trim().toLowerCase()===nNameL
+          ||(nId&&iss.needleId&&iss.needleId===nId);
+        if(matchNeedle && dayIssue.hasOwnProperty(iss.date)){
+          dayIssue[iss.date]+=parseFloat(iss.qty||0)||0;
+        }
+      });
+
+      var totalIssue=0;
+      allDates.forEach(function(dt){ totalIssue+=dayIssue[dt]; });
+
+      return {name:nName, bf:bf, rcv:rcvQty, dayIssue:dayIssue, totalIssue:totalIssue, balance:bf+rcvQty-totalIssue};
+    });
+
+    // AUTO FILTER: শুধু স্টক/রিসিভ/ইসু আছে এমন rows
+    var filteredRows = rows.filter(function(r){ return r.bf>0||r.rcv>0||r.totalIssue>0; });
+    var hiddenCount = rows.length - filteredRows.length;
+
+    // নিডেল নাম অনুযায়ী sort
+    filteredRows.sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+    // ── Build HTML ──
+    var html = '<div style="font-family:Arial,sans-serif;min-width:500px;">';
+
+    // Screen header (hidden on print)
+    html += '<div class="no-print" style="text-align:center;margin-bottom:8px;padding:8px;background:#f8f0fd;border-radius:6px;">';
+    html += '<div style="font-size:12pt;font-weight:bold;color:#7d3c98;">ISLAM GARMENTS LTD. (KNITTING UNIT)</div>';
+    html += '<div style="font-size:9pt;color:#6c3483;">ইউজ নিডেল একাউন্ট &nbsp;|&nbsp; '+_fmtDMY(fromDate)+' to '+_fmtDMY(toDate)+'</div></div>';
+
+    // Print header
+    html += '<div class="print-only" style="text-align:center;margin-bottom:6px;">';
+    html += '<div style="font-size:13pt;font-weight:bold;">ISLAM GARMENTS LTD. (KNITTING UNIT)</div>';
+    html += '<div style="font-size:10pt;font-weight:bold;">ইউজ নিডেল — Used Needle Retail Account</div>';
+    html += '<div style="font-size:8.5pt;color:#555;">Date: '+_fmtDMY(fromDate)+' to '+_fmtDMY(toDate)+'</div></div>';
+
+    if(filteredRows.length === 0){
+      html += '<div style="padding:40px;text-align:center;color:#aaa;font-size:14px;">⚙️ Needle Manage বাটন দিয়ে needle সিলেক্ট করুন এবং View চাপুন।</div>';
+      html += '</div>';
+      return html;
+    }
+
+    // ── Table: date-by-date কলাম ──
+    // font size ছোট করো বেশি দিন হলে
+    var tfs = allDates.length<=3?'9px': allDates.length<=6?'8px': allDates.length<=10?'7px':'6px';
+    var dColW = allDates.length<=3?36: allDates.length<=6?30: allDates.length<=10?24:20;
+
+    html += '<div style="overflow-x:auto;">';
+    html += '<table style="border-collapse:collapse;font-size:'+tfs+';width:100%;table-layout:auto;">';
+    html += '<thead>';
+
+    // Row 1: grouped headers
+    html += '<tr style="background:#7d3c98;color:#fff;">';
+    html += '<th rowspan="2" style="'+S+'padding:3px 4px;text-align:left;min-width:80px;font-size:8pt;border-bottom:2px solid #5b2c6f;">নিডেল নম্বর</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:36px;text-align:center;font-size:8pt;border-bottom:2px solid #5b2c6f;">B/F</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:32px;text-align:center;font-size:8pt;border-bottom:2px solid #5b2c6f;">রিসিভ</th>';
+    if(isMultiDay){
+      html += '<th colspan="'+allDates.length+'" style="'+S+'padding:3px;text-align:center;font-size:8pt;background:#5b2c6f;border-bottom:1px solid #9b59b6;">তারিখ অনুযায়ী ইসু</th>';
+    } else {
+      html += '<th rowspan="2" style="'+S+'padding:3px;width:32px;text-align:center;font-size:8pt;background:#5b2c6f;border-bottom:2px solid #4a235a;">ইসু</th>';
+    }
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:36px;text-align:center;font-size:8pt;background:#4a235a;border-bottom:2px solid #3a1c4a;">মোট ইসু</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:40px;text-align:center;font-size:8pt;background:#1e7e34;border:2px solid #1e7e34;border-bottom:2px solid #1a6b2e;">ব্যালেন্স</th>';
+    html += '</tr>';
+
+    // Row 2: date labels
+    html += '<tr style="background:#6c3483;color:#fff;">';
+    if(isMultiDay){
+      allDates.forEach(function(dt){
+        html += '<th style="'+S+'padding:2px;width:'+dColW+'px;text-align:center;font-size:'+tfs+';white-space:nowrap;">'+_fmtDay(dt)+'</th>';
+      });
+    }
+    html += '</tr>';
+    html += '</thead><tbody>';
+
+    // Totals per date
+    var dateTotals={};
+    allDates.forEach(function(dt){ dateTotals[dt]=0; });
+    var tBF=0,tRcv=0,tIss=0,tBal=0;
+
+    filteredRows.forEach(function(row, ri){
+      var bg = ri%2===0?'#fff':'#fdf2ff';
+      html += '<tr style="background:'+bg+';height:20px;">';
+      html += '<td style="'+S+'padding:2px 4px;font-weight:700;font-size:8px;white-space:nowrap;">'+_esc2(row.name)+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;">'+(row.bf||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;color:#7d3c98;font-weight:600;">'+(row.rcv||'')+'</td>';
+      // date columns
+      allDates.forEach(function(dt){
+        var v=row.dayIssue[dt]||0;
+        if(v) dateTotals[dt]+=v;
+        html += '<td style="'+S+'padding:2px;text-align:center;background:'+(v?'#fef5e7':'#fff')+';">'+( v||'' )+'</td>';
+      });
+      html += '<td style="'+S+'padding:2px;text-align:center;font-weight:700;background:#fef0d0;">'+(row.totalIssue||'')+'</td>';
+      var bc=row.balance<0?'#e74c3c':'#1e7e34';
+      html += '<td style="'+S+'padding:2px;text-align:center;background:#eafaf1;font-weight:700;color:'+bc+';border:2px solid #1e7e34;">'+(row.balance===0?'':row.balance)+'</td>';
+      html += '</tr>';
+
+      tBF+=row.bf; tRcv+=row.rcv; tIss+=row.totalIssue; tBal+=row.balance;
+    });
+
+    // Total row
+    html += '<tr style="background:#7d3c98;color:#fff;font-weight:700;text-align:center;">';
+    html += '<td style="'+S+'padding:3px 4px;text-align:left;">Total</td>';
+    html += '<td style="'+S+'padding:3px;">'+tBF+'</td>';
+    html += '<td style="'+S+'padding:3px;">'+tRcv+'</td>';
+    allDates.forEach(function(dt){
+      html += '<td style="'+S+'padding:3px;background:#e67e22;">'+(dateTotals[dt]||'')+'</td>';
+    });
+    html += '<td style="'+S+'padding:3px;background:#e67e22;">'+tIss+'</td>';
+    html += '<td style="'+S+'padding:3px;background:#1e7e34;border:2px solid #1e7e34;">'+tBal+'</td>';
+    html += '</tr>';
+    html += '</tbody></table></div>';
+
+    // Slip numbers
+    var slipNums=[];
+    issInRange.forEach(function(iss){if(iss.challan&&slipNums.indexOf(iss.challan)<0)slipNums.push(iss.challan);});
+    rcvInRange.forEach(function(r){if(r.challan&&slipNums.indexOf(r.challan)<0)slipNums.push(r.challan);});
+    var slipStr=slipNums.length?slipNums.join(', '):'_______________';
+    html += '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
+    if(hiddenCount>0){
+      html += '<div class="no-print" style="margin-top:6px;font-size:11px;padding:6px 12px;background:#fef9e7;border-left:4px solid #f39c12;border-radius:4px;color:#7d6608;">ℹ️ <b>'+hiddenCount+'টি আইটেম</b> লুকানো — স্টক ও ইসু নেই।</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+
+  function getUNANeedles(){
+    // Same as RNA needles — used needle account uses same needle list
+    // stored under key 'rnaUsed_'+tabName for separate management
+    var stored = {};
+    try { stored = JSON.parse(localStorage.getItem('iglerp_una_needles')||'{}'); } catch(e){}
+    var tabs = UNA_TAB_NAMES;
+    var nm = ndlGetMaster();
+    var result = [];
+    tabs.forEach(function(tabName){
+      var key = 'una_'+tabName;
+      if(stored[key] && stored[key].length){
+        result.push(stored[key]);
+      } else {
+        // Fallback: use same as RNA (rnaSection)
+        var arr = nm.filter(function(n){ return n.rnaSection===tabName && (n.type==='Needle'||n.type==='Sinker'); });
+        result.push(arr.map(function(n){return {id:n.id,name:n.name||n.code};}));
+      }
+    });
+    return result;
+  }
+
+  function setUNANeedles(needlesByTab){
+    var stored = {};
+    UNA_TAB_NAMES.forEach(function(tabName, idx){
+      stored['una_'+tabName] = needlesByTab[idx];
+    });
+    try { localStorage.setItem('iglerp_una_needles', JSON.stringify(stored)); } catch(e){}
+  }
+
+  function unaManageNeedles(){
+    var tabIdx = _unaCurrentTab;
+    var tabName = UNA_TAB_NAMES[tabIdx];
+    var nm = ndlGetMaster();
+    var allNeedles = nm.filter(function(n){ return n.type === 'Needle' || n.type === 'Sinker'; });
+    var current = getUNANeedles()[tabIdx] || [];
+    var currentIds = current.map(function(o){ return o.id; }).filter(Boolean);
+
+    var existing = document.getElementById('una-manage-modal');
+    if(existing) existing.remove();
+
+    var div = document.createElement('div');
+    div.id = 'una-manage-modal';
+    div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center;';
+
+    var sections = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard','Flat Knit',''];
+    var grouped = {};
+    sections.forEach(function(s){ grouped[s] = []; });
+    allNeedles.forEach(function(n){
+      var sec = n.rnaSection || n.cat || '';
+      if(!grouped[sec]) grouped[sec] = [];
+      grouped[sec].push(n);
+    });
+
+    var rows = '';
+    sections.forEach(function(sec){
+      var list = grouped[sec];
+      if(!list || !list.length) return;
+      rows += '<tr><td colspan="2" style="background:#7d3c98;color:#fff;font-weight:700;padding:5px 10px;font-size:11px;">'+(sec||'Other')+'</td></tr>';
+      list.forEach(function(n){
+        var checked = currentIds.indexOf(n.id) >= 0 ? 'checked' : '';
+        var hasBf = parseFloat(n.usedBf||n.usedBalance||0) > 0;
+        var stockBadge = hasBf
+          ? ' <span style="background:#1e7e34;color:#fff;border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:4px;">✅ স্টক আছে</span>'
+          : '';
+        rows += '<tr style="background:'+(hasBf?'#f0fff4':'#fff')+';"><td style="padding:3px 10px;"><input type="checkbox" data-nid="'+n.id+'" '+checked+'></td>'
+          + '<td style="padding:3px 10px;font-size:12px;">['+n.type+'] '+(n.name||n.code)+stockBadge+'</td></tr>';
+      });
+    });
+
+    div.innerHTML = '<div style="background:#fff;border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;">'
+      + '<div style="background:#7d3c98;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">'
+      + '<b>⚙️ ইউজ নিডেল Manage — ' + tabName + '</b>'
+      + '<button onclick="document.getElementById(\'una-manage-modal\').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
+      + '</div>'
+      + '<div style="padding:8px 10px;background:#f8f0fd;border-bottom:1px solid #ddd;display:flex;gap:6px;flex-wrap:wrap;">'
+      + '<button onclick="document.querySelectorAll(\'#una-manage-modal input[type=checkbox]\').forEach(function(c){c.checked=true;})" style="font-size:11px;padding:3px 10px;background:#7d3c98;color:#fff;border:none;border-radius:4px;cursor:pointer;">All</button>'
+      + '<button onclick="document.querySelectorAll(\'#una-manage-modal input[type=checkbox]\').forEach(function(c){c.checked=false;})" style="font-size:11px;padding:3px 10px;background:#aaa;color:#fff;border:none;border-radius:4px;cursor:pointer;">Clear</button>'
+      + '<button onclick="(function(){var rows=document.querySelectorAll(\'#una-manage-modal tr\');rows.forEach(function(tr){var badge=tr.querySelector(\'span\');if(badge&&badge.textContent.indexOf(\'স্টক\')>=0){var cb=tr.querySelector(\'input[type=checkbox]\');if(cb)cb.checked=true;}});})()" style="font-size:11px;padding:3px 10px;background:#1e7e34;color:#fff;border:none;border-radius:4px;cursor:pointer;">✅ স্টক আছে সব</button>'
+      + '</div>'
+      + '<div style="overflow-y:auto;flex:1;padding:4px 0;">'
+      + '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>'
+      + '</div>'
+      + '<div style="padding:12px;border-top:1px solid #ddd;display:flex;gap:8px;">'
+      + '<button onclick="unaSaveManage('+tabIdx+')" style="flex:1;background:#7d3c98;color:#fff;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;font-weight:600;">💾 Save</button>'
+      + '<button onclick="document.getElementById(\'una-manage-modal\').remove()" style="flex:1;background:#eee;color:#333;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;">Cancel</button>'
+      + '</div>'
+      + '</div>';
+
+    document.body.appendChild(div);
+  }
+
+  function unaSaveManage(tabIdx){
+    var allByTab = getUNANeedles();
+    var nm = ndlGetMaster();
+    var checked = document.querySelectorAll('#una-manage-modal input[type=checkbox]:checked');
+    var newList = [];
+    checked.forEach(function(cb){
+      var nid = cb.dataset.nid;
+      var n = nm.find(function(x){ return x.id === nid; });
+      if(n) newList.push({id:n.id, name:n.name||n.code});
+    });
+    allByTab[tabIdx] = newList;
+    setUNANeedles(allByTab);
+    document.getElementById('una-manage-modal').remove();
+    renderUsedNeedleAccount();
+    if(typeof toast === 'function') toast('✅ '+UNA_TAB_NAMES[tabIdx]+' — '+newList.length+' needle saved', 'success');
+  }
+
+  function buildUsedNeedleTable(tabIdx, nmAll, rcvAll, issuesAll, fromDate, toDate){
+    var needleObjs = getUNANeedles()[tabIdx] || [];
+    var tabName = UNA_TAB_NAMES[tabIdx];
+
+    // Filter: ONLY used needle issues
+    var issInRange = issuesAll.filter(function(iss){
+      return iss.date>=fromDate && iss.date<=toDate
+        && ((iss.needleType||'').toLowerCase()==='used' || (iss.type||'').toLowerCase()==='used');
+    });
+    // Used needle receive
+    var rcvInRange = rcvAll.filter(function(r){
+      return r.date>=fromDate && r.date<=toDate
+        && (r.needleStockType||'').toLowerCase()==='used';
+    });
+
+    // Build supervisor→shift mapping per date per machine
+    var dayMachineShiftMap = {};
+    issInRange.forEach(function(iss){
+      if(!iss.machine || !iss.date) return;
+      var d = iss.date, m = iss.machine;
+      var sup = iss.worker || iss.supervisor || '';
+      if(!sup) return;
+      if(!dayMachineShiftMap[d]) dayMachineShiftMap[d] = {};
+      if(!dayMachineShiftMap[d][m]) dayMachineShiftMap[d][m] = {};
+      var supMap = dayMachineShiftMap[d][m];
+      if(!(sup in supMap)){
+        var count = Object.keys(supMap).length;
+        if(count < 3) supMap[sup] = count;
+      }
+    });
+
+    // Build needle name/id sets
+    var needleIdSet = {};
+    needleObjs.forEach(function(obj){
+      if(obj.id){
+        var me = nmAll.find(function(n){ return n.id === obj.id; });
+        if(me){ needleIdSet[me.name||me.code||obj.name] = me.id; }
+        else { needleIdSet[obj.name] = obj.id; }
+      } else {
+        var nL = obj.name.trim().toLowerCase();
+        var me = nmAll.find(function(n){
+          return (n.code||'').trim().toLowerCase()===nL || (n.name||'').trim().toLowerCase()===nL;
+        });
+        if(me) needleIdSet[me.name||me.code] = me.id;
+      }
+    });
+
+    var needleNames = needleObjs.map(function(obj){
+      if(obj.id){ var me=nmAll.find(function(n){return n.id===obj.id;}); return me?(me.name||me.code||obj.name):obj.name; }
+      return obj.name;
+    });
+    var needleNamesLower = needleNames.map(function(n){ return n.trim().toLowerCase(); });
+    var idToRna = {};
+    Object.keys(needleIdSet).forEach(function(rna){ idToRna[needleIdSet[rna]] = rna; });
+
+    // Which machines had used needle issues
+    var machineSet = {};
+    issInRange.forEach(function(iss){
+      var matched = (iss.needleId && idToRna[iss.needleId]);
+      if(!matched){ var iN=(iss.needle||iss.needleName||'').trim().toLowerCase(); if(iN&&needleNamesLower.indexOf(iN)>-1) matched=true; }
+      if(matched && iss.machine) machineSet[iss.machine] = true;
+    });
+
+    var allMachines = getNeedleMachines().filter(function(nm){ return machineSet[nm.id]; }).map(function(nm){ return nm.id; });
+    Object.keys(machineSet).forEach(function(m){ if(allMachines.indexOf(m)<0) allMachines.push(m); });
+
+    // Build rows
+    var rows = needleNames.map(function(nName){
+      var nNameL = nName.trim().toLowerCase();
+      var nId = needleIdSet[nName] || null;
+      var nm_entry = nId
+        ? nmAll.find(function(n){ return n.id === nId; })
+        : nmAll.find(function(n){ return (n.code||'').trim().toLowerCase()===nNameL||(n.name||'').trim().toLowerCase()===nNameL; });
+      if(!nId && nm_entry) nId = nm_entry.id;
+
+      // B/F: used needle initial balance + receives - issues before fromDate
+      var initialBf = nm_entry ? (parseFloat(nm_entry.usedBf||nm_entry.usedBalance||0)||0) : 0;
+      var bfRcv = 0, bfIss = 0;
+      rcvAll.forEach(function(r){
+        if(r.date >= fromDate) return;
+        if((nId && r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL){
+          if((r.needleStockType||'').toLowerCase()==='used') bfRcv += parseFloat(r.qty||0)||0;
+        }
+      });
+      issuesAll.forEach(function(iss){
+        if(iss.date >= fromDate) return;
+        if(!((iss.needleType||'').toLowerCase()==='used'||(iss.type||'').toLowerCase()==='used')) return;
+        if((nId && iss.needleId===nId)||(iss.needleCode||'').trim().toLowerCase()===nNameL){
+          bfIss += parseFloat(iss.qty||0)||0;
+        }
+      });
+      var bf = initialBf + bfRcv - bfIss;
+
+      var rcvQty = 0;
+      rcvInRange.forEach(function(r){
+        if((nId && r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL) rcvQty += parseFloat(r.qty||0)||0;
+      });
+
+      var nmMachines = (nm_entry && nm_entry.machines) ? nm_entry.machines : [];
+      var machineShifts = {};
+      var totalIssue = 0;
+      allMachines.forEach(function(mach){
+        var s = [0,0,0];
+        var isMapped = nmMachines.indexOf(mach) > -1;
+        issInRange.forEach(function(iss){
+          var matchNeedle = (nId && iss.needleId===nId) || (iss.needle||'').trim().toLowerCase()===nNameL;
+          if(matchNeedle && iss.machine===mach){
+            var sup = iss.worker || iss.supervisor || '';
+            var shiftIdx = 0;
+            if(sup && dayMachineShiftMap[iss.date] && dayMachineShiftMap[iss.date][mach] && (sup in dayMachineShiftMap[iss.date][mach])){
+              shiftIdx = dayMachineShiftMap[iss.date][mach][sup];
+            }
+            s[shiftIdx] += parseFloat(iss.qty||0)||0;
+          }
+        });
+        machineShifts[mach] = {shifts:s, mapped:isMapped};
+        totalIssue += s[0]+s[1]+s[2];
+      });
+
+      return {name:nName, bf:bf, rcv:rcvQty, machineShifts:machineShifts, totalIssue:totalIssue, balance:bf+rcvQty-totalIssue};
+    });
+
+    // ── AUTO FILTER: শুধু যাদের B/F > 0 অথবা date range এ রিসিভ আছে তারাই দেখাবে ──
+    var filteredRows = rows.filter(function(r){ return r.bf > 0 || r.rcv > 0 || r.totalIssue > 0; });
+    var hiddenCount = rows.length - filteredRows.length;
+    rows = filteredRows;
+
+    // Totals
+    var tBF=0,tRcv=0,tIss=0,tBal=0;
+    var tMach={};
+    allMachines.forEach(function(m){ tMach[m]=[0,0,0]; });
+    rows.forEach(function(r){
+      tBF+=r.bf; tRcv+=r.rcv; tIss+=r.totalIssue; tBal+=r.balance;
+      allMachines.forEach(function(m){
+        var s=r.machineShifts[m]?r.machineShifts[m].shifts:[0,0,0];
+        tMach[m][0]+=s[0]; tMach[m][1]+=s[1]; tMach[m][2]+=s[2];
+      });
+    });
+
+    var _esc2 = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var _fmtDMY = function(d){ if(!d)return ''; var p=d.split('-'); return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d; };
+    var S = 'border:1px solid #c39bd3;';
+
+    // Cell width calculation
+    var maxMapped = 0;
+    rows.forEach(function(row){
+      var cnt = allMachines.filter(function(m){
+        var ms = row.machineShifts[m]; if(!ms) return false;
+        return ms.shifts.some(function(v){return v>0;});
+      }).length;
+      if(cnt > maxMapped) maxMapped = cnt;
+    });
+    var cellW = maxMapped <= 12 ? 51 : Math.max(16, Math.floor(612/maxMapped));
+    var lblFs = cellW >= 40 ? '6px' : '5px';
+    var qtyFs = cellW >= 34 ? '9.5px' : '8px';
+
+    // ── খালি সেকশন স্কিপ করো ──
+    if(rows.length === 0) return null;
+
+    // ── Build HTML ── (section block, no standalone header)
+    var html = '<div style="margin-bottom:18px;">';
+
+    // Section title bar
+    html += '<div style="background:#7d3c98;color:#fff;padding:5px 12px;font-size:10pt;font-weight:800;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span>♻️ '+_esc2(tabName)+'</span>';
+    html += '<span style="font-size:8pt;opacity:0.85;">ইউজ নিডেল একাউন্ট</span></div>';
+
+    html += '<table style="border-collapse:collapse;font-size:10px;width:100%;">';
+    html += '<thead>';
+    // Row 1: Main headers
+    html += '<tr style="background:#6c3483;color:#fff;">';
+    html += '<th rowspan="2" style="'+S+'padding:4px 3px;text-align:center;width:80px;font-size:8pt;border-bottom:2px solid #5b2c6f;">নিডেল নং</th>';
+    html += '<th rowspan="2" style="'+S+'padding:4px;width:40px;text-align:center;font-size:8pt;border-bottom:2px solid #5b2c6f;">B/F</th>';
+    html += '<th rowspan="2" style="'+S+'padding:4px;width:40px;text-align:center;font-size:8pt;border-bottom:2px solid #5b2c6f;">রিসিভ</th>';
+    html += '<th colspan="3" style="'+S+'padding:4px;text-align:center;font-size:8pt;background:#5b2c6f;border-bottom:1px solid #9b59b6;">শিফট</th>';
+    html += '<th rowspan="2" style="'+S+'padding:4px;text-align:center;font-size:8pt;width:36px;background:#4a235a;border-bottom:2px solid #3a1c4a;">ইসু</th>';
+    html += '<th rowspan="2" style="'+S+'padding:4px;text-align:center;font-size:8pt;width:44px;background:#1e7e34;border:2px solid #1e7e34;border-bottom:2px solid #1a6b2e;">ব্যালেন্স</th>';
+    html += '</tr>';
+    // Row 2: Shift A B C
+    html += '<tr style="background:#5b2c6f;color:#fff;">';
+    html += '<th style="'+S+'padding:3px 2px;width:28px;text-align:center;font-size:8pt;">A</th>';
+    html += '<th style="'+S+'padding:3px 2px;text-align:center;font-size:8pt;">B</th>';
+    html += '<th style="'+S+'padding:3px 2px;text-align:center;font-size:8pt;">C</th>';
+    html += '</tr>';
+    html += '</thead><tbody>';
+
+    // Data rows
+    rows.forEach(function(row, ri){
+      var bg = ri%2===0?'#fff':'#fdf2ff';
+      html += '<tr style="background:'+bg+';height:22px;">';
+      html += '<td style="'+S+'padding:2px 4px;font-weight:700;font-size:8px;width:80px;min-width:80px;max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc2(row.name)+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;width:40px;font-size:10px;">'+(row.bf||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;color:#7d3c98;font-weight:600;width:40px;font-size:10px;">'+(row.rcv||'')+'</td>';
+      // Shift A, B, C totals across all machines
+      var shiftTotals = [0,0,0];
+      allMachines.forEach(function(m){
+        var ms = row.machineShifts[m];
+        if(ms){ ms.shifts.forEach(function(v,si){ shiftTotals[si]+=v; }); }
+      });
+      html += '<td style="'+S+'padding:2px;text-align:center;font-size:10px;width:28px;">'+(shiftTotals[0]||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;font-size:10px;">'+(shiftTotals[1]||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;font-size:10px;">'+(shiftTotals[2]||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;font-weight:700;width:36px;font-size:10px;background:#fef5e7;">'+(row.totalIssue||'')+'</td>';
+      var bc = row.balance<0?'#e74c3c':'#1e7e34';
+      html += '<td style="'+S+'padding:2px;text-align:center;background:#eafaf1;font-weight:700;width:44px;font-size:10px;color:'+bc+';border:2px solid #1e7e34;">'+(row.balance===0?'':row.balance)+'</td>';
+      html += '</tr>';
+    });
+
+    // Total row
+    var tA=0,tB=0,tC=0;
+    rows.forEach(function(r){
+      allMachines.forEach(function(m){
+        var ms=r.machineShifts[m]; if(!ms)return;
+        tA+=ms.shifts[0]; tB+=ms.shifts[1]; tC+=ms.shifts[2];
+      });
+    });
+    html += '<tr style="background:#7d3c98;color:#fff;font-weight:700;text-align:center;">';
+    html += '<td style="'+S+'padding:4px 6px;text-align:left;">Total</td>';
+    html += '<td style="'+S+'padding:4px;white-space:nowrap;">'+tBF+'</td>';
+    html += '<td style="'+S+'padding:4px;">'+tRcv+'</td>';
+    html += '<td style="'+S+'padding:4px;">'+(tA||'')+'</td>';
+    html += '<td style="'+S+'padding:4px;">'+(tB||'')+'</td>';
+    html += '<td style="'+S+'padding:4px;">'+(tC||'')+'</td>';
+    html += '<td style="'+S+'padding:4px;background:#e67e22;">'+tIss+'</td>';
+    html += '<td style="'+S+'padding:4px;background:#1e7e34;border:2px solid #1e7e34;">'+tBal+'</td>';
+    html += '</tr>';
+    html += '</tbody></table>';
+
+    // Slip numbers
+    var slipNums = [];
+    issInRange.forEach(function(iss){ if(iss.challan && slipNums.indexOf(iss.challan)<0) slipNums.push(iss.challan); });
+    rcvInRange.forEach(function(r){ if(r.challan && slipNums.indexOf(r.challan)<0) slipNums.push(r.challan); });
+    var slipStr = slipNums.length ? slipNums.join(', ') : '_______________';
+    html += '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
+    if(hiddenCount > 0){
+      html += '<div style="margin-top:6px;font-size:11px;padding:6px 12px;background:#fef9e7;border-left:4px solid #f39c12;border-radius:4px;color:#7d6608;">ℹ️ <b>'+hiddenCount+'টি আইটেম</b> লুকানো আছে (B/F = 0, রিসিভ নেই, ইসু নেই) — Manage থেকে সিলেক্ট করা থাকলেও দেখাবে না যতক্ষণ স্টক বা রিসিভ না হয়।</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function unaPrintAll(){
+    var fromDate = document.getElementById('una-from') ? document.getElementById('una-from').value : '';
+    var toDate = document.getElementById('una-to') ? document.getElementById('una-to').value : '';
+    if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
+    var nm = ndlGetMaster();
+    var rcv = ndlGetRcv();
+    var issues = NDB.needles;
+    var allDates = _unaGetDatesInRange(fromDate, toDate);
+    var dayCount = allDates.length;
+    var pageSize = dayCount > 4 ? 'A4 landscape' : 'A4';
+    var bodyFs = dayCount <= 3 ? '9px' : dayCount <= 6 ? '7.5px' : dayCount <= 10 ? '6.5px' : '5.5px';
+    var html = buildUsedNeedleUnified(nm, rcv, issues, fromDate, toDate);
+    var pw = window.open('','_blank','width=1100,height=800');
+    pw.document.write('<!DOCTYPE html><html><head><title>ইউজ নিডেল একাউন্ট</title>'
+      +'<style>'
+      +'body{font-family:Arial,sans-serif;margin:6mm;font-size:'+bodyFs+';}'
+      +'@page{size:'+pageSize+';margin:6mm;}'
+      +'.no-print{display:none!important;}'
+      +'.print-only{display:block!important;}'
+      +'table{border-collapse:collapse;width:100%;}'
+      +'td,th{padding:2px 3px;}'
+      +'</style>'
+      +'</head><body>'+html+'</body></html>');
+    pw.document.close();
+    setTimeout(function(){ pw.print(); }, 400);
+  }
+
   function niSetTab(tab){
     document.getElementById('ni-multi-form').style.display='none';
     document.getElementById('ni-receive-form').style.display='none';
@@ -12956,6 +13637,22 @@ async function manualSaveAll() {
 //  Firebase ই Master। এই ফাংশন শুধু তখনই ব্যবহার করুন
 //  যখন Firebase এ সমস্যা হয়।
 // ══════════════════════════════════════════════════════
+function toggleFirebasePause(){
+  window._fbPaused = !window._fbPaused;
+  var btn = document.getElementById('fb-pause-btn');
+  if(window._fbPaused){
+    fbStatus('idle', '⏸️ Firebase বন্ধ');
+    if(btn){ btn.textContent='🟢 Firebase চালু করুন'; btn.style.background='rgba(39,174,96,0.3)'; btn.style.color='#a9dfbf'; }
+    toast('⏸️ Firebase বন্ধ করা হয়েছে। এখন শুধু Local এ সেভ হবে।','warning');
+  } else {
+    if(btn){ btn.textContent='🔴 Firebase বন্ধ করুন'; btn.style.background='rgba(231,76,60,0.2)'; btn.style.color='#e74c3c'; }
+    fbStatus('saving','🔗 Reconnecting...');
+    // Firebase থেকে fresh data load
+    if(window.fbLoadAll) window.fbLoadAll();
+    toast('🟢 Firebase চালু হয়েছে। সর্বশেষ ডাটা লোড হচ্ছে...','success');
+  }
+}
+
 function confirmRestoreFromJson() {
   if (!window._fileHandle) {
     toast('⚠️ আগে একটি JSON File Connect করুন।', 'warning');
@@ -12978,6 +13675,39 @@ function confirmRestoreFromJson() {
   overlay.querySelector('#btn-confirm-restore').onclick = async function() {
     document.body.removeChild(overlay);
     try {
+      // 🔐 SAFETY: Replace এর আগে Firebase এর current ডাটা auto-download
+      try {
+        var safetyData = {
+          exportedAt: new Date().toISOString(),
+          version: 'firebase-backup-before-restore',
+          db: {
+            groups:   (typeof DB!=='undefined') ? DB.groups   : [],
+            items:    (typeof DB!=='undefined') ? DB.items    : [],
+            machines: (typeof DB!=='undefined') ? DB.machines : [],
+            receives: (typeof DB!=='undefined') ? DB.receives : [],
+            issues:   (typeof DB!=='undefined') ? DB.issues   : []
+          },
+          ndb: {
+            needles: (typeof NDB!=='undefined') ? NDB.needles : [],
+            master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
+          },
+          stn: {
+            issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
+            receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
+            items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]')
+          },
+          ndlRcv:    JSON.parse(localStorage.getItem('igl_ndl_rcv')    || '[]'),
+          rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}')
+        };
+        var safetyBlob = new Blob([JSON.stringify(safetyData, null, 2)], {type:'application/json'});
+        var safetyUrl  = URL.createObjectURL(safetyBlob);
+        var safetyA    = document.createElement('a');
+        safetyA.href   = safetyUrl;
+        safetyA.download = 'firebase_backup_before_restore_' + new Date().toISOString().slice(0,10) + '.json';
+        safetyA.click();
+        URL.revokeObjectURL(safetyUrl);
+      } catch(dlErr){ console.warn('Safety download failed:', dlErr); }
+
       await _loadFromFile();
       setTimeout(function(){
         try { if(typeof fbSaveAll === 'function') fbSaveAll(); } catch(e) {}
