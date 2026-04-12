@@ -1123,6 +1123,25 @@ window.iglCanDeleteMsg = function(entryUserId, entryId, allEntries){
   return null;
 };
 
+// ── Backdate Check Helper ────────────────────────────────────────────
+// User backdate এ কিছু entry দিতে পারবে না — শুধু Admin পারবে
+// dateStr = 'YYYY-MM-DD' format
+window.iglCheckBackdate = function(dateStr) {
+  if(!dateStr) return null; // date নেই, অন্য validation দেখবে
+  var isAdmin = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
+  if(isAdmin) return null; // Admin সব পারবে
+  // আজকের তারিখ YYYY-MM-DD
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var mm = String(today.getMonth()+1).padStart(2,'0');
+  var dd = String(today.getDate()).padStart(2,'0');
+  var todayStr = yyyy+'-'+mm+'-'+dd;
+  if(dateStr < todayStr) {
+    return '⛔ Back Date এ Entry দেওয়ার অনুমতি নেই! শুধুমাত্র Admin পারবেন।';
+  }
+  return null; // OK
+};
+
 // ── User Display Name Helper ──────────────────────────────────────────
 window.iglGetUserDisplayName = function(role){
   if(!role) return "Unknown";
@@ -1365,7 +1384,7 @@ window.iglSaveUsers = function(){
           <button onclick="connectSaveFile();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(255,152,0,0.25);color:#ffd;cursor:pointer;">🔗 Connect File</button>
           <button onclick="manualMonthlyBackup();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(66,133,244,0.25);color:#aed6f1;cursor:pointer;">⬇️ Download Backup</button>
         </div>
-        <div style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
+        <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
           <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় ব্যবহার করুন:</div>
           <button onclick="confirmRestoreFromJson();" style="font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.15);color:#e74c3c;cursor:pointer;font-weight:600;">🔄 JSON থেকে ডাটা রিস্টোর করুন</button>
         </div>
@@ -1437,7 +1456,7 @@ window.iglSaveUsers = function(){
       <li><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
       <li><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
       <li><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
-      <li><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
+      <li class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
       <li><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
     </ul>
   </div>
@@ -1455,7 +1474,7 @@ window.iglSaveUsers = function(){
   </div>
 
   <!-- Settings -->
-  <div class="sidebar-group" id="grp-cfg">
+  <div class="sidebar-group admin-only-action" id="grp-cfg">
     <div class="sidebar-group-header" onclick="toggleGroup('cfg')">
       <span class="grp-icon">⚙️</span>
       <span class="grp-title">Settings</span>
@@ -5965,6 +5984,8 @@ function saveReceive() {
   const qty = document.getElementById('r-qty').value;
 
   if (!date) { toast('Please enter a date!', 'warning'); return; }
+  var _bdErr1 = window.iglCheckBackdate(date);
+  if(_bdErr1){ toast(_bdErr1,'error'); return; }
   if (!group) { toast('Please select an item group!', 'warning'); return; }
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
@@ -6028,6 +6049,8 @@ async function saveIssue() {
   const remarks = document.getElementById('i-remarks').value;
 
   if (!date) { toast('Please enter a date!', 'warning'); return; }
+  var _bdErr2 = window.iglCheckBackdate(date);
+  if(_bdErr2){ toast(_bdErr2,'error'); return; }
   if (!slip) { toast('Please enter Issue Slip No.!', 'warning'); return; }
   if (!group) { toast('Please select an item group!', 'warning'); return; }
   if (!item) { toast('Please select an item!', 'warning'); return; }
@@ -6172,6 +6195,8 @@ function stnSaveReceive() {
   var qty      = document.getElementById('stn-r-qty').value;
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
+  var _bdErr3 = window.iglCheckBackdate(date);
+  if(_bdErr3){ toast(_bdErr3,'error'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
@@ -6203,6 +6228,8 @@ async function stnSaveIssue() {
   var remarks = document.getElementById('stn-i-remarks').value;
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
+  var _bdErr4 = window.iglCheckBackdate(date);
+  if(_bdErr4){ toast(_bdErr4,'error'); return; }
   if (!slip)  { toast('Please enter Slip No.!', 'warning'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
@@ -11055,6 +11082,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var challan=(document.getElementById('nr-challan').value||'').trim();
     var needleStockType=(document.getElementById('nr-needle-type')||{}).value||'new';
     if(!date){toast('Date দিন!','warning');return;}
+    var _bdErr5=window.iglCheckBackdate(date);
+    if(_bdErr5){toast(_bdErr5,'error');return;}
     if(!ndlId){toast('Needle select করুন!','warning');return;}
     if(!qty||qty<=0){toast('Quantity দিন!','warning');return;}
     var nm=ndlGetMaster();
@@ -11315,6 +11344,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var type=(document.getElementById('nmi-type')||{}).value||'broken';
     var remarks=(document.getElementById('nmi-remarks')||{}).value||'';
     if(!date){toast('Date দিন!','warning');return;}
+    var _bdErr6=window.iglCheckBackdate(date);
+    if(_bdErr6){toast(_bdErr6,'error');return;}
     if(!machine){toast('Machine select করুন!','warning');return;}
     var checked=document.querySelectorAll('.nmi-chk:checked');
     if(!checked.length){toast('কমপক্ষে একটা needle select করুন!','warning');return;}
@@ -13809,7 +13840,7 @@ function confirmRestoreFromJson() {
             <th style="padding:9px 12px;text-align:center;color:#d7bde2;">বর্তমান B/F</th>
             <th style="padding:9px 12px;text-align:center;color:#a9dfbf;">Receive</th>
             <th style="padding:9px 12px;text-align:center;color:#f1948a;">Issue</th>
-            <th style="padding:9px 12px;text-align:center;color:#f9e79f;">নতুন B/F (Calc)</th>
+            <th style="padding:9px 12px;text-align:center;color:#f9e79f;">নতুন B/F <span style="font-size:10px;color:#f0b27a;">(এখানে লিখুন)</span></th>
           </tr>
         </thead>
         <tbody id="stn-bf-table"></tbody>
@@ -13818,6 +13849,7 @@ function confirmRestoreFromJson() {
     <!-- Footer -->
     <div style="padding:14px 22px;border-top:1px solid #e1bee7;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fafafa;">
       <button onclick="document.getElementById('stnBFModal').style.display='none';" style="padding:9px 22px;border-radius:7px;border:1px solid #ccc;background:#fff;font-size:13px;cursor:pointer;font-weight:600;">বাতিল</button>
+      <button id="stn-bf-manual-save-btn" onclick="stnSaveManualBF()" style="padding:9px 22px;border-radius:7px;border:none;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">📝 Manual B/F Save</button>
       <button id="stn-bf-save-btn" onclick="stnSaveAllBF()" style="display:none;padding:9px 22px;border-radius:7px;border:none;background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">💾 এই B/F Save করুন</button>
     </div>
   </div>
@@ -14046,83 +14078,113 @@ function stnBFCalc() {
   var allIss = DB.issues.filter(function(r){return r.group==='Stationery'||!r.group||r.group===undefined;});
   var tbody  = document.getElementById('stn-bf-table');
   var saveBtn= document.getElementById('stn-bf-save-btn');
+  var manualBtn = document.getElementById('stn-bf-manual-save-btn');
   var hint   = document.getElementById('stn-bf-date-hint');
 
   if(!items.length){
     tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">কোনো আইটেম নেই</td></tr>';
     if(saveBtn) saveBtn.style.display='none';
+    if(manualBtn) manualBtn.style.display='none';
     return;
   }
 
   if(date && hint){
     var p=date.split('-');
-    hint.textContent = '✅ '+p[2]+'-'+p[1]+'-'+p[0]+' পর্যন্তের হিসাব';
-    hint.style.color='#7d3c98';
+    hint.textContent = '✅ '+p[2]+'-'+p[1]+'-'+p[0]+' তারিখের Opening B/F সেট করুন';
+    hint.style.color='#7d3c98'; hint.style.fontWeight='600';
     if(saveBtn) saveBtn.style.display='';
+    if(manualBtn) manualBtn.style.display='none';
   } else {
-    if(hint){ hint.textContent='← তারিখ দিলে হিসাব দেখাবে'; hint.style.color='#888'; }
+    if(hint){ hint.textContent='← আগে তারিখ দিন, তারপর B/F বসান'; hint.style.color='#c0392b'; hint.style.fontWeight='600'; }
     if(saveBtn) saveBtn.style.display='none';
+    if(manualBtn) manualBtn.style.display='none';
   }
-
-  var fmtD=function(d){if(!d)return'';var p=d.split('-');return p[2]+'-'+p[1]+'-'+p[0];};
 
   tbody.innerHTML = items.map(function(it,i){
     var curBF = Number(it.bf)||0;
-    // তারিখ ফিল্টার
-    var rcv = (date
-      ? allRcv.filter(function(r){return r.item===it.name&&r.date<=date;})
-      : allRcv.filter(function(r){return r.item===it.name;})
-    ).reduce(function(s,r){return s+r.qty;},0);
-    var iss = (date
-      ? allIss.filter(function(r){return r.item===it.name&&r.date<=date;})
-      : allIss.filter(function(r){return r.item===it.name;})
-    ).reduce(function(s,r){return s+r.qty;},0);
-    var newBF = date ? (curBF + rcv - iss) : curBF;
-    var changed = date && newBF !== curBF;
-    var rowBg = changed ? '#fdf6ff' : '';
+    var rcv = allRcv.filter(function(r){return r.item===it.name&&(!date||r.date<=date);}).reduce(function(s,r){return s+r.qty;},0);
+    var iss = allIss.filter(function(r){return r.item===it.name&&(!date||r.date<=date);}).reduce(function(s,r){return s+r.qty;},0);
+    var calcDefault = curBF + rcv - iss;
+    var rowBg = date ? '#fdf6ff' : '#f9f9f9';
     return '<tr style="background:'+rowBg+';border-bottom:1px solid #eee;">'
-      +'<td style="padding:7px 12px;color:#aaa;">'+(i+1)+'</td>'
-      +'<td style="padding:7px 12px;"><b>'+it.name+'</b></td>'
-      +'<td style="text-align:center;color:#6c3483;font-weight:700;">'+curBF+'</td>'
-      +'<td style="text-align:center;color:#117a65;font-weight:700;">'+(date?rcv:'-')+'</td>'
-      +'<td style="text-align:center;color:#e74c3c;font-weight:700;">'+(date?iss:'-')+'</td>'
-      +'<td style="text-align:center;font-weight:700;'+(changed?'color:#e67e22;font-size:15px;':'color:#aaa;')+'">'
-        +(date?newBF:'—')
-        +(changed?' <span style="font-size:10px;color:#e67e22;">(নতুন)</span>':'')
+      +'<td style="padding:7px 10px;color:#aaa;font-size:12px;">'+(i+1)+'</td>'
+      +'<td style="padding:7px 10px;"><b style="font-size:13px;">'+it.name+'</b></td>'
+      +'<td style="text-align:center;color:#6c3483;font-weight:700;font-size:13px;">'+curBF+'</td>'
+      +'<td style="text-align:center;color:#117a65;font-weight:700;">'+(rcv?rcv:'-')+'</td>'
+      +'<td style="text-align:center;color:#e74c3c;font-weight:700;">'+(iss?iss:'-')+'</td>'
+      +'<td style="text-align:center;padding:4px 6px;">'
+        +(date
+          ? '<input type="number" data-item="'+it.name+'" class="stn-bf-new-input" value="'+calcDefault+'" min="0" '
+            +'style="width:72px;text-align:center;border:2px solid #e67e22;border-radius:5px;padding:3px 5px;font-size:14px;font-weight:700;color:#c0392b;background:#fff8f0;" '
+            +'placeholder="0">'
+          : '<span style="color:#ccc;">—</span>')
       +'</td>'
       +'</tr>';
   }).join('');
 }
+async function stnSaveManualBF() {
+  // তারিখ ছাড়াই manually input করা B/F save করো
+  var inputs = document.querySelectorAll('.stn-bf-manual-input');
+  if(!inputs.length){ toast('কোনো item নেই!','warning'); return; }
+  var ok = await igl_confirm(
+    'সব Stationery item এর B/F manually input করা মান অনুযায়ী Save হবে।\n\nপুরনো B/F replace হয়ে যাবে!',
+    '', '📝'
+  );
+  if(!ok) return;
+
+  var items = [];
+  try { items = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
+  if(!items.length){ items = DB.stnItems; }
+
+  var updated = 0;
+  inputs.forEach(function(inp){
+    var itemName = inp.getAttribute('data-item');
+    var newVal = Number(inp.value)||0;
+    var it = items.find(function(x){return x.name===itemName;});
+    if(it && it.bf !== newVal){ it.bf = newVal; updated++; }
+  });
+
+  try { localStorage.setItem('igl_stn_items', JSON.stringify(items)); } catch(e) {}
+  triggerAutoSave();
+  document.getElementById('stnBFModal').style.display = 'none';
+  if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
+  toast('✅ '+updated+' টি item এর B/F Manual Save হয়েছে!', 'success');
+}
 
 async function stnSaveAllBF() {
   var date = (document.getElementById('stn-bf-date')||{}).value||'';
-  if(!date){ toast('তারিখ দিন!','warning'); return; }
+  if(!date){ toast('আগে তারিখ দিন!','warning'); return; }
   var p=date.split('-');
   var dateLabel = p[2]+'-'+p[1]+'-'+p[0];
+
+  // নতুন B/F input থেকে মান নাও
+  var inputs = document.querySelectorAll('.stn-bf-new-input');
+  if(!inputs.length){ toast('তারিখ দিলে input আসবে!','warning'); return; }
+
   var ok = await igl_confirm(
-    dateLabel+' তারিখ পর্যন্তের Balance সব Stationery item এর B/F হিসেবে Save হবে।\n\nপুরনো B/F replace হয়ে যাবে!',
+    dateLabel+' তারিখের Opening B/F হিসেবে Save হবে।\n\nপুরনো B/F replace হয়ে যাবে!',
     '', '💾'
   );
   if(!ok) return;
 
-  var items  = DB.stnItems;
-  var allRcv = DB.receives.filter(function(r){return r.group==='Stationery'||!r.group||r.group===undefined;});
-  var allIss = DB.issues.filter(function(r){return r.group==='Stationery'||!r.group||r.group===undefined;});
-  var updated = 0;
+  var items = [];
+  try { items = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
+  if(!items.length){ items = DB.stnItems; }
 
-  items.forEach(function(it){
-    var curBF = Number(it.bf)||0;
-    var rcv = allRcv.filter(function(r){return r.item===it.name&&r.date<=date;}).reduce(function(s,r){return s+r.qty;},0);
-    var iss = allIss.filter(function(r){return r.item===it.name&&r.date<=date;}).reduce(function(s,r){return s+r.qty;},0);
-    var newBF = curBF + rcv - iss;
-    if(newBF !== it.bf){ it.bf = newBF; updated++; }
+  var updated = 0;
+  inputs.forEach(function(inp){
+    var itemName = inp.getAttribute('data-item');
+    var newBF = Number(inp.value)||0;
+    var it = items.find(function(x){return x.name===itemName;});
+    if(it){ it.bf = newBF; updated++; }
   });
 
-  DB.stnItems = items;
+  try { localStorage.setItem('igl_stn_items', JSON.stringify(items)); } catch(e) {}
   triggerAutoSave();
 
   document.getElementById('stnBFModal').style.display = 'none';
   if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
+  toast('✅ '+updated+' টি item এর B/F ('+dateLabel+') Save হয়েছে!', 'success');
   toast('✅ '+updated+' টি আইটেমের B/F আপডেট হয়েছে! ('+dateLabel+' পর্যন্ত)', 'success');
 }
 
