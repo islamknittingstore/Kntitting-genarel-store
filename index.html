@@ -4094,6 +4094,16 @@ async function gdriveAutoSave() {
       const timeStr = new Date().toLocaleTimeString('en-BD', { hour:'2-digit', minute:'2-digit', hour12:true });
       _gdSetStatus('✅ Drive saved ' + timeStr);
       localStorage.setItem('igl_drive_last_save', new Date().toISOString());
+      // verified info সেট করো যাতে Sync Status এ দেখায়
+      var _rcvLen = (typeof DB!=='undefined'?DB.receives:[]).length;
+      var _issLen = (typeof DB!=='undefined'?DB.issues:[]).length;
+      var _ndlLen = (typeof NDB!=='undefined'?NDB.needles:[]).length;
+      var _itmLen = (typeof DB!=='undefined'?DB.items:[]).length;
+      localStorage.setItem('igl_drive_verified', JSON.stringify({
+        time: new Date().toISOString(),
+        items: _itmLen, receives: _rcvLen, issues: _issLen, needles: _ndlLen
+      }));
+      if(typeof _syncRefreshDrive==='function') _syncRefreshDrive();
     } catch(e) {
       console.warn('Drive auto-save failed:', e);
       _gdSetStatus('⚠️ Drive save failed');
@@ -13196,10 +13206,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         if(pdot)  { pdot.style.background = color; }
         if(detail){ detail.innerHTML = '<b style="color:'+color+'">✅ সফলভাবে Verified</b><br>সময়: ' + agoStr + '<br>Items: ' + (vd.items||0) + ' | Receive: ' + (vd.receives||0) + ' | Issue: ' + (vd.issues||0) + ' | Needle: ' + (vd.needles||0); }
       } else {
-        if(dot)   { dot.style.background = '#aaa'; dot.style.boxShadow = 'none'; }
-        if(label) { label.textContent = '☁️ Drive'; label.style.color = '#aaa'; }
-        if(pdot)  { pdot.style.background = '#aaa'; }
-        if(detail){ detail.innerHTML = '<span style="color:#e74c3c;">❌ এখনো কোনো Save হয়নি</span><br>উপরের "Save Now" বাটন চাপুন'; }
+        // igl_drive_last_save চেক করো — auto save হয়ে থাকলে সেটা দেখাও
+        var ls = localStorage.getItem('igl_drive_last_save');
+        if(ls) {
+          var ago2 = Math.round((Date.now() - new Date(ls).getTime()) / 60000);
+          var agoStr2 = ago2 < 1 ? 'এইমাত্র' : ago2 < 60 ? ago2 + ' মিনিট আগে' : Math.round(ago2/60) + ' ঘন্টা আগে';
+          if(dot)   { dot.style.background = '#27ae60'; dot.style.boxShadow = '0 0 6px #27ae60'; }
+          if(label) { label.textContent = '☁️ OK'; label.style.color = '#27ae60'; }
+          if(pdot)  { pdot.style.background = '#27ae60'; }
+          if(detail){ detail.innerHTML = '<b style="color:#27ae60;">✅ Drive এ Save হয়েছে</b><br>সময়: ' + agoStr2; }
+        } else {
+          if(dot)   { dot.style.background = '#aaa'; dot.style.boxShadow = 'none'; }
+          if(label) { label.textContent = '☁️ Drive'; label.style.color = '#aaa'; }
+          if(pdot)  { pdot.style.background = '#aaa'; }
+          if(detail){ detail.innerHTML = '<span style="color:#e74c3c;">❌ এখনো কোনো Save হয়নি</span><br>উপরের "Save Now" বাটন চাপুন'; }
+        }
       }
     } catch(e) {}
     _syncUpdateSummary();
