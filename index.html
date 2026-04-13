@@ -447,6 +447,15 @@ if('serviceWorker' in navigator){
 
   /*  Print styles  */
   @media print {
+    /* Bold Print Mode */
+    body.igl-bold-print td, body.igl-bold-print th,
+    body.igl-bold-print span, body.igl-bold-print div,
+    body.igl-bold-print p, body.igl-bold-print b,
+    body.igl-bold-print li, body.igl-bold-print a {
+      color: #000000 !important;
+      font-weight: 700 !important;
+      -webkit-text-stroke: 0.2px #000 !important;
+    }
     .sidebar, .navbar, .action-bar, .no-print { display: none !important; }
     .main { margin-left: 0 !important; width:100% !important; padding:0 !important; }
     .page { padding: 4px !important; width:100% !important; max-width:100% !important; }
@@ -1138,20 +1147,70 @@ window.iglCanDeleteMsg = function(entryUserId, entryId, allEntries){
 // User backdate এ কিছু entry দিতে পারবে না — শুধু Admin পারবে
 // dateStr = 'YYYY-MM-DD' format
 window.iglCheckBackdate = function(dateStr) {
-  if(!dateStr) return null; // date নেই, অন্য validation দেখবে
+  if(!dateStr) return null;
   var isAdmin = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
   if(isAdmin) return null; // Admin সব পারবে
-  // আজকের তারিখ YYYY-MM-DD
-  var today = new Date();
-  var yyyy = today.getFullYear();
-  var mm = String(today.getMonth()+1).padStart(2,'0');
-  var dd = String(today.getDate()).padStart(2,'0');
+
+  var now = new Date();
+  var hour = now.getHours(); // 0-23
+
+  // আজকের তারিখ
+  var yyyy = now.getFullYear();
+  var mm = String(now.getMonth()+1).padStart(2,'0');
+  var dd = String(now.getDate()).padStart(2,'0');
   var todayStr = yyyy+'-'+mm+'-'+dd;
+
+  // C Shift grace period: রাত ১২টা (00:00) থেকে সকাল ৮টা (07:59) পর্যন্ত
+  // এই সময়ে গতকালের তারিখেও entry দেওয়া যাবে
+  if(hour >= 0 && hour < 8) {
+    var yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    var yy2 = yesterday.getFullYear();
+    var mm2 = String(yesterday.getMonth()+1).padStart(2,'0');
+    var dd2 = String(yesterday.getDate()).padStart(2,'0');
+    var yesterdayStr = yy2+'-'+mm2+'-'+dd2;
+    // আজকের বা গতকালের তারিখ — দুটোই OK
+    if(dateStr >= yesterdayStr) return null;
+    return '⛔ Back Date এ Entry দেওয়ার অনুমতি নেই! শুধুমাত্র Admin পারবেন।';
+  }
+
+  // সকাল ৮টার পর — শুধু আজকের তারিখ
   if(dateStr < todayStr) {
     return '⛔ Back Date এ Entry দেওয়ার অনুমতি নেই! শুধুমাত্র Admin পারবেন।';
   }
   return null; // OK
 };
+
+// ── Print Bold Toggle ────────────────────────────────────────────────
+window.iglToggleBoldPrint = function() {
+  var isBold = document.body.classList.toggle('igl-bold-print');
+  var btn = document.getElementById('igl-print-bold-btn');
+  if(btn) {
+    btn.textContent = isBold ? '🖨️ Bold' : '🖨️ Normal';
+    btn.style.background = isBold ? 'rgba(255,200,0,0.3)' : 'rgba(255,255,255,0.15)';
+    btn.style.color = isBold ? '#ffd700' : '#fff';
+  }
+  // localStorage এ save করো
+  try { localStorage.setItem('igl_print_bold', isBold ? '1' : '0'); } catch(e) {}
+  toast(isBold ? '🖨️ Bold Print mode চালু' : '🖨️ Normal Print mode চালু', 'info');
+};
+
+// Page load এ পূর্বের setting restore করো
+(function() {
+  try {
+    if(localStorage.getItem('igl_print_bold') === '1') {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.classList.add('igl-bold-print');
+        var btn = document.getElementById('igl-print-bold-btn');
+        if(btn) {
+          btn.textContent = '🖨️ Bold';
+          btn.style.background = 'rgba(255,200,0,0.3)';
+          btn.style.color = '#ffd700';
+        }
+      });
+    }
+  } catch(e) {}
+})();
 
 // ── User Display Name Helper ──────────────────────────────────────────
 window.iglGetUserDisplayName = function(role){
@@ -1323,6 +1382,7 @@ window.iglSaveUsers = function(){
       <button onclick="iglShowUserMgmt()" style="font-size:10px;padding:3px 8px;border-radius:10px;border:none;background:rgba(255,165,0,0.3);color:#ffd700;cursor:pointer;">⚙️ Users</button>
     </div>
     <button onclick="iglLogout()" style="font-size:10px;padding:3px 8px;border-radius:10px;border:none;background:rgba(231,76,60,0.3);color:#f1948a;cursor:pointer;">🚪 Logout</button>
+    <button id="igl-print-bold-btn" onclick="iglToggleBoldPrint()" title="Print Mode" style="font-size:10px;padding:3px 8px;border-radius:10px;border:none;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;">🖨️ Normal</button>
   </div>
   <!-- ══ UNIFIED SYNC STATUS BAR ══ -->
   <div id="syncStatusBar" style="display:flex;align-items:center;gap:6px;margin-left:12px;position:relative;">
@@ -10501,7 +10561,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var S = 'border:1px solid #c39bd3;';
     var SHIFTS = ['A','B','C'];
 
-    var allDates = _unaGetDatesInRange(fromDate, toDate);
+    var allDatesRaw = _unaGetDatesInRange(fromDate, toDate);
 
     // সব নিডেল collect
     var allNeedleObjs = [];
@@ -10522,6 +10582,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return r.date>=fromDate && r.date<=toDate
         && (r.needleStockType||'').toLowerCase()==='used';
     });
+
+    // যে তারিখে কোনো issue নেই সেটা hide — শুধু issue আছে এমন তারিখ রাখো
+    var issueDates = {};
+    issInRange.forEach(function(iss){ issueDates[iss.date] = true; });
+    var allDates = allDatesRaw.filter(function(dt){ return issueDates[dt]; });
 
     // Needle id map
     var needleIdSet={};
@@ -10598,7 +10663,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Filter
     var filteredRows = rows.filter(function(r){ return r.bf>0||r.rcv>0||r.totalIssue>0; });
     var hiddenCount = rows.length - filteredRows.length;
-    filteredRows.sort(function(a,b){ return a.name.localeCompare(b.name); });
+    // NEEDLE_MASTER এর id order অনুযায়ী sort করো (নতুন নিডেল স্টকের মতো)
+    var _masterOrder = {};
+    (window.NEEDLE_MASTER || ndlGetMaster()).forEach(function(n, idx){ _masterOrder[n.name||n.code] = idx; });
+    filteredRows.sort(function(a,b){
+      var ia = (_masterOrder[a.name] !== undefined) ? _masterOrder[a.name] : 9999;
+      var ib = (_masterOrder[b.name] !== undefined) ? _masterOrder[b.name] : 9999;
+      return ia - ib;
+    });
 
     // ── Build HTML ──
     // Print: A4 Landscape এর জন্য font size auto-adjust
