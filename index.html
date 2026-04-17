@@ -463,8 +463,32 @@ if('serviceWorker' in navigator){
     .table-scroll, .table-wrap { overflow: visible !important; max-height: none !important; height: auto !important; }
     table { width: 100% !important; border-collapse: collapse !important; font-size: 8pt !important; table-layout: auto !important; }
     th, td { padding: 2px 4px !important; border: 0.5px solid #999 !important; }
+    /* Manager Report print — no background, single tab only */
+    #page-stn_manager_report #smr-print-header { display: block !important; }
+    #page-stn_manager_report .smr-tab-btn { display: none !important; }
+    #page-stn_manager_report .no-print { display: none !important; }
+    #page-stn_manager_report .stats-grid { display: none !important; }
     thead { display: table-header-group !important; }
     tbody tr { page-break-inside: avoid; }
+
+    /* Show only the selected tab panel */
+    [data-smr-print="stock"]   #smr-panel-stock   { display: block !important; }
+    [data-smr-print="receive"] #smr-panel-receive  { display: block !important; }
+    [data-smr-print="issue"]   #smr-panel-issue    { display: block !important; }
+    [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
+    /* Hide all other panels */
+    [data-smr-print] #page-stn_manager_report .smr-panel { display: none !important; }
+    [data-smr-print="stock"]   #smr-panel-stock   { display: block !important; }
+    [data-smr-print="receive"] #smr-panel-receive  { display: block !important; }
+    [data-smr-print="issue"]   #smr-panel-issue    { display: block !important; }
+    [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
+
+    /* No background colors — plain white print */
+    * { background: #fff !important; background-color: #fff !important; background-image: none !important; }
+    th { color: #000 !important; border: 1px solid #555 !important; font-weight: 700 !important; }
+    td { color: #000 !important; border: 0.5px solid #aaa !important; }
+    .badge, .tag, .slip-badge { background: #fff !important; border: 1px solid #555 !important; color: #000 !important; }
+    body::before { display: none !important; }
 
     /* ── Watermark ── */
     body::before {
@@ -540,6 +564,29 @@ if('serviceWorker' in navigator){
     .needle-print-header { text-align:center; margin-bottom:4px; }
     .needle-print-header h3 { font-size:11pt; margin:0; }
     .needle-print-header p { font-size:7.5pt; margin:2px 0 0 0; color:#555; }
+    /* Hide watermark for RNA print */
+    body[data-rna-print]::before { display: none !important; }
+    #rna-print-all * { -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }
+
+    /* Single page auto-fit */
+    #rna-print-all .rna-single-page {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    .rna-single-header {
+      display: block !important;
+      text-align: center;
+      border-bottom: 1.5px solid #000;
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+    }
+    /* Auto-fit table to page width */
+    #rna-print-all .rna-single-page table {
+      width: 100% !important;
+      table-layout: auto !important;
+    }
     @page { size: A4 landscape; margin: 5mm; }
 
     /* Needle Use Report */
@@ -611,8 +658,19 @@ if('serviceWorker' in navigator){
     #rna-print-all thead tr:first-child th:nth-last-child(2) { width: 26px !important; min-width: 22px !important; }
     /* Balance column */
     #rna-print-all thead tr:first-child th:last-child { width: 30px !important; min-width: 26px !important; }
-    #rna-print-all th { background: #1a5276 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; text-align:center !important; }
-    #rna-print-all .rna-tot-row td { background: #1a5276 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* No background — plain white print */
+    #rna-print-all th,
+    #rna-print-all td,
+    #rna-print-all tr,
+    #rna-print-all thead,
+    #rna-print-all tbody,
+    #rna-print-all table,
+    #rna-print-all .rna-print-page,
+    #rna-print-all .rna-print-page > div,
+    #rna-print-all span,
+    #rna-print-all div { background: #fff !important; background-color: #fff !important; background-image: none !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }
+    #rna-print-all th { text-align:center !important; font-weight:700 !important; border: 1px solid #555 !important; }
+    #rna-print-all .rna-tot-row td { font-weight:700 !important; border: 1px solid #555 !important; }
     /* Machine number header — smaller font, allow wrap */
     #rna-print-all .rna-machine-th {
       font-size: 5pt !important;
@@ -638,6 +696,29 @@ if('serviceWorker' in navigator){
       overflow: visible !important;
       white-space: normal !important;
       padding: 1px !important;
+    }
+    /* Hide watermark for RNA print */
+    body[data-rna-print]::before { display: none !important; }
+    #rna-print-all * { -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }
+
+    /* Single page auto-fit */
+    #rna-print-all .rna-single-page {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    .rna-single-header {
+      display: block !important;
+      text-align: center;
+      border-bottom: 1.5px solid #000;
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+    }
+    /* Auto-fit table to page width */
+    #rna-print-all .rna-single-page table {
+      width: 100% !important;
+      table-layout: auto !important;
     }
     @page { size: A4 landscape; margin: 5mm; }
 
@@ -851,7 +932,7 @@ if('serviceWorker' in navigator){
   }
   
   // Always set URL
-  localStorage.setItem('igl_gs_url', 'https://script.google.com/macros/s/AKfycbwOHJWGytEj9sszYerqUGtVUIraI3Qsms6q67vGV8KsfD3NDU4TKl2X1yqBN2-O2jU/exec');
+  localStorage.setItem('igl_gs_url', 'https://script.google.com/macros/s/AKfycbyMmE382vKicbEhYqtyP8PBDCVEnx5CleOp5SV_FFUhUUfCKjcQkOAA8vhJXSDEmQ2V/exec');
 })();
 // ===== END PRE-LOADED DATA =====
 </script>
@@ -1541,6 +1622,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
+      <li><a href="#" onclick="showPage('stn_manager_report', this); return false;"><span class="icon">📋</span> ম্যানেজার রিপোর্ট</a></li>
     </ul>
   </div>
 
@@ -2063,6 +2145,7 @@ window.iglSaveUsers = function(){
         <button onclick="stnItemAddAuth()" class="admin-only-action" style="background:linear-gradient(135deg,#00838f,#00acc1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">➕ Item Add</button
         <button onclick="stnMigrateItems()" class="admin-only-action" style="background:linear-gradient(135deg,#e67e22,#f39c12);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="পুরনো General list থেকে Stationery items আলাদা করুন">🔄 Migrate Items</button>
         <button onclick="stnShowBFModal()" class="admin-only-action" style="background:linear-gradient(135deg,#4a235a,#7d3c98);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="তারিখ পর্যন্তের Balance কে B/F হিসেবে Save করুন">📅 B/F Update</button>
+        <button onclick="stnShowVisibilityModal()" class="admin-only-action" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="কোন Item গুলো Show/Hide করবেন">👁️ Item Visibility</button>
       </div>
     </div>
 
@@ -2092,7 +2175,8 @@ window.iglSaveUsers = function(){
               </div>
               <div class="form-group">
                 <label>Supplier Name</label>
-                <input type="text" class="form-control" id="stn-r-supplier" placeholder="Supplier Name (optional)">
+                <input type="text" class="form-control" id="stn-r-supplier" placeholder="Supplier Name (optional)" autocomplete="off" list="stn-supplier-list" oninput="stnSaveSupplierName(this.value)">
+                <datalist id="stn-supplier-list"></datalist>
               </div>
             </div>
             <div>
@@ -2245,6 +2329,164 @@ window.iglSaveUsers = function(){
           </table>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ STATIONERY MANAGER REPORT ══ -->
+  <div class="page" id="page-stn_manager_report">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>📋 Stationery — ম্যানেজার রিপোর্ট</h2>
+        <p>মাসিক / তারিখ-ভিত্তিক Receive, Issue ও Stock সারসংক্ষেপ</p>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="stnMgrPrintTab('stock')"   style="background:#1a5276;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Stock</button>
+        <button onclick="stnMgrPrintTab('receive')" style="background:#117a65;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Receive</button>
+        <button onclick="stnMgrPrintTab('issue')"   style="background:#922b21;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Issue</button>
+        <button onclick="stnMgrPrintTab('dept')"    style="background:#6d4c41;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Dept</button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card no-print" style="margin-bottom:18px;">
+      <div class="card-body" style="padding:14px 18px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">তারিখ থেকে</label>
+            <input type="date" id="smr-from" class="form-control" style="width:150px;" onchange="renderStnManagerReport()">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">তারিখ পর্যন্ত</label>
+            <input type="date" id="smr-to" class="form-control" style="width:150px;" onchange="renderStnManagerReport()">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Category</label>
+            <select id="smr-cat" class="form-control" style="width:180px;" onchange="renderStnManagerReport()">
+              <option value="">সব Category</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Department</label>
+            <select id="smr-dept" class="form-control" style="width:160px;" onchange="renderStnManagerReport()">
+              <option value="">সব Department</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-end;">
+            <button onclick="stnMgrSetThisMonth()" class="btn btn-sm" style="background:#eaf4fb;color:#1a5276;border:1px solid #2980b9;border-radius:16px;padding:6px 12px;">এই মাস</button>
+            <button onclick="stnMgrClearFilter()" class="btn btn-sm" style="background:#f5f5f5;color:#555;border:1px solid #ccc;border-radius:16px;padding:6px 12px;">✕ ক্লিয়ার</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid" id="smr-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px;"></div>
+
+    <!-- Report Tabs -->
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;" id="smr-tab-bar">
+        <button class="smr-tab-btn active" data-tab="stock" onclick="stnMgrSwitchTab('stock')" style="padding:10px 20px;border:none;border-bottom:3px solid #1a5276;background:#eaf4fb;color:#1a5276;font-weight:700;cursor:pointer;font-size:13px;">📦 Stock Summary</button>
+        <button class="smr-tab-btn" data-tab="receive" onclick="stnMgrSwitchTab('receive')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">📥 Receive Log</button>
+        <button class="smr-tab-btn" data-tab="issue" onclick="stnMgrSwitchTab('issue')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">📤 Issue Log</button>
+        <button class="smr-tab-btn" data-tab="dept" onclick="stnMgrSwitchTab('dept')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">🏢 Department-wise</button>
+      </div>
+
+      <!-- Tab: Stock Summary -->
+      <div id="smr-panel-stock" class="smr-panel">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="smr-stock-table">
+              <thead>
+                <tr style="background:#1a5276;color:#fff;">
+                  <th>#</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th style="text-align:center;">B/F</th>
+                  <th style="text-align:center;">Receive</th>
+                  <th style="text-align:center;">Issue</th>
+                  <th style="text-align:center;">Balance</th>
+                  <th style="text-align:center;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="smr-stock-tbody"><tr><td colspan="8" class="no-data">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Receive Log -->
+      <div id="smr-panel-receive" class="smr-panel" style="display:none;">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="smr-rcv-table">
+              <thead>
+                <tr style="background:#1a5276;color:#fff;">
+                  <th>#</th>
+                  <th>তারিখ</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th>Challan No.</th>
+                  <th>Supplier</th>
+                </tr>
+              </thead>
+              <tbody id="smr-rcv-tbody"><tr><td colspan="7" class="no-data">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Issue Log -->
+      <div id="smr-panel-issue" class="smr-panel" style="display:none;">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="smr-iss-table">
+              <thead>
+                <tr style="background:#922b21;color:#fff;">
+                  <th>#</th>
+                  <th>তারিখ</th>
+                  <th>Slip No.</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th>Department</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="smr-iss-tbody"><tr><td colspan="8" class="no-data">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Department-wise -->
+      <div id="smr-panel-dept" class="smr-panel" style="display:none;">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="smr-dept-table">
+              <thead>
+                <tr style="background:#117a65;color:#fff;">
+                  <th>#</th>
+                  <th>Department</th>
+                  <th style="text-align:center;">পূর্ববর্তী Issue (Qty)</th>
+                  <th style="text-align:center;">নির্বাচিত সময়ের Issue (Qty)</th>
+                  <th style="text-align:center;">মোট Entry</th>
+                  <th>Item বিবরণ</th>
+                </tr>
+              </thead>
+              <tbody id="smr-dept-tbody"><tr><td colspan="5" class="no-data">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Header (hidden on screen) -->
+    <div id="smr-print-header" style="display:none;text-align:center;margin-bottom:16px;">
+      <div style="font-size:16pt;font-weight:700;">ISLAM GARMENTS LTD. (KNITTING UNIT)</div>
+      <div style="font-size:11pt;margin-top:4px;">Stationery — ম্যানেজার রিপোর্ট</div>
+      <div id="smr-print-label" style="font-size:10pt;font-weight:700;color:#333;margin-top:2px;"></div>
+      <div id="smr-print-period" style="font-size:9pt;color:#555;margin-top:3px;"></div>
     </div>
   </div>
 
@@ -3542,7 +3784,11 @@ function ok(msg) {
           <input type="date" class="form-control" id="rna-to" style="width:140px;" onchange="renderRetailNeedleAccount()">
         </div>
         <button class="btn btn-primary btn-sm" onclick="renderRetailNeedleAccount()" style="margin-top:16px;">🔍 View</button>
-        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All Pages</button>
+        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
         <button class="btn btn-sm no-print" onclick="rnaExportExcel()" style="margin-top:16px;background:#1e7e34;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">📊 Excel Export</button>
         <button class="btn btn-sm no-print" onclick="showUsedNeedleAccount()" style="margin-top:16px;background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">♻️ ইউজ নিডেল একাউন্ট</button>
       </div>
@@ -3786,6 +4032,19 @@ async function _loadFromFile() {
     try { renderNeedleStock(); }        catch(e) {}
     try { renderNdlRcvLog(); }          catch(e) {}
     try { updateLSMeter(); }            catch(e) {}
+    // পুরনো receive data থেকে supplier নাম auto-seed করো
+    try {
+      var _existingSuppliers = stnGetSuppliers();
+      if (_existingSuppliers.length === 0) {
+        var _rcvs = DB.receives.filter(function(r){ return r.supplier && r.supplier.trim(); });
+        var _seen = [];
+        _rcvs.forEach(function(r){
+          var s = r.supplier.trim();
+          if (_seen.indexOf(s) === -1) { _seen.push(s); }
+        });
+        if (_seen.length) localStorage.setItem('igl_stn_suppliers', JSON.stringify(_seen));
+      }
+    } catch(e) {}
 
     var rcvCount  = receives.length;
     var issCount  = issues.length;
@@ -3946,7 +4205,7 @@ async function _doSave() {
 //  Then click "Save to Drive" button to save!
 // ===============================================================
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwOHJWGytEj9sszYerqUGtVUIraI3Qsms6q67vGV8KsfD3NDU4TKl2X1yqBN2-O2jU/exec'; // Enter your URL here
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMmE382vKicbEhYqtyP8PBDCVEnx5CleOp5SV_FFUhUUfCKjcQkOAA8vhJXSDEmQ2V/exec'; // Enter your URL here
 
 function _gdSetStatus(text) {
   const el = document.getElementById('gdriveStatusText');
@@ -5908,6 +6167,7 @@ function showPage(name, el) {
       renderNewSetLog();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
+    else if (name === 'stn_manager_report') renderStnManagerReport();
     else if (name === 'sheets_setup') gsRenderSetupPage();
   } catch(e) { console.error('Render error on page ' + name + ':', e); }
 }
@@ -6209,6 +6469,7 @@ function stnToggleForm(type) {
     iBtn.style.opacity = '1';
     if (!isOpen) {
       stnPopulateItems('stn-r-item');
+      stnPopulateSupplierDatalist();
       if (!document.getElementById('stn-r-date').value) document.getElementById('stn-r-date').value = todayStr();
       document.getElementById('stn-r-item').focus();
     }
@@ -6228,7 +6489,9 @@ function stnToggleForm(type) {
 }
 
 function stnPopulateItems(selectId) {
-  var stnItems = DB.stnItems;
+  var allItems = DB.stnItems;
+  var hidden   = stnGetHiddenItems();
+  var stnItems = allItems.filter(function(it){ return hidden.indexOf(it.id) === -1; });
   var sel = document.getElementById(selectId);
   var current = sel.value;
   sel.innerHTML = '<option value="">-- Select Stationery Item --</option>';
@@ -6277,11 +6540,18 @@ function stnSaveReceive() {
 
   gsAutoSyncRow('receive', rec);
   toast('✅ Receive saved! ' + item + ' — Qty: ' + qty, 'success');
-  stnClearReceiveForm();
+  // supplier নাম save করো
+  if (supplier) stnSaveSupplierName(supplier);
+  // শুধু item ও qty clear হবে, date/chalan/supplier sticky থাকবে
+  document.getElementById('stn-r-item').value = '';
+  document.getElementById('stn-r-qty').value  = '';
+  document.getElementById('stn-r-stock-badge').innerHTML = '';
   renderStationeryDashboard();
 }
 
 function stnClearReceiveForm() {
+  // Clear বাটন চাপলে সব clear হবে
+  document.getElementById('stn-r-date').value     = '';
   document.getElementById('stn-r-item').value     = '';
   document.getElementById('stn-r-chalan').value   = '';
   document.getElementById('stn-r-supplier').value = '';
@@ -6346,7 +6616,7 @@ function stnGetTableData() {
   var q        = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
   var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
-  var stnItems = DB.stnItems;
+  var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnNames = stnItems.map(function(i){ return i.name; });
   var today    = fmtDate(todayStr());
   var dateInfo = (dateFrom||dateTo) ? (' | তারিখ: '+(dateFrom||'শুরু')+' → '+(dateTo||'শেষ')) : '';
@@ -6547,9 +6817,369 @@ function stnSetTab(tab) {
   renderStationeryDashboard();
 }
 
+// ══ STATIONERY MANAGER REPORT ══════════════════════════════════════════
+
+var _smrCurrentTab = 'stock';
+
+function stnMgrSwitchTab(tab) {
+  _smrCurrentTab = tab;
+  // Tab buttons
+  document.querySelectorAll('.smr-tab-btn').forEach(function(btn) {
+    var isActive = btn.getAttribute('data-tab') === tab;
+    btn.style.borderBottomColor = isActive ? '#1a5276' : 'transparent';
+    btn.style.background = isActive ? '#eaf4fb' : 'transparent';
+    btn.style.color = isActive ? '#1a5276' : '#555';
+    btn.style.fontWeight = isActive ? '700' : '600';
+  });
+  // Panels
+  document.querySelectorAll('.smr-panel').forEach(function(p) { p.style.display = 'none'; });
+  var panel = document.getElementById('smr-panel-' + tab);
+  if (panel) panel.style.display = '';
+  renderStnManagerReport();
+}
+
+function stnMgrSetThisMonth() {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = String(now.getMonth() + 1).padStart(2, '0');
+  var from = y + '-' + m + '-01';
+  var lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+  var to = y + '-' + m + '-' + String(lastDay).padStart(2, '0');
+  document.getElementById('smr-from').value = from;
+  document.getElementById('smr-to').value = to;
+  renderStnManagerReport();
+}
+
+function stnMgrClearFilter() {
+  document.getElementById('smr-from').value = '';
+  document.getElementById('smr-to').value = '';
+  document.getElementById('smr-cat').value = '';
+  document.getElementById('smr-dept').value = '';
+  renderStnManagerReport();
+}
+
+function _fmtDMY(d) {
+  if (!d) return '';
+  var p = d.split('-');
+  return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : d;
+}
+
+function renderStnManagerReport() {
+  var fromDate = (document.getElementById('smr-from') || {}).value || '';
+  var toDate   = (document.getElementById('smr-to')   || {}).value || '';
+  var catFilter  = (document.getElementById('smr-cat')  || {}).value || '';
+  var deptFilter = (document.getElementById('smr-dept') || {}).value || '';
+
+  // Load data
+  var stnItems = DB.stnItems || [];
+  var stnIssues = [];
+  try { stnIssues = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]'); } catch(e) {}
+  var stnReceives = [];
+  try { stnReceives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e) {}
+
+  // Populate Category dropdown
+  var catSel = document.getElementById('smr-cat');
+  if (catSel) {
+    var curCat = catSel.value;
+    var cats = [];
+    stnItems.forEach(function(it) { if (it.category && cats.indexOf(it.category) < 0) cats.push(it.category); });
+    cats.sort();
+    catSel.innerHTML = '<option value="">সব Category</option>';
+    cats.forEach(function(c) {
+      catSel.innerHTML += '<option value="' + c + '"' + (c === curCat ? ' selected' : '') + '>' + c + '</option>';
+    });
+  }
+
+  // Populate Department dropdown
+  var deptSel = document.getElementById('smr-dept');
+  if (deptSel) {
+    var curDept = deptSel.value;
+    var depts = [];
+    stnIssues.forEach(function(iss) { if (iss.dept && depts.indexOf(iss.dept) < 0) depts.push(iss.dept); });
+    depts.sort();
+    deptSel.innerHTML = '<option value="">সব Department</option>';
+    depts.forEach(function(d) {
+      deptSel.innerHTML += '<option value="' + d + '"' + (d === curDept ? ' selected' : '') + '>' + d + '</option>';
+    });
+  }
+
+  // Date-filtered receives & issues (within selected period)
+  var rcvFiltered = stnReceives.filter(function(r) {
+    if (fromDate && r.date < fromDate) return false;
+    if (toDate   && r.date > toDate)   return false;
+    return true;
+  });
+  var issFiltered = stnIssues.filter(function(iss) {
+    if (fromDate && iss.date < fromDate) return false;
+    if (toDate   && iss.date > toDate)   return false;
+    if (deptFilter && (iss.dept || '') !== deptFilter) return false;
+    return true;
+  });
+
+  // Before-period receives & issues (for opening balance calculation)
+  var rcvBefore = fromDate
+    ? stnReceives.filter(function(r) { return r.date < fromDate; })
+    : [];
+  var issBefore = fromDate
+    ? stnIssues.filter(function(iss) { return iss.date < fromDate; })
+    : [];
+
+  // Category filter on items
+  var itemsFiltered = catFilter
+    ? stnItems.filter(function(it) { return (it.category || '') === catFilter; })
+    : stnItems;
+
+  // ── Summary Stats ──
+  var totalItems = itemsFiltered.length;
+  var totalRcvQty = rcvFiltered.reduce(function(s, r) {
+    if (catFilter) {
+      var it = stnItems.find(function(x) { return x.name === r.item; });
+      if (!it || (it.category || '') !== catFilter) return s;
+    }
+    return s + (Number(r.qty) || 0);
+  }, 0);
+  var totalIssQty = issFiltered.reduce(function(s, r) {
+    if (catFilter) {
+      var it = stnItems.find(function(x) { return x.name === r.item; });
+      if (!it || (it.category || '') !== catFilter) return s;
+    }
+    return s + (Number(r.qty) || 0);
+  }, 0);
+  var lowStockCount = itemsFiltered.filter(function(it) {
+    var staticBf = Number(it.bf) || 0;
+    var rcvBeforeQty = rcvBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+    var issBeforeQty = issBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+    var openingBf = fromDate ? (staticBf + rcvBeforeQty - issBeforeQty) : staticBf;
+    var rcv = rcvFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+    var iss = issFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+    var bal = openingBf + rcv - iss;
+    return bal <= 5;
+  }).length;
+
+  var statsEl = document.getElementById('smr-stats');
+  if (statsEl) {
+    statsEl.innerHTML =
+      '<div class="stat-card blue"><div class="stat-label">মোট Items</div><div class="stat-value">' + totalItems + '</div><div class="stat-sub">ফিল্টার করা Category</div></div>' +
+      '<div class="stat-card green"><div class="stat-label">মোট Receive (Qty)</div><div class="stat-value">' + totalRcvQty + '</div><div class="stat-sub">নির্বাচিত তারিখে</div></div>' +
+      '<div class="stat-card red"><div class="stat-label">মোট Issue (Qty)</div><div class="stat-value">' + totalIssQty + '</div><div class="stat-sub">নির্বাচিত তারিখে</div></div>' +
+      '<div class="stat-card orange"><div class="stat-label">Low Stock Items</div><div class="stat-value">' + lowStockCount + '</div><div class="stat-sub">Balance ≤ 5</div></div>';
+  }
+
+  // ── Tab: Stock Summary ──
+  if (_smrCurrentTab === 'stock') {
+    var stockBody = document.getElementById('smr-stock-tbody');
+    if (stockBody) {
+      if (!itemsFiltered.length) {
+        stockBody.innerHTML = '<tr><td colspan="8" class="no-data">কোনো Item পাওয়া যায়নি।</td></tr>';
+      } else {
+        stockBody.innerHTML = itemsFiltered.map(function(it, i) {
+          // Opening Balance = static bf + receives before fromDate - issues before fromDate
+          var staticBf = Number(it.bf) || 0;
+          var rcvBeforeQty = rcvBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+          var issBeforeQty = issBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+          var openingBf = fromDate ? (staticBf + rcvBeforeQty - issBeforeQty) : staticBf;
+
+          // Period receive & issue (within selected date range)
+          var rcv = rcvFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+          var iss = issFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+
+          // Closing balance = opening + period receive - period issue
+          var bal = openingBf + rcv - iss;
+
+          var status, statusClass;
+          if (bal <= 0) { status = 'OUT'; statusClass = 'badge-out'; }
+          else if (bal <= 5) { status = 'LOW'; statusClass = 'badge-low'; }
+          else { status = 'OK'; statusClass = 'badge-ok'; }
+          return '<tr>' +
+            '<td style="text-align:center;">' + (i + 1) + '</td>' +
+            '<td><b>' + (it.name || '') + '</b></td>' +
+            '<td><span class="tag">' + (it.category || '—') + '</span></td>' +
+            '<td style="text-align:center;color:#6c3483;font-weight:700;">' + openingBf + '</td>' +
+            '<td style="text-align:center;color:#1a5276;font-weight:700;">' + rcv + '</td>' +
+            '<td style="text-align:center;color:#c0392b;font-weight:700;">' + iss + '</td>' +
+            '<td style="text-align:center;font-weight:700;">' + bal + '</td>' +
+            '<td style="text-align:center;"><span class="badge ' + statusClass + '">' + status + '</span></td>' +
+            '</tr>';
+        }).join('');
+      }
+    }
+  }
+
+  // ── Tab: Receive Log ──
+  if (_smrCurrentTab === 'receive') {
+    var rcvBody = document.getElementById('smr-rcv-tbody');
+    if (rcvBody) {
+      var rcvShow = catFilter
+        ? rcvFiltered.filter(function(r) {
+            var it = stnItems.find(function(x) { return x.name === r.item; });
+            return it && (it.category || '') === catFilter;
+          })
+        : rcvFiltered;
+      rcvShow.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      if (!rcvShow.length) {
+        rcvBody.innerHTML = '<tr><td colspan="7" class="no-data">এই তারিখে কোনো Receive নেই।</td></tr>';
+      } else {
+        var rcvTotal = rcvShow.reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+        rcvBody.innerHTML = rcvShow.map(function(r, i) {
+          var it = stnItems.find(function(x) { return x.name === r.item; });
+          return '<tr>' +
+            '<td style="text-align:center;">' + (i + 1) + '</td>' +
+            '<td>' + _fmtDMY(r.date) + '</td>' +
+            '<td><b>' + (r.item || '—') + '</b></td>' +
+            '<td><span class="tag">' + (it ? (it.category || '—') : '—') + '</span></td>' +
+            '<td style="text-align:center;color:#1a5276;font-weight:700;">' + (r.qty || 0) + '</td>' +
+            '<td>' + (r.chalan || '—') + '</td>' +
+            '<td>' + (r.supplier || '—') + '</td>' +
+            '</tr>';
+        }).join('') +
+        '<tr style="background:#eaf4fb;font-weight:700;"><td colspan="4" style="text-align:right;padding:8px 12px;">সর্বমোট</td><td style="text-align:center;color:#1a5276;padding:8px;">' + rcvTotal + '</td><td colspan="2"></td></tr>';
+      }
+    }
+  }
+
+  // ── Tab: Issue Log ──
+  if (_smrCurrentTab === 'issue') {
+    var issBody = document.getElementById('smr-iss-tbody');
+    if (issBody) {
+      var issShow = catFilter
+        ? issFiltered.filter(function(r) {
+            var it = stnItems.find(function(x) { return x.name === r.item; });
+            return it && (it.category || '') === catFilter;
+          })
+        : issFiltered;
+      issShow.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      if (!issShow.length) {
+        issBody.innerHTML = '<tr><td colspan="8" class="no-data">এই তারিখে কোনো Issue নেই।</td></tr>';
+      } else {
+        var issTotal = issShow.reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+        issBody.innerHTML = issShow.map(function(r, i) {
+          var it = stnItems.find(function(x) { return x.name === r.item; });
+          return '<tr>' +
+            '<td style="text-align:center;">' + (i + 1) + '</td>' +
+            '<td>' + _fmtDMY(r.date) + '</td>' +
+            '<td><span class="slip-badge">' + (r.slip || '—') + '</span></td>' +
+            '<td><b>' + (r.item || '—') + '</b></td>' +
+            '<td><span class="tag">' + (it ? (it.category || '—') : '—') + '</span></td>' +
+            '<td style="text-align:center;color:#c0392b;font-weight:700;">' + (r.qty || 0) + '</td>' +
+            '<td>' + (r.dept || '—') + '</td>' +
+            '<td>' + (r.remarks || '—') + '</td>' +
+            '</tr>';
+        }).join('') +
+        '<tr style="background:#fdedec;font-weight:700;"><td colspan="5" style="text-align:right;padding:8px 12px;">সর্বমোট</td><td style="text-align:center;color:#c0392b;padding:8px;">' + issTotal + '</td><td colspan="2"></td></tr>';
+      }
+    }
+  }
+
+  // ── Tab: Department-wise ──
+  if (_smrCurrentTab === 'dept') {
+    var deptBody = document.getElementById('smr-dept-tbody');
+    if (deptBody) {
+      // Apply category filter on the period issues
+      var issForDept = catFilter
+        ? issFiltered.filter(function(r) {
+            var it = stnItems.find(function(x) { return x.name === r.item; });
+            return it && (it.category || '') === catFilter;
+          })
+        : issFiltered;
+
+      // Also get before-period issues per dept (for previous months)
+      var issBeforeForDept = catFilter
+        ? issBefore.filter(function(r) {
+            var it = stnItems.find(function(x) { return x.name === r.item; });
+            return it && (it.category || '') === catFilter;
+          })
+        : issBefore;
+
+      // Build deptMap: period qty + before qty per dept
+      var deptMap = {};
+      issForDept.forEach(function(iss) {
+        var d = iss.dept || 'Unknown';
+        if (!deptMap[d]) deptMap[d] = { count: 0, qty: 0, prevQty: 0, lastDate: '', items: {} };
+        deptMap[d].count++;
+        deptMap[d].qty += Number(iss.qty) || 0;
+        if (iss.date > deptMap[d].lastDate) deptMap[d].lastDate = iss.date;
+        // item breakdown
+        var iname = iss.item || 'Unknown';
+        if (!deptMap[d].items[iname]) deptMap[d].items[iname] = 0;
+        deptMap[d].items[iname] += Number(iss.qty) || 0;
+      });
+
+      // Add before-period qty to each dept
+      issBeforeForDept.forEach(function(iss) {
+        var d = iss.dept || 'Unknown';
+        if (!deptMap[d]) deptMap[d] = { count: 0, qty: 0, prevQty: 0, lastDate: '', items: {} };
+        deptMap[d].prevQty += Number(iss.qty) || 0;
+      });
+
+      var deptKeys = Object.keys(deptMap).sort();
+      if (!deptKeys.length) {
+        deptBody.innerHTML = '<tr><td colspan="6" class="no-data">এই তারিখে কোনো Issue নেই।</td></tr>';
+      } else {
+        var grandPrev = 0, grandCur = 0;
+        var rows = '';
+        deptKeys.forEach(function(d, i) {
+          var dm = deptMap[d];
+          grandPrev += dm.prevQty;
+          grandCur  += dm.qty;
+          // item breakdown string
+          var itemList = Object.keys(dm.items).map(function(iname) {
+            return '<span style="display:inline-block;background:#e8f8f5;border:1px solid #a9dfbf;border-radius:4px;padding:1px 6px;margin:1px;font-size:11px;color:#117a65;">' + iname + ': <b>' + dm.items[iname] + '</b></span>';
+          }).join(' ');
+          rows += '<tr>' +
+            '<td style="text-align:center;">' + (i + 1) + '</td>' +
+            '<td><b>' + d + '</b></td>' +
+            '<td style="text-align:center;color:#6c3483;font-weight:700;">' + (fromDate ? dm.prevQty : '—') + '</td>' +
+            '<td style="text-align:center;color:#117a65;font-weight:700;">' + dm.qty + '</td>' +
+            '<td style="text-align:center;">' + dm.count + '</td>' +
+            '<td>' + itemList + '</td>' +
+            '</tr>';
+        });
+        rows += '<tr style="background:#e8f8f5;font-weight:700;">' +
+          '<td colspan="2" style="text-align:right;padding:8px 12px;">সর্বমোট</td>' +
+          '<td style="text-align:center;color:#6c3483;padding:8px;">' + (fromDate ? grandPrev : '—') + '</td>' +
+          '<td style="text-align:center;color:#117a65;padding:8px;">' + grandCur + '</td>' +
+          '<td colspan="2"></td></tr>';
+        deptBody.innerHTML = rows;
+      }
+    }
+  }
+}
+
+function stnMgrPrintTab(tab) {
+  var fromDate = (document.getElementById('smr-from') || {}).value || '';
+  var toDate   = (document.getElementById('smr-to')   || {}).value || '';
+  var period = fromDate && toDate
+    ? _fmtDMY(fromDate) + ' থেকে ' + _fmtDMY(toDate)
+    : fromDate ? _fmtDMY(fromDate) + ' থেকে' : 'সব তারিখ';
+
+  var tabLabels = { stock: 'Stock Summary', receive: 'Receive Log', issue: 'Issue Log', dept: 'Department-wise Issue' };
+
+  // Switch to the requested tab first so data is rendered
+  stnMgrSwitchTab(tab);
+
+  // Set print header info
+  var hdr = document.getElementById('smr-print-header');
+  var per = document.getElementById('smr-print-period');
+  var lbl = document.getElementById('smr-print-label');
+  if (hdr) hdr.style.display = 'block';
+  if (per) per.textContent = 'সময়কাল: ' + period;
+  if (lbl) lbl.textContent = tabLabels[tab] || tab;
+
+  // Set body class so CSS knows which panel to show
+  document.body.setAttribute('data-smr-print', tab);
+
+  window.print();
+
+  // Restore
+  if (hdr) hdr.style.display = 'none';
+  document.body.removeAttribute('data-smr-print');
+}
+
+// ══ END STATIONERY MANAGER REPORT ══════════════════════════════════════
+
 function renderStationeryDashboard() {
   var q = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
-  var stnItems = DB.stnItems;
+  var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnNames = stnItems.map(function(i){ return i.name; });
 
   var itemStats = stnItems.map(function(it){
@@ -8012,7 +8642,7 @@ function exportFullExcel() {
   html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="4" align="right">Total</td>'+tdB(tR)+tdB(tI)+tdB(tS)+'<td></td></tr></table>';
 
   // ── Sheet 4: Stationery ──
-  var stnItems = DB.stnItems;
+  var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnRecs  = DB.receives.filter(function(r){return r.group==='Stationery';});
   var stnIss   = DB.issues.filter(function(r){return r.group==='Stationery';});
   html += '<table id="sh4">';
@@ -9791,15 +10421,68 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return '<div class="rna-print-page">'+html+'</div>';
     }).join('');
 
-    // Inject A4 landscape override temporarily
     var styleEl = document.createElement('style');
     styleEl.id = 'rna-page-override';
     styleEl.innerHTML = '@media print { @page { size: A4 landscape; margin: 6mm; } }';
     document.head.appendChild(styleEl);
 
+    document.body.setAttribute('data-rna-print', '1');
     window.print();
 
-    setTimeout(function(){ var s=document.getElementById('rna-page-override'); if(s) s.parentNode.removeChild(s); }, 1000);
+    setTimeout(function(){
+      document.body.removeAttribute('data-rna-print');
+      var s=document.getElementById('rna-page-override'); if(s) s.parentNode.removeChild(s);
+    }, 1000);
+  }
+
+  // Single tab print — auto-fit one page
+  function rnaPrintSingle(tabIdx){
+    var fromDate = document.getElementById('rna-from').value;
+    var toDate   = document.getElementById('rna-to').value;
+    if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
+
+    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+    var nm     = ndlGetMaster();
+    var rcv    = ndlGetRcv();
+    var issues = NDB.needles;
+
+    if(_rnaTabData[tabIdx]===null){
+      _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
+    }
+
+    var printDiv = document.getElementById('rna-print-all');
+    printDiv.innerHTML =
+      '<div class="rna-print-page rna-single-page">' +
+        '<div class="rna-single-header">' +
+          '<span style="font-weight:700;font-size:11pt;">ISLAM GARMENTS LTD.</span>' +
+          '<span style="font-size:9pt;margin-left:14px;">Retail Needle Account — ' + tabNames[tabIdx] + '</span>' +
+          '<span style="font-size:8pt;color:#555;margin-left:14px;">' + fromDate + ' to ' + toDate + '</span>' +
+        '</div>' +
+        _rnaTabData[tabIdx] +
+      '</div>';
+
+    // Auto-fit: single page landscape, no margin waste
+    var styleEl = document.createElement('style');
+    styleEl.id = 'rna-page-override';
+    styleEl.innerHTML =
+      '@media print {' +
+      '  @page { size: A4 landscape; margin: 5mm; }' +
+      '  #rna-print-all .rna-single-page { page-break-after: avoid !important; break-after: avoid !important; }' +
+      '  #rna-print-all table { font-size: 6.5pt !important; width: 100% !important; table-layout: auto !important; }' +
+      '  #rna-print-all th, #rna-print-all td { padding: 1px 2px !important; font-size: 6pt !important; }' +
+      '  #rna-print-all .rna-machine-th { font-size: 4.5pt !important; }' +
+      '  #rna-print-all td span[style*="min-width"] { font-size: 4.5pt !important; min-width:18px !important; max-width:24px !important; }' +
+      '}';
+    document.head.appendChild(styleEl);
+
+    document.body.setAttribute('data-rna-print', '1');
+    window.print();
+
+    setTimeout(function(){
+      document.body.removeAttribute('data-rna-print');
+      var s=document.getElementById('rna-page-override'); if(s) s.parentNode.removeChild(s);
+      printDiv.innerHTML = '';
+    }, 1000);
   }
 
   function rnaExportExcel(){
@@ -14542,7 +15225,148 @@ async function stnSaveAllBF() {
 document.getElementById('stnBFModal').addEventListener('click', function(e){
   if(e.target===this) this.style.display='none';
 });
+
+// ═══════════════════════════════════════════
+// SUPPLIER NAME AUTO-COMPLETE
+// ═══════════════════════════════════════════
+function stnGetSuppliers() {
+  try { return JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]'); } catch(e) { return []; }
+}
+function stnSaveSupplierName(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  var list = stnGetSuppliers();
+  if (list.indexOf(name) === -1) {
+    list.unshift(name); // নতুন নাম সবার আগে
+    if (list.length > 50) list = list.slice(0, 50); // max 50
+    localStorage.setItem('igl_stn_suppliers', JSON.stringify(list));
+    stnPopulateSupplierDatalist();
+  }
+}
+function stnPopulateSupplierDatalist() {
+  var dl = document.getElementById('stn-supplier-list');
+  if (!dl) return;
+  var list = stnGetSuppliers();
+  dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
+}
+
+
+function stnGetHiddenItems() {
+  try { return JSON.parse(localStorage.getItem('igl_stn_hidden') || '[]'); } catch(e) { return []; }
+}
+function stnSetHiddenItems(arr) {
+  localStorage.setItem('igl_stn_hidden', JSON.stringify(arr));
+}
+function stnIsItemVisible(itemId) {
+  return stnGetHiddenItems().indexOf(itemId) === -1;
+}
+
+function stnShowVisibilityModal() {
+  var allItems = DB.stnItems;
+  var hidden   = stnGetHiddenItems();
+
+  // category অনুযায়ী group করো
+  var cats = {};
+  allItems.forEach(function(it){
+    var c = it.category || 'অন্যান্য';
+    if (!cats[c]) cats[c] = [];
+    cats[c].push(it);
+  });
+
+  var visCount  = allItems.filter(function(it){ return hidden.indexOf(it.id) === -1; }).length;
+  var hideCount = hidden.length;
+
+  var bodyHtml = '';
+  Object.keys(cats).forEach(function(cat){
+    bodyHtml += '<div style="margin-bottom:14px;">';
+    bodyHtml += '<div style="font-weight:700;color:#1a5276;font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #d5e8f7;padding-bottom:4px;margin-bottom:8px;">📂 '+cat+'</div>';
+    cats[cat].forEach(function(it){
+      var isHidden = hidden.indexOf(it.id) !== -1;
+      bodyHtml += '<label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;'+(isHidden?'opacity:.5;':'')+'background:'+(isHidden?'#fdecea':'#f0f9f4')+';" onmouseover="this.style.background=\''+(isHidden?'#fbd7d4':'#d5f0e3')+'\'" onmouseout="this.style.background=\''+(isHidden?'#fdecea':'#f0f9f4')+'\'">';
+      bodyHtml += '<input type="checkbox" data-item-id="'+it.id+'" '+(isHidden?'':'checked')+' style="width:16px;height:16px;cursor:pointer;" onchange="stnVisibilityToggle(this)">';
+      bodyHtml += '<span style="font-size:13px;font-weight:'+(isHidden?'400':'600')+';">'+it.name+'</span>';
+      bodyHtml += '<span style="margin-left:auto;font-size:11px;color:'+(isHidden?'#c0392b':'#27ae60')+';">'+(isHidden?'🚫 Hidden':'✅ Visible')+'</span>';
+      bodyHtml += '</label>';
+    });
+    bodyHtml += '</div>';
+  });
+
+  document.getElementById('stn-vis-body').innerHTML = bodyHtml;
+  document.getElementById('stn-vis-summary').innerHTML =
+    '<b style="color:#27ae60;">✅ '+visCount+' টি দেখা যাচ্ছে</b> &nbsp;|&nbsp; <b style="color:#c0392b;">🚫 '+hideCount+' টি লুকানো</b>';
+  document.getElementById('stnVisModal').style.display = 'flex';
+}
+
+function stnVisibilityToggle(chk) {
+  var id     = chk.getAttribute('data-item-id');
+  var hidden = stnGetHiddenItems();
+  var idx    = hidden.indexOf(id);
+  if (chk.checked) {
+    // show করো
+    if (idx !== -1) hidden.splice(idx, 1);
+  } else {
+    // hide করো
+    if (idx === -1) hidden.push(id);
+  }
+  stnSetHiddenItems(hidden);
+
+  // label UI আপডেট
+  var label = chk.parentElement;
+  var span  = label.querySelector('span:last-child');
+  if (chk.checked) {
+    label.style.opacity = '1';
+    label.style.background = '#f0f9f4';
+    label.querySelector('span').style.fontWeight = '600';
+    span.textContent = '✅ Visible';
+    span.style.color = '#27ae60';
+  } else {
+    label.style.opacity = '.5';
+    label.style.background = '#fdecea';
+    label.querySelector('span').style.fontWeight = '400';
+    span.textContent = '🚫 Hidden';
+    span.style.color = '#c0392b';
+  }
+
+  // summary আপডেট
+  var allItems  = DB.stnItems;
+  var newHidden = stnGetHiddenItems();
+  var visCount  = allItems.filter(function(it){ return newHidden.indexOf(it.id) === -1; }).length;
+  document.getElementById('stn-vis-summary').innerHTML =
+    '<b style="color:#27ae60;">✅ '+visCount+' টি দেখা যাচ্ছে</b> &nbsp;|&nbsp; <b style="color:#c0392b;">🚫 '+newHidden.length+' টি লুকানো</b>';
+
+  renderStationeryDashboard();
+}
+
+function stnVisShowAll() {
+  stnSetHiddenItems([]);
+  stnShowVisibilityModal();
+  renderStationeryDashboard();
+  toast('✅ সব Item দৃশ্যমান করা হয়েছে!', 'success');
+}
+
+document.getElementById('stnVisModal').addEventListener('click', function(e){
+  if(e.target===this) this.style.display='none';
+});
 </script>
+
+<!-- ══ STN Item Visibility Modal (Admin Only) ══ -->
+<div id="stnVisModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:min(540px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.35);overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-weight:700;font-size:16px;">👁️ Item Visibility — Admin</div>
+        <div style="font-size:12px;opacity:.85;margin-top:2px;">টিক দিলে দেখা যাবে, উঠিয়ে দিলে লুকাবে</div>
+      </div>
+      <button onclick="document.getElementById('stnVisModal').style.display='none';" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="stn-vis-summary" style="background:#f8f9fa;border-bottom:1px solid #e0e0e0;padding:10px 20px;font-size:13px;flex-shrink:0;"></div>
+    <div id="stn-vis-body" style="overflow-y:auto;padding:16px 20px;flex:1;"></div>
+    <div style="border-top:1px solid #e0e0e0;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#f8f9fa;">
+      <button onclick="stnVisShowAll()" style="padding:9px 18px;border-radius:7px;border:1px solid #27ae60;background:#fff;color:#27ae60;font-size:13px;cursor:pointer;font-weight:700;">✅ সব Show করো</button>
+      <button onclick="document.getElementById('stnVisModal').style.display='none';" style="padding:9px 22px;border-radius:7px;border:none;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">বন্ধ করো</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
