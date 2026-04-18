@@ -466,22 +466,37 @@ if('serviceWorker' in navigator){
     /* Manager Report print — no background, single tab only */
     #page-stn_manager_report #smr-print-header { display: block !important; }
     #page-stn_manager_report .smr-tab-btn { display: none !important; }
+    #page-stn_manager_report #smr-tab-bar { display: none !important; }
     #page-stn_manager_report .no-print { display: none !important; }
     #page-stn_manager_report .stats-grid { display: none !important; }
+    #page-stn_manager_report .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
     thead { display: table-header-group !important; }
-    tbody tr { page-break-inside: avoid; }
+    tbody tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+    /* Manager report — compact font & spacing */
+    #page-stn_manager_report table { font-size: 7pt !important; }
+    #page-stn_manager_report th,
+    #page-stn_manager_report td { padding: 2px 5px !important; font-size: 7pt !important; }
+    #page-stn_manager_report div[style*="margin-bottom:22px"],
+    #page-stn_manager_report div[style*="margin-bottom: 22px"] { margin-bottom: 6px !important; }
+    #page-stn_manager_report div[style*="margin-bottom:20px"],
+    #page-stn_manager_report div[style*="margin-bottom: 20px"] { margin-bottom: 6px !important; }
+    /* Dept/Item group header */
+    #page-stn_manager_report div[style*="border-radius:6px 6px 0 0"] { padding: 4px 8px !important; font-size: 8pt !important; }
+    /* Don't break inside a dept/item block */
+    #smr-dept-body > div,
+    #smr-item-body > div,
+    #smr-rcv-body > div { page-break-inside: avoid !important; break-inside: avoid !important; }
+    /* Grand total bar */
+    #smr-dept-body > div[style*="background:#1c2833"],
+    #smr-item-body > div[style*="background:#1c2833"] { font-size: 8pt !important; padding: 4px 8px !important; }
 
     /* Show only the selected tab panel */
-    [data-smr-print="stock"]   #smr-panel-stock   { display: block !important; }
-    [data-smr-print="receive"] #smr-panel-receive  { display: block !important; }
-    [data-smr-print="issue"]   #smr-panel-issue    { display: block !important; }
-    [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
-    /* Hide all other panels */
     [data-smr-print] #page-stn_manager_report .smr-panel { display: none !important; }
     [data-smr-print="stock"]   #smr-panel-stock   { display: block !important; }
     [data-smr-print="receive"] #smr-panel-receive  { display: block !important; }
-    [data-smr-print="issue"]   #smr-panel-issue    { display: block !important; }
     [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
+    [data-smr-print="item"]    #smr-panel-item     { display: block !important; }
 
     /* No background colors — plain white print */
     * { background: #fff !important; background-color: #fff !important; background-image: none !important; }
@@ -2282,8 +2297,8 @@ window.iglSaveUsers = function(){
         <div class="card-body" style="padding:0;">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Type</th><th>Item</th><th>Qty</th></tr></thead>
-              <tbody id="stn-recent-table"><tr><td colspan="4" class="no-data">No transactions</td></tr></tbody>
+              <thead><tr><th>Date</th><th>Type</th><th>Item</th><th>Qty</th><th>Action</th></tr></thead>
+              <tbody id="stn-recent-table"><tr><td colspan="5" class="no-data">No transactions</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2337,13 +2352,13 @@ window.iglSaveUsers = function(){
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div>
         <h2>📋 Stationery — ম্যানেজার রিপোর্ট</h2>
-        <p>মাসিক / তারিখ-ভিত্তিক Receive, Issue ও Stock সারসংক্ষেপ</p>
+        <p>Department-wise / Item-wise / Receive — তারিখ ভিত্তিক রিপোর্ট</p>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button onclick="stnMgrPrintTab('stock')"   style="background:#1a5276;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Stock</button>
         <button onclick="stnMgrPrintTab('receive')" style="background:#117a65;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Receive</button>
-        <button onclick="stnMgrPrintTab('issue')"   style="background:#922b21;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Issue</button>
-        <button onclick="stnMgrPrintTab('dept')"    style="background:#6d4c41;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Dept</button>
+        <button onclick="stnMgrPrintTab('dept')"    style="background:#6d4c41;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Dept-wise Issue</button>
+        <button onclick="stnMgrPrintTab('item')"    style="background:#1a7a4a;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Item-wise Issue</button>
       </div>
     </div>
 
@@ -2384,11 +2399,11 @@ window.iglSaveUsers = function(){
 
     <!-- Report Tabs -->
     <div class="card" style="margin-bottom:18px;">
-      <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;" id="smr-tab-bar">
-        <button class="smr-tab-btn active" data-tab="stock" onclick="stnMgrSwitchTab('stock')" style="padding:10px 20px;border:none;border-bottom:3px solid #1a5276;background:#eaf4fb;color:#1a5276;font-weight:700;cursor:pointer;font-size:13px;">📦 Stock Summary</button>
-        <button class="smr-tab-btn" data-tab="receive" onclick="stnMgrSwitchTab('receive')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">📥 Receive Log</button>
-        <button class="smr-tab-btn" data-tab="issue" onclick="stnMgrSwitchTab('issue')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">📤 Issue Log</button>
-        <button class="smr-tab-btn" data-tab="dept" onclick="stnMgrSwitchTab('dept')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;">🏢 Department-wise</button>
+      <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;overflow-x:auto;" id="smr-tab-bar">
+        <button class="smr-tab-btn" data-tab="stock"   onclick="stnMgrSwitchTab('stock')"   style="padding:10px 18px;border:none;border-bottom:3px solid #1a5276;background:#eaf4fb;color:#1a5276;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">📦 Stock</button>
+        <button class="smr-tab-btn" data-tab="receive" onclick="stnMgrSwitchTab('receive')" style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">📥 Receive</button>
+        <button class="smr-tab-btn" data-tab="dept"    onclick="stnMgrSwitchTab('dept')"    style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">🏢 Department-wise Issue</button>
+        <button class="smr-tab-btn" data-tab="item"    onclick="stnMgrSwitchTab('item')"    style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">📋 Item-wise Issue</button>
       </div>
 
       <!-- Tab: Stock Summary -->
@@ -2398,9 +2413,7 @@ window.iglSaveUsers = function(){
             <table id="smr-stock-table">
               <thead>
                 <tr style="background:#1a5276;color:#fff;">
-                  <th>#</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
+                  <th>#</th><th>Item Name</th><th>Category</th>
                   <th style="text-align:center;">B/F</th>
                   <th style="text-align:center;">Receive</th>
                   <th style="text-align:center;">Issue</th>
@@ -2414,79 +2427,34 @@ window.iglSaveUsers = function(){
         </div>
       </div>
 
-      <!-- Tab: Receive Log -->
+      <!-- Tab: Receive Log (Challan-wise grouped) -->
       <div id="smr-panel-receive" class="smr-panel" style="display:none;">
-        <div class="card-body" style="padding:0;">
-          <div class="table-wrap">
-            <table id="smr-rcv-table">
-              <thead>
-                <tr style="background:#1a5276;color:#fff;">
-                  <th>#</th>
-                  <th>তারিখ</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th style="text-align:center;">Qty</th>
-                  <th>Challan No.</th>
-                  <th>Supplier</th>
-                </tr>
-              </thead>
-              <tbody id="smr-rcv-tbody"><tr><td colspan="7" class="no-data">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <div id="smr-rcv-body" style="padding:12px 16px;"></div>
       </div>
 
-      <!-- Tab: Issue Log -->
-      <div id="smr-panel-issue" class="smr-panel" style="display:none;">
-        <div class="card-body" style="padding:0;">
-          <div class="table-wrap">
-            <table id="smr-iss-table">
-              <thead>
-                <tr style="background:#922b21;color:#fff;">
-                  <th>#</th>
-                  <th>তারিখ</th>
-                  <th>Slip No.</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th style="text-align:center;">Qty</th>
-                  <th>Department</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody id="smr-iss-tbody"><tr><td colspan="8" class="no-data">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Department-wise -->
+      <!-- Tab: Department-wise Issue (grouped like screenshot) -->
       <div id="smr-panel-dept" class="smr-panel" style="display:none;">
-        <div class="card-body" style="padding:0;">
-          <div class="table-wrap">
-            <table id="smr-dept-table">
-              <thead>
-                <tr style="background:#117a65;color:#fff;">
-                  <th>#</th>
-                  <th>Department</th>
-                  <th style="text-align:center;">পূর্ববর্তী Issue (Qty)</th>
-                  <th style="text-align:center;">নির্বাচিত সময়ের Issue (Qty)</th>
-                  <th style="text-align:center;">মোট Entry</th>
-                  <th>Item বিবরণ</th>
-                </tr>
-              </thead>
-              <tbody id="smr-dept-tbody"><tr><td colspan="5" class="no-data">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <div id="smr-dept-body" style="padding:12px 16px;"></div>
+      </div>
+
+      <!-- Tab: Item-wise Issue -->
+      <div id="smr-panel-item" class="smr-panel" style="display:none;">
+        <div id="smr-item-body" style="padding:12px 16px;"></div>
       </div>
     </div>
 
     <!-- Print Header (hidden on screen) -->
-    <div id="smr-print-header" style="display:none;text-align:center;margin-bottom:16px;">
-      <div style="font-size:16pt;font-weight:700;">ISLAM GARMENTS LTD. (KNITTING UNIT)</div>
-      <div style="font-size:11pt;margin-top:4px;">Stationery — ম্যানেজার রিপোর্ট</div>
-      <div id="smr-print-label" style="font-size:10pt;font-weight:700;color:#333;margin-top:2px;"></div>
-      <div id="smr-print-period" style="font-size:9pt;color:#555;margin-top:3px;"></div>
+    <div id="smr-print-header" style="display:none;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a5276;padding-bottom:6px;">
+        <div>
+          <div style="font-size:13pt;font-weight:700;color:#1a5276;">🗂️ Stationery — ম্যানেজার রিপোর্ট</div>
+          <div id="smr-print-label" style="font-size:9pt;color:#555;margin-top:2px;"></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:8pt;color:#888;" id="smr-print-period"></div>
+          <div style="font-size:8pt;color:#888;">Islam Garments Limited</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -6865,283 +6833,251 @@ function _fmtDMY(d) {
 }
 
 function renderStnManagerReport() {
-  var fromDate = (document.getElementById('smr-from') || {}).value || '';
-  var toDate   = (document.getElementById('smr-to')   || {}).value || '';
+  var fromDate   = (document.getElementById('smr-from') || {}).value || '';
+  var toDate     = (document.getElementById('smr-to')   || {}).value || '';
   var catFilter  = (document.getElementById('smr-cat')  || {}).value || '';
   var deptFilter = (document.getElementById('smr-dept') || {}).value || '';
 
-  // Load data
-  var stnItems = DB.stnItems || [];
-  var stnIssues = [];
-  try { stnIssues = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]'); } catch(e) {}
-  var stnReceives = [];
-  try { stnReceives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e) {}
+  var stnItems    = DB.stnItems || [];
+  var stnNames    = stnItems.map(function(it){ return it.name; });
+  var allIssues   = (DB.issues   || []).filter(function(r){ return stnNames.indexOf(r.item) !== -1; });
+  var allReceives = (DB.receives || []).filter(function(r){ return stnNames.indexOf(r.item) !== -1; });
 
   // Populate Category dropdown
   var catSel = document.getElementById('smr-cat');
   if (catSel) {
-    var curCat = catSel.value;
     var cats = [];
-    stnItems.forEach(function(it) { if (it.category && cats.indexOf(it.category) < 0) cats.push(it.category); });
+    stnItems.forEach(function(it){ if (it.category && cats.indexOf(it.category) < 0) cats.push(it.category); });
     cats.sort();
-    catSel.innerHTML = '<option value="">সব Category</option>';
-    cats.forEach(function(c) {
-      catSel.innerHTML += '<option value="' + c + '"' + (c === curCat ? ' selected' : '') + '>' + c + '</option>';
-    });
+    catSel.innerHTML = '<option value="">সব Category</option>' + cats.map(function(c){
+      return '<option value="'+c+'"'+(c===catFilter?' selected':'')+'>'+c+'</option>';
+    }).join('');
+    catFilter = catSel.value;
   }
 
   // Populate Department dropdown
   var deptSel = document.getElementById('smr-dept');
   if (deptSel) {
-    var curDept = deptSel.value;
     var depts = [];
-    stnIssues.forEach(function(iss) { if (iss.dept && depts.indexOf(iss.dept) < 0) depts.push(iss.dept); });
+    allIssues.forEach(function(r){ var d=r.machineId||''; if(d && depts.indexOf(d)<0) depts.push(d); });
     depts.sort();
-    deptSel.innerHTML = '<option value="">সব Department</option>';
-    depts.forEach(function(d) {
-      deptSel.innerHTML += '<option value="' + d + '"' + (d === curDept ? ' selected' : '') + '>' + d + '</option>';
-    });
+    deptSel.innerHTML = '<option value="">সব Department</option>' + depts.map(function(d){
+      return '<option value="'+d+'"'+(d===deptFilter?' selected':'')+'>'+d+'</option>';
+    }).join('');
+    deptFilter = deptSel.value;
   }
 
-  // Date-filtered receives & issues (within selected period)
-  var rcvFiltered = stnReceives.filter(function(r) {
+  // Filter
+  var rcvFiltered = allReceives.filter(function(r){
     if (fromDate && r.date < fromDate) return false;
     if (toDate   && r.date > toDate)   return false;
+    if (catFilter){ var it=stnItems.find(function(x){return x.name===r.item;}); if(!it||(it.category||'')!==catFilter) return false; }
     return true;
   });
-  var issFiltered = stnIssues.filter(function(iss) {
-    if (fromDate && iss.date < fromDate) return false;
-    if (toDate   && iss.date > toDate)   return false;
-    if (deptFilter && (iss.dept || '') !== deptFilter) return false;
+  var issFiltered = allIssues.filter(function(r){
+    if (fromDate && r.date < fromDate) return false;
+    if (toDate   && r.date > toDate)   return false;
+    if (deptFilter && (r.machineId||'') !== deptFilter) return false;
+    if (catFilter){ var it=stnItems.find(function(x){return x.name===r.item;}); if(!it||(it.category||'')!==catFilter) return false; }
     return true;
   });
 
-  // Before-period receives & issues (for opening balance calculation)
-  var rcvBefore = fromDate
-    ? stnReceives.filter(function(r) { return r.date < fromDate; })
-    : [];
-  var issBefore = fromDate
-    ? stnIssues.filter(function(iss) { return iss.date < fromDate; })
-    : [];
+  var rcvBefore = fromDate ? allReceives.filter(function(r){ return r.date < fromDate; }) : [];
+  var issBefore = fromDate ? allIssues.filter(function(r){ return r.date < fromDate; })   : [];
+  var itemsFiltered = catFilter ? stnItems.filter(function(it){ return (it.category||'')===catFilter; }) : stnItems;
 
-  // Category filter on items
-  var itemsFiltered = catFilter
-    ? stnItems.filter(function(it) { return (it.category || '') === catFilter; })
-    : stnItems;
-
-  // ── Summary Stats ──
-  var totalItems = itemsFiltered.length;
-  var totalRcvQty = rcvFiltered.reduce(function(s, r) {
-    if (catFilter) {
-      var it = stnItems.find(function(x) { return x.name === r.item; });
-      if (!it || (it.category || '') !== catFilter) return s;
-    }
-    return s + (Number(r.qty) || 0);
-  }, 0);
-  var totalIssQty = issFiltered.reduce(function(s, r) {
-    if (catFilter) {
-      var it = stnItems.find(function(x) { return x.name === r.item; });
-      if (!it || (it.category || '') !== catFilter) return s;
-    }
-    return s + (Number(r.qty) || 0);
-  }, 0);
-  var lowStockCount = itemsFiltered.filter(function(it) {
-    var staticBf = Number(it.bf) || 0;
-    var rcvBeforeQty = rcvBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-    var issBeforeQty = issBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-    var openingBf = fromDate ? (staticBf + rcvBeforeQty - issBeforeQty) : staticBf;
-    var rcv = rcvFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-    var iss = issFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-    var bal = openingBf + rcv - iss;
-    return bal <= 5;
+  // Stats
+  var totalRcvQty = rcvFiltered.reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+  var totalIssQty = issFiltered.reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+  var lowCount = itemsFiltered.filter(function(it){
+    var bf=Number(it.bf)||0;
+    var rb=rcvBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var ib=issBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var op=fromDate?(bf+rb-ib):bf;
+    var rc=rcvFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var is=issFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    return (op+rc-is)<=5;
   }).length;
 
   var statsEl = document.getElementById('smr-stats');
-  if (statsEl) {
-    statsEl.innerHTML =
-      '<div class="stat-card blue"><div class="stat-label">মোট Items</div><div class="stat-value">' + totalItems + '</div><div class="stat-sub">ফিল্টার করা Category</div></div>' +
-      '<div class="stat-card green"><div class="stat-label">মোট Receive (Qty)</div><div class="stat-value">' + totalRcvQty + '</div><div class="stat-sub">নির্বাচিত তারিখে</div></div>' +
-      '<div class="stat-card red"><div class="stat-label">মোট Issue (Qty)</div><div class="stat-value">' + totalIssQty + '</div><div class="stat-sub">নির্বাচিত তারিখে</div></div>' +
-      '<div class="stat-card orange"><div class="stat-label">Low Stock Items</div><div class="stat-value">' + lowStockCount + '</div><div class="stat-sub">Balance ≤ 5</div></div>';
-  }
+  if (statsEl) statsEl.innerHTML =
+    '<div class="stat-card blue"><div class="stat-label">মোট Items</div><div class="stat-value">'+itemsFiltered.length+'</div><div class="stat-sub">Stationery Items</div></div>'+
+    '<div class="stat-card green"><div class="stat-label">Receive (Qty)</div><div class="stat-value">'+totalRcvQty+'</div><div class="stat-sub">নির্বাচিত সময়ে</div></div>'+
+    '<div class="stat-card red"><div class="stat-label">Issue (Qty)</div><div class="stat-value">'+totalIssQty+'</div><div class="stat-sub">নির্বাচিত সময়ে</div></div>'+
+    '<div class="stat-card orange"><div class="stat-label">Low Stock</div><div class="stat-value">'+lowCount+'</div><div class="stat-sub">Balance ≤ 5</div></div>';
 
-  // ── Tab: Stock Summary ──
+  // ══ STOCK TAB ══
   if (_smrCurrentTab === 'stock') {
-    var stockBody = document.getElementById('smr-stock-tbody');
-    if (stockBody) {
-      if (!itemsFiltered.length) {
-        stockBody.innerHTML = '<tr><td colspan="8" class="no-data">কোনো Item পাওয়া যায়নি।</td></tr>';
-      } else {
-        stockBody.innerHTML = itemsFiltered.map(function(it, i) {
-          // Opening Balance = static bf + receives before fromDate - issues before fromDate
-          var staticBf = Number(it.bf) || 0;
-          var rcvBeforeQty = rcvBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-          var issBeforeQty = issBefore.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-          var openingBf = fromDate ? (staticBf + rcvBeforeQty - issBeforeQty) : staticBf;
-
-          // Period receive & issue (within selected date range)
-          var rcv = rcvFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-          var iss = issFiltered.filter(function(r) { return r.item === it.name; }).reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-
-          // Closing balance = opening + period receive - period issue
-          var bal = openingBf + rcv - iss;
-
-          var status, statusClass;
-          if (bal <= 0) { status = 'OUT'; statusClass = 'badge-out'; }
-          else if (bal <= 5) { status = 'LOW'; statusClass = 'badge-low'; }
-          else { status = 'OK'; statusClass = 'badge-ok'; }
-          return '<tr>' +
-            '<td style="text-align:center;">' + (i + 1) + '</td>' +
-            '<td><b>' + (it.name || '') + '</b></td>' +
-            '<td><span class="tag">' + (it.category || '—') + '</span></td>' +
-            '<td style="text-align:center;color:#6c3483;font-weight:700;">' + openingBf + '</td>' +
-            '<td style="text-align:center;color:#1a5276;font-weight:700;">' + rcv + '</td>' +
-            '<td style="text-align:center;color:#c0392b;font-weight:700;">' + iss + '</td>' +
-            '<td style="text-align:center;font-weight:700;">' + bal + '</td>' +
-            '<td style="text-align:center;"><span class="badge ' + statusClass + '">' + status + '</span></td>' +
-            '</tr>';
-        }).join('');
-      }
-    }
+    var sb = document.getElementById('smr-stock-tbody');
+    if (!sb) return;
+    if (!itemsFiltered.length) { sb.innerHTML = '<tr><td colspan="8" class="no-data">কোনো Item পাওয়া যায়নি।</td></tr>'; return; }
+    sb.innerHTML = itemsFiltered.map(function(it,i){
+      var bf=Number(it.bf)||0;
+      var rb=rcvBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var ib=issBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var op=fromDate?(bf+rb-ib):bf;
+      var rc=rcvFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var is=issFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var bal=op+rc-is;
+      var sc=bal<=0?'badge-out':bal<=5?'badge-low':'badge-ok';
+      var sl=bal<=0?'OUT':bal<=5?'LOW':'OK';
+      return '<tr><td style="text-align:center;">'+(i+1)+'</td><td><b>'+it.name+'</b></td>'+
+        '<td><span class="tag">'+(it.category||'—')+'</span></td>'+
+        '<td style="text-align:center;color:#6c3483;font-weight:700;">'+op+'</td>'+
+        '<td style="text-align:center;color:#1a5276;font-weight:700;">'+rc+'</td>'+
+        '<td style="text-align:center;color:#c0392b;font-weight:700;">'+is+'</td>'+
+        '<td style="text-align:center;font-weight:700;">'+bal+'</td>'+
+        '<td style="text-align:center;"><span class="badge '+sc+'">'+sl+'</span></td></tr>';
+    }).join('');
+    return;
   }
 
-  // ── Tab: Receive Log ──
+  // ══ RECEIVE TAB (Challan-wise grouped) ══
   if (_smrCurrentTab === 'receive') {
-    var rcvBody = document.getElementById('smr-rcv-tbody');
-    if (rcvBody) {
-      var rcvShow = catFilter
-        ? rcvFiltered.filter(function(r) {
-            var it = stnItems.find(function(x) { return x.name === r.item; });
-            return it && (it.category || '') === catFilter;
-          })
-        : rcvFiltered;
-      rcvShow.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
-      if (!rcvShow.length) {
-        rcvBody.innerHTML = '<tr><td colspan="7" class="no-data">এই তারিখে কোনো Receive নেই।</td></tr>';
-      } else {
-        var rcvTotal = rcvShow.reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-        rcvBody.innerHTML = rcvShow.map(function(r, i) {
-          var it = stnItems.find(function(x) { return x.name === r.item; });
-          return '<tr>' +
-            '<td style="text-align:center;">' + (i + 1) + '</td>' +
-            '<td>' + _fmtDMY(r.date) + '</td>' +
-            '<td><b>' + (r.item || '—') + '</b></td>' +
-            '<td><span class="tag">' + (it ? (it.category || '—') : '—') + '</span></td>' +
-            '<td style="text-align:center;color:#1a5276;font-weight:700;">' + (r.qty || 0) + '</td>' +
-            '<td>' + (r.chalan || '—') + '</td>' +
-            '<td>' + (r.supplier || '—') + '</td>' +
-            '</tr>';
-        }).join('') +
-        '<tr style="background:#eaf4fb;font-weight:700;"><td colspan="4" style="text-align:right;padding:8px 12px;">সর্বমোট</td><td style="text-align:center;color:#1a5276;padding:8px;">' + rcvTotal + '</td><td colspan="2"></td></tr>';
-      }
-    }
+    var rcvBody = document.getElementById('smr-rcv-body');
+    if (!rcvBody) return;
+    var rcvSorted = rcvFiltered.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    if (!rcvSorted.length) { rcvBody.innerHTML = '<p style="padding:20px;color:#888;text-align:center;">এই সময়ে কোনো Receive নেই।</p>'; return; }
+    var chalanMap = {};
+    rcvSorted.forEach(function(r){
+      var key = (r.chalan||'No-Challan')+'__'+(r.supplier||'');
+      if (!chalanMap[key]) chalanMap[key] = {chalan:r.chalan||'—',supplier:r.supplier||'—',rows:[]};
+      chalanMap[key].rows.push(r);
+    });
+    var html=''; var sl=0;
+    Object.keys(chalanMap).forEach(function(key){
+      var g=chalanMap[key];
+      var gT=g.rows.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      html+='<div style="margin-bottom:20px;">';
+      html+='<div style="background:#1a5276;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">'+
+        '<span style="font-weight:700;font-size:13px;">📄 Challan: '+g.chalan+' &nbsp;|&nbsp; Supplier: '+g.supplier+'</span>'+
+        '<span style="font-size:12px;background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:12px;">মোট: '+gT+' pcs</span></div>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+        '<thead><tr style="background:#d6eaf8;color:#1a5276;">'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #aed6f1;">SL</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #aed6f1;">তারিখ</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #aed6f1;">Item</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #aed6f1;">Category</th>'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #aed6f1;">Qty</th>'+
+        '</tr></thead><tbody>';
+      g.rows.forEach(function(r){
+        sl++;
+        var it=stnItems.find(function(x){return x.name===r.item;});
+        html+='<tr style="border-bottom:1px solid #eaf4fb;">'+
+          '<td style="padding:6px 10px;text-align:center;color:#888;">'+sl+'</td>'+
+          '<td style="padding:6px 10px;">'+_fmtDMY(r.date)+'</td>'+
+          '<td style="padding:6px 10px;"><b>'+r.item+'</b></td>'+
+          '<td style="padding:6px 10px;"><span class="tag">'+(it?it.category||'—':'—')+'</span></td>'+
+          '<td style="padding:6px 10px;text-align:center;font-weight:700;color:#1a5276;">'+r.qty+'</td>'+
+          '</tr>';
+      });
+      html+='<tr style="background:#eaf4fb;font-weight:700;"><td colspan="4" style="padding:7px 10px;text-align:right;color:#1a5276;">সর্বমোট</td>'+
+        '<td style="padding:7px 10px;text-align:center;color:#1a5276;">'+gT+'</td></tr>';
+      html+='</tbody></table></div>';
+    });
+    rcvBody.innerHTML = html;
+    return;
   }
 
-  // ── Tab: Issue Log ──
-  if (_smrCurrentTab === 'issue') {
-    var issBody = document.getElementById('smr-iss-tbody');
-    if (issBody) {
-      var issShow = catFilter
-        ? issFiltered.filter(function(r) {
-            var it = stnItems.find(function(x) { return x.name === r.item; });
-            return it && (it.category || '') === catFilter;
-          })
-        : issFiltered;
-      issShow.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
-      if (!issShow.length) {
-        issBody.innerHTML = '<tr><td colspan="8" class="no-data">এই তারিখে কোনো Issue নেই।</td></tr>';
-      } else {
-        var issTotal = issShow.reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
-        issBody.innerHTML = issShow.map(function(r, i) {
-          var it = stnItems.find(function(x) { return x.name === r.item; });
-          return '<tr>' +
-            '<td style="text-align:center;">' + (i + 1) + '</td>' +
-            '<td>' + _fmtDMY(r.date) + '</td>' +
-            '<td><span class="slip-badge">' + (r.slip || '—') + '</span></td>' +
-            '<td><b>' + (r.item || '—') + '</b></td>' +
-            '<td><span class="tag">' + (it ? (it.category || '—') : '—') + '</span></td>' +
-            '<td style="text-align:center;color:#c0392b;font-weight:700;">' + (r.qty || 0) + '</td>' +
-            '<td>' + (r.dept || '—') + '</td>' +
-            '<td>' + (r.remarks || '—') + '</td>' +
-            '</tr>';
-        }).join('') +
-        '<tr style="background:#fdedec;font-weight:700;"><td colspan="5" style="text-align:right;padding:8px 12px;">সর্বমোট</td><td style="text-align:center;color:#c0392b;padding:8px;">' + issTotal + '</td><td colspan="2"></td></tr>';
-      }
-    }
-  }
-
-  // ── Tab: Department-wise ──
+  // ══ DEPT TAB (Department-wise grouped like screenshot) ══
   if (_smrCurrentTab === 'dept') {
-    var deptBody = document.getElementById('smr-dept-tbody');
-    if (deptBody) {
-      // Apply category filter on the period issues
-      var issForDept = catFilter
-        ? issFiltered.filter(function(r) {
-            var it = stnItems.find(function(x) { return x.name === r.item; });
-            return it && (it.category || '') === catFilter;
-          })
-        : issFiltered;
-
-      // Also get before-period issues per dept (for previous months)
-      var issBeforeForDept = catFilter
-        ? issBefore.filter(function(r) {
-            var it = stnItems.find(function(x) { return x.name === r.item; });
-            return it && (it.category || '') === catFilter;
-          })
-        : issBefore;
-
-      // Build deptMap: period qty + before qty per dept
-      var deptMap = {};
-      issForDept.forEach(function(iss) {
-        var d = iss.dept || 'Unknown';
-        if (!deptMap[d]) deptMap[d] = { count: 0, qty: 0, prevQty: 0, lastDate: '', items: {} };
-        deptMap[d].count++;
-        deptMap[d].qty += Number(iss.qty) || 0;
-        if (iss.date > deptMap[d].lastDate) deptMap[d].lastDate = iss.date;
-        // item breakdown
-        var iname = iss.item || 'Unknown';
-        if (!deptMap[d].items[iname]) deptMap[d].items[iname] = 0;
-        deptMap[d].items[iname] += Number(iss.qty) || 0;
+    var deptBody = document.getElementById('smr-dept-body');
+    if (!deptBody) return;
+    var issSorted = issFiltered.slice().sort(function(a,b){ return (a.machineId||'').localeCompare(b.machineId||'') || (b.date||'').localeCompare(a.date||''); });
+    if (!issSorted.length) { deptBody.innerHTML = '<p style="padding:20px;color:#888;text-align:center;">এই সময়ে কোনো Issue নেই।</p>'; return; }
+    var deptMap = {};
+    issSorted.forEach(function(r){
+      var d=r.machineId||'Unknown';
+      if (!deptMap[d]) deptMap[d]={rows:[]};
+      deptMap[d].rows.push(r);
+    });
+    var html=''; var grandTotal=0; var sl=0;
+    Object.keys(deptMap).sort().forEach(function(dept){
+      var g=deptMap[dept];
+      var dT=g.rows.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      grandTotal+=dT;
+      html+='<div style="margin-bottom:22px;">';
+      html+='<div style="background:#6d4c41;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">'+
+        '<span style="font-weight:700;font-size:13px;">🏢 '+dept+'</span>'+
+        '<span style="font-size:12px;background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:12px;">Total: '+dT+' pcs</span></div>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+        '<thead><tr style="background:#f5eee9;color:#6d4c41;">'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #d7c4b8;">SL</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">তারিখ</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">Slip No.</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">Item</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">Department</th>'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #d7c4b8;">Qty</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">Remarks</th>'+
+        '</tr></thead><tbody>';
+      g.rows.forEach(function(r){
+        sl++;
+        html+='<tr style="border-bottom:1px solid #f5eee9;">'+
+          '<td style="padding:6px 10px;text-align:center;color:#888;">'+sl+'</td>'+
+          '<td style="padding:6px 10px;">'+_fmtDMY(r.date)+'</td>'+
+          '<td style="padding:6px 10px;"><span class="slip-badge">'+(r.slip||'—')+'</span></td>'+
+          '<td style="padding:6px 10px;"><b>'+r.item+'</b></td>'+
+          '<td style="padding:6px 10px;">'+dept+'</td>'+
+          '<td style="padding:6px 10px;text-align:center;font-weight:700;color:#c0392b;">'+r.qty+'</td>'+
+          '<td style="padding:6px 10px;color:#666;">'+(r.remarks||'—')+'</td>'+
+          '</tr>';
       });
+      html+='<tr style="background:#f5eee9;font-weight:700;"><td colspan="5" style="padding:7px 10px;text-align:right;color:#6d4c41;">Total</td>'+
+        '<td style="padding:7px 10px;text-align:center;color:#c0392b;">'+dT+'</td><td></td></tr>';
+      html+='</tbody></table></div>';
+    });
+    html+='<div style="background:#1c2833;color:#fff;padding:10px 16px;border-radius:6px;text-align:right;font-weight:700;font-size:14px;">সর্বমোট Issue: '+grandTotal+' pcs</div>';
+    deptBody.innerHTML = html;
+    return;
+  }
 
-      // Add before-period qty to each dept
-      issBeforeForDept.forEach(function(iss) {
-        var d = iss.dept || 'Unknown';
-        if (!deptMap[d]) deptMap[d] = { count: 0, qty: 0, prevQty: 0, lastDate: '', items: {} };
-        deptMap[d].prevQty += Number(iss.qty) || 0;
+  // ══ ITEM TAB (Item-wise grouped) ══
+  if (_smrCurrentTab === 'item') {
+    var itemBody = document.getElementById('smr-item-body');
+    if (!itemBody) return;
+    var issSorted2 = issFiltered.slice().sort(function(a,b){ return (a.item||'').localeCompare(b.item||'') || (b.date||'').localeCompare(a.date||''); });
+    if (!issSorted2.length) { itemBody.innerHTML = '<p style="padding:20px;color:#888;text-align:center;">এই সময়ে কোনো Issue নেই।</p>'; return; }
+    var itemMap = {};
+    issSorted2.forEach(function(r){
+      if (!itemMap[r.item]) itemMap[r.item]={rows:[]};
+      itemMap[r.item].rows.push(r);
+    });
+    var html=''; var grandTotal2=0; var sl=0;
+    Object.keys(itemMap).sort().forEach(function(itemName){
+      var g=itemMap[itemName];
+      var iT=g.rows.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      grandTotal2+=iT;
+      var it=stnItems.find(function(x){return x.name===itemName;});
+      html+='<div style="margin-bottom:22px;">';
+      html+='<div style="background:#1a7a4a;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">'+
+        '<span style="font-weight:700;font-size:13px;">📦 '+itemName+(it?' <span style="font-size:11px;opacity:0.8;">('+it.category+')</span>':'')+'</span>'+
+        '<span style="font-size:12px;background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:12px;">Total Issued: '+iT+' pcs</span></div>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+        '<thead><tr style="background:#e8f8f0;color:#1a7a4a;">'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #a9dfbf;">SL</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #a9dfbf;">তারিখ</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #a9dfbf;">Slip No.</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #a9dfbf;">Department</th>'+
+        '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #a9dfbf;">Qty</th>'+
+        '<th style="padding:6px 10px;border-bottom:1px solid #a9dfbf;">Remarks</th>'+
+        '</tr></thead><tbody>';
+      g.rows.forEach(function(r){
+        sl++;
+        html+='<tr style="border-bottom:1px solid #e8f8f0;">'+
+          '<td style="padding:6px 10px;text-align:center;color:#888;">'+sl+'</td>'+
+          '<td style="padding:6px 10px;">'+_fmtDMY(r.date)+'</td>'+
+          '<td style="padding:6px 10px;"><span class="slip-badge">'+(r.slip||'—')+'</span></td>'+
+          '<td style="padding:6px 10px;font-weight:600;color:#1a7a4a;">'+(r.machineId||'—')+'</td>'+
+          '<td style="padding:6px 10px;text-align:center;font-weight:700;color:#c0392b;">'+r.qty+'</td>'+
+          '<td style="padding:6px 10px;color:#666;">'+(r.remarks||'—')+'</td>'+
+          '</tr>';
       });
-
-      var deptKeys = Object.keys(deptMap).sort();
-      if (!deptKeys.length) {
-        deptBody.innerHTML = '<tr><td colspan="6" class="no-data">এই তারিখে কোনো Issue নেই।</td></tr>';
-      } else {
-        var grandPrev = 0, grandCur = 0;
-        var rows = '';
-        deptKeys.forEach(function(d, i) {
-          var dm = deptMap[d];
-          grandPrev += dm.prevQty;
-          grandCur  += dm.qty;
-          // item breakdown string
-          var itemList = Object.keys(dm.items).map(function(iname) {
-            return '<span style="display:inline-block;background:#e8f8f5;border:1px solid #a9dfbf;border-radius:4px;padding:1px 6px;margin:1px;font-size:11px;color:#117a65;">' + iname + ': <b>' + dm.items[iname] + '</b></span>';
-          }).join(' ');
-          rows += '<tr>' +
-            '<td style="text-align:center;">' + (i + 1) + '</td>' +
-            '<td><b>' + d + '</b></td>' +
-            '<td style="text-align:center;color:#6c3483;font-weight:700;">' + (fromDate ? dm.prevQty : '—') + '</td>' +
-            '<td style="text-align:center;color:#117a65;font-weight:700;">' + dm.qty + '</td>' +
-            '<td style="text-align:center;">' + dm.count + '</td>' +
-            '<td>' + itemList + '</td>' +
-            '</tr>';
-        });
-        rows += '<tr style="background:#e8f8f5;font-weight:700;">' +
-          '<td colspan="2" style="text-align:right;padding:8px 12px;">সর্বমোট</td>' +
-          '<td style="text-align:center;color:#6c3483;padding:8px;">' + (fromDate ? grandPrev : '—') + '</td>' +
-          '<td style="text-align:center;color:#117a65;padding:8px;">' + grandCur + '</td>' +
-          '<td colspan="2"></td></tr>';
-        deptBody.innerHTML = rows;
-      }
-    }
+      html+='<tr style="background:#e8f8f0;font-weight:700;"><td colspan="4" style="padding:7px 10px;text-align:right;color:#1a7a4a;">Total</td>'+
+        '<td style="padding:7px 10px;text-align:center;color:#c0392b;">'+iT+'</td><td></td></tr>';
+      html+='</tbody></table></div>';
+    });
+    html+='<div style="background:#1c2833;color:#fff;padding:10px 16px;border-radius:6px;text-align:right;font-weight:700;font-size:14px;">সর্বমোট Issue: '+grandTotal2+' pcs</div>';
+    itemBody.innerHTML = html;
   }
 }
 
@@ -7151,31 +7087,92 @@ function stnMgrPrintTab(tab) {
   var period = fromDate && toDate
     ? _fmtDMY(fromDate) + ' থেকে ' + _fmtDMY(toDate)
     : fromDate ? _fmtDMY(fromDate) + ' থেকে' : 'সব তারিখ';
+  var tabLabels = { stock: 'Stock Summary', receive: 'Receive Log', dept: 'Department-wise Issue', item: 'Item-wise Issue' };
+  var printDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  var tabLabels = { stock: 'Stock Summary', receive: 'Receive Log', issue: 'Issue Log', dept: 'Department-wise Issue' };
-
-  // Switch to the requested tab first so data is rendered
+  // Render the tab first so HTML is ready
   stnMgrSwitchTab(tab);
 
-  // Set print header info
-  var hdr = document.getElementById('smr-print-header');
-  var per = document.getElementById('smr-print-period');
-  var lbl = document.getElementById('smr-print-label');
-  if (hdr) hdr.style.display = 'block';
-  if (per) per.textContent = 'সময়কাল: ' + period;
-  if (lbl) lbl.textContent = tabLabels[tab] || tab;
+  // Grab the rendered HTML of the active panel
+  var panelId = { stock:'smr-stock-tbody', receive:'smr-rcv-body', dept:'smr-dept-body', item:'smr-item-body' }[tab];
+  var panelEl = document.getElementById(panelId);
+  if (!panelEl) return;
 
-  // Set body class so CSS knows which panel to show
-  document.body.setAttribute('data-smr-print', tab);
+  var bodyHTML = '';
+  if (tab === 'stock') {
+    bodyHTML = '<table><thead><tr><th>#</th><th>Item Name</th><th>Category</th><th>B/F</th><th>Receive</th><th>Issue</th><th>Balance</th><th>Status</th></tr></thead><tbody>' + panelEl.innerHTML + '</tbody></table>';
+  } else {
+    bodyHTML = panelEl.innerHTML;
+  }
 
-  window.print();
+  var css = [
+    '@page { size: A4 portrait; margin: 7mm 6mm 7mm 6mm; }',
+    'body { font-family: Arial, sans-serif; font-size: 6.5pt; color: #000; margin: 0; padding: 0; line-height: 1.1; }',
+    '.report-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
+    '.report-header .title { font-size: 10pt; font-weight: 700; }',
+    '.report-header .sub { font-size: 7pt; color: #444; margin-top: 1px; }',
+    '.report-header .right { text-align: right; font-size: 6.5pt; color: #444; }',
+    '.group-block { margin-bottom: 5px; page-break-inside: avoid; break-inside: avoid; }',
+    '.group-header { background: #333 !important; color: #fff !important; padding: 2px 5px; font-size: 7pt; font-weight: 700; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 6.5pt; }',
+    'thead tr { background: #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'th { padding: 1px 4px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 6.5pt; line-height: 1.2; }',
+    'td { padding: 1px 4px; border: 0.5px solid #ccc; font-size: 6.5pt; line-height: 1.2; }',
+    'tr.total-row td { font-weight: 700; background: #eee !important; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '.grand-total { text-align: right; font-weight: 700; font-size: 7.5pt; margin-top: 4px; border-top: 1px solid #000; padding-top: 2px; }',
+    'button { display: none !important; }',
+    '.slip-badge { border: 0.5px solid #888; padding: 0 3px; border-radius: 2px; font-size: 6pt; }',
+    'b { font-weight: 700; }',
+    'span.tag { font-size: 6pt; }',
+  ].join('\n');
 
-  // Restore
-  if (hdr) hdr.style.display = 'none';
-  document.body.removeAttribute('data-smr-print');
+  // Convert grouped divs HTML → clean print HTML
+  // Replace inline styles on group containers for print
+  var cleanHTML = bodyHTML
+    .replace(/style="margin-bottom:\s*22px;?"/g, 'class="group-block"')
+    .replace(/style="margin-bottom:\s*20px;?"/g, 'class="group-block"')
+    .replace(/display:flex;justify-content:space-between;align-items:center;/g, 'display:flex;justify-content:space-between;')
+    .replace(/background:#6d4c41;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#444;"')
+    .replace(/background:#1a5276;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a5276;"')
+    .replace(/background:#1a7a4a;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a7a4a;"')
+    .replace(/background:#1c2833;color:#fff;padding:10px 16px;border-radius:6px;text-align:right;font-weight:700;font-size:14px;/g, 'class="grand-total" style="')
+    .replace(/background:#eaf4fb;font-weight:700;/g, 'class="total-row" style="')
+    .replace(/background:#f5eee9;font-weight:700;/g, 'class="total-row" style="')
+    .replace(/background:#e8f8f0;font-weight:700;/g, 'class="total-row" style="');
+
+  var win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Stationery — ' + (tabLabels[tab]||tab) + '</title><style>' + css + '</style></head><body>');
+  win.document.write('<div class="report-header">');
+  win.document.write('<div><div class="title">Islam Garments Limited &mdash; Stationery</div><div class="sub">' + (tabLabels[tab]||tab) + '</div></div>');
+  win.document.write('<div class="right">সময়কাল: ' + period + '<br>Print Date: ' + printDate + '</div>');
+  win.document.write('</div>');
+  win.document.write(cleanHTML);
+  win.document.write('</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); }, 600);
 }
 
 // ══ END STATIONERY MANAGER REPORT ══════════════════════════════════════
+
+// ── Stationery Delete Transaction ──────────────────────────────────────
+async function stnDeleteTx(type, id) {
+  var confirmed = await igl_confirm(
+    (type === 'RECEIVE' ? '📥 Receive' : '📤 Issue') + ' এন্ট্রি ডিলিট করবেন?',
+    'এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।', '🗑️'
+  );
+  if (!confirmed) return;
+
+  if (type === 'RECEIVE') {
+    DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
+  } else {
+    DB.issues = DB.issues.filter(function(r){ return r.id !== id; });
+  }
+
+  triggerAutoSave();
+  renderStationeryDashboard();
+  toast('✅ এন্ট্রি ডিলিট হয়েছে!', 'success');
+}
 
 function renderStationeryDashboard() {
   var q = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
@@ -7219,9 +7216,10 @@ function renderStationeryDashboard() {
     ...DB.issues.filter(function(r){ return stnNames.includes(r.item); }).map(function(r){ return Object.assign({},r,{type:'ISSUE'}); })
   ].sort(function(a,b){ return b.id - a.id; }).slice(0, 10);
   document.getElementById('stn-recent-table').innerHTML = allTx.length === 0
-    ? '<tr><td colspan="4" class="no-data">No stationery transactions found</td></tr>'
+    ? '<tr><td colspan="5" class="no-data">No stationery transactions found</td></tr>'
     : allTx.map(function(tx){
-        return '<tr><td>'+fmtDate(tx.date)+'</td><td><span class="badge '+(tx.type==='RECEIVE'?'badge-receive':'badge-issue')+'">'+tx.type+'</span></td><td>'+tx.item+'</td><td><b>'+tx.qty+'</b></td></tr>';
+        return '<tr><td>'+fmtDate(tx.date)+'</td><td><span class="badge '+(tx.type==='RECEIVE'?'badge-receive':'badge-issue')+'">'+tx.type+'</span></td><td>'+tx.item+'</td><td><b>'+tx.qty+'</b></td>'
+          +'<td><button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
 
   // Search Result Area
@@ -7259,8 +7257,14 @@ function renderStationeryDashboard() {
   }
 
   else if (_stnTab === 'chalan') {
+    var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
+    var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
     var chalanRecs = DB.receives.filter(function(r){
-      return stnNames.includes(r.item) && (!q || (r.chalan||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q));
+      if (!stnNames.includes(r.item)) return false;
+      if (q && !(r.chalan||'').toLowerCase().includes(q) && !r.item.toLowerCase().includes(q)) return false;
+      if (dateFrom && r.date < dateFrom) return false;
+      if (dateTo   && r.date > dateTo)   return false;
+      return true;
     });
     if (totalItemsEl) totalItemsEl.textContent = chalanRecs.length + ' records';
     if (chalanRecs.length === 0) {
@@ -7268,16 +7272,23 @@ function renderStationeryDashboard() {
     } else {
       var cTot = chalanRecs.reduce(function(s,r){return s+r.qty;},0);
       html = '<div style="padding:8px 4px;font-size:12px;color:#1a5276;font-weight:600;">Total '+chalanRecs.length+' records | Total Qty: <b>'+cTot+'</b></div>';
-      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th></tr></thead><tbody>';
+      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td></tr>';
+        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
+          +'<td><button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('') + '</tbody></table>';
     }
   }
 
   else if (_stnTab === 'slip') {
+    var dateFrom2 = (document.getElementById('stn-date-from')||{value:''}).value;
+    var dateTo2   = (document.getElementById('stn-date-to')||{value:''}).value;
     var slipIss = DB.issues.filter(function(r){
-      return stnNames.includes(r.item) && (!q || (r.slip||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q));
+      if (!stnNames.includes(r.item)) return false;
+      if (q && !(r.slip||'').toLowerCase().includes(q) && !r.item.toLowerCase().includes(q)) return false;
+      if (dateFrom2 && r.date < dateFrom2) return false;
+      if (dateTo2   && r.date > dateTo2)   return false;
+      return true;
     });
     if (totalItemsEl) totalItemsEl.textContent = slipIss.length + ' records';
     if (slipIss.length === 0) {
@@ -7285,9 +7296,10 @@ function renderStationeryDashboard() {
     } else {
       var sTot = slipIss.reduce(function(s,r){return s+r.qty;},0);
       html = '<div style="padding:8px 4px;font-size:12px;color:#922b21;font-weight:600;">Total '+slipIss.length+' records | Total Qty: <b>'+sTot+'</b></div>';
-      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th></tr></thead><tbody>';
+      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td></tr>';
+        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('') + '</tbody></table>';
     }
   }
@@ -7315,9 +7327,10 @@ function renderStationeryDashboard() {
                 '<div style="font-size:22px;font-weight:700;color:#0e6655;">'+deptMap[d].total+'</div>' +
                 '<div style="font-size:11px;color:#888;">'+deptMap[d].records.length+' records</div></div>';
       });
-      html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th></tr></thead><tbody>';
+      html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += deptIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td></tr>';
+        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('') + '</tbody></table>';
     }
   }
@@ -13495,20 +13508,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var grid = document.getElementById('needleUseReportGrid');
 
-    // Apply per-page settings
+    // Apply per-page settings to live DOM first
     [1, 2].forEach(function(pg) {
       var pgIdx = pg - 1;
       var pageDiv = grid.querySelector('.nur-page' + pg);
       if (!pageDiv) return;
-
-      // Row heights
       var rows = pageDiv.querySelectorAll('tbody tr');
       rows.forEach(function(tr, i) {
         var h = (_nurRowHeights[pgIdx] && _nurRowHeights[pgIdx][i]) ? _nurRowHeights[pgIdx][i] : 29;
         tr.style.height = h + 'px';
       });
-
-      // Column widths
       var colMap = _nurColWidths[pgIdx] || {};
       if (Object.keys(colMap).length > 0) {
         pageDiv.querySelectorAll('table').forEach(function(table) {
@@ -13523,16 +13532,45 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           });
         });
       }
-
-      // Font size
       pageDiv.querySelectorAll('table').forEach(function(t){ t.style.fontSize = fontSize + 'pt'; });
     });
 
-    var styleEl = document.getElementById('nur-page-override');
-    if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'nur-page-override'; document.head.appendChild(styleEl); }
-    styleEl.innerHTML = '@media print { @page { size: ' + pageSize + '; margin: 6mm; } }';
-    window.print();
-    setTimeout(function() { if (styleEl) styleEl.innerHTML = ''; }, 1500);
+    // Grab HTML of page1 and page2 only
+    var page1El = grid.querySelector('.nur-page1');
+    var page2El = grid.querySelector('.nur-page2');
+    var page1HTML = page1El ? page1El.innerHTML : '';
+    var page2HTML = page2El ? page2El.innerHTML : '';
+
+    // Remove no-print elements from cloned HTML
+    var tmpDiv = document.createElement('div');
+
+    tmpDiv.innerHTML = page1HTML;
+    tmpDiv.querySelectorAll('.no-print').forEach(function(el){ el.remove(); });
+    page1HTML = tmpDiv.innerHTML;
+
+    tmpDiv.innerHTML = page2HTML;
+    tmpDiv.querySelectorAll('.no-print').forEach(function(el){ el.remove(); });
+    page2HTML = tmpDiv.innerHTML;
+
+    var css = [
+      '@page { size: ' + pageSize + '; margin: 6mm; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; }',
+      '.nur-p1 { width: 100%; page-break-after: always; }',
+      '.nur-p2 { width: 100%; page-break-before: auto; }',
+      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt; table-layout: fixed; }',
+      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt; }',
+      'thead { display: table-header-group; }',
+      'tr { page-break-inside: avoid; }',
+    ].join('\n');
+
+    var win = window.open('', '_blank', 'width=1100,height=800');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shift Needle Use Report</title><style>' + css + '</style></head><body>');
+    win.document.write('<div class="nur-p1">' + page1HTML + '</div>');
+    win.document.write('<div class="nur-p2">' + page2HTML + '</div>');
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(function(){ win.print(); }, 700);
   }
 
   function exportNeedleUseExcel(){
