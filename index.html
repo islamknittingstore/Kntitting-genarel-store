@@ -6937,11 +6937,11 @@ function renderStnManagerReport() {
         '<td style="text-align:center;"><span class="badge '+sc+'">'+sl+'</span></td></tr>';
     });
     rows.push('<tr style="background:#1c2833;color:#fff;font-weight:700;">'+
-      '<td colspan="3" style="padding:6px 10px;text-align:right;">সর্বমোট</td>'+
-      '<td style="text-align:center;color:#d7bde2;">'+tOP+'</td>'+
-      '<td style="text-align:center;color:#a9dfbf;">'+tRC+'</td>'+
-      '<td style="text-align:center;color:#f1948a;">'+tIS+'</td>'+
-      '<td style="text-align:center;color:#f9e79f;font-size:13px;">'+tBAL+'</td>'+
+      '<td colspan="3" style="padding:6px 10px;text-align:right;color:#fff;">সর্বমোট</td>'+
+      '<td style="text-align:center;color:#fff;font-weight:700;">'+tOP+'</td>'+
+      '<td style="text-align:center;color:#fff;font-weight:700;">'+tRC+'</td>'+
+      '<td style="text-align:center;color:#fff;font-weight:700;">'+tIS+'</td>'+
+      '<td style="text-align:center;color:#fff;font-weight:900;font-size:14px;">'+tBAL+'</td>'+
       '<td></td></tr>');
     sb.innerHTML = rows.join('');
     return;
@@ -7115,31 +7115,43 @@ function stnMgrPrintTab(tab) {
 
   var bodyHTML = '';
   if (tab === 'stock') {
-    bodyHTML = '<table><thead><tr><th>#</th><th>Item Name</th><th>Category</th><th>B/F</th><th>Receive</th><th>Issue</th><th>Balance</th><th>Status</th></tr></thead><tbody>' + panelEl.innerHTML + '</tbody></table>';
+    bodyHTML = '<table><thead><tr>'
+      + '<th style="width:18px;text-align:center;">#</th>'
+      + '<th style="width:120px;">Item Name</th>'
+      + '<th style="width:70px;">Category</th>'
+      + '<th style="width:28px;text-align:center;">B/F</th>'
+      + '<th style="width:32px;text-align:center;">Receive</th>'
+      + '<th style="width:28px;text-align:center;">Issue</th>'
+      + '<th style="width:32px;text-align:center;">Balance</th>'
+      + '<th style="width:28px;text-align:center;">Status</th>'
+      + '</tr></thead><tbody>' + panelEl.innerHTML + '</tbody></table>';
   } else {
     bodyHTML = panelEl.innerHTML;
   }
 
   var css = [
-    '@page { size: A4 portrait; margin: 7mm 6mm 7mm 6mm; }',
-    'body { font-family: Arial, sans-serif; font-size: 6.5pt; color: #000; margin: 0; padding: 0; line-height: 1.1; }',
-    '.report-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
-    '.report-header .title { font-size: 10pt; font-weight: 700; }',
-    '.report-header .sub { font-size: 7pt; color: #444; margin-top: 1px; }',
-    '.report-header .right { text-align: right; font-size: 6.5pt; color: #444; }',
+    '@page { size: A4 portrait; margin: 8mm 7mm 8mm 7mm; }',
+    'body { font-family: Arial, sans-serif; font-size: 7pt; color: #000; margin: 0; padding: 0; line-height: 1.2; }',
+    /* Header — flex এ nowrap দিলে কাটবে না */
+    '.report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; gap: 8px; }',
+    '.report-header .title { font-size: 9pt; font-weight: 700; white-space: nowrap; }',
+    '.report-header .sub { font-size: 7pt; color: #444; margin-top: 1px; white-space: nowrap; }',
+    '.report-header .right { text-align: right; font-size: 6.5pt; color: #444; white-space: nowrap; flex-shrink: 0; }',
     '.group-block { margin-bottom: 5px; page-break-inside: avoid; break-inside: avoid; }',
     '.group-header { background: #333 !important; color: #fff !important; padding: 2px 5px; font-size: 7pt; font-weight: 700; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'table { width: 100%; border-collapse: collapse; font-size: 6.5pt; }',
-    'thead tr { background: #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'th { padding: 1px 4px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 6.5pt; line-height: 1.2; }',
-    'td { padding: 1px 4px; border: 0.5px solid #ccc; font-size: 6.5pt; line-height: 1.2; }',
-    'tr.total-row td { font-weight: 700; background: #eee !important; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'tr.total-row.dark td { font-weight: 700; background: #333 !important; color: #fff !important; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    '.grand-total { text-align: right; font-weight: 700; font-size: 7.5pt; margin-top: 4px; border-top: 1px solid #000; padding-top: 2px; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: fixed; }',
+    'thead tr { background: #ccc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'th { padding: 2px 4px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 7pt; line-height: 1.2; overflow: hidden; }',
+    'td { padding: 2px 4px; border: 0.5px solid #ccc; font-size: 7pt; line-height: 1.2; overflow: hidden; }',
+    /* total rows */
+    'tr.total-row td { font-weight: 700; background: #ddd !important; color: #000 !important; padding: 2px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'tr.total-row.dark td { font-weight: 700; background: #222 !important; color: #fff !important; padding: 3px 4px; font-size: 7.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '.grand-total { text-align: right; font-weight: 700; font-size: 7.5pt; margin-top: 4px; border-top: 1px solid #000; padding-top: 2px; color: #000; }',
     'button { display: none !important; }',
-    '.slip-badge { border: 0.5px solid #888; padding: 0 3px; border-radius: 2px; font-size: 6pt; }',
+    '.slip-badge { border: 0.5px solid #888; padding: 0 3px; border-radius: 2px; font-size: 6.5pt; }',
     'b { font-weight: 700; }',
-    'span.tag { font-size: 6pt; }',
+    'span.tag { font-size: 6.5pt; }',
+    'span.badge { border: 0.5px solid #888; padding: 0 3px; font-size: 6pt; }',
   ].join('\n');
 
   // Convert grouped divs HTML → clean print HTML
