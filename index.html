@@ -1637,7 +1637,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
-      <li><a href="#" onclick="showPage('stn_manager_report', this); return false;"><span class="icon">📋</span> ম্যানেজার রিপোর্ট</a></li>
+      <li class="admin-only-action"><a href="#" onclick="showPage('stn_manager_report', this); return false;"><span class="icon">📋</span> ম্যানেজার রিপোর্ট</a></li>
     </ul>
   </div>
 
@@ -2268,10 +2268,10 @@ window.iglSaveUsers = function(){
     </div>
 
     <!-- Summary Stats -->
-    <div class="stats-grid" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
+    <div class="stats-grid admin-only-action" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
 
     <!-- Low Stock Alert + Item-wise Table -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="admin-only-action" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
 
       <!-- Low Stock Alert -->
       <div class="card">
@@ -2306,7 +2306,7 @@ window.iglSaveUsers = function(){
     </div>
 
     <!-- Item-wise Stock Table + Transaction Search -->
-    <div class="card">
+    <div class="card admin-only-action">
       <div class="card-header" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         🔍 Stationery Search & Reports
         <span id="stn-total-items" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
@@ -7157,6 +7157,26 @@ function stnMgrPrintTab(tab) {
 
 // ── Stationery Delete Transaction ──────────────────────────────────────
 async function stnDeleteTx(type, id) {
+  if (!IGL_CURRENT_USER) { toast('❌ লগইন করুন।', 'error'); return; }
+
+  var isAdmin = IGL_CURRENT_USER.role === 'admin';
+
+  // এন্ট্রিটা খুঁজে বের করো
+  var entry = null;
+  if (type === 'RECEIVE') {
+    entry = DB.receives.find(function(r){ return r.id === id; });
+  } else {
+    entry = DB.issues.find(function(r){ return r.id === id; });
+  }
+
+  if (!entry) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+
+  // User হলে শুধু নিজের entry delete করতে পারবে
+  if (!isAdmin && (entry.userId || '') !== IGL_CURRENT_USER.role) {
+    toast('❌ আপনি শুধু নিজের এন্ট্রি ডিলিট করতে পারবেন।', 'error');
+    return;
+  }
+
   var confirmed = await igl_confirm(
     (type === 'RECEIVE' ? '📥 Receive' : '📤 Issue') + ' এন্ট্রি ডিলিট করবেন?',
     'এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।', '🗑️'
@@ -7218,8 +7238,14 @@ function renderStationeryDashboard() {
   document.getElementById('stn-recent-table').innerHTML = allTx.length === 0
     ? '<tr><td colspan="5" class="no-data">No stationery transactions found</td></tr>'
     : allTx.map(function(tx){
+        var isAdmin = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
+        var isOwner = IGL_CURRENT_USER && (tx.userId || '') === IGL_CURRENT_USER.role;
+        var canDel  = isAdmin || isOwner;
+        var delBtn  = canDel
+          ? '<button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>'
+          : '—';
         return '<tr><td>'+fmtDate(tx.date)+'</td><td><span class="badge '+(tx.type==='RECEIVE'?'badge-receive':'badge-issue')+'">'+tx.type+'</span></td><td>'+tx.item+'</td><td><b>'+tx.qty+'</b></td>'
-          +'<td><button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td>'+delBtn+'</td></tr>';
       }).join('');
 
   // Search Result Area
@@ -7274,8 +7300,11 @@ function renderStationeryDashboard() {
       html = '<div style="padding:8px 4px;font-size:12px;color:#1a5276;font-weight:600;">Total '+chalanRecs.length+' records | Total Qty: <b>'+cTot+'</b></div>';
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+        var isAdmin2 = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
+        var isOwner2 = IGL_CURRENT_USER && (r.userId||'') === IGL_CURRENT_USER.role;
+        var delBtn2  = (isAdmin2||isOwner2) ? '<button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>' : '—';
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
-          +'<td><button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td>'+delBtn2+'</td></tr>';
       }).join('') + '</tbody></table>';
     }
   }
@@ -7298,8 +7327,11 @@ function renderStationeryDashboard() {
       html = '<div style="padding:8px 4px;font-size:12px;color:#922b21;font-weight:600;">Total '+slipIss.length+' records | Total Qty: <b>'+sTot+'</b></div>';
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+        var isAdmin3 = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
+        var isOwner3 = IGL_CURRENT_USER && (r.userId||'') === IGL_CURRENT_USER.role;
+        var delBtn3  = (isAdmin3||isOwner3) ? '<button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>' : '—';
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
-          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td>'+delBtn3+'</td></tr>';
       }).join('') + '</tbody></table>';
     }
   }
@@ -10429,23 +10461,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         _rnaTabData[i] = buildRNATable(i, nm, rcv, issues, fromDate, toDate);
       }
     }
-    var printDiv = document.getElementById('rna-print-all');
-    printDiv.innerHTML = _rnaTabData.map(function(html){
-      return '<div class="rna-print-page">'+html+'</div>';
+
+    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+    var bodyHTML = _rnaTabData.map(function(html, i){
+      return '<div class="rna-print-page">'
+        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[i] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
+        + html
+        + '</div>';
     }).join('');
 
-    var styleEl = document.createElement('style');
-    styleEl.id = 'rna-page-override';
-    styleEl.innerHTML = '@media print { @page { size: A4 landscape; margin: 6mm; } }';
-    document.head.appendChild(styleEl);
-
-    document.body.setAttribute('data-rna-print', '1');
-    window.print();
-
-    setTimeout(function(){
-      document.body.removeAttribute('data-rna-print');
-      var s=document.getElementById('rna-page-override'); if(s) s.parentNode.removeChild(s);
-    }, 1000);
+    var css = _rnaPrintCSS('A4 landscape', '6mm');
+    var win = window.open('', '_blank', 'width=1200,height=800');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account</title><style>' + css + '</style></head><body>' + bodyHTML + '</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(function(){ win.print(); }, 700);
   }
 
   // Single tab print — auto-fit one page
@@ -10463,39 +10493,81 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
     }
 
-    var printDiv = document.getElementById('rna-print-all');
-    printDiv.innerHTML =
-      '<div class="rna-print-page rna-single-page">' +
-        '<div class="rna-single-header">' +
-          '<span style="font-weight:700;font-size:11pt;">ISLAM GARMENTS LTD.</span>' +
-          '<span style="font-size:9pt;margin-left:14px;">Retail Needle Account — ' + tabNames[tabIdx] + '</span>' +
-          '<span style="font-size:8pt;color:#555;margin-left:14px;">' + fromDate + ' to ' + toDate + '</span>' +
-        '</div>' +
-        _rnaTabData[tabIdx] +
-      '</div>';
+    // Row count দেখে base font size নির্ধারণ
+    var tmpDiv = document.createElement('div');
+    tmpDiv.innerHTML = _rnaTabData[tabIdx];
+    var rowCount = tmpDiv.querySelectorAll('tbody tr').length;
 
-    // Auto-fit: single page landscape, no margin waste
-    var styleEl = document.createElement('style');
-    styleEl.id = 'rna-page-override';
-    styleEl.innerHTML =
-      '@media print {' +
-      '  @page { size: A4 landscape; margin: 5mm; }' +
-      '  #rna-print-all .rna-single-page { page-break-after: avoid !important; break-after: avoid !important; }' +
-      '  #rna-print-all table { font-size: 6.5pt !important; width: 100% !important; table-layout: auto !important; }' +
-      '  #rna-print-all th, #rna-print-all td { padding: 1px 2px !important; font-size: 6pt !important; }' +
-      '  #rna-print-all .rna-machine-th { font-size: 4.5pt !important; }' +
-      '  #rna-print-all td span[style*="min-width"] { font-size: 4.5pt !important; min-width:18px !important; max-width:24px !important; }' +
-      '}';
-    document.head.appendChild(styleEl);
+    var autoFont;
+    if      (rowCount <= 15) autoFont = 8;
+    else if (rowCount <= 20) autoFont = 7;
+    else if (rowCount <= 28) autoFont = 6;
+    else if (rowCount <= 36) autoFont = 5.5;
+    else if (rowCount <= 45) autoFont = 5;
+    else                     autoFont = 4.5;
 
-    document.body.setAttribute('data-rna-print', '1');
-    window.print();
+    var bodyHTML =
+      '<div class="rna-print-page rna-single-page" id="rna-content-wrap">'
+      + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
+      + _rnaTabData[tabIdx]
+      + '</div>';
 
-    setTimeout(function(){
-      document.body.removeAttribute('data-rna-print');
-      var s=document.getElementById('rna-page-override'); if(s) s.parentNode.removeChild(s);
-      printDiv.innerHTML = '';
-    }, 1000);
+    var css = [
+      '@page { size: A4 landscape; margin: 0; }',
+      'html, body { margin: 0; padding: 0; width: 297mm; height: 210mm; overflow: hidden; }',
+      'body { font-family: Arial, sans-serif; font-size: ' + autoFont + 'pt; color: #000; }',
+      '.rna-header { font-size: ' + (autoFont + 0.5) + 'pt; font-weight: 700; margin-bottom: 3px; border-bottom: 1.5px solid #000; padding: 3mm 4mm 2mm 4mm; }',
+      '.rna-single-page { padding: 3mm 4mm; box-sizing: border-box; display: inline-block; }',
+      'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; }',
+      'thead { display: table-header-group; }',
+      'th { border: 0.5px solid #555; padding: 1px 2px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; }',
+      'td { border: 0.5px solid #aaa; padding: 1px 2px; font-size: ' + autoFont + 'pt; }',
+      'button { display: none !important; }',
+      '#rna-content-wrap { display: inline-block; transform-origin: top left; }',
+    ].join('\n');
+
+    // JS to auto-scale content to fit A4 landscape
+    var fitScript = [
+      '<script>',
+      'window.onload = function(){',
+      '  var mmPx = 96/25.4;',
+      '  var A4W = 297 * mmPx;',
+      '  var A4H = 210 * mmPx;',
+      '  var el = document.getElementById("rna-content-wrap");',
+      '  if(!el) return;',
+      '  var cW = el.offsetWidth;',
+      '  var cH = el.offsetHeight;',
+      '  if(cW <= 0 || cH <= 0) return;',
+      '  var scaleX = A4W / cW;',
+      '  var scaleY = A4H / cH;',
+      '  var scale = Math.min(scaleX, scaleY, 1);',
+      '  el.style.transform = "scale(" + scale + ")";',
+      '  el.style.transformOrigin = "top left";',
+      '  setTimeout(function(){ window.print(); }, 400);',
+      '};',
+      '<\/script>',
+    ].join('\n');
+
+    var win = window.open('', '_blank', 'width=1200,height=800');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+    win.document.close();
+    win.focus();
+  }
+
+  function _rnaPrintCSS(pageSize, margin) {
+    return [
+      '@page { size: ' + pageSize + '; margin: ' + margin + '; }',
+      'body { font-family: Arial, sans-serif; font-size: 7pt; margin: 0; padding: 0; color: #000; }',
+      '.rna-header { font-size: 8pt; font-weight: 700; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 3px; }',
+      '.rna-print-page { page-break-after: always; width: 100%; }',
+      '.rna-print-page:last-child { page-break-after: avoid; }',
+      'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: auto; }',
+      'thead { display: table-header-group; }',
+      'th { border: 1px solid #555; padding: 1px 3px; font-weight: 700; text-align: center; font-size: 7pt; background: #f0f0f0; }',
+      'td { border: 0.5px solid #aaa; padding: 1px 3px; font-size: 7pt; }',
+      'tr { page-break-inside: avoid; }',
+      'button { display: none !important; }',
+    ].join('\n');
   }
 
   function rnaExportExcel(){
@@ -11037,64 +11109,44 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html += '<div style="font-size:8.5pt;">Date: '+_fmtDMY(fromDate)+' to '+_fmtDMY(toDate)+'</div></div>';
 
     // ── Simple table: each row is independent ──
-    html += '<table style="border-collapse:collapse;font-size:10px;width:100%;flex:1;">';
+    html += '<table style="border-collapse:collapse;font-size:10px;width:auto;max-width:100%;">';
     html += '<thead><tr style="background:#1a5276;color:#fff;">';
     html += '<th style="'+S+'padding:3px 3px;text-align:left;width:78px;font-size:7.5pt;">Needle / Sinker No</th>';
     html += '<th style="'+S+'padding:4px;width:42px;text-align:center;">B/F</th>';
     html += '<th style="'+S+'padding:4px;width:34px;text-align:center;">Rcv</th>';
-    html += '<th style="'+S+'padding:4px;text-align:left;">Machine &amp; Issue (A+B+C)</th>';
+    html += '<th style="'+S+'padding:4px;text-align:left;white-space:nowrap;">Machine &amp; Issue (A+B+C)</th>';
     html += '<th style="'+S+'padding:4px;width:36px;text-align:center;background:#0d3b5e;">Issue</th>';
-    html += '<th style="'+S+'border-left:3px solid #e74c3c;border-right:3px solid #e74c3c;border-top:3px solid #e74c3c;padding:4px;width:44px;text-align:center;background:#0a3d22;">B/L</th>';
+    html += '<th style="'+S+'padding:4px;width:44px;text-align:center;background:#0a3d22;">B/L</th>';
     html += '</tr></thead><tbody>';
 
-    // ── Auto-scale machine cell size based on max machines WITH actual issues ──
+    // ── Dynamic cellW: available width ÷ max machine count ──
+    // A4 landscape usable width ≈ 257mm = ~970px at 96dpi
+    // Fixed columns: Needle(78-155px) + B/F(34) + Rcv(34) + Issue(36) + B/L(44) = ~226-303px
+    // Machine column available ≈ 970 - 303 = ~667px
+    var ndlColWCalc = tabIdx===0 ? 78 : tabIdx===2 ? 155 : 95;
+    var fixedColsW  = ndlColWCalc + 34 + 34 + 36 + 44 + 30; // +30 for padding/borders
+    var machineAvailW = 970 - fixedColsW;
+
+    // maxMapped = সর্বোচ্চ কতটা machine একসাথে issue আছে
     var maxMapped = 0;
     rows.forEach(function(row){
       var cnt = allMachines.filter(function(m){
         var ms = row.machineShifts[m];
         if(!ms || !ms.mapped) return false;
-        // শুধু actual issue আছে এমন machines count করো
         return ms.shifts.some(function(v){return v>0;});
       }).length;
       if(cnt > maxMapped) maxMapped = cnt;
     });
-    // S/J & Fleece (tab 0) — G005/G006: dynamic scale, বাকিগুলো fixed 23px (~30 machines)
-    // Rib, Sinker, Jacquard (tab 1,2,3) — fixed 38px (~15-18 machines)
+
     var cellW, lblFs, qtyFs;
-    if (tabIdx === 0) {
-      // S/J & Fleece: check if any needle in this tab is G005 or G006
-      var hasG005G006 = needleNames.some(function(nName) {
-        var nNameL = nName.trim().toLowerCase();
-        var masterList = (typeof NEEDLE_MASTER !== 'undefined' ? NEEDLE_MASTER : nmAll);
-        var entry = masterList.find(function(n) {
-          return (n.code||'').trim().toLowerCase()===nNameL || (n.name||'').trim().toLowerCase()===nNameL;
-        });
-        var code = entry ? (entry.code||'') : '';
-        return code.indexOf('G005') >= 0 || code.indexOf('G006') >= 0;
-      });
-      if (hasG005G006) {
-        // Fluid proportional: ১২ machine = 51px (বড়), বেশি হলে সমানুপাতে ছোট হবে
-        var baseCount = 12;
-        var baseCellW = 51;
-        if (maxMapped <= baseCount) {
-          cellW = baseCellW;
-        } else {
-          cellW = Math.max(16, Math.floor((baseCellW * baseCount) / maxMapped));
-        }
-        lblFs = cellW >= 51 ? '6px' : cellW >= 40 ? '6px' : cellW >= 30 ? '5.5px' : '5px';
-        qtyFs = cellW >= 34 ? '9.5px' : cellW >= 28 ? '9px' : cellW >= 22 ? '8.5px' : '8px';
-      } else {
-        // G005/G006 ছাড়া বাকি S/J needles: 51px (12 machines fixed)
-        cellW = 51;
-        lblFs = '6px';
-        qtyFs = '10px';
-      }
-    } else {
-      // Rib / Sinker / Jacquard: fixed 51px (12 machines)
+    if (maxMapped <= 0) {
       cellW = 51;
-      lblFs = '6px';
-      qtyFs = '10px';
+    } else {
+      // machine count দিয়ে available width ভাগ করো, min 16px max 80px
+      cellW = Math.min(80, Math.max(16, Math.floor(machineAvailW / maxMapped) - 2));
     }
+    lblFs = cellW >= 51 ? '6px' : cellW >= 40 ? '6px' : cellW >= 30 ? '5.5px' : cellW >= 22 ? '5px' : '4.5px';
+    qtyFs = cellW >= 51 ? '10px' : cellW >= 40 ? '9.5px' : cellW >= 30 ? '9px' : cellW >= 22 ? '8px' : '7px';
 
     // ── Data rows ──
     rows.forEach(function(row, ri){
@@ -11106,11 +11158,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       html += '<td style="'+S+'padding:2px;text-align:center;width:34px;font-size:10px;">'+(row.bf||'')+'</td>';
       html += '<td style="'+S+'padding:2px;text-align:center;color:#1a5276;font-weight:600;width:34px;font-size:10px;">'+(row.rcv||'')+'</td>';
 
-      // Machine cells — column aligned (খালি cell রাখো alignment এর জন্য)
+      // Machine cells — সব mapped machine দেখাও (alignment এর জন্য), খালি হলে ছোট span
       var machineCells = '';
       allMachines.forEach(function(m){
         var ms = row.machineShifts[m];
-        if(!ms || !ms.mapped) return; // skip non-mapped machines
+        if(!ms || !ms.mapped) return;
         var s = ms.shifts;
         var parts=[]; s.forEach(function(v){if(v)parts.push(v);});
         var qty = parts.join('+');
@@ -11128,11 +11180,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             +'</span>';
         }
       });
-      html += '<td style="'+S+'padding:2px 4px;">'+machineCells+'</td>';
+      html += '<td style="'+S+'padding:2px 4px;white-space:nowrap;">'+machineCells+'</td>';
 
       html += '<td style="'+S+'padding:2px;text-align:center;font-weight:700;width:36px;font-size:10px;background:#fef5e7;">'+(row.totalIssue||'')+'</td>';
       var bc = row.balance<0?'#e74c3c':'#1e7e34';
-      html += '<td style="'+S+'border-left:3px solid #e74c3c;border-right:3px solid #e74c3c;padding:2px;text-align:center;background:#eafaf1;font-weight:700;width:44px;font-size:10px;color:'+bc+';">'+(row.balance===0?'':row.balance)+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;background:#eafaf1;font-weight:700;width:44px;font-size:10px;color:'+bc+';">'+(row.balance===0?'':row.balance)+'</td>';
       html += '</tr>';
     });
 
@@ -11143,7 +11195,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html += '<td style="'+S+'padding:4px;">'+tRcv+'</td>';
     html += '<td style="'+S+'padding:4px;"></td>';
     html += '<td style="'+S+'padding:4px;background:#e67e22;">'+tIss+'</td>';
-    html += '<td style="'+S+'border-left:3px solid #e74c3c;border-right:3px solid #e74c3c;border-bottom:3px solid #e74c3c;padding:4px;background:#1e7e34;">'+tBal+'</td>';
+    html += '<td style="'+S+'padding:4px;background:#1e7e34;">'+tBal+'</td>';
     html += '</tr>';
     html += '</tbody></table>';
     // Collect unique slip numbers from issues in date range
@@ -14249,7 +14301,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var monthNames = ['January','February','March','April','May','June',
                       'July','August','September','October','November','December'];
 
-    // মাস ও বছরের অপশন তৈরি করো
     var monthOptions = '';
     for (var i = 0; i < 12; i++) {
       var selected = (i === now.getMonth()) ? 'selected' : '';
@@ -14261,20 +14312,23 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       yearOptions += '<option value="'+y+'" '+sel+'>'+y+'</option>';
     }
 
-    // Modal HTML
+    // আজকের তারিখ DD-MM-YYYY ফরম্যাটে
+    var todayDD   = String(now.getDate()).padStart(2,'0');
+    var todayMM   = String(now.getMonth()+1).padStart(2,'0');
+    var todayYYYY = now.getFullYear();
+    var todayStr  = todayDD + '-' + todayMM + '-' + todayYYYY;
+
     var overlay = document.createElement('div');
     overlay.id = 'monthly-backup-modal';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `
-      <div style="background:#fff;border-radius:14px;padding:0;width:400px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden;">
-        <!-- Header -->
+      <div style="background:#fff;border-radius:14px;padding:0;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden;">
         <div style="background:linear-gradient(135deg,#1a5276,#2980b9);padding:18px 22px;color:#fff;">
           <div style="font-size:18px;font-weight:700;">📦 Monthly JSON Backup</div>
-          <div style="font-size:12px;opacity:0.8;margin-top:4px;">যে মাসের backup নিতে চান তা সিলেক্ট করুন</div>
+          <div style="font-size:12px;opacity:0.8;margin-top:4px;">মাস ও তারিখ সহ backup ডাউনলোড করুন</div>
         </div>
-        <!-- Body -->
         <div style="padding:22px;">
-          <div style="display:flex;gap:10px;margin-bottom:18px;">
+          <div style="display:flex;gap:10px;margin-bottom:14px;">
             <div style="flex:1;">
               <label style="font-size:12px;color:#555;font-weight:600;display:block;margin-bottom:5px;">মাস</label>
               <select id="bkp-month" style="width:100%;padding:8px 10px;border:1.5px solid #bdc3c7;border-radius:7px;font-size:14px;">
@@ -14289,8 +14343,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             </div>
           </div>
 
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:#555;font-weight:600;display:block;margin-bottom:5px;">📅 ডাউনলোডের তারিখ (ফাইলনামে যাবে)</label>
+            <input type="date" id="bkp-date" value="${todayYYYY+'-'+todayMM+'-'+todayDD}" style="width:100%;padding:8px 10px;border:1.5px solid #bdc3c7;border-radius:7px;font-size:14px;box-sizing:border-box;" oninput="bkpUpdateFilename()">
+          </div>
+
           <div id="bkp-info" style="background:#eaf4fb;border-left:4px solid #2980b9;border-radius:5px;padding:10px 14px;font-size:12px;color:#1a5276;margin-bottom:18px;">
-            📁 ফাইলের নাম: <b id="bkp-filename">IGL_Backup_January_2026.json</b>
+            📁 ফাইলের নাম: <b id="bkp-filename">IGL_Backup_January_2026_${todayStr}.json</b>
           </div>
 
           <div style="display:flex;gap:10px;">
@@ -14306,27 +14365,38 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     document.body.appendChild(overlay);
 
-    // মাস/বছর পরিবর্তনে filename আপডেট
-    function updateFilename() {
-      var m = parseInt(document.getElementById('bkp-month').value);
-      var y = document.getElementById('bkp-year').value;
-      var label = monthNames[m] + '_' + y;
-      document.getElementById('bkp-filename').textContent = 'IGL_Backup_' + label + '.json';
-    }
-    document.getElementById('bkp-month').addEventListener('change', updateFilename);
-    document.getElementById('bkp-year').addEventListener('change', updateFilename);
-    updateFilename();
+    // filename আপডেট function
+    window.bkpUpdateFilename = function() {
+      var mn = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      var m  = parseInt(document.getElementById('bkp-month').value);
+      var y  = document.getElementById('bkp-year').value;
+      var d  = document.getElementById('bkp-date').value; // YYYY-MM-DD
+      var datePart = '';
+      if (d) {
+        var dp = d.split('-');
+        datePart = '_' + dp[2] + '-' + dp[1] + '-' + dp[0]; // DD-MM-YYYY
+      }
+      document.getElementById('bkp-filename').textContent = 'IGL_Backup_' + mn[m] + '_' + y + datePart + '.json';
+    };
+    document.getElementById('bkp-month').addEventListener('change', window.bkpUpdateFilename);
+    document.getElementById('bkp-year').addEventListener('change', window.bkpUpdateFilename);
+    window.bkpUpdateFilename();
 
-    // Backdrop click এ বন্ধ
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
   }
 
   function doMonthlyBackupFromModal() {
     var monthNames = ['January','February','March','April','May','June',
                       'July','August','September','October','November','December'];
-    var m = parseInt(document.getElementById('bkp-month').value);
-    var y = document.getElementById('bkp-year').value;
-    var label = monthNames[m] + '_' + y;
+    var m  = parseInt(document.getElementById('bkp-month').value);
+    var y  = document.getElementById('bkp-year').value;
+    var d  = document.getElementById('bkp-date').value; // YYYY-MM-DD
+    var datePart = '';
+    if (d) {
+      var dp = d.split('-');
+      datePart = '_' + dp[2] + '-' + dp[1] + '-' + dp[0]; // DD-MM-YYYY
+    }
+    var label = monthNames[m] + '_' + y + datePart;
     document.getElementById('monthly-backup-modal').remove();
     doMonthlyBackupDownload(label);
   }
