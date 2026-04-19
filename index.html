@@ -5814,9 +5814,14 @@ function seedData() {
 //  HELPERS
 // 
 function getStock(itemName) {
+  var bf = 0;
+  if (typeof DB !== 'undefined' && DB.stnItems) {
+    var it = DB.stnItems.find(function(x){ return x.name === itemName; });
+    if (it) bf = Number(it.bf) || 0;
+  }
   const rec = DB.receives.filter(r => r.item === itemName).reduce((s,r) => s + Number(r.qty), 0);
   const iss = DB.issues.filter(i => i.item === itemName).reduce((s,i) => s + Number(i.qty), 0);
-  return rec - iss;
+  return bf + rec - iss;
 }
 
 function stockBadge(stock) {
@@ -6911,7 +6916,8 @@ function renderStnManagerReport() {
     var sb = document.getElementById('smr-stock-tbody');
     if (!sb) return;
     if (!itemsFiltered.length) { sb.innerHTML = '<tr><td colspan="8" class="no-data">কোনো Item পাওয়া যায়নি।</td></tr>'; return; }
-    sb.innerHTML = itemsFiltered.map(function(it,i){
+    var tOP=0, tRC=0, tIS=0, tBAL=0;
+    var rows = itemsFiltered.map(function(it,i){
       var bf=Number(it.bf)||0;
       var rb=rcvBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var ib=issBefore.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
@@ -6919,6 +6925,7 @@ function renderStnManagerReport() {
       var rc=rcvFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var is=issFiltered.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var bal=op+rc-is;
+      tOP+=op; tRC+=rc; tIS+=is; tBAL+=bal;
       var sc=bal<=0?'badge-out':bal<=5?'badge-low':'badge-ok';
       var sl=bal<=0?'OUT':bal<=5?'LOW':'OK';
       return '<tr><td style="text-align:center;">'+(i+1)+'</td><td><b>'+it.name+'</b></td>'+
@@ -6928,7 +6935,15 @@ function renderStnManagerReport() {
         '<td style="text-align:center;color:#c0392b;font-weight:700;">'+is+'</td>'+
         '<td style="text-align:center;font-weight:700;">'+bal+'</td>'+
         '<td style="text-align:center;"><span class="badge '+sc+'">'+sl+'</span></td></tr>';
-    }).join('');
+    });
+    rows.push('<tr style="background:#1c2833;color:#fff;font-weight:700;">'+
+      '<td colspan="3" style="padding:6px 10px;text-align:right;">সর্বমোট</td>'+
+      '<td style="text-align:center;color:#d7bde2;">'+tOP+'</td>'+
+      '<td style="text-align:center;color:#a9dfbf;">'+tRC+'</td>'+
+      '<td style="text-align:center;color:#f1948a;">'+tIS+'</td>'+
+      '<td style="text-align:center;color:#f9e79f;font-size:13px;">'+tBAL+'</td>'+
+      '<td></td></tr>');
+    sb.innerHTML = rows.join('');
     return;
   }
 
@@ -7119,6 +7134,7 @@ function stnMgrPrintTab(tab) {
     'th { padding: 1px 4px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 6.5pt; line-height: 1.2; }',
     'td { padding: 1px 4px; border: 0.5px solid #ccc; font-size: 6.5pt; line-height: 1.2; }',
     'tr.total-row td { font-weight: 700; background: #eee !important; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'tr.total-row.dark td { font-weight: 700; background: #333 !important; color: #fff !important; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
     '.grand-total { text-align: right; font-weight: 700; font-size: 7.5pt; margin-top: 4px; border-top: 1px solid #000; padding-top: 2px; }',
     'button { display: none !important; }',
     '.slip-badge { border: 0.5px solid #888; padding: 0 3px; border-radius: 2px; font-size: 6pt; }',
@@ -7129,16 +7145,18 @@ function stnMgrPrintTab(tab) {
   // Convert grouped divs HTML → clean print HTML
   // Replace inline styles on group containers for print
   var cleanHTML = bodyHTML
-    .replace(/style="margin-bottom:\s*22px;?"/g, 'class="group-block"')
-    .replace(/style="margin-bottom:\s*20px;?"/g, 'class="group-block"')
+    .replace(/style="[^"]*margin-bottom:\s*22px[^"]*"/g, 'class="group-block"')
+    .replace(/style="[^"]*margin-bottom:\s*20px[^"]*"/g, 'class="group-block"')
     .replace(/display:flex;justify-content:space-between;align-items:center;/g, 'display:flex;justify-content:space-between;')
-    .replace(/background:#6d4c41;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#444;"')
-    .replace(/background:#1a5276;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a5276;"')
-    .replace(/background:#1a7a4a;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a7a4a;"')
-    .replace(/background:#1c2833;color:#fff;padding:10px 16px;border-radius:6px;text-align:right;font-weight:700;font-size:14px;/g, 'class="grand-total" style="')
+    .replace(/background:#6d4c41[^"]*border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#444;"')
+    .replace(/background:#1a5276[^"]*border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a5276;"')
+    .replace(/background:#1a7a4a[^"]*border-radius:6px 6px 0 0;/g, 'class="group-header" style="background:#1a7a4a;"')
+    .replace(/background:#1c2833;color:#fff;[^"]*font-weight:700;font-size:14px;/g, 'class="grand-total" style="')
+    .replace(/background:#1c2833;color:#fff;font-weight:700;[^"]*/g, 'class="total-row dark" style="')
     .replace(/background:#eaf4fb;font-weight:700;/g, 'class="total-row" style="')
     .replace(/background:#f5eee9;font-weight:700;/g, 'class="total-row" style="')
-    .replace(/background:#e8f8f0;font-weight:700;/g, 'class="total-row" style="');
+    .replace(/background:#e8f8f0;font-weight:700;/g, 'class="total-row" style="')
+    .replace(/background:#1a5276;color:#fff;font-weight:700;text-align:center;/g, 'class="total-row dark" style="');
 
   var win = window.open('', '_blank', 'width=900,height=700');
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Stationery — ' + (tabLabels[tab]||tab) + '</title><style>' + css + '</style></head><body>');
