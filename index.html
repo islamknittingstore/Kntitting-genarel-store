@@ -1637,7 +1637,6 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
-      <li class="admin-only-action"><a href="#" onclick="showPage('stn_manager_report', this); return false;"><span class="icon">📋</span> ম্যানেজার রিপোর্ট</a></li>
     </ul>
   </div>
 
@@ -2268,10 +2267,10 @@ window.iglSaveUsers = function(){
     </div>
 
     <!-- Summary Stats -->
-    <div class="stats-grid admin-only-action" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
+    <div class="stats-grid" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
 
     <!-- Low Stock Alert + Item-wise Table -->
-    <div class="admin-only-action" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
 
       <!-- Low Stock Alert -->
       <div class="card">
@@ -2306,7 +2305,7 @@ window.iglSaveUsers = function(){
     </div>
 
     <!-- Item-wise Stock Table + Transaction Search -->
-    <div class="card admin-only-action">
+    <div class="card">
       <div class="card-header" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         🔍 Stationery Search & Reports
         <span id="stn-total-items" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
@@ -2347,116 +2346,6 @@ window.iglSaveUsers = function(){
     </div>
   </div>
 
-  <!-- ══ STATIONERY MANAGER REPORT ══ -->
-  <div class="page" id="page-stn_manager_report">
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-      <div>
-        <h2>📋 Stationery — ম্যানেজার রিপোর্ট</h2>
-        <p>Department-wise / Item-wise / Receive — তারিখ ভিত্তিক রিপোর্ট</p>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="stnMgrPrintTab('stock')"   style="background:#1a5276;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Stock</button>
-        <button onclick="stnMgrPrintTab('receive')" style="background:#117a65;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Receive</button>
-        <button onclick="stnMgrPrintTab('dept')"    style="background:#6d4c41;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Dept-wise Issue</button>
-        <button onclick="stnMgrPrintTab('item')"    style="background:#1a7a4a;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Item-wise Issue</button>
-      </div>
-    </div>
-
-    <!-- Filter Bar -->
-    <div class="card no-print" style="margin-bottom:18px;">
-      <div class="card-body" style="padding:14px 18px;">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">তারিখ থেকে</label>
-            <input type="date" id="smr-from" class="form-control" style="width:150px;" onchange="renderStnManagerReport()">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">তারিখ পর্যন্ত</label>
-            <input type="date" id="smr-to" class="form-control" style="width:150px;" onchange="renderStnManagerReport()">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Category</label>
-            <select id="smr-cat" class="form-control" style="width:180px;" onchange="renderStnManagerReport()">
-              <option value="">সব Category</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">Department</label>
-            <select id="smr-dept" class="form-control" style="width:160px;" onchange="renderStnManagerReport()">
-              <option value="">সব Department</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;align-items:flex-end;">
-            <button onclick="stnMgrSetThisMonth()" class="btn btn-sm" style="background:#eaf4fb;color:#1a5276;border:1px solid #2980b9;border-radius:16px;padding:6px 12px;">এই মাস</button>
-            <button onclick="stnMgrClearFilter()" class="btn btn-sm" style="background:#f5f5f5;color:#555;border:1px solid #ccc;border-radius:16px;padding:6px 12px;">✕ ক্লিয়ার</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Summary Stats -->
-    <div class="stats-grid" id="smr-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px;"></div>
-
-    <!-- Report Tabs -->
-    <div class="card" style="margin-bottom:18px;">
-      <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;overflow-x:auto;" id="smr-tab-bar">
-        <button class="smr-tab-btn" data-tab="stock"   onclick="stnMgrSwitchTab('stock')"   style="padding:10px 18px;border:none;border-bottom:3px solid #1a5276;background:#eaf4fb;color:#1a5276;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">📦 Stock</button>
-        <button class="smr-tab-btn" data-tab="receive" onclick="stnMgrSwitchTab('receive')" style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">📥 Receive</button>
-        <button class="smr-tab-btn" data-tab="dept"    onclick="stnMgrSwitchTab('dept')"    style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">🏢 Department-wise Issue</button>
-        <button class="smr-tab-btn" data-tab="item"    onclick="stnMgrSwitchTab('item')"    style="padding:10px 18px;border:none;border-bottom:3px solid transparent;background:transparent;color:#555;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">📋 Item-wise Issue</button>
-      </div>
-
-      <!-- Tab: Stock Summary -->
-      <div id="smr-panel-stock" class="smr-panel">
-        <div class="card-body" style="padding:0;">
-          <div class="table-wrap">
-            <table id="smr-stock-table">
-              <thead>
-                <tr style="background:#1a5276;color:#fff;">
-                  <th>#</th><th>Item Name</th><th>Category</th>
-                  <th style="text-align:center;">B/F</th>
-                  <th style="text-align:center;">Receive</th>
-                  <th style="text-align:center;">Issue</th>
-                  <th style="text-align:center;">Balance</th>
-                  <th style="text-align:center;">Status</th>
-                </tr>
-              </thead>
-              <tbody id="smr-stock-tbody"><tr><td colspan="8" class="no-data">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Receive Log (Challan-wise grouped) -->
-      <div id="smr-panel-receive" class="smr-panel" style="display:none;">
-        <div id="smr-rcv-body" style="padding:12px 16px;"></div>
-      </div>
-
-      <!-- Tab: Department-wise Issue (grouped like screenshot) -->
-      <div id="smr-panel-dept" class="smr-panel" style="display:none;">
-        <div id="smr-dept-body" style="padding:12px 16px;"></div>
-      </div>
-
-      <!-- Tab: Item-wise Issue -->
-      <div id="smr-panel-item" class="smr-panel" style="display:none;">
-        <div id="smr-item-body" style="padding:12px 16px;"></div>
-      </div>
-    </div>
-
-    <!-- Print Header (hidden on screen) -->
-    <div id="smr-print-header" style="display:none;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a5276;padding-bottom:6px;">
-        <div>
-          <div style="font-size:13pt;font-weight:700;color:#1a5276;">🗂️ Stationery — ম্যানেজার রিপোর্ট</div>
-          <div id="smr-print-label" style="font-size:9pt;color:#555;margin-top:2px;"></div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:8pt;color:#888;" id="smr-print-period"></div>
-          <div style="font-size:8pt;color:#888;">Islam Garments Limited</div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!--  GOOGLE SHEETS SYNC SETUP  -->
   <div class="page" id="page-sheets_setup">
@@ -3961,11 +3850,31 @@ async function _loadFromFile() {
     var stnReceives    = stn.receives         || data.stnReceives    || [];
 
     // ── সরাসরি localStorage এ লিখি ──
-    try { localStorage.setItem('igl_receives', JSON.stringify(receives)); } catch(e) {}
-    try { localStorage.setItem('igl_issues',   JSON.stringify(issues));   } catch(e) {}
     try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(e) {}
     try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(e) {}
     try { localStorage.setItem('igl_stn_items',JSON.stringify(stnItems)); } catch(e) {}
+
+    // ── Stationery Issues/Receives কে DB.issues/DB.receives এ merge করো ──
+    // stnIssues/stnReceives পুরনো আলাদা format — DB এর সাথে merge করতে হবে
+    var mergedReceives = receives.slice();
+    stnReceives.forEach(function(sr){
+      if (!mergedReceives.find(function(r){ return r.id === sr.id; })) {
+        // group ঠিক করো
+        sr.group = sr.group || 'Stationery';
+        mergedReceives.push(sr);
+      }
+    });
+
+    var mergedIssues = issues.slice();
+    stnIssues.forEach(function(si){
+      if (!mergedIssues.find(function(r){ return r.id === si.id; })) {
+        si.group = si.group || 'Stationery';
+        mergedIssues.push(si);
+      }
+    });
+
+    try { localStorage.setItem('igl_receives', JSON.stringify(mergedReceives)); } catch(e) {}
+    try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIssues));   } catch(e) {}
 
     // Items — preItems merge
     try {
@@ -3985,9 +3894,8 @@ async function _loadFromFile() {
     try { localStorage.setItem('igl_retail_machines', JSON.stringify(retailMachines)); } catch(e) {}
     try { localStorage.setItem('igl_ndl_workers',     JSON.stringify(needleWorkers));  } catch(e) {}
 
-    // ── Stationery ──
-    try { localStorage.setItem('igl_stn_issues',   JSON.stringify(stnIssues));   } catch(e) {}
-    try { localStorage.setItem('igl_stn_receives', JSON.stringify(stnReceives)); } catch(e) {}
+    // ── Stationery ── (এখন DB.issues/DB.receives এই আছে, আলাদা নেই)
+    // igl_stn_issues / igl_stn_receives আর আলাদা save করতে হবে না
 
     // ── UI Refresh ──
     try { renderDashboard(); }          catch(e) {}
@@ -4112,11 +4020,8 @@ async function _doSave() {
     var retailMachines = [];
     try { retailMachines = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]'); } catch(e) {}
 
-    // ── Stationery Issues & Receives ──
-    var stnIssues = [];
-    try { stnIssues = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]'); } catch(e) {}
-    var stnReceives = [];
-    try { stnReceives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e) {}
+    // ── Stationery Issues & Receives এখন DB.issues/DB.receives এ আছে ──
+    // আলাদা stnIssues/stnReceives localStorage দরকার নেই
 
     // ── Needle Workers ──
     var needleWorkers = [];
@@ -4135,9 +4040,6 @@ async function _doSave() {
       needleReceives: needleReceives,
       needleMaster:   needleMaster,
       retailMachines: retailMachines,
-      // Stationery Module
-      stnIssues:   stnIssues,
-      stnReceives: stnReceives,
       // Workers
       needleWorkers: needleWorkers,
       // Meta
@@ -6140,7 +6042,6 @@ function showPage(name, el) {
       renderNewSetLog();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
-    else if (name === 'stn_manager_report') renderStnManagerReport();
     else if (name === 'sheets_setup') gsRenderSetupPage();
   } catch(e) { console.error('Render error on page ' + name + ':', e); }
 }
@@ -6596,21 +6497,23 @@ function stnGetTableData() {
 
   if (_stnTab === 'stock') {
     var itemStats = stnItems.map(function(it){
-      var rec = DB.receives.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+r.qty;},0);
-      var iss = DB.issues.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+r.qty;},0);
-      return { name:it.name, group:it.group||'Stationery', category:it.category||'-', rec:rec, iss:iss, stk:rec-iss };
+      var bf  = Number(it.bf) || 0;
+      var rec = DB.receives.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var iss = DB.issues.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var stk = bf + rec - iss;
+      return { name:it.name, group:it.group||'Stationery', category:it.category||'-', bf:bf, rec:rec, iss:iss, stk:stk };
     });
     var filtered = q ? itemStats.filter(function(i){ return i.name.toLowerCase().includes(q); }) : itemStats;
-    var tR=0,tI=0,tS=0;
-    filtered.forEach(function(r){tR+=r.rec;tI+=r.iss;tS+=r.stk;});
+    var tBF=0,tR=0,tI=0,tS=0;
+    filtered.forEach(function(r){tBF+=r.bf;tR+=r.rec;tI+=r.iss;tS+=r.stk;});
     return {
       title: 'Stationery — Item-wise Stock Report',
       subtitle: (q?'Filter: "'+q+'" | ':'')+dateInfo+' | Print Date: '+today,
-      headers: ['SL','Item Name','Group','Category','Total Receive','Total Issue','Current Stock','Status'],
+      headers: ['SL','Item Name','Category','B/F','Receive','Issue','Balance','Status'],
       rows: filtered.map(function(r,i){
-        return [i+1, r.name, r.group, r.category, r.rec, r.iss, r.stk, r.stk<=0?'STOCK OUT':r.stk<=10?'LOW':'OK'];
+        return [i+1, r.name, r.category, r.bf, r.rec, r.iss, r.stk, r.stk<=0?'STOCK OUT':r.stk<=10?'LOW':'OK'];
       }),
-      totals: ['','Total','','', tR, tI, tS, '']
+      totals: ['','Total','', tBF, tR, tI, tS, '']
     };
   }
 
@@ -6669,63 +6572,88 @@ function stnPrint() {
   var data = stnGetTableData();
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
-  var tabLabel = {stock:'Stock Report', chalan:'Chalan Report', slip:'Slip Report', dept:'Department Report'}[_stnTab] || '';
+  var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
+  var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
+  var periodStr = dateFrom && dateTo ? _fmtDMY(dateFrom)+' থেকে '+_fmtDMY(dateTo)
+                : dateFrom ? _fmtDMY(dateFrom)+' থেকে'
+                : dateTo   ? _fmtDMY(dateTo)+' পর্যন্ত'
+                : 'সব তারিখ';
 
-  // Build print HTML
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
-  html += '<title>'+data.title+'</title>';
-  html += '<style>';
-  html += 'body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:20px;color:#1c2833;}';
-  html += '.print-header{text-align:center;border-bottom:2px solid #0e6655;padding-bottom:10px;margin-bottom:14px;}';
-  html += '.print-header h2{margin:0;color:#0e6655;font-size:16px;}';
-  html += '.print-header p{margin:3px 0;font-size:11px;color:#666;}';
-  html += 'table{width:100%;border-collapse:collapse;margin-top:8px;}';
-  html += 'thead th{background:#0e6655;color:#fff;padding:7px 10px;text-align:left;font-size:11px;}';
-  html += 'tbody td{padding:6px 10px;border-bottom:1px solid #ddd;font-size:11px;}';
-  html += 'tbody tr:nth-child(even){background:#f0faf7;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff;font-weight:700;padding:7px 10px;}';
-  // Dept group header row
-  html += '.dept-sep td{background:#d5f5e3;color:#0e6655;font-weight:700;font-size:11px;}';
-  html += '@media print{@page{margin:15mm;}}';
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
+  html += '@page{size:A4 portrait;margin:10mm 8mm;}';
+  html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
+  html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
+  html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
+  html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
+  html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:9pt;}';
+  html += 'thead tr{background:#0e6655;color:#fff;}';
+  html += 'th{padding:4px 7px;text-align:left;font-size:9pt;}';
+  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:9pt;}';
+  html += 'tr:nth-child(even) td{background:#f5fdf9;}';
+  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
+  html += 'button{display:none!important;}';
   html += '</style></head><body>';
-  html += '<div class="print-header">';
-  html += '<h2>Islam Garments Limited — Stationery</h2>';
-  html += '<h3 style="margin:4px 0;color:#333;">'+data.title+'</h3>';
-  html += '<p>'+data.subtitle+'</p>';
-  html += '</div>';
 
-  // For dept tab — group by department
+  html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
+  html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'</div></div>';
+
   if (_stnTab === 'dept') {
     var deptMap = {};
-    data.rows.forEach(function(r){
-      var d = r[4]; // Department column
-      if (!deptMap[d]) deptMap[d] = [];
-      deptMap[d].push(r);
-    });
+    data.rows.forEach(function(r){ var d=r[4]; if(!deptMap[d]) deptMap[d]=[]; deptMap[d].push(r); });
+    var grandTot = 0;
     Object.keys(deptMap).sort().forEach(function(dept){
       var dRows = deptMap[dept];
       var dTotal = dRows.reduce(function(s,r){return s+Number(r[5]);},0);
-      html += '<div style="margin-top:14px;">';
-      html += '<div style="background:#0e6655;color:#fff;padding:6px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;">🏢 '+dept+' &nbsp;|&nbsp; Total: '+dTotal+' pcs</div>';
+      grandTot += dTotal;
+      // serial reset per dept
+      dRows.forEach(function(r,i){ r[0]=i+1; });
+      html += '<div class="dept-hdr"><span>🏢 '+dept+'</span><span>Total: '+dTotal+' pcs</span></div>';
       html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
-      dRows.forEach(function(r){
-        html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
-      });
-      html += '<tr class="total-row">'+data.headers.map(function(h,i){ return '<td>'+(i===5?dTotal:i===1?'Total':'')+'</td>'; }).join('')+'</tr>';
-      html += '</tbody></table></div>';
+      dRows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
+      html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?dTotal:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
+      html += '</tbody></table>';
     });
-  } else {
+    html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Issue: '+grandTot+' pcs</div>';
+  } else if (_stnTab === 'chalan') {
+    // Challan-wise grouped
+    var chalMap = {};
+    data.rows.forEach(function(r){ var k=(r[2]||'—')+'__'+(r[4]||'—'); if(!chalMap[k]) chalMap[k]={chalan:r[2],supplier:r[4],rows:[]}; chalMap[k].rows.push(r); });
+    var gTot2=0;
+    Object.keys(chalMap).forEach(function(k){
+      var g=chalMap[k];
+      var gT=g.rows.reduce(function(s,r){return s+Number(r[5]);},0);
+      gTot2+=gT;
+      g.rows.forEach(function(r,i){r[0]=i+1;});
+      html += '<div class="dept-hdr"><span>📄 Challan: '+g.chalan+' | Supplier: '+g.supplier+'</span><span>মোট: '+gT+' pcs</span></div>';
+      html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
+      g.rows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
+      html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?gT:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
+      html += '</tbody></table>';
+    });
+    html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Receive: '+gTot2+' pcs</div>';
+  } else if (_stnTab === 'stock') {
     html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
     data.rows.forEach(function(r){
-      html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+      var status = r[7];
+      var sc = status==='STOCK OUT'?'#c0392b':status==='LOW'?'#b7950b':'#117a65';
+      html += '<tr>'+r.map(function(c,i){
+        if (i===7) return '<td style="font-weight:700;color:'+sc+';">'+c+'</td>';
+        if (i===6) return '<td style="font-weight:700;">'+c+'</td>';
+        return '<td>'+c+'</td>';
+      }).join('')+'</tr>';
     });
-    if (data.totals) {
-      html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
-    }
+    if (data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    html += '</tbody></table>';
+  } else {
+    html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
+    data.rows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
+    if (data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
     html += '</tbody></table>';
   }
-  html += '<div style="margin-top:20px;font-size:10px;color:#999;text-align:right;">IGL Store ERP v6.6.1.9 | Islam Garments Limited</div></body></html>';
 
+  html += '</body></html>';
   var w = window.open('','_blank','width=900,height=700');
   w.document.write(html);
   w.document.close();
@@ -6951,7 +6879,14 @@ function renderStnManagerReport() {
   if (_smrCurrentTab === 'receive') {
     var rcvBody = document.getElementById('smr-rcv-body');
     if (!rcvBody) return;
-    var rcvSorted = rcvFiltered.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    // Category অনুযায়ী sort, তারপর date
+    var rcvSorted = rcvFiltered.slice().sort(function(a,b){
+      var itA = stnItems.find(function(x){return x.name===a.item;}); 
+      var itB = stnItems.find(function(x){return x.name===b.item;});
+      var catA = (itA&&itA.category)||''; var catB = (itB&&itB.category)||'';
+      if (catA !== catB) return catA.localeCompare(catB);
+      return (b.date||'').localeCompare(a.date||'');
+    });
     if (!rcvSorted.length) { rcvBody.innerHTML = '<p style="padding:20px;color:#888;text-align:center;">এই সময়ে কোনো Receive নেই।</p>'; return; }
     var chalanMap = {};
     rcvSorted.forEach(function(r){
@@ -7006,9 +6941,11 @@ function renderStnManagerReport() {
       if (!deptMap[d]) deptMap[d]={rows:[]};
       deptMap[d].rows.push(r);
     });
-    var html=''; var grandTotal=0; var sl=0;
+    var html=''; var grandTotal=0;
     Object.keys(deptMap).sort().forEach(function(dept){
       var g=deptMap[dept];
+      // প্রতিটা dept এ date অনুযায়ী sort
+      g.rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
       var dT=g.rows.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       grandTotal+=dT;
       html+='<div style="margin-bottom:22px;">';
@@ -7025,10 +6962,9 @@ function renderStnManagerReport() {
         '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #d7c4b8;">Qty</th>'+
         '<th style="padding:6px 10px;border-bottom:1px solid #d7c4b8;">Remarks</th>'+
         '</tr></thead><tbody>';
-      g.rows.forEach(function(r){
-        sl++;
+      g.rows.forEach(function(r, idx){  // serial প্রতি dept এ ১ থেকে শুরু
         html+='<tr style="border-bottom:1px solid #f5eee9;">'+
-          '<td style="padding:6px 10px;text-align:center;color:#888;">'+sl+'</td>'+
+          '<td style="padding:6px 10px;text-align:center;color:#888;">'+(idx+1)+'</td>'+
           '<td style="padding:6px 10px;">'+_fmtDMY(r.date)+'</td>'+
           '<td style="padding:6px 10px;"><span class="slip-badge">'+(r.slip||'—')+'</span></td>'+
           '<td style="padding:6px 10px;"><b>'+r.item+'</b></td>'+
@@ -7057,7 +6993,7 @@ function renderStnManagerReport() {
       if (!itemMap[r.item]) itemMap[r.item]={rows:[]};
       itemMap[r.item].rows.push(r);
     });
-    var html=''; var grandTotal2=0; var sl=0;
+    var html=''; var grandTotal2=0;
     Object.keys(itemMap).sort().forEach(function(itemName){
       var g=itemMap[itemName];
       var iT=g.rows.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
@@ -7076,10 +7012,9 @@ function renderStnManagerReport() {
         '<th style="padding:6px 10px;text-align:center;border-bottom:1px solid #a9dfbf;">Qty</th>'+
         '<th style="padding:6px 10px;border-bottom:1px solid #a9dfbf;">Remarks</th>'+
         '</tr></thead><tbody>';
-      g.rows.forEach(function(r){
-        sl++;
+      g.rows.forEach(function(r, idx){  // serial প্রতি item এ ১ থেকে শুরু
         html+='<tr style="border-bottom:1px solid #e8f8f0;">'+
-          '<td style="padding:6px 10px;text-align:center;color:#888;">'+sl+'</td>'+
+          '<td style="padding:6px 10px;text-align:center;color:#888;">'+(idx+1)+'</td>'+
           '<td style="padding:6px 10px;">'+_fmtDMY(r.date)+'</td>'+
           '<td style="padding:6px 10px;"><span class="slip-badge">'+(r.slip||'—')+'</span></td>'+
           '<td style="padding:6px 10px;font-weight:600;color:#1a7a4a;">'+(r.machineId||'—')+'</td>'+
@@ -7131,21 +7066,21 @@ function stnMgrPrintTab(tab) {
 
   var css = [
     '@page { size: A4 portrait; margin: 8mm 7mm 8mm 7mm; }',
-    'body { font-family: Arial, sans-serif; font-size: 7pt; color: #000; margin: 0; padding: 0; line-height: 1.2; }',
-    /* Header — flex এ nowrap দিলে কাটবে না */
+    'html, body { margin: 0; padding: 0; width: 100%; }',
+    'body { font-family: Arial, sans-serif; font-size: 6.5pt; color: #000; line-height: 1.1; }',
     '.report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; gap: 8px; }',
     '.report-header .title { font-size: 9pt; font-weight: 700; white-space: nowrap; }',
     '.report-header .sub { font-size: 7pt; color: #444; margin-top: 1px; white-space: nowrap; }',
     '.report-header .right { text-align: right; font-size: 6.5pt; color: #444; white-space: nowrap; flex-shrink: 0; }',
-    '.group-block { margin-bottom: 5px; page-break-inside: avoid; break-inside: avoid; }',
+    '#stn-print-wrap { box-sizing: border-box; width: 100%; }',
+    '.group-block { margin-bottom: 5px; }',
     '.group-header { background: #333 !important; color: #fff !important; padding: 2px 5px; font-size: 7pt; font-weight: 700; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: fixed; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: auto; }',
     'thead tr { background: #ccc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'th { padding: 2px 4px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 7pt; line-height: 1.2; overflow: hidden; }',
-    'td { padding: 2px 4px; border: 0.5px solid #ccc; font-size: 7pt; line-height: 1.2; overflow: hidden; }',
-    /* total rows */
-    'tr.total-row td { font-weight: 700; background: #ddd !important; color: #000 !important; padding: 2px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    'tr.total-row.dark td { font-weight: 700; background: #222 !important; color: #fff !important; padding: 3px 4px; font-size: 7.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'th { padding: 1px 3px; border: 0.5px solid #888; font-weight: 700; text-align: left; font-size: 6.5pt; line-height: 1.1; white-space: nowrap; }',
+    'td { padding: 1px 3px; border: 0.5px solid #ccc; font-size: 6.5pt; line-height: 1.1; }',
+    'tr.total-row td { font-weight: 700; background: #ddd !important; color: #000 !important; padding: 1px 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'tr.total-row.dark td { font-weight: 700; background: #222 !important; color: #fff !important; padding: 2px 3px; font-size: 7pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
     '.grand-total { text-align: right; font-weight: 700; font-size: 7.5pt; margin-top: 4px; border-top: 1px solid #000; padding-top: 2px; color: #000; }',
     'button { display: none !important; }',
     '.slip-badge { border: 0.5px solid #888; padding: 0 3px; border-radius: 2px; font-size: 6.5pt; }',
@@ -7172,15 +7107,17 @@ function stnMgrPrintTab(tab) {
 
   var win = window.open('', '_blank', 'width=900,height=700');
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Stationery — ' + (tabLabels[tab]||tab) + '</title><style>' + css + '</style></head><body>');
+  win.document.write('<div id="stn-print-wrap">');
   win.document.write('<div class="report-header">');
   win.document.write('<div><div class="title">Islam Garments Limited &mdash; Stationery</div><div class="sub">' + (tabLabels[tab]||tab) + '</div></div>');
   win.document.write('<div class="right">সময়কাল: ' + period + '<br>Print Date: ' + printDate + '</div>');
   win.document.write('</div>');
   win.document.write(cleanHTML);
+  win.document.write('</div>');
+  win.document.write('<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>');
   win.document.write('</body></html>');
   win.document.close();
   win.focus();
-  setTimeout(function(){ win.print(); }, 600);
 }
 
 // ══ END STATIONERY MANAGER REPORT ══════════════════════════════════════
@@ -7191,17 +7128,12 @@ async function stnDeleteTx(type, id) {
 
   var isAdmin = IGL_CURRENT_USER.role === 'admin';
 
-  // এন্ট্রিটা খুঁজে বের করো
-  var entry = null;
-  if (type === 'RECEIVE') {
-    entry = DB.receives.find(function(r){ return r.id === id; });
-  } else {
-    entry = DB.issues.find(function(r){ return r.id === id; });
-  }
+  var entry = type === 'RECEIVE'
+    ? DB.receives.find(function(r){ return r.id === id; })
+    : DB.issues.find(function(r){ return r.id === id; });
 
   if (!entry) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
 
-  // User হলে শুধু নিজের entry delete করতে পারবে
   if (!isAdmin && (entry.userId || '') !== IGL_CURRENT_USER.role) {
     toast('❌ আপনি শুধু নিজের এন্ট্রি ডিলিট করতে পারবেন।', 'error');
     return;
@@ -7268,14 +7200,8 @@ function renderStationeryDashboard() {
   document.getElementById('stn-recent-table').innerHTML = allTx.length === 0
     ? '<tr><td colspan="5" class="no-data">No stationery transactions found</td></tr>'
     : allTx.map(function(tx){
-        var isAdmin = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
-        var isOwner = IGL_CURRENT_USER && (tx.userId || '') === IGL_CURRENT_USER.role;
-        var canDel  = isAdmin || isOwner;
-        var delBtn  = canDel
-          ? '<button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>'
-          : '—';
         return '<tr><td>'+fmtDate(tx.date)+'</td><td><span class="badge '+(tx.type==='RECEIVE'?'badge-receive':'badge-issue')+'">'+tx.type+'</span></td><td>'+tx.item+'</td><td><b>'+tx.qty+'</b></td>'
-          +'<td>'+delBtn+'</td></tr>';
+          +'<td><button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
 
   // Search Result Area
@@ -7330,12 +7256,11 @@ function renderStationeryDashboard() {
       html = '<div style="padding:8px 4px;font-size:12px;color:#1a5276;font-weight:600;">Total '+chalanRecs.length+' records | Total Qty: <b>'+cTot+'</b></div>';
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        var isAdmin2 = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
-        var isOwner2 = IGL_CURRENT_USER && (r.userId||'') === IGL_CURRENT_USER.role;
-        var delBtn2  = (isAdmin2||isOwner2) ? '<button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>' : '—';
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
-          +'<td>'+delBtn2+'</td></tr>';
-      }).join('') + '</tbody></table>';
+          +'<td><button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+      }).join('');
+      html += '<tr style="background:#1a5276;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+cTot+'</td><td></td></tr>';
+      html += '</tbody></table>';
     }
   }
 
@@ -7357,12 +7282,11 @@ function renderStationeryDashboard() {
       html = '<div style="padding:8px 4px;font-size:12px;color:#922b21;font-weight:600;">Total '+slipIss.length+' records | Total Qty: <b>'+sTot+'</b></div>';
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        var isAdmin3 = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
-        var isOwner3 = IGL_CURRENT_USER && (r.userId||'') === IGL_CURRENT_USER.role;
-        var delBtn3  = (isAdmin3||isOwner3) ? '<button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button>' : '—';
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
-          +'<td>'+delBtn3+'</td></tr>';
-      }).join('') + '</tbody></table>';
+          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+      }).join('');
+      html += '<tr style="background:#922b21;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="2"></td></tr>';
+      html += '</tbody></table>';
     }
   }
 
@@ -7389,11 +7313,14 @@ function renderStationeryDashboard() {
                 '<div style="font-size:22px;font-weight:700;color:#0e6655;">'+deptMap[d].total+'</div>' +
                 '<div style="font-size:11px;color:#888;">'+deptMap[d].records.length+' records</div></div>';
       });
+      var deptGrandTotal = deptIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += deptIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
-      }).join('') + '</tbody></table>';
+      }).join('');
+      html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="2"></td></tr>';
+      html += '</tbody></table>';
     }
   }
 
@@ -8782,11 +8709,10 @@ function exportData() {
   var retailMachines = [];
   try { retailMachines = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]'); } catch(e) {}
 
-  // ── Stationery Issues & Receives ──
-  var stnIssues = [];
-  try { stnIssues = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]'); } catch(e) {}
-  var stnReceives = [];
-  try { stnReceives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e) {}
+  // ── Stationery এখন DB.issues/DB.receives এ আছে ──
+  var stnNamesExp = DB.stnItems ? DB.stnItems.map(function(it){ return it.name; }) : [];
+  var stnIssues   = DB.issues.filter(function(r){ return r.group==='Stationery' || stnNamesExp.indexOf(r.item)!==-1; });
+  var stnReceives = DB.receives.filter(function(r){ return r.group==='Stationery' || stnNamesExp.indexOf(r.item)!==-1; });
 
   // ── Needle Workers ──
   var needleWorkers = [];
@@ -8805,9 +8731,8 @@ function exportData() {
     needleReceives: needleReceives,
     needleMaster:   needleMaster,
     retailMachines: retailMachines,
-    // Stationery Module
-    stnIssues:   stnIssues,
-    stnReceives: stnReceives,
+    // Stationery (backward compat)
+    stationery: { issues: stnIssues, receives: stnReceives },
     // Workers
     needleWorkers: needleWorkers,
     // Meta
@@ -8866,8 +8791,25 @@ function doImport(event) {
 
         // ── সরাসরি localStorage এ লিখি — DB setter bypass করি ──
         // কারণ DB.items setter preItems merge করে ফেলে
-        try { localStorage.setItem('igl_receives', JSON.stringify(receives)); } catch(er) {}
-        try { localStorage.setItem('igl_issues',   JSON.stringify(issues));   } catch(er) {}
+
+        // stnIssues/stnReceives কে receives/issues এ merge করো
+        var mergedRcv = receives.slice();
+        stnReceives.forEach(function(sr){
+          if (!mergedRcv.find(function(r){ return r.id === sr.id; })) {
+            sr.group = sr.group || 'Stationery';
+            mergedRcv.push(sr);
+          }
+        });
+        var mergedIss = issues.slice();
+        stnIssues.forEach(function(si){
+          if (!mergedIss.find(function(r){ return r.id === si.id; })) {
+            si.group = si.group || 'Stationery';
+            mergedIss.push(si);
+          }
+        });
+
+        try { localStorage.setItem('igl_receives', JSON.stringify(mergedRcv)); } catch(er) {}
+        try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIss)); } catch(er) {}
         try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(er) {}
         try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(er) {}
         try { localStorage.setItem('igl_stn_items',JSON.stringify(stnItems)); } catch(er) {}
@@ -8891,9 +8833,7 @@ function doImport(event) {
         try { localStorage.setItem('igl_retail_machines',JSON.stringify(retailMachines)); } catch(er) {}
         try { localStorage.setItem('igl_ndl_workers',    JSON.stringify(needleWorkers));  } catch(er) {}
 
-        // ── Stationery Module ──
-        try { localStorage.setItem('igl_stn_issues',   JSON.stringify(stnIssues));   } catch(er) {}
-        try { localStorage.setItem('igl_stn_receives', JSON.stringify(stnReceives)); } catch(er) {}
+        // ── Stationery এখন igl_receives/igl_issues এ merge হয়ে গেছে ──
 
         // ── UI সম্পূর্ণ Refresh ──
         try { renderDashboard(); }          catch(er) {}
@@ -14223,12 +14163,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       try { needleMaster = JSON.parse(localStorage.getItem('igl_ndl_master') || '[]'); } catch(e) {}
       var retailMachines = [];
       try { retailMachines = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]'); } catch(e) {}
-      var stnIssues = [];
-      try { stnIssues = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]'); } catch(e) {}
-      var stnReceives = [];
-      try { stnReceives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e) {}
       var needleWorkers = [];
       try { needleWorkers = JSON.parse(localStorage.getItem('igl_ndl_workers') || '[]'); } catch(e) {}
+
+      // Stationery issues/receives এখন DB.issues/DB.receives এ আছে (group='Stationery')
+      var stnNames = (typeof DB !== 'undefined' && DB.stnItems) ? DB.stnItems.map(function(it){ return it.name; }) : [];
+      var stnIssues   = (typeof DB !== 'undefined') ? DB.issues.filter(function(r){ return r.group==='Stationery' || stnNames.indexOf(r.item)!==-1; }) : [];
+      var stnReceives = (typeof DB !== 'undefined') ? DB.receives.filter(function(r){ return r.group==='Stationery' || stnNames.indexOf(r.item)!==-1; }) : [];
 
       var data = {
         exportedAt: new Date().toISOString(),
@@ -14263,8 +14204,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         needleReceives: needleReceives,
         needleMaster:   needleMaster,
         retailMachines: retailMachines,
-        stnIssues:      stnIssues,
-        stnReceives:    stnReceives,
         needleWorkers:  needleWorkers,
         version: '3.0-full'
       };
@@ -14647,15 +14586,10 @@ function dbdCountRecords(from, to, doStore, doNeedle, doStn) {
       counts.needleReceives = ndlRcv.filter(function(r){ return inRange(r.date); }).length;
     } catch(e){}
   }
-  if (doStn) {
-    try {
-      var stnI = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]');
-      counts.stnIssues = stnI.filter(function(r){ return inRange(r.date); }).length;
-    } catch(e){}
-    try {
-      var stnR = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]');
-      counts.stnReceives = stnR.filter(function(r){ return inRange(r.date); }).length;
-    } catch(e){}
+  if (doStn && typeof DB !== 'undefined') {
+    var stnNms = DB.stnItems ? DB.stnItems.map(function(it){ return it.name; }) : [];
+    counts.stnIssues   = DB.issues.filter(function(r){ return inRange(r.date) && (r.group==='Stationery' || stnNms.indexOf(r.item)!==-1); }).length;
+    counts.stnReceives = DB.receives.filter(function(r){ return inRange(r.date) && (r.group==='Stationery' || stnNms.indexOf(r.item)!==-1); }).length;
   }
   return counts;
 }
@@ -14708,18 +14642,19 @@ async function deleteByDateConfirm() {
     } catch(e){}
   }
 
-  // Stationery
-  if (doStn) {
-    try {
-      var stnI = JSON.parse(localStorage.getItem('igl_stn_issues') || '[]');
-      stnI = stnI.filter(function(r){ return notInRange(r.date); });
-      localStorage.setItem('igl_stn_issues', JSON.stringify(stnI));
-    } catch(e){}
-    try {
-      var stnR = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]');
-      stnR = stnR.filter(function(r){ return notInRange(r.date); });
-      localStorage.setItem('igl_stn_receives', JSON.stringify(stnR));
-    } catch(e){}
+  // Stationery — এখন DB.issues/DB.receives এ আছে
+  if (doStn && typeof DB !== 'undefined') {
+    var stnNms2 = DB.stnItems ? DB.stnItems.map(function(it){ return it.name; }) : [];
+    DB.issues   = DB.issues.filter(function(r){
+      if (r.group==='Stationery' || stnNms2.indexOf(r.item)!==-1) return notInRange(r.date);
+      return true;
+    });
+    DB.receives = DB.receives.filter(function(r){
+      if (r.group==='Stationery' || stnNms2.indexOf(r.item)!==-1) return notInRange(r.date);
+      return true;
+    });
+    if (typeof _saveDB === 'function') _saveDB();
+    else if (typeof saveDB === 'function') saveDB();
   }
 
   // Refresh UI
