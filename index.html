@@ -2316,7 +2316,14 @@ window.iglSaveUsers = function(){
       </div>
       <div class="card-body" style="padding:12px 16px 0;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;" class="no-print">
-          <input type="text" class="form-control" id="stn-search" placeholder="Item / Chalan / Slip / Department ..." oninput="renderStationeryDashboard()" style="flex:1;min-width:200px;"><input type="date" class="form-control" id="stn-date-from" title="তারিখ থেকে" onchange="renderStationeryDashboard()" style="width:145px;"><span style="font-size:12px;color:#aaa;">—</span><input type="date" class="form-control" id="stn-date-to" title="তারিখ পর্যন্ত" onchange="renderStationeryDashboard()" style="width:145px;"><button onclick="document.getElementById('stn-search').value='';document.getElementById('stn-date-from').value='';document.getElementById('stn-date-to').value='';renderStationeryDashboard();" class="btn btn-sm" style="background:#e0e0e0;color:#555;border-radius:20px;white-space:nowrap;">✕ ক্লিয়ার</button>
+          <input type="text" class="form-control" id="stn-search" placeholder="Item / Chalan / Slip / Department ..." oninput="renderStationeryDashboard()" style="flex:1;min-width:180px;">
+          <input type="date" class="form-control" id="stn-date-from" title="তারিখ থেকে" onchange="renderStationeryDashboard()" style="width:140px;">
+          <span style="font-size:12px;color:#aaa;">—</span>
+          <input type="date" class="form-control" id="stn-date-to" title="তারিখ পর্যন্ত" onchange="renderStationeryDashboard()" style="width:140px;">
+          <select id="stn-dept-filter" class="form-control" onchange="renderStationeryDashboard()" style="width:150px;display:none;" title="Department Filter">
+            <option value="">সব Department</option>
+          </select>
+          <button onclick="stnClearAllFilters()" class="btn btn-sm" style="background:#e0e0e0;color:#555;border-radius:20px;white-space:nowrap;">✕ ক্লিয়ার</button>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-sm stn-tab active" id="stn-tab-stock"  onclick="stnSetTab('stock')"  style="background:#0e6655;color:#fff;border-radius:20px;">📦 Stock</button>
             <button class="btn btn-sm stn-tab"        id="stn-tab-chalan" onclick="stnSetTab('chalan')" style="background:#e8f8f5;color:#0e6655;border:1px solid #1abc9c;border-radius:20px;">📄 Chalan</button>
@@ -6715,6 +6722,37 @@ function stnSetTab(tab) {
   });
   var active = document.getElementById('stn-tab-' + tab);
   if (active) { active.style.background = '#0e6655'; active.style.color = '#fff'; }
+
+  // Dept tab এ department dropdown দেখাও
+  var deptDrop = document.getElementById('stn-dept-filter');
+  if (deptDrop) {
+    if (tab === 'dept') {
+      deptDrop.style.display = '';
+      // Populate dept dropdown from DB
+      var stnNames = (DB.stnItems||[]).map(function(it){return it.name;});
+      var depts = [];
+      (DB.issues||[]).forEach(function(r){
+        if (stnNames.indexOf(r.item)!==-1 && r.machineId && depts.indexOf(r.machineId)===-1)
+          depts.push(r.machineId);
+      });
+      depts.sort();
+      var cur = deptDrop.value;
+      deptDrop.innerHTML = '<option value="">সব Department</option>'
+        + depts.map(function(d){ return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+'</option>'; }).join('');
+    } else {
+      deptDrop.style.display = 'none';
+      deptDrop.value = '';
+    }
+  }
+  renderStationeryDashboard();
+}
+
+function stnClearAllFilters() {
+  document.getElementById('stn-search').value = '';
+  document.getElementById('stn-date-from').value = '';
+  document.getElementById('stn-date-to').value = '';
+  var dd = document.getElementById('stn-dept-filter');
+  if (dd) dd.value = '';
   renderStationeryDashboard();
 }
 
@@ -7291,8 +7329,17 @@ function renderStationeryDashboard() {
   }
 
   else if (_stnTab === 'dept') {
+    var dateFrom3 = (document.getElementById('stn-date-from')||{value:''}).value;
+    var dateTo3   = (document.getElementById('stn-date-to')||{value:''}).value;
+    var deptSel   = (document.getElementById('stn-dept-filter')||{value:''}).value;
+
     var deptIss = DB.issues.filter(function(r){
-      return stnNames.includes(r.item) && (!q || (r.machineId||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q));
+      if (!stnNames.includes(r.item)) return false;
+      if (q && !(r.machineId||'').toLowerCase().includes(q) && !r.item.toLowerCase().includes(q)) return false;
+      if (dateFrom3 && r.date < dateFrom3) return false;
+      if (dateTo3   && r.date > dateTo3)   return false;
+      if (deptSel   && (r.machineId||'') !== deptSel) return false;
+      return true;
     });
     if (deptIss.length === 0) {
       if (totalItemsEl) totalItemsEl.textContent = '0 records';
@@ -10463,63 +10510,106 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
     }
 
-    // Row count দেখে base font size নির্ধারণ
-    var tmpDiv = document.createElement('div');
-    tmpDiv.innerHTML = _rnaTabData[tabIdx];
-    var rowCount = tmpDiv.querySelectorAll('tbody tr').length;
+    // ── Tab 0 (S/J & Fleece): আগের auto-scale পদ্ধতি ──
+    if (tabIdx === 0) {
+      var tmpDiv = document.createElement('div');
+      tmpDiv.innerHTML = _rnaTabData[tabIdx];
+      var rowCount = tmpDiv.querySelectorAll('tbody tr').length;
+      var autoFont = rowCount<=15?8:rowCount<=20?7:rowCount<=28?6:rowCount<=36?5.5:rowCount<=45?5:4.5;
 
-    var autoFont;
-    if      (rowCount <= 15) autoFont = 8;
-    else if (rowCount <= 20) autoFont = 7;
-    else if (rowCount <= 28) autoFont = 6;
-    else if (rowCount <= 36) autoFont = 5.5;
-    else if (rowCount <= 45) autoFont = 5;
-    else                     autoFont = 4.5;
+      var bodyHTML =
+        '<div class="rna-print-page rna-single-page" id="rna-content-wrap">'
+        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
+        + _rnaTabData[tabIdx]
+        + '</div>';
 
-    var bodyHTML =
-      '<div class="rna-print-page rna-single-page" id="rna-content-wrap">'
-      + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
+      var css = [
+        '@page { size: A4 landscape; margin: 0; }',
+        'html, body { margin: 0; padding: 0; width: 297mm; height: 210mm; overflow: hidden; }',
+        'body { font-family: Arial, sans-serif; font-size: ' + autoFont + 'pt; color: #000; }',
+        '.rna-header { font-size: ' + (autoFont + 0.5) + 'pt; font-weight: 700; margin-bottom: 3px; border-bottom: 1.5px solid #000; padding: 3mm 4mm 2mm 4mm; }',
+        '.rna-single-page { padding: 3mm 4mm; box-sizing: border-box; display: inline-block; }',
+        'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; }',
+        'thead { display: table-header-group; }',
+        'th { border: 0.5px solid #555; padding: 1px 2px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; }',
+        'td { border: 0.5px solid #aaa; padding: 1px 2px; font-size: ' + autoFont + 'pt; }',
+        'button { display: none !important; }',
+        '#rna-content-wrap { display: inline-block; transform-origin: top left; }',
+      ].join('\n');
+
+      var fitScript = [
+        '<script>',
+        'window.onload = function(){',
+        '  var mmPx = 96/25.4;',
+        '  var A4W = 297 * mmPx;',
+        '  var A4H = 210 * mmPx;',
+        '  var el = document.getElementById("rna-content-wrap");',
+        '  if(!el) return;',
+        '  var cW = el.offsetWidth;',
+        '  var cH = el.offsetHeight;',
+        '  if(cW <= 0 || cH <= 0) return;',
+        '  var scaleX = A4W / cW;',
+        '  var scaleY = A4H / cH;',
+        '  var scale = Math.min(scaleX, scaleY, 1);',
+        '  el.style.transform = "scale(" + scale + ")";',
+        '  el.style.transformOrigin = "top left";',
+        '  setTimeout(function(){ window.print(); }, 400);',
+        '};',
+        '<\/script>',
+      ].join('\n');
+
+      var win = window.open('', '_blank', 'width=1200,height=800');
+      win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+      win.document.close();
+      win.focus();
+      return;
+    }
+
+    // ── Tabs 1,2,3: Fixed width + auto height scale ──
+    var CSS_FONT = '6.5pt';
+    var CSS_CELL_PAD = '1px 3px';
+
+    var bodyHTML2 =
+      '<div id="rna-content-wrap">'
+      + '<div class="rna-hdr"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
       + _rnaTabData[tabIdx]
       + '</div>';
 
-    var css = [
+    var fixedBodyHTML = bodyHTML2.replace(
+      /<table style="[^"]*">/,
+      '<table style="width:100%;border-collapse:collapse;font-size:'+CSS_FONT+';table-layout:fixed;">' +
+      '<colgroup><col style="width:90px"><col style="width:26px"><col style="width:26px"><col><col style="width:30px"><col style="width:32px"></colgroup>'
+    );
+
+    var css2 = [
       '@page { size: A4 landscape; margin: 0; }',
-      'html, body { margin: 0; padding: 0; width: 297mm; height: 210mm; overflow: hidden; }',
-      'body { font-family: Arial, sans-serif; font-size: ' + autoFont + 'pt; color: #000; }',
-      '.rna-header { font-size: ' + (autoFont + 0.5) + 'pt; font-weight: 700; margin-bottom: 3px; border-bottom: 1.5px solid #000; padding: 3mm 4mm 2mm 4mm; }',
-      '.rna-single-page { padding: 3mm 4mm; box-sizing: border-box; display: inline-block; }',
-      'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; }',
+      'html, body { margin: 0; padding: 0; width: 297mm; font-family: Arial, sans-serif; font-size: ' + CSS_FONT + '; color: #000; }',
+      '#rna-content-wrap { padding: 5mm 6mm; box-sizing: border-box; width: 297mm; transform-origin: top left; }',
+      '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
+      'table { width: 100%; border-collapse: collapse; font-size: ' + CSS_FONT + '; table-layout: fixed; }',
       'thead { display: table-header-group; }',
-      'th { border: 0.5px solid #555; padding: 1px 2px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; }',
-      'td { border: 0.5px solid #aaa; padding: 1px 2px; font-size: ' + autoFont + 'pt; }',
+      'th { border: 0.5px solid #555; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; }',
+      'td { border: 0.5px solid #aaa; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
+      'td span[style] { font-size: 5.5pt !important; }',
       'button { display: none !important; }',
-      '#rna-content-wrap { display: inline-block; transform-origin: top left; }',
     ].join('\n');
 
-    // JS to auto-scale content to fit A4 landscape
-    var fitScript = [
-      '<script>',
-      'window.onload = function(){',
-      '  var mmPx = 96/25.4;',
-      '  var A4W = 297 * mmPx;',
-      '  var A4H = 210 * mmPx;',
-      '  var el = document.getElementById("rna-content-wrap");',
-      '  if(!el) return;',
-      '  var cW = el.offsetWidth;',
-      '  var cH = el.offsetHeight;',
-      '  if(cW <= 0 || cH <= 0) return;',
-      '  var scaleX = A4W / cW;',
-      '  var scaleY = A4H / cH;',
-      '  var scale = Math.min(scaleX, scaleY, 1);',
-      '  el.style.transform = "scale(" + scale + ")";',
-      '  el.style.transformOrigin = "top left";',
-      '  setTimeout(function(){ window.print(); }, 400);',
-      '};',
-      '<\/script>',
-    ].join('\n');
+    var fitScript2 = '<script>window.onload=function(){'
+      + 'var mmPx=96/25.4;'
+      + 'var A4H=210*mmPx;'
+      + 'var el=document.getElementById("rna-content-wrap");'
+      + 'if(!el)return;'
+      + 'var cH=el.offsetHeight;'
+      + 'if(cH>A4H){'
+      + '  var sc=A4H/cH;'
+      + '  el.style.transform="scaleY("+sc+")";'
+      + '  el.style.transformOrigin="top left";'
+      + '}'
+      + 'setTimeout(function(){window.print();},400);'
+      + '};<\/script>';
 
     var win = window.open('', '_blank', 'width=1200,height=800');
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css2 + '</style></head><body>' + fixedBodyHTML + fitScript2 + '</body></html>');
     win.document.close();
     win.focus();
   }
@@ -11111,9 +11201,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var cellW, lblFs, qtyFs;
     if (maxMapped <= 0) {
       cellW = 51;
-    } else {
-      // machine count দিয়ে available width ভাগ করো, min 16px max 80px
+    } else if (tabIdx === 0) {
+      // S/J: auto scale
       cellW = Math.min(80, Math.max(16, Math.floor(machineAvailW / maxMapped) - 2));
+    } else {
+      // Tab 1,2,3: full width এ ১২ machine ফিট — table-layout:fixed এ browser নিজে ভাগ করবে
+      // তাই cellW = available / actual mapped machines (max 12)
+      var targetMachines = Math.min(maxMapped, 12);
+      cellW = Math.min(80, Math.max(20, Math.floor(machineAvailW / targetMachines) - 2));
     }
     lblFs = cellW >= 51 ? '6px' : cellW >= 40 ? '6px' : cellW >= 30 ? '5.5px' : cellW >= 22 ? '5px' : '4.5px';
     qtyFs = cellW >= 51 ? '10px' : cellW >= 40 ? '9.5px' : cellW >= 30 ? '9px' : cellW >= 22 ? '8px' : '7px';
