@@ -10565,15 +10565,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return;
     }
 
-    // ── Tabs 1,2,3: Fixed width + auto height scale ──
+    // ── Tabs 1,2,3: Full A4 landscape — width fixed, height auto-scale ──
     var CSS_FONT = '6.5pt';
     var CSS_CELL_PAD = '1px 3px';
 
     var bodyHTML2 =
-      '<div id="rna-content-wrap">'
+      '<div id="rna-outer">'
+      + '<div id="rna-content-wrap">'
       + '<div class="rna-hdr"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
       + _rnaTabData[tabIdx]
-      + '</div>';
+      + '</div></div>';
 
     var fixedBodyHTML = bodyHTML2.replace(
       /<table style="[^"]*">/,
@@ -10583,29 +10584,36 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var css2 = [
       '@page { size: A4 landscape; margin: 0; }',
-      'html, body { margin: 0; padding: 0; width: 297mm; font-family: Arial, sans-serif; font-size: ' + CSS_FONT + '; color: #000; }',
-      '#rna-content-wrap { padding: 5mm 6mm; box-sizing: border-box; width: 297mm; transform-origin: top left; }',
+      /* outer div = exact A4 landscape size, clips overflow */
+      '#rna-outer { width: 297mm; height: 210mm; overflow: hidden; position: relative; }',
+      /* content wrap — 297mm wide, transform-origin top left */
+      '#rna-content-wrap { width: 297mm; padding: 5mm 6mm; box-sizing: border-box; transform-origin: top left; }',
+      'html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }',
       '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
       'table { width: 100%; border-collapse: collapse; font-size: ' + CSS_FONT + '; table-layout: fixed; }',
       'thead { display: table-header-group; }',
-      'th { border: 0.5px solid #555; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; }',
+      'th { border: 0.5px solid #555; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #1a5276; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'td { border: 0.5px solid #aaa; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
+      'tr:nth-child(even) td { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'td span[style] { font-size: 5.5pt !important; }',
       'button { display: none !important; }',
     ].join('\n');
 
+    // JS: content height মেপে, A4 height এ fit করতে uniform scale করো
+    // Width সবসময় 297mm — scale করলে width ও কমে যাবে, তাই outer div এ clip করা হয়েছে
     var fitScript2 = '<script>window.onload=function(){'
-      + 'var mmPx=96/25.4;'
-      + 'var A4H=210*mmPx;'
-      + 'var el=document.getElementById("rna-content-wrap");'
-      + 'if(!el)return;'
-      + 'var cH=el.offsetHeight;'
-      + 'if(cH>A4H){'
-      + '  var sc=A4H/cH;'
-      + '  el.style.transform="scaleY("+sc+")";'
-      + '  el.style.transformOrigin="top left";'
+      + 'var mmPx = 96/25.4;'
+      + 'var A4H = 210 * mmPx;'
+      + 'var el = document.getElementById("rna-content-wrap");'
+      + 'if(!el) return;'
+      + 'var cH = el.scrollHeight;'
+      + 'if(cH > 0) {'
+      + '  var sc = Math.min(A4H / cH, 1);'   // ছোট হলে scale, বড় না
+      + '  el.style.transform = "scale("+sc+")";'
+      + '  el.style.transformOrigin = "top left";'
+      + '  el.style.width = (297 / sc) + "mm";'  // scale এর পরেও 297mm দেখাবে
       + '}'
-      + 'setTimeout(function(){window.print();},400);'
+      + 'setTimeout(function(){window.print();}, 500);'
       + '};<\/script>';
 
     var win = window.open('', '_blank', 'width=1200,height=800');
