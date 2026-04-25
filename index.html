@@ -10510,7 +10510,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
     }
 
-    // ── Tab 0 (S/J & Fleece): আগের auto-scale পদ্ধতি ──
+    // ── Tab 0 (S/J & Fleece): zoom-based auto-fit ──
     if (tabIdx === 0) {
       var tmpDiv = document.createElement('div');
       tmpDiv.innerHTML = _rnaTabData[tabIdx];
@@ -10518,45 +10518,60 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var autoFont = rowCount<=15?8:rowCount<=20?7:rowCount<=28?6:rowCount<=36?5.5:rowCount<=45?5:4.5;
 
       var bodyHTML =
-        '<div class="rna-print-page rna-single-page" id="rna-content-wrap">'
+        '<div id="rna-content-wrap">'
         + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
         + _rnaTabData[tabIdx]
         + '</div>';
 
       var css = [
-        '@page { size: A4 landscape; margin: 0; }',
-        'html, body { margin: 0; padding: 0; width: 297mm; height: 210mm; overflow: hidden; }',
-        'body { font-family: Arial, sans-serif; font-size: ' + autoFont + 'pt; color: #000; }',
-        '.rna-header { font-size: ' + (autoFont + 0.5) + 'pt; font-weight: 700; margin-bottom: 3px; border-bottom: 1.5px solid #000; padding: 3mm 4mm 2mm 4mm; }',
-        '.rna-single-page { padding: 3mm 4mm; box-sizing: border-box; display: inline-block; }',
-        'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; }',
+        '@page { size: A4 landscape; margin: 6mm 8mm; }',
+        'html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }',
+        '#rna-content-wrap { width: 100%; }',
+        '.rna-header { font-size: ' + (autoFont+0.5) + 'pt; font-weight: 700; margin-bottom: 4px; border-bottom: 2px solid #000; padding-bottom: 3px; }',
+        'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; width: auto; }',
         'thead { display: table-header-group; }',
-        'th { border: 0.5px solid #555; padding: 1px 2px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; }',
-        'td { border: 0.5px solid #aaa; padding: 1px 2px; font-size: ' + autoFont + 'pt; }',
+        /* Header row — background হোক বা না হোক বোঝা যাবে */
+        'th { border: 1px solid #000; padding: 1px 3px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap;',
+        '     background: #000 !important; color: #fff !important;',
+        '     -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        /* Total row */
+        'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td {',
+        '  background: #000 !important; color: #fff !important;',
+        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        /* B/L column — dark green */
+        'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"] {',
+        '  background: #000 !important; color: #fff !important;',
+        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        /* Issue column — orange */
+        'td[style*="background:#e67e22"], td[style*="background: #e67e22"] {',
+        '  background: #555 !important; color: #fff !important;',
+        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        'td { border: 0.5px solid #999; padding: 1px 3px; font-size: ' + autoFont + 'pt; }',
         'button { display: none !important; }',
-        '#rna-content-wrap { display: inline-block; transform-origin: top left; }',
+        /* Slip number div */
+        'div[style*="background:#eaf4fb"], div[style*="background: #eaf4fb"] {',
+        '  background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
       ].join('\n');
 
-      var fitScript = [
-        '<script>',
-        'window.onload = function(){',
-        '  var mmPx = 96/25.4;',
-        '  var A4W = 297 * mmPx;',
-        '  var A4H = 210 * mmPx;',
-        '  var el = document.getElementById("rna-content-wrap");',
-        '  if(!el) return;',
-        '  var cW = el.offsetWidth;',
-        '  var cH = el.offsetHeight;',
-        '  if(cW <= 0 || cH <= 0) return;',
-        '  var scaleX = A4W / cW;',
-        '  var scaleY = A4H / cH;',
-        '  var scale = Math.min(scaleX, scaleY, 1);',
-        '  el.style.transform = "scale(" + scale + ")";',
-        '  el.style.transformOrigin = "top left";',
-        '  setTimeout(function(){ window.print(); }, 400);',
-        '};',
-        '<\/script>',
-      ].join('\n');
+      // zoom দিয়ে fit — transform এর মতো কিন্তু layout সঠিক থাকে
+      var fitScript = '<script>window.onload=function(){'
+        + 'var el=document.getElementById("rna-content-wrap");'
+        + 'if(!el)return;'
+        + 'var tbl=el.querySelector("table");'
+        + 'if(!tbl)return;'
+        + 'var mmPx=96/25.4;'
+        + 'var availW=(297-16)*mmPx;'   // 297mm - 2×8mm margin
+        + 'var availH=(210-12)*mmPx;'   // 210mm - 2×6mm margin
+        + 'var tblW=tbl.offsetWidth;'
+        + 'var tblH=el.offsetHeight;'
+        + 'var zoomW = tblW>0 ? availW/tblW : 1;'
+        + 'var zoomH = tblH>0 ? availH/tblH : 1;'
+        + 'var zoom = Math.min(zoomW, zoomH, 1);'
+        + 'if(zoom<1){'
+        + '  document.body.style.zoom = zoom;'
+        + '}'
+        + 'setTimeout(function(){window.print();},400);'
+        + '};<\/script>';
 
       var win = window.open('', '_blank', 'width=1200,height=800');
       win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
@@ -10565,16 +10580,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return;
     }
 
-    // ── Tabs 1,2,3: Full A4 landscape — width fixed, height auto-scale ──
+    // ── Tabs 1,2,3: Full A4 landscape — fixed width, zoom height-fit ──
     var CSS_FONT = '6.5pt';
     var CSS_CELL_PAD = '1px 3px';
 
     var bodyHTML2 =
-      '<div id="rna-outer">'
-      + '<div id="rna-content-wrap">'
+      '<div id="rna-content-wrap">'
       + '<div class="rna-hdr"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
       + _rnaTabData[tabIdx]
-      + '</div></div>';
+      + '</div>';
 
     var fixedBodyHTML = bodyHTML2.replace(
       /<table style="[^"]*">/,
@@ -10583,37 +10597,48 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     );
 
     var css2 = [
-      '@page { size: A4 landscape; margin: 0; }',
-      /* outer div = exact A4 landscape size, clips overflow */
-      '#rna-outer { width: 297mm; height: 210mm; overflow: hidden; position: relative; }',
-      /* content wrap — 297mm wide, transform-origin top left */
-      '#rna-content-wrap { width: 297mm; padding: 5mm 6mm; box-sizing: border-box; transform-origin: top left; }',
+      '@page { size: A4 landscape; margin: 6mm 8mm; }',
       'html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }',
-      '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
+      '#rna-content-wrap { width: 100%; }',
+      '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
       'table { width: 100%; border-collapse: collapse; font-size: ' + CSS_FONT + '; table-layout: fixed; }',
       'thead { display: table-header-group; }',
-      'th { border: 0.5px solid #555; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #1a5276; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      'td { border: 0.5px solid #aaa; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
-      'tr:nth-child(even) td { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      'th { border: 1px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap;',
+      '     background: #000 !important; color: #fff !important;',
+      '     -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      'td { border: 0.5px solid #999; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
+      /* Total row */
+      'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td {',
+      '  background: #000 !important; color: #fff !important;',
+      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      /* B/L column */
+      'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"] {',
+      '  background: #000 !important; color: #fff !important;',
+      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      /* Issue column */
+      'td[style*="background:#e67e22"], td[style*="background: #e67e22"] {',
+      '  background: #555 !important; color: #fff !important;',
+      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'td span[style] { font-size: 5.5pt !important; }',
+      /* even rows */
+      'tr:nth-child(even) td { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'button { display: none !important; }',
+      /* Slip/footer div */
+      'div[style*="background:#eaf4fb"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
+      'div[style*="background:#f8f0fd"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
     ].join('\n');
 
-    // JS: content height মেপে, A4 height এ fit করতে uniform scale করো
-    // Width সবসময় 297mm — scale করলে width ও কমে যাবে, তাই outer div এ clip করা হয়েছে
     var fitScript2 = '<script>window.onload=function(){'
-      + 'var mmPx = 96/25.4;'
-      + 'var A4H = 210 * mmPx;'
-      + 'var el = document.getElementById("rna-content-wrap");'
-      + 'if(!el) return;'
-      + 'var cH = el.scrollHeight;'
-      + 'if(cH > 0) {'
-      + '  var sc = Math.min(A4H / cH, 1);'   // ছোট হলে scale, বড় না
-      + '  el.style.transform = "scale("+sc+")";'
-      + '  el.style.transformOrigin = "top left";'
-      + '  el.style.width = (297 / sc) + "mm";'  // scale এর পরেও 297mm দেখাবে
+      + 'var el=document.getElementById("rna-content-wrap");'
+      + 'if(!el)return;'
+      + 'var mmPx=96/25.4;'
+      + 'var availH=(210-12)*mmPx;'   // 210mm - 2×6mm margin
+      + 'var cH=el.offsetHeight;'
+      + 'if(cH>availH&&cH>0){'
+      + '  var zoom=availH/cH;'
+      + '  document.body.style.zoom=zoom;'
       + '}'
-      + 'setTimeout(function(){window.print();}, 500);'
+      + 'setTimeout(function(){window.print();},400);'
       + '};<\/script>';
 
     var win = window.open('', '_blank', 'width=1200,height=800');
@@ -11262,7 +11287,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     });
 
     // ── Total row ──
-    html += '<tr style="background:#1a5276;color:#fff;font-weight:700;text-align:center;">';
+    html += '<tr style="background:#1a5276;color:#fff;font-weight:700;text-align:center;page-break-inside:avoid;break-inside:avoid;">';
     html += '<td style="'+S+'padding:4px 6px;text-align:left;">Total</td>';
     html += '<td style="'+S+'padding:4px;white-space:nowrap;">'+tBF+'</td>';
     html += '<td style="'+S+'padding:4px;">'+tRcv+'</td>';
@@ -11274,10 +11299,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Collect unique slip numbers from issues in date range
     var slipNums = [];
     issInRange.forEach(function(iss){ if(iss.challan && slipNums.indexOf(iss.challan)<0) slipNums.push(iss.challan); });
-    // Also from receive records
     rcvInRange.forEach(function(r){ if(r.challan && slipNums.indexOf(r.challan)<0) slipNums.push(r.challan); });
     var slipStr = slipNums.length ? slipNums.join(', ') : '_______________';
-    html += '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:#eaf4fb;border-left:4px solid #2980b9;border-radius:4px;">🧾 নিডেল/সিনকার রিসিভ স্লিপ নং: <b style="color:#1a5276;">'+_esc(slipStr)+'</b></div>';
+    html += '<div style="margin-top:6px;font-size:12px;padding:8px 12px;background:#eaf4fb;border-left:4px solid #2980b9;border-radius:4px;page-break-before:avoid;break-before:avoid;page-break-inside:avoid;break-inside:avoid;">🧾 নিডেল/সিনকার রিসিভ স্লিপ নং: <b style="color:#1a5276;">'+_esc(slipStr)+'</b></div>';
     html += '</div>';
     return html;
   }
@@ -11605,7 +11629,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     issInRange.forEach(function(iss){if(iss.challan&&slipNums.indexOf(iss.challan)<0)slipNums.push(iss.challan);});
     rcvInRange.forEach(function(r){if(r.challan&&slipNums.indexOf(r.challan)<0)slipNums.push(r.challan);});
     var slipStr=slipNums.length?slipNums.join(', '):'_______________';
-    html += '<div style="margin-top:8px;font-size:11px;padding:6px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
+    html += '<div style="margin-top:6px;font-size:11px;padding:6px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;page-break-before:avoid;break-before:avoid;page-break-inside:avoid;break-inside:avoid;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
     if(hiddenCount>0){
       html += '<div class="no-print" style="margin-top:5px;font-size:11px;padding:5px 12px;background:#fef9e7;border-left:4px solid #f39c12;border-radius:4px;color:#7d6608;">ℹ️ <b>'+hiddenCount+'টি আইটেম</b> লুকানো — স্টক ও ইসু নেই।</div>';
     }
@@ -12168,7 +12192,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     issInRange.forEach(function(iss){ if(iss.challan && slipNums.indexOf(iss.challan)<0) slipNums.push(iss.challan); });
     rcvInRange.forEach(function(r){ if(r.challan && slipNums.indexOf(r.challan)<0) slipNums.push(r.challan); });
     var slipStr = slipNums.length ? slipNums.join(', ') : '_______________';
-    html += '<div style="margin-top:10px;font-size:12px;padding:8px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
+    html += '<div style="margin-top:6px;font-size:12px;padding:8px 12px;background:#f8f0fd;border-left:4px solid #7d3c98;border-radius:4px;page-break-before:avoid;break-before:avoid;page-break-inside:avoid;break-inside:avoid;">🧾 ইউজ নিডেল ইসু স্লিপ নং: <b style="color:#7d3c98;">'+_esc2(slipStr)+'</b></div>';
     if(hiddenCount > 0){
       html += '<div style="margin-top:6px;font-size:11px;padding:6px 12px;background:#fef9e7;border-left:4px solid #f39c12;border-radius:4px;color:#7d6608;">ℹ️ <b>'+hiddenCount+'টি আইটেম</b> লুকানো আছে (B/F = 0, রিসিভ নেই, ইসু নেই) — Manage থেকে সিলেক্ট করা থাকলেও দেখাবে না যতক্ষণ স্টক বা রিসিভ না হয়।</div>';
     }
