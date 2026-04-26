@@ -472,6 +472,19 @@ if('serviceWorker' in navigator){
     #page-stn_manager_report .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
     thead { display: table-header-group !important; }
     tbody tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    /* Requisition page print */
+    #page-stn_requisition .no-print { display: none !important; }
+    #page-stn_requisition #req-tab-1 > .card:first-child { display: none !important; }
+    #page-stn_requisition .no-print-input { border: none !important; background: transparent !important; }
+
+    /* Requisition print overlay — compact for 35-40 items per page */
+    #stn-req-print-overlay { font-size: 9pt !important; }
+    #stn-req-print-overlay div[style*="text-align:center"] > div:first-child { font-size: 14pt !important; font-weight: 800 !important; }
+    #stn-req-print-overlay table { font-size: 8.5pt !important; border-collapse: collapse !important; }
+    #stn-req-print-overlay th { padding: 3px 5px !important; font-size: 8.5pt !important; }
+    #stn-req-print-overlay td { padding: 2px 5px !important; line-height: 1.3 !important; }
+    #stn-req-print-overlay div[style*="padding:60px"] { padding: 30px 40px 10px !important; }
+    @page { margin: 10mm 12mm; }
 
     /* Manager report — compact font & spacing */
     #page-stn_manager_report table { font-size: 7pt !important; }
@@ -1019,7 +1032,8 @@ if('serviceWorker' in navigator){
         stn: {
           issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
           receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
-          items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]')
+          items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
+          requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
         },
         ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}')
@@ -1053,6 +1067,7 @@ if('serviceWorker' in navigator){
           if(data.stn.issues)   localStorage.setItem('igl_stn_issues',   JSON.stringify(data.stn.issues));
           if(data.stn.receives) localStorage.setItem('igl_stn_receives', JSON.stringify(data.stn.receives));
           if(data.stn.items)    localStorage.setItem('igl_stn_items',    JSON.stringify(data.stn.items));
+          if(data.stn.requisitions) localStorage.setItem('igl_stn_requisitions', JSON.stringify(data.stn.requisitions));
         }
         if(data.ndlRcv)    localStorage.setItem('igl_ndl_rcv',    JSON.stringify(data.ndlRcv));
         if(data.rnaManage) localStorage.setItem('igl_rna_manage', JSON.stringify(data.rnaManage));
@@ -1637,6 +1652,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
+      <li><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
     </ul>
   </div>
 
@@ -2353,6 +2369,128 @@ window.iglSaveUsers = function(){
     </div>
   </div>
 
+
+  <!-- STATIONERY REQUISITION PAGE -->
+  <div class="page" id="page-stn_requisition">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>📋 Stationery Requisition</h2>
+        <p>মাসিক Requisition তৈরি করুন এবং Stock Register দেখুন</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+        <button onclick="stnReqPrint()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
+        <button onclick="stnReqExcel()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Excel</button>
+      </div>
+    </div>
+
+    <!-- Item Select Card -->
+    <div class="card no-print" style="margin-bottom:16px;">
+      <div class="card-header" style="background:linear-gradient(135deg,#004d61,#00838f);color:#fff;border-bottom:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span>📝 Requisition — Item Select & Quantity</span>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <label style="font-size:12px;font-weight:400;">Month:</label>
+          <select id="req-month" onchange="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:110px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="req-year" onchange="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;width:85px;"></select>
+          <input type="text" id="req-title" placeholder="Title (optional)" oninput="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;width:160px;">
+        </div>
+      </div>
+      <div class="card-body" style="padding:14px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+          <input type="text" id="req-item-search" placeholder="🔍 Item খুঁজুন..." oninput="stnReqFilterItems()" style="padding:7px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;flex:1;min-width:180px;">
+          <button onclick="stnReqSelectAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #00838f;background:#fff;color:#00838f;font-size:12px;cursor:pointer;font-weight:700;">✅ সব Select</button>
+          <button onclick="stnReqClearAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:12px;cursor:pointer;font-weight:700;">✕ সব Clear</button>
+          <button onclick="stnReqSaveRequisition()" style="padding:7px 18px;border-radius:6px;border:none;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">💾 Save Requisition</button>
+        </div>
+        <div id="req-item-checklist" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;max-height:460px;overflow-y:auto;padding:4px;"></div>
+      </div>
+    </div>
+
+    <!-- ── Requisition Preview ── -->
+    <div class="card" id="req-preview-card" style="display:none;margin-bottom:16px;">
+      <div class="card-header no-print" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
+        <span>📄 Requisition Preview</span>
+        <button onclick="stnReqPrintArea('req-print-area-1','#00838f')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="req-print-area-1">
+          <div style="text-align:center;padding:14px 10px 6px;">
+            <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>
+            <div style="font-size:13px;font-weight:700;margin-top:5px;" id="req-print-title-disp"></div>
+          </div>
+          <div class="table-wrap">
+            <table style="width:100%;">
+              <thead>
+                <tr style="background:#00838f;color:#fff;">
+                  <th style="width:36px;">SL</th>
+                  <th>Item Name</th>
+                  <th style="width:75px;text-align:center;">Qty</th>
+                  <th style="width:65px;text-align:center;">Unit</th>
+                  <th class="no-print" style="width:75px;text-align:center;">Rate ৳</th>
+                  <th class="no-print" style="width:85px;text-align:center;">Amount ৳</th>
+                  <th style="width:130px;text-align:center;">Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="req-preview-tbody"></tbody>
+              <tfoot id="req-preview-tfoot"></tfoot>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:60px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Authority</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Stock Register (Requisition Preview এর নিচে) ── -->
+    <div class="card" id="reg-stock-card" style="display:none;margin-bottom:16px;">
+      <div class="card-header no-print" style="background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;border-bottom:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span>📦 Stock Register</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:12px;font-weight:400;">Balance তারিখ:</label>
+          <input type="date" id="reg-bal-date" onchange="stnReqSyncRegister(stnReqGetSelected())" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;">
+          <button onclick="stnReqPrintArea('req-print-area-2','#7d3c98')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="req-print-area-2">
+          <div style="text-align:center;padding:14px 10px 6px;">
+            <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>
+            <div style="font-size:13px;font-weight:700;margin-top:5px;" id="reg-print-title-disp"></div>
+          </div>
+          <div class="table-wrap">
+            <table style="width:100%;font-size:13px;">
+              <thead>
+                <tr style="background:#7d3c98;color:#fff;">
+                  <th style="width:36px;">SL</th>
+                  <th>Item Name</th>
+                  <th style="width:70px;text-align:center;">Req Qty</th>
+                  <th style="width:70px;text-align:center;">Unit</th>
+                  <th style="width:80px;text-align:center;">Rcv Qty</th>
+                  <th style="width:80px;text-align:center;">Stock Balance</th>
+                </tr>
+              </thead>
+              <tbody id="reg-tbody">
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">Item select করুন</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:60px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Authority</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-stn_requisition -->
 
   <!--  GOOGLE SHEETS SYNC SETUP  -->
   <div class="page" id="page-sheets_setup">
@@ -3648,11 +3786,16 @@ function ok(msg) {
           <input type="date" class="form-control" id="rna-to" style="width:140px;" onchange="renderRetailNeedleAccount()">
         </div>
         <button class="btn btn-primary btn-sm" onclick="renderRetailNeedleAccount()" style="margin-top:16px;">🔍 View</button>
-        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
+        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll(false)" style="margin-top:16px;">🖨️ Print All</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintAll(true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="ব্যাকগ্রাউন্ড ছাড়া প্রিন্ট — কালি সাশ্রয়">🖨️ No BG (All)</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ S/J NoBG</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Rib NoBG</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Sinker NoBG</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Jacquard NoBG</button>
         <button class="btn btn-sm no-print" onclick="rnaExportExcel()" style="margin-top:16px;background:#1e7e34;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">📊 Excel Export</button>
         <button class="btn btn-sm no-print" onclick="showUsedNeedleAccount()" style="margin-top:16px;background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">♻️ ইউজ নিডেল একাউন্ট</button>
       </div>
@@ -6049,6 +6192,7 @@ function showPage(name, el) {
       renderNewSetLog();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
+    else if (name === 'stn_requisition') stnReqInit();
     else if (name === 'sheets_setup') gsRenderSetupPage();
   } catch(e) { console.error('Render error on page ' + name + ':', e); }
 }
@@ -7160,7 +7304,487 @@ function stnMgrPrintTab(tab) {
 
 // ══ END STATIONERY MANAGER REPORT ══════════════════════════════════════
 
-// ── Stationery Delete Transaction ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// ── STATIONERY REQUISITION MODULE ─────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+
+function stnReqInit() {
+  // Year dropdowns populate
+  var curYear = new Date().getFullYear();
+  ['req-year','reg-year'].forEach(function(id){
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (var y = curYear - 2; y <= curYear + 2; y++) {
+      sel.innerHTML += '<option value="'+y+'"'+(y===curYear?' selected':'')+'>'+y+'</option>';
+    }
+  });
+  // Default current month
+  var cm = new Date().getMonth() + 1;
+  var reqM   = document.getElementById('req-month');
+  var regM   = document.getElementById('reg-month');
+  var regBal = document.getElementById('reg-bal-date');
+  if (reqM)  reqM.value  = cm;
+  if (regM)  regM.value  = cm;
+  if (regBal) regBal.value = todayStr();
+
+  stnReqBuildChecklist();
+  // Delay render slightly so DOM is ready
+  setTimeout(function(){ stnReqRenderRegister(); }, 50);
+}
+
+function stnReqBuildChecklist() {
+  var allItems = DB.stnItems || [];
+  var hidden   = stnGetHiddenItems ? stnGetHiddenItems() : [];
+  var items    = allItems.filter(function(it){ return hidden.indexOf(it.id) < 0; });
+  var saved    = stnReqGetSaved();
+  var savedIds = saved ? saved.items.map(function(x){ return x.id; }) : [];
+
+  // Saved rates from localStorage
+  var rates = {};
+  try { rates = JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){}
+
+  var html = '';
+  items.forEach(function(it){
+    var checked     = savedIds.indexOf(it.id) >= 0;
+    var savedQty    = '', savedUnit = 'Pcs', savedRemarks = '';
+    if (checked && saved) {
+      var si = saved.items.find(function(x){ return x.id === it.id; });
+      if (si) { savedQty = si.qty; savedUnit = si.unit || 'Pcs'; savedRemarks = si.remarks || ''; }
+    }
+    var uOpts = ['Pcs','Kg','Liter','**'].map(function(u){
+      return '<option value="'+u+'"'+(u===savedUnit?' selected':'')+'>'+u+'</option>';
+    }).join('');
+    var savedRate = rates[it.id] || '';
+
+    html += '<div class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;background:'+(checked?'#e8f8f2':'#fff')+';">';
+    html += '<input type="checkbox" id="req-chk-'+it.id+'" onchange="stnReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:16px;height:16px;accent-color:#00838f;cursor:pointer;">';
+    html += '<label for="req-chk-'+it.id+'" style="flex:1;font-size:13px;cursor:pointer;font-weight:'+(checked?'600':'400')+';">'+it.name+'</label>';
+    html += '<input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" '+(checked?'':'disabled')+' oninput="stnReqUpdatePreview()" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:center;" title="Quantity">';
+    html += '<select id="req-unit-'+it.id+'" '+(checked?'':'disabled')+' onchange="stnReqUpdatePreview()" style="width:68px;padding:4px 5px;border:1px solid #ccc;border-radius:5px;font-size:12px;background:#fff;" title="Unit">'+uOpts+'</select>';
+    html += '<input type="number" id="req-rate-'+it.id+'" placeholder="Rate ৳" min="0" value="'+(savedRate||'')+'" oninput="stnReqSaveRate(\''+it.id+'\',this.value);stnReqUpdatePreview();" style="width:75px;padding:4px 6px;border:1px solid #e8c84a;border-radius:5px;font-size:12px;text-align:center;background:#fffde7;" title="Rate (৳)">';
+    html += '<input type="text" id="req-rmk-'+it.id+'" placeholder="Remarks" value="'+(savedRemarks||'')+'" '+(checked?'':'disabled')+' oninput="stnReqUpdatePreview()" style="width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:12px;" title="Remarks">';
+    html += '</div>';
+  });
+  var el = document.getElementById('req-item-checklist');
+  if (el) el.innerHTML = html || '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
+  stnReqUpdatePreview();
+}
+
+function stnReqCheckChange(id) {
+  var chk    = document.getElementById('req-chk-'+id);
+  var qtyInp = document.getElementById('req-qty-'+id);
+  var unitSel= document.getElementById('req-unit-'+id);
+  var rmkInp = document.getElementById('req-rmk-'+id);
+  var row    = chk ? chk.closest('.req-item-row') : null;
+  if (!chk) return;
+  if (chk.checked) {
+    if (qtyInp)  { qtyInp.disabled  = false; qtyInp.focus(); }
+    if (unitSel) { unitSel.disabled = false; }
+    if (rmkInp)  { rmkInp.disabled  = false; }
+    if (row) { row.style.background='#e8f8f2'; row.querySelector('label').style.fontWeight='600'; }
+  } else {
+    if (qtyInp)  { qtyInp.disabled  = true; qtyInp.value = ''; }
+    if (unitSel) { unitSel.disabled = true; unitSel.value = 'Pcs'; }
+    if (rmkInp)  { rmkInp.disabled  = true; rmkInp.value = ''; }
+    if (row) { row.style.background='#fff'; row.querySelector('label').style.fontWeight='400'; }
+  }
+  stnReqUpdatePreview();
+}
+
+function stnReqSelectAll() {
+  (DB.stnItems||[]).forEach(function(it){
+    var chk = document.getElementById('req-chk-'+it.id);
+    if (chk && !chk.checked) { chk.checked = true; stnReqCheckChange(it.id); }
+  });
+}
+
+function stnReqClearAll() {
+  (DB.stnItems||[]).forEach(function(it){
+    var chk = document.getElementById('req-chk-'+it.id);
+    if (chk && chk.checked) { chk.checked = false; stnReqCheckChange(it.id); }
+  });
+}
+
+function stnReqFilterItems() {
+  var q = (document.getElementById('req-item-search').value||'').toLowerCase();
+  document.querySelectorAll('.req-item-row').forEach(function(row){
+    var name = (row.getAttribute('data-name')||'').toLowerCase();
+    row.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+// Rate localStorage এ save করো (একবার set করলে সবসময় থাকে)
+function stnReqSaveRate(itemId, val) {
+  var rates = {};
+  try { rates = JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){}
+  if (val && Number(val) > 0) rates[itemId] = Number(val);
+  else delete rates[itemId];
+  localStorage.setItem('igl_stn_rates', JSON.stringify(rates));
+}
+function stnReqGetRates() {
+  try { return JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){ return {}; }
+}
+
+function stnReqGetSelected() {
+  var rates = stnReqGetRates();
+  var items = [];
+  (DB.stnItems||[]).forEach(function(it){
+    var chk = document.getElementById('req-chk-'+it.id);
+    if (chk && chk.checked) {
+      var qtyInp  = document.getElementById('req-qty-'+it.id);
+      var unitSel = document.getElementById('req-unit-'+it.id);
+      var rmkInp  = document.getElementById('req-rmk-'+it.id);
+      var rateInp = document.getElementById('req-rate-'+it.id);
+      var rate    = rateInp ? (Number(rateInp.value)||0) : (rates[it.id]||0);
+      var qty     = qtyInp ? (Number(qtyInp.value)||0) : 0;
+      items.push({
+        id:      it.id,
+        name:    it.name,
+        qty:     qty,
+        unit:    unitSel ? (unitSel.value||'Pcs') : 'Pcs',
+        rate:    rate,
+        amount:  qty * rate,
+        remarks: rmkInp ? (rmkInp.value||'') : ''
+      });
+    }
+  });
+  return items;
+}
+
+function stnReqUpdatePreview() {
+  var items   = stnReqGetSelected();
+  var card    = document.getElementById('req-preview-card');
+  var regCard = document.getElementById('reg-stock-card');
+  var tbody   = document.getElementById('req-preview-tbody');
+  if (!tbody) return;
+  if (items.length === 0) {
+    if (card)    card.style.display    = 'none';
+    if (regCard) regCard.style.display = 'none';
+    stnReqSyncRegister([]);
+    return;
+  }
+  if (card)    card.style.display    = '';
+  if (regCard) regCard.style.display = '';
+  var month     = (document.getElementById('req-month')||{}).value || '';
+  var year      = (document.getElementById('req-year')||{}).value  || '';
+  var title     = (document.getElementById('req-title')||{}).value || '';
+  var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][Number(month)] || '';
+  var titleText = (title || 'Stationery Item List') + ' ' + monthName + '-' + String(year).slice(2);
+  var td = document.getElementById('req-print-title-disp');
+  if (td) td.textContent = titleText;
+  var html = '';
+  var totalAmt = 0;
+  items.forEach(function(it, i){
+    var amt = it.amount || 0;
+    totalAmt += amt;
+    html += '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(i+1)+'</td>';
+    html += '<td style="padding:5px 8px;border:1px solid #ddd;">'+it.name+'</td>';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(it.qty||'')+'</td>';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+it.unit+'</td>';
+    html += '<td class="no-print" style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(it.rate ? it.rate.toLocaleString() : '')+'</td>';
+    html += '<td class="no-print" style="text-align:center;padding:5px 4px;border:1px solid #ddd;font-weight:600;color:#1a5276;">'+(amt ? '৳'+amt.toLocaleString() : '')+'</td>';
+    html += '<td style="padding:3px 4px;border:1px solid #ddd;"><input type="text" value="'+(it.remarks||'')+'" placeholder="" onchange="stnReqUpdateRemark(\''+it.id+'\',this.value)" style="width:100%;border:none;background:transparent;font-size:12px;padding:2px 4px;outline:none;" class="no-print-input"></td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  // Total row in tfoot
+  var tfoot = document.getElementById('req-preview-tfoot');
+  if (tfoot) {
+    tfoot.innerHTML = '<tr class="no-print" style="background:#e8f4f8;font-weight:700;">'
+      + '<td colspan="5" style="text-align:right;padding:6px 8px;border:1px solid #ddd;color:#1a5276;">মোট মূল্য:</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:1px solid #ddd;color:#1a5276;font-size:14px;">৳'+totalAmt.toLocaleString()+'</td>'
+      + '<td style="border:1px solid #ddd;"></td>'
+      + '</tr>';
+  }
+  stnReqSyncRegister(items);
+}
+
+// Stock Register কে Requisition Form এর selected items দিয়ে সরাসরি update করো
+function stnReqSyncRegister(items) {
+  var regTbody = document.getElementById('reg-tbody');
+  var titleEl  = document.getElementById('reg-print-title-disp');
+  if (!regTbody) return;
+
+  var month     = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
+  var year      = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
+  var balDate   = (document.getElementById('reg-bal-date')||{}).value || todayStr();
+  var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month] || '';
+  var titleText = 'Stationery Item List ' + monthName + '-' + String(year).slice(2);
+
+  // Header ও title সেট করো
+  var titleEl = document.getElementById('reg-print-title-disp');
+  if (titleEl) titleEl.textContent = titleText;
+  var regM = document.getElementById('reg-month');
+  var regY = document.getElementById('reg-year');
+  if (regM) regM.value = month;
+  if (regY) regY.value = year;
+
+  if (!items || items.length === 0) {
+    regTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">Requisition Form থেকে Item select করুন</td></tr>';
+    return;
+  }
+
+  // localStorage থেকে receive ও issue পড়ো
+  var receives = [], issues = [], stnItems = [];
+  try { receives = JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'); } catch(e){}
+  try { issues   = JSON.parse(localStorage.getItem('igl_stn_issues')   || '[]'); } catch(e){}
+  try { stnItems = JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'); } catch(e){}
+
+  var mStr  = String(year) + '-' + String(month).padStart(2,'0');
+  var mFrom = mStr + '-01';
+  var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+
+  var html = '';
+  items.forEach(function(it, i){
+    var reqQty = Number(it.qty) || 0;
+    var unit   = it.unit || 'Pcs';
+
+    var rcvQty = receives
+      .filter(function(r){ return r.item === it.name && r.date >= mFrom && r.date <= mTo; })
+      .reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+
+    var bfItem = stnItems.find(function(x){ return x.id===it.id || x.name===it.name; });
+    var bf     = bfItem ? (Number(bfItem.bf)||0) : 0;
+    var totRec = receives.filter(function(r){ return r.item===it.name && r.date<=balDate; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var totIss = issues.filter(function(r){   return r.item===it.name && r.date<=balDate; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var bal    = bf + totRec - totIss;
+    var balClr = bal <= 0 ? '#c0392b' : bal <= 5 ? '#e67e22' : '#1a6b3a';
+
+    html += '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;">'+(i+1)+'</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;font-weight:500;">'+it.name+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;">'+(reqQty||'')+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;color:#555;">'+unit+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;font-weight:600;color:#1a5276;">'+(rcvQty||'')+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;font-weight:700;color:'+balClr+';">'+bal+'</td>';
+    html += '</tr>';
+  });
+  regTbody.innerHTML = html;
+}
+
+function stnReqUpdateRemark(itemId, val) {
+  // Update the remarks in the checklist input so it saves correctly
+  var rmkInp = document.getElementById('req-rmk-'+itemId);
+  if (rmkInp) rmkInp.value = val;
+}
+
+function stnReqSaveRequisition() {
+  var items = stnReqGetSelected();
+  if (items.length === 0) { toast('⚠️ কমপক্ষে একটি Item টিক দিন!', 'warning'); return; }
+  var month = (document.getElementById('req-month')||{}).value;
+  var year  = (document.getElementById('req-year')||{}).value;
+  var title = (document.getElementById('req-title')||{}).value || '';
+  var key   = 'req_'+year+'_'+month;
+  var reqs  = DB.stnRequisitions || {};
+  reqs[key] = { month: Number(month), year: Number(year), title: title, items: items, savedAt: new Date().toISOString() };
+  DB.stnRequisitions = reqs;
+  triggerAutoSave();
+
+  // Stock Register এর month/year sync করো Tab 1 এর সাথে
+  var regM = document.getElementById('reg-month');
+  var regY = document.getElementById('reg-year');
+  if (regM) regM.value = month;
+  if (regY) regY.value = year;
+
+  toast('✅ Requisition সেভ হয়েছে! ('+items.length+' টি আইটেম)', 'success');
+  stnReqRenderRegister();
+}
+
+function stnReqGetSaved() {
+  var month = (document.getElementById('req-month')||{}).value;
+  var year  = (document.getElementById('req-year')||{}).value;
+  if (!month || !year) return null;
+  var reqs = DB.stnRequisitions || {};
+  return reqs['req_'+year+'_'+month] || null;
+}
+
+function stnReqRenderRegister() {
+  var items = stnReqGetSelected();
+  stnReqSyncRegister(items);
+}
+
+function stnReqSwitchTab(n) {
+  var t1 = document.getElementById('req-tab-1');
+  var t2 = document.getElementById('req-tab-2');
+  var b1 = document.getElementById('req-tab-btn-1');
+  var b2 = document.getElementById('req-tab-btn-2');
+  if (t1) t1.style.display = n===1 ? '' : 'none';
+  if (t2) t2.style.display = n===2 ? '' : 'none';
+  if (b1) { b1.style.background = n===1 ? 'linear-gradient(135deg,#00838f,#00acc1)' : '#f0f0f0'; b1.style.color = n===1?'#fff':'#555'; }
+  if (b2) { b2.style.background = n===2 ? 'linear-gradient(135deg,#4a235a,#7d3c98)' : '#f0f0f0'; b2.style.color = n===2?'#fff':'#555'; }
+  if (n===2) {
+    // Tab 2 visible হওয়ার পরে current selected items দিয়ে sync করো
+    var items = stnReqGetSelected();
+    stnReqSyncRegister(items);
+  }
+}
+
+function stnReqPrintArea(areaId, thColor) {
+  var area = document.getElementById(areaId);
+  if (!area) return;
+
+  var old = document.getElementById('stn-req-print-overlay');
+  if (old) old.parentNode.removeChild(old);
+  var oldS = document.getElementById('stn-req-print-style');
+  if (oldS) oldS.parentNode.removeChild(oldS);
+
+  var overlay = document.createElement('div');
+  overlay.id  = 'stn-req-print-overlay';
+  overlay.innerHTML = area.innerHTML;
+
+  // Item count — row height নির্ধারণ
+  var rowCount = overlay.querySelectorAll('tbody tr').length;
+  var isReq    = areaId === 'req-print-area-1';
+  var tdPad, thPad, fontSize, sigPad;
+  if (!isReq) {
+    tdPad = '4px 6px'; thPad = '4px 6px'; fontSize = '9pt'; sigPad = '40px 40px 10px';
+  } else if (rowCount >= 35) {
+    tdPad = '2px 5px'; thPad = '3px 5px'; fontSize = '8pt';   sigPad = '18px 40px 8px';
+  } else if (rowCount >= 28) {
+    tdPad = '4px 5px'; thPad = '4px 5px'; fontSize = '8.5pt'; sigPad = '20px 40px 8px';
+  } else if (rowCount >= 20) {
+    tdPad = '7px 5px'; thPad = '5px 5px'; fontSize = '9pt';   sigPad = '25px 40px 8px';
+  } else if (rowCount >= 12) {
+    tdPad = '12px 5px'; thPad = '7px 5px'; fontSize = '9pt';  sigPad = '30px 40px 8px';
+  } else {
+    tdPad = '18px 5px'; thPad = '10px 5px'; fontSize = '9.5pt'; sigPad = '40px 40px 8px';
+  }
+
+  // Input → span
+  overlay.querySelectorAll('input').forEach(function(inp){
+    var span = document.createElement('span');
+    span.textContent = inp.value || '';
+    inp.parentNode.replaceChild(span, inp);
+  });
+  overlay.querySelectorAll('select').forEach(function(sel){
+    sel.parentNode.removeChild(sel);
+  });
+  // Signature div — inline style দিয়ে page break prevent করো
+  overlay.querySelectorAll('div').forEach(function(d){
+    if (d.style && d.style.padding && d.style.padding.indexOf('60px') >= 0) {
+      d.style.pageBreakInside = 'avoid';
+      d.style.breakInside     = 'avoid';
+      d.style.padding         = sigPad;
+    }
+  });
+
+  document.body.appendChild(overlay);
+
+  var style = document.createElement('style');
+  style.id  = 'stn-req-print-style';
+  style.textContent = [
+    '@page { margin: 10mm 12mm; }',
+    '@media print {',
+    '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
+    '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; padding: 0; color: #000; }',
+    '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
+    '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+(thColor||'#00838f')+' !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.3; }',
+    '  #stn-req-print-overlay tr:nth-child(even) td { background: #f7f7f7; }',
+    /* Signature row — same page, no break */
+    '  #stn-req-print-overlay div[style*="padding:60px"] { padding: '+sigPad+' !important; page-break-inside: avoid !important; break-inside: avoid !important; }',
+    '  #stn-req-print-overlay .table-wrap { page-break-after: avoid !important; }',
+    '}',
+    '#stn-req-print-overlay { display: none; }'
+  ].join('\n');
+  document.head.appendChild(style);
+
+  window.print();
+
+  setTimeout(function(){
+    var o = document.getElementById('stn-req-print-overlay');
+    var s = document.getElementById('stn-req-print-style');
+    if (o) o.parentNode.removeChild(o);
+    if (s) s.parentNode.removeChild(s);
+  }, 1500);
+}
+
+// উপরের Print বাটন থেকে call হয় (পুরানো compatibility এর জন্য রাখা)
+function stnReqPrint() {
+  stnReqPrintArea('req-print-area-1', '#00838f');
+}
+
+function stnReqExcel() {
+  var tab1 = document.getElementById('req-tab-1');
+  var isTab1 = tab1 && tab1.style.display !== 'none';
+
+  var month     = Number((document.getElementById(isTab1?'req-month':'reg-month')||{}).value||0);
+  var year      = Number((document.getElementById(isTab1?'req-year':'reg-year')||{}).value||0);
+  var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month]||'';
+  var titleEl   = document.getElementById(isTab1?'req-title':'reg-print-title-disp');
+  var titleText = (isTab1 && titleEl ? (titleEl.value||'') : '') || ('Stationery Item List '+monthName+'-'+String(year).slice(2));
+
+  var rows = [];
+  // Header rows
+  rows.push(['Islam Garments Limited']);
+  rows.push(['Jarun, Konabari, Gazipur']);
+  rows.push([titleText]);
+  rows.push([]);
+
+  if (isTab1) {
+    // Tab 1 - Requisition
+    rows.push(['SL','Item Name','Quantity','Unit','Remarks']);
+    var items = stnReqGetSelected();
+    items.forEach(function(it, i){
+      rows.push([i+1, it.name, it.qty||'', it.unit||'Pcs', it.remarks||'']);
+    });
+  } else {
+    // Tab 2 - Stock Register
+    rows.push(['SL','Item Name','Req Qty','Unit','Rcv Qty','Stock Balance']);
+    var tbody = document.getElementById('reg-tbody');
+    if (tbody) {
+      tbody.querySelectorAll('tr').forEach(function(tr, i){
+        var cells = tr.querySelectorAll('td');
+        if (cells.length >= 6) {
+          rows.push([
+            cells[0].textContent.trim(),
+            cells[1].textContent.trim(),
+            cells[2].textContent.trim(),
+            cells[3].textContent.trim(),
+            cells[4].textContent.trim(),
+            cells[5].textContent.trim()
+          ]);
+        }
+      });
+    }
+  }
+
+  rows.push([]);
+  rows.push(['','','','','Store/Admin','','Authority']);
+
+  // Build CSV (Excel compatible)
+  var csv = rows.map(function(r){
+    return r.map(function(c){
+      var s = String(c==null?'':c);
+      if (s.indexOf(',')>=0 || s.indexOf('"')>=0 || s.indexOf('\n')>=0) s = '"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }).join(',');
+  }).join('\r\n');
+
+  var bom = '\uFEFF'; // UTF-8 BOM for Bengali/special chars
+  var blob = new Blob([bom+csv], {type:'text/csv;charset=utf-8;'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'Requisition_'+titleText.replace(/\s+/g,'_')+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Excel ফাইল ডাউনলোড হচ্ছে!', 'success');
+}
+
+// DB.stnRequisitions getter/setter
+Object.defineProperty(DB, 'stnRequisitions', {
+  get: function(){ return _get('igl_stn_requisitions') || {}; },
+  set: function(v){ _set('igl_stn_requisitions', v); },
+  configurable: true
+});
+
+// ── END STATIONERY REQUISITION MODULE ──────────────────────────────
+
+
 async function stnDeleteTx(type, id) {
   if (!IGL_CURRENT_USER) { toast('❌ লগইন করুন।', 'error'); return; }
 
@@ -10466,7 +11090,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     rnaShowTab(_rnaCurrentTab, null);
   }
 
-  function rnaPrintAll(){
+  function rnaPrintAll(noBg){
     var fromDate = document.getElementById('rna-from').value;
     var toDate = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
@@ -10487,7 +11111,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         + '</div>';
     }).join('');
 
-    var css = _rnaPrintCSS('A4 landscape', '6mm');
+    var css = _rnaPrintCSS('A4 landscape', '6mm', noBg);
     var win = window.open('', '_blank', 'width=1200,height=800');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account</title><style>' + css + '</style></head><body>' + bodyHTML + '</body></html>');
     win.document.close();
@@ -10496,7 +11120,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // Single tab print — auto-fit one page
-  function rnaPrintSingle(tabIdx){
+  function rnaPrintSingle(tabIdx, noBg){
     var fromDate = document.getElementById('rna-from').value;
     var toDate   = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
@@ -10509,6 +11133,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(_rnaTabData[tabIdx]===null){
       _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
     }
+
+    // No-BG CSS helper
+    var noBgCSS = noBg ? [
+      '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
+      'th { border: 2px solid #000 !important; font-weight: 900 !important; }',
+      'tr[style*="Total"] td, tbody tr:last-child td { border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; }',
+      'td[style*="background:#e67e22"], td[style*="background:#1e7e34"], td[style*="background:#fef5e7"], td[style*="background:#eafaf1"] { border: 1.5px solid #000 !important; font-weight: 900 !important; }',
+    ].join('\n') : '';
 
     // ── Tab 0 (S/J & Fleece): zoom-based auto-fit ──
     if (tabIdx === 0) {
@@ -10530,38 +11162,36 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         '.rna-header { font-size: ' + (autoFont+0.5) + 'pt; font-weight: 700; margin-bottom: 4px; border-bottom: 2px solid #000; padding-bottom: 3px; }',
         'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; width: auto; }',
         'thead { display: table-header-group; }',
-        /* Header row — background হোক বা না হোক বোঝা যাবে */
-        'th { border: 1px solid #000; padding: 1px 3px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap;',
-        '     background: #000 !important; color: #fff !important;',
-        '     -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        /* Total row */
-        'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td {',
-        '  background: #000 !important; color: #fff !important;',
-        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        /* B/L column — dark green */
-        'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"] {',
-        '  background: #000 !important; color: #fff !important;',
-        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        /* Issue column — orange */
-        'td[style*="background:#e67e22"], td[style*="background: #e67e22"] {',
-        '  background: #555 !important; color: #fff !important;',
-        '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        noBg
+          ? 'th { border: 2px solid #000; padding: 1px 3px; font-weight: 900; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+          : 'th { border: 1px solid #000; padding: 1px 3px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        noBg
+          ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+          : 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        noBg
+          ? 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+          : 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        noBg
+          ? 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+          : 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #555 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        noBg
+          ? 'td[style*="background:#fef5e7"], td[style*="background:#eafaf1"], td[style*="background:#f5f8fb"] { background: #fff !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+          : '',
         'td { border: 0.5px solid #999; padding: 1px 3px; font-size: ' + autoFont + 'pt; }',
         'button { display: none !important; }',
-        /* Slip number div */
-        'div[style*="background:#eaf4fb"], div[style*="background: #eaf4fb"] {',
-        '  background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
+        'div[style*="background:#eaf4fb"], div[style*="background: #eaf4fb"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
+        noBgCSS,
       ].join('\n');
 
-      // zoom দিয়ে fit — transform এর মতো কিন্তু layout সঠিক থাকে
+      // zoom দিয়ে fit
       var fitScript = '<script>window.onload=function(){'
         + 'var el=document.getElementById("rna-content-wrap");'
         + 'if(!el)return;'
         + 'var tbl=el.querySelector("table");'
         + 'if(!tbl)return;'
         + 'var mmPx=96/25.4;'
-        + 'var availW=(297-16)*mmPx;'   // 297mm - 2×8mm margin
-        + 'var availH=(210-12)*mmPx;'   // 210mm - 2×6mm margin
+        + 'var availW=(297-16)*mmPx;'
+        + 'var availH=(210-12)*mmPx;'
         + 'var tblW=tbl.offsetWidth;'
         + 'var tblH=el.offsetHeight;'
         + 'var zoomW = tblW>0 ? availW/tblW : 1;'
@@ -10603,36 +11233,34 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
       'table { width: 100%; border-collapse: collapse; font-size: ' + CSS_FONT + '; table-layout: fixed; }',
       'thead { display: table-header-group; }',
-      'th { border: 1px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap;',
-      '     background: #000 !important; color: #fff !important;',
-      '     -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      noBg
+        ? 'th { border: 2px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 900; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'th { border: 1px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'td { border: 0.5px solid #999; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
-      /* Total row */
-      'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td {',
-      '  background: #000 !important; color: #fff !important;',
-      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      /* B/L column */
-      'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"] {',
-      '  background: #000 !important; color: #fff !important;',
-      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      /* Issue column */
-      'td[style*="background:#e67e22"], td[style*="background: #e67e22"] {',
-      '  background: #555 !important; color: #fff !important;',
-      '  -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      noBg
+        ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      noBg
+        ? 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      noBg
+        ? 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #555 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+      noBg
+        ? 'td[style*="background:#fef5e7"], td[style*="background:#eafaf1"], td[style*="background:#f0f0f0"], td[style*="background:#f5f8fb"] { background: #fff !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'tr:nth-child(even) td { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'td span[style] { font-size: 5.5pt !important; }',
-      /* even rows */
-      'tr:nth-child(even) td { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       'button { display: none !important; }',
-      /* Slip/footer div */
       'div[style*="background:#eaf4fb"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
       'div[style*="background:#f8f0fd"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
+      noBgCSS,
     ].join('\n');
 
     var fitScript2 = '<script>window.onload=function(){'
       + 'var el=document.getElementById("rna-content-wrap");'
       + 'if(!el)return;'
       + 'var mmPx=96/25.4;'
-      + 'var availH=(210-12)*mmPx;'   // 210mm - 2×6mm margin
+      + 'var availH=(210-12)*mmPx;'
       + 'var cH=el.offsetHeight;'
       + 'if(cH>availH&&cH>0){'
       + '  var zoom=availH/cH;'
@@ -10647,7 +11275,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     win.focus();
   }
 
-  function _rnaPrintCSS(pageSize, margin) {
+  function _rnaPrintCSS(pageSize, margin, noBg) {
     return [
       '@page { size: ' + pageSize + '; margin: ' + margin + '; }',
       'body { font-family: Arial, sans-serif; font-size: 7pt; margin: 0; padding: 0; color: #000; }',
@@ -10656,9 +11284,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       '.rna-print-page:last-child { page-break-after: avoid; }',
       'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: auto; }',
       'thead { display: table-header-group; }',
-      'th { border: 1px solid #555; padding: 1px 3px; font-weight: 700; text-align: center; font-size: 7pt; background: #f0f0f0; }',
+      noBg
+        ? 'th { border: 2px solid #000; padding: 1px 3px; font-weight: 900; text-align: center; font-size: 7pt; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : 'th { border: 1px solid #555; padding: 1px 3px; font-weight: 700; text-align: center; font-size: 7pt; background: #f0f0f0; }',
       'td { border: 0.5px solid #aaa; padding: 1px 3px; font-size: 7pt; }',
       'tr { page-break-inside: avoid; }',
+      noBg
+        ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : '',
+      noBg
+        ? 'td[style*="background:#e67e22"], td[style*="background:#1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
+        : '',
+      noBg
+        ? '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }'
+        : '',
       'button { display: none !important; }',
     ].join('\n');
   }
@@ -14958,7 +15597,8 @@ function confirmRestoreFromJson() {
           stn: {
             issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
             receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
-            items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]')
+            items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
+            requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
           },
           ndlRcv:    JSON.parse(localStorage.getItem('igl_ndl_rcv')    || '[]'),
           rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}')
