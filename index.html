@@ -1172,11 +1172,8 @@ function iglDoLogin(){
   var nb = document.getElementById('igl-user-badge');
   if(nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
 
-  // Admin user management menu দেখাও
-  if(IGL_CURRENT_USER.role === 'admin'){
-    var adminMenu = document.getElementById('igl-admin-menu');
-    if(adminMenu) adminMenu.style.display = 'block';
-  }
+  // Permission অনুযায়ী menu apply করো (admin menu + requisition সহ)
+  iglApplyPermissions();
 
   toast('✅ Welcome, ' + IGL_CURRENT_USER.name + '!', 'success');
   setTimeout(function(){ window.iglPopulateUserFilters && window.iglPopulateUserFilters(); }, 300);
@@ -1201,10 +1198,7 @@ function iglDoLogin(){
         } else {
           document.body.classList.add('igl-user-regular');
         }
-        if(IGL_CURRENT_USER.role === 'admin'){
-          var adminMenu = document.getElementById('igl-admin-menu');
-          if(adminMenu) adminMenu.style.display = 'block';
-        }
+        iglApplyPermissions(); // permission অনুযায়ী menu show/hide (admin menu + requisition সহ)
         window.iglPopulateUserFilters && window.iglPopulateUserFilters();
         // Auto session restore এর পরেও backup check
         setTimeout(function(){ try { checkMonthlyAutoBackup(); } catch(e){} }, 4000);
@@ -1261,6 +1255,7 @@ window.iglCheckBackdate = function(dateStr) {
   if(!dateStr) return null;
   var isAdmin = IGL_CURRENT_USER && IGL_CURRENT_USER.role === 'admin';
   if(isAdmin) return null; // Admin সব পারবে
+  if(iglHasPermission('backdate_entry')) return null; // Permission দেওয়া user ও পারবে
 
   var now = new Date();
   var hour = now.getHours(); // 0-23
@@ -1355,14 +1350,59 @@ window.iglLogout = function(){
   location.reload();
 };
 
+// ── Admin: User Permission System ──────────────────────────────────────
+
+// Available permissions list
+var IGL_PERMISSIONS = {
+  'stn_requisition':  '📋 Stationery Requisition',
+  'backdate_entry':   '📅 Back Date Entry (Needle Issue)'
+};
+
+function iglGetUserPermissions(username) {
+  try {
+    var all = JSON.parse(localStorage.getItem('igl_user_permissions') || '{}');
+    return all[username] || [];
+  } catch(e){ return []; }
+}
+
+function iglSaveUserPermissions(username, perms) {
+  var all = {};
+  try { all = JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'); } catch(e){}
+  all[username] = perms;
+  localStorage.setItem('igl_user_permissions', JSON.stringify(all));
+}
+
+function iglHasPermission(permKey) {
+  if (!window.IGL_CURRENT_USER) return false;
+  if (window.IGL_CURRENT_USER.role === 'admin') return true;
+  var perms = iglGetUserPermissions(window.IGL_CURRENT_USER.username);
+  return perms.indexOf(permKey) >= 0;
+}
+
+// Login এর পরে permission অনুযায়ী UI apply করো
+function iglApplyPermissions() {
+  var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+
+  // Admin menu (Users বাটন)
+  var adminMenu = document.getElementById('igl-admin-menu');
+  if (adminMenu) adminMenu.style.display = isAdmin ? 'block' : 'none';
+
+  // Requisition menu
+  var reqNav = document.getElementById('nav-stn-requisition');
+  if (reqNav) {
+    reqNav.style.display = (isAdmin || iglHasPermission('stn_requisition')) ? '' : 'none';
+  }
+}
+
 // ── Admin: User Password Edit ──
 window.iglShowUserMgmt = function(){
   var html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;">';
-  html += '<div style="background:#fff;border-radius:14px;padding:28px;width:92%;max-width:420px;max-height:85vh;overflow-y:auto;">';
+  html += '<div style="background:#fff;border-radius:14px;padding:28px;width:92%;max-width:460px;max-height:88vh;overflow-y:auto;">';
   html += '<div style="font-size:16px;font-weight:700;color:#1a5276;margin-bottom:18px;">⚙️ User Management</div>';
   Object.keys(IGL_USERS).forEach(function(u){
     var user = IGL_USERS[u];
     var isAdmin = user.role === 'admin';
+    var userPerms = iglGetUserPermissions(u);
     html += '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;background:'+(isAdmin?'#eaf4fb':'#fff')+'">';
     html += '<div style="font-weight:700;color:'+(isAdmin?'#1a5276':'#333')+';margin-bottom:8px;">'+(isAdmin?'👑 ':'👤 ')+user.name+' <span style="font-size:11px;color:#888;">('+user.role+')</span></div>';
     html += '<label style="font-size:11px;color:#888;margin-bottom:2px;display:block;">Display Name</label>';
@@ -1370,7 +1410,20 @@ window.iglShowUserMgmt = function(){
     html += '<label style="font-size:11px;color:#888;margin-bottom:2px;display:block;">Username (Login ID)</label>';
     html += '<input type="text" id="um-u-'+u+'" value="'+u+'" placeholder="Username" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;margin-bottom:6px;box-sizing:border-box;font-size:13px;">';
     html += '<label style="font-size:11px;color:#888;margin-bottom:2px;display:block;">Password</label>';
-    html += '<input type="text" id="um-p-'+u+'" value="'+user.pass+'" placeholder="Password" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:13px;">';
+    html += '<input type="text" id="um-p-'+u+'" value="'+user.pass+'" placeholder="Password" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;box-sizing:border-box;font-size:13px;">';
+    // Permission toggles (শুধু non-admin user এর জন্য)
+    if (!isAdmin) {
+      html += '<div style="background:#f8f9fa;border-radius:6px;padding:8px 10px;border:1px solid #e9ecef;">';
+      html += '<div style="font-size:11px;font-weight:700;color:#555;margin-bottom:6px;">🔐 Extra Permissions</div>';
+      Object.keys(IGL_PERMISSIONS).forEach(function(pk){
+        var checked = userPerms.indexOf(pk) >= 0;
+        html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:4px;">';
+        html += '<input type="checkbox" id="um-perm-'+u+'-'+pk+'" '+(checked?'checked':'')+' style="width:15px;height:15px;accent-color:#1a5276;cursor:pointer;">';
+        html += '<span>'+IGL_PERMISSIONS[pk]+'</span>';
+        html += '</label>';
+      });
+      html += '</div>';
+    }
     html += '</div>';
   });
   html += '<div style="display:flex;gap:10px;margin-top:14px;">';
@@ -1386,22 +1439,26 @@ window.iglSaveUsers = function(){
     var newU = ((document.getElementById('um-u-'+u)||{}).value || u).trim();
     var newP = ((document.getElementById('um-p-'+u)||{}).value || IGL_USERS[u].pass).trim();
     var newN = ((document.getElementById('um-n-'+u)||{}).value || IGL_USERS[u].name).trim();
-    if(!newU || !newP){ return; } // খালি হলে skip
-    newIGL_USERS[newU] = {
-      pass: newP,
-      role: IGL_USERS[u].role, // role পরিবর্তন হয় না
-      name: newN
-    };
+    if(!newU || !newP){ return; }
+    newIGL_USERS[newU] = { pass: newP, role: IGL_USERS[u].role, name: newN };
+
+    // Permission checkboxes save করো
+    if (IGL_USERS[u].role !== 'admin') {
+      var perms = [];
+      Object.keys(IGL_PERMISSIONS).forEach(function(pk){
+        var chk = document.getElementById('um-perm-'+u+'-'+pk);
+        if (chk && chk.checked) perms.push(pk);
+      });
+      iglSaveUserPermissions(newU, perms);
+    }
   });
-  // IGL_USERS আপডেট করো
   Object.keys(IGL_USERS).forEach(function(k){ delete IGL_USERS[k]; });
   Object.keys(newIGL_USERS).forEach(function(k){ IGL_USERS[k] = newIGL_USERS[k]; });
   localStorage.setItem('igl_users_override', JSON.stringify(IGL_USERS));
   document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child').remove();
-  // navbar badge আপডেট করো
   var nb = document.getElementById('igl-user-badge');
   if(nb && window.IGL_CURRENT_USER) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
-  toast('✅ Users updated! পরবর্তী লগইন থেকে কার্যকর হবে।', 'success');
+  toast('✅ Users ও Permission আপডেট হয়েছে!', 'success');
 };
 
 // Load user overrides
@@ -1652,7 +1709,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
-      <li><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
+      <li id="nav-stn-requisition" style="display:none;"><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
     </ul>
   </div>
 
@@ -2380,6 +2437,19 @@ window.iglSaveUsers = function(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
         <button onclick="stnReqPrint()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
         <button onclick="stnReqExcel()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Excel</button>
+      </div>
+    </div>
+
+    <!-- History Card -->
+    <div class="card no-print" style="margin-bottom:16px;border:1px solid #d4ac0d;">
+      <div class="card-header" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border-bottom:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span>📂 Saved Requisition History</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select id="req-history-select" onchange="stnReqLoadHistory(this.value)" style="padding:5px 12px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:180px;">
+            <option value="">-- মাস সিলেক্ট করুন --</option>
+          </select>
+          <button onclick="stnReqDeleteHistory()" style="padding:5px 12px;border-radius:5px;border:1px solid rgba(255,255,255,0.5);background:rgba(231,76,60,0.7);color:#fff;font-size:12px;cursor:pointer;font-weight:700;">🗑️ Delete</button>
+        </div>
       </div>
     </div>
 
@@ -6192,7 +6262,13 @@ function showPage(name, el) {
       renderNewSetLog();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
-    else if (name === 'stn_requisition') stnReqInit();
+    else if (name === 'stn_requisition') {
+      if (!iglHasPermission('stn_requisition')) {
+        toast('⛔ এই পেজটি শুধুমাত্র Admin বা অনুমোদিত User এর জন্য।', 'error');
+        return;
+      }
+      stnReqInit();
+    }
     else if (name === 'sheets_setup') gsRenderSetupPage();
   } catch(e) { console.error('Render error on page ' + name + ':', e); }
 }
@@ -7309,9 +7385,8 @@ function stnMgrPrintTab(tab) {
 // ══════════════════════════════════════════════════════════════════
 
 function stnReqInit() {
-  // Year dropdowns populate
   var curYear = new Date().getFullYear();
-  ['req-year','reg-year'].forEach(function(id){
+  ['req-year'].forEach(function(id){
     var sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -7319,18 +7394,91 @@ function stnReqInit() {
       sel.innerHTML += '<option value="'+y+'"'+(y===curYear?' selected':'')+'>'+y+'</option>';
     }
   });
-  // Default current month
   var cm = new Date().getMonth() + 1;
-  var reqM   = document.getElementById('req-month');
-  var regM   = document.getElementById('reg-month');
+  var reqM = document.getElementById('req-month');
   var regBal = document.getElementById('reg-bal-date');
-  if (reqM)  reqM.value  = cm;
-  if (regM)  regM.value  = cm;
+  if (reqM) reqM.value = cm;
   if (regBal) regBal.value = todayStr();
 
+  stnReqPopulateHistory();
   stnReqBuildChecklist();
-  // Delay render slightly so DOM is ready
   setTimeout(function(){ stnReqRenderRegister(); }, 50);
+}
+
+// History dropdown populate করো
+function stnReqPopulateHistory() {
+  var sel = document.getElementById('req-history-select');
+  if (!sel) return;
+  var reqs = {};
+  try { reqs = JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}'); } catch(e){}
+  var keys = Object.keys(reqs).sort().reverse(); // নতুন আগে
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  sel.innerHTML = '<option value="">-- মাস সিলেক্ট করুন --</option>';
+  keys.forEach(function(k){
+    var parts = k.replace('req_','').split('_');
+    var yr = parts[0], mn = parts[1];
+    var label = (MONTHS[Number(mn)]||mn) + ' ' + yr + ' (' + (reqs[k].items||[]).length + ' items)';
+    sel.innerHTML += '<option value="'+k+'">'+label+'</option>';
+  });
+}
+
+// History থেকে load করো
+function stnReqLoadHistory(key) {
+  if (!key) return;
+  var reqs = {};
+  try { reqs = JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}'); } catch(e){}
+  var saved = reqs[key];
+  if (!saved) return;
+  // Month/Year set করো
+  var reqM = document.getElementById('req-month');
+  var reqY = document.getElementById('req-year');
+  if (reqM) reqM.value = saved.month;
+  if (reqY) reqY.value = saved.year;
+  var titleEl = document.getElementById('req-title');
+  if (titleEl) titleEl.value = saved.title || '';
+  // Checklist rebuild করো saved data দিয়ে
+  stnReqBuildChecklistFromSaved(saved.items);
+  toast('📂 '+key.replace('req_','').replace('_',' / ')+' এর Requisition লোড হয়েছে।', 'success');
+}
+
+// Saved items দিয়ে checklist render করো
+function stnReqBuildChecklistFromSaved(savedItems) {
+  // আগে সব uncheck করো
+  (DB.stnItems||[]).forEach(function(it){
+    var chk = document.getElementById('req-chk-'+it.id);
+    if (chk && chk.checked) { chk.checked = false; stnReqCheckChange(it.id); }
+  });
+  // Saved items check করো
+  (savedItems||[]).forEach(function(si){
+    var chk = document.getElementById('req-chk-'+si.id);
+    if (chk) {
+      chk.checked = true;
+      stnReqCheckChange(si.id);
+      var qtyInp  = document.getElementById('req-qty-'+si.id);
+      var unitSel = document.getElementById('req-unit-'+si.id);
+      var rmkInp  = document.getElementById('req-rmk-'+si.id);
+      if (qtyInp)  qtyInp.value  = si.qty  || '';
+      if (unitSel) unitSel.value = si.unit  || 'Pcs';
+      if (rmkInp)  rmkInp.value  = si.remarks || '';
+    }
+  });
+  stnReqUpdatePreview();
+}
+
+// History delete করো
+function stnReqDeleteHistory() {
+  var sel = document.getElementById('req-history-select');
+  var key = sel ? sel.value : '';
+  if (!key) { toast('⚠️ আগে একটা মাস সিলেক্ট করুন।', 'warning'); return; }
+  if (!confirm(key.replace('req_','').replace('_',' / ')+' এর Requisition delete করবেন?')) return;
+  var reqs = {};
+  try { reqs = JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}'); } catch(e){}
+  delete reqs[key];
+  localStorage.setItem('igl_stn_requisitions', JSON.stringify(reqs));
+  DB.stnRequisitions = reqs;
+  triggerAutoSave();
+  stnReqPopulateHistory();
+  toast('🗑️ Delete হয়েছে।', 'success');
 }
 
 function stnReqBuildChecklist() {
@@ -7582,8 +7730,7 @@ function stnReqSaveRequisition() {
   reqs[key] = { month: Number(month), year: Number(year), title: title, items: items, savedAt: new Date().toISOString() };
   DB.stnRequisitions = reqs;
   triggerAutoSave();
-
-  // Stock Register এর month/year sync করো Tab 1 এর সাথে
+  stnReqPopulateHistory(); // history dropdown আপডেট করো
   var regM = document.getElementById('reg-month');
   var regY = document.getElementById('reg-year');
   if (regM) regM.value = month;
@@ -7642,15 +7789,15 @@ function stnReqPrintArea(areaId, thColor) {
   if (!isReq) {
     tdPad = '4px 6px'; thPad = '4px 6px'; fontSize = '9pt'; sigPad = '40px 40px 10px';
   } else if (rowCount >= 35) {
-    tdPad = '2px 5px'; thPad = '3px 5px'; fontSize = '8pt';   sigPad = '18px 40px 8px';
+    tdPad = '1px 4px'; thPad = '2px 4px'; fontSize = '7.5pt'; sigPad = '10px 40px 6px';
   } else if (rowCount >= 28) {
-    tdPad = '4px 5px'; thPad = '4px 5px'; fontSize = '8.5pt'; sigPad = '20px 40px 8px';
+    tdPad = '3px 5px'; thPad = '3px 5px'; fontSize = '8pt';   sigPad = '14px 40px 6px';
   } else if (rowCount >= 20) {
-    tdPad = '7px 5px'; thPad = '5px 5px'; fontSize = '9pt';   sigPad = '25px 40px 8px';
+    tdPad = '6px 5px'; thPad = '5px 5px'; fontSize = '8.5pt'; sigPad = '20px 40px 8px';
   } else if (rowCount >= 12) {
-    tdPad = '12px 5px'; thPad = '7px 5px'; fontSize = '9pt';  sigPad = '30px 40px 8px';
+    tdPad = '11px 5px'; thPad = '7px 5px'; fontSize = '9pt';  sigPad = '28px 40px 8px';
   } else {
-    tdPad = '18px 5px'; thPad = '10px 5px'; fontSize = '9.5pt'; sigPad = '40px 40px 8px';
+    tdPad = '17px 5px'; thPad = '10px 5px'; fontSize = '9.5pt'; sigPad = '40px 40px 8px';
   }
 
   // Input → span
@@ -7682,8 +7829,10 @@ function stnReqPrintArea(areaId, thColor) {
     '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; padding: 0; color: #000; }',
     '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
     '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+(thColor||'#00838f')+' !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-    '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.3; }',
+    '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
     '  #stn-req-print-overlay tr:nth-child(even) td { background: #f7f7f7; }',
+    isReq && rowCount >= 35 ? '  #stn-req-print-overlay div[style*="text-align:center"] { padding: 6px 10px 4px !important; }' : '',
+    isReq && rowCount >= 35 ? '  #stn-req-print-overlay div[style*="font-size:20px"] { font-size: 13pt !important; margin-bottom: 1px !important; }' : '',
     /* Signature row — same page, no break */
     '  #stn-req-print-overlay div[style*="padding:60px"] { padding: '+sigPad+' !important; page-break-inside: avoid !important; break-inside: avoid !important; }',
     '  #stn-req-print-overlay .table-wrap { page-break-after: avoid !important; }',
