@@ -622,13 +622,8 @@ if('serviceWorker' in navigator){
     #page-stn_requisition #req-tab-1 > .card:first-child { display: none !important; }
     #page-stn_requisition .no-print-input { border: none !important; background: transparent !important; }
 
-    /* Requisition print overlay — compact for 35-40 items per page */
-    #stn-req-print-overlay { font-size: 9pt !important; }
-    #stn-req-print-overlay div[style*="text-align:center"] > div:first-child { font-size: 14pt !important; font-weight: 800 !important; }
-    #stn-req-print-overlay table { font-size: 8.5pt !important; border-collapse: collapse !important; }
-    #stn-req-print-overlay th { padding: 3px 5px !important; font-size: 8.5pt !important; }
-    #stn-req-print-overlay td { padding: 2px 5px !important; line-height: 1.3 !important; }
-    #stn-req-print-overlay div[style*="padding:60px"] { padding: 30px 40px 10px !important; }
+    /* Requisition print overlay — let JS-injected styles control sizing */
+    /* (zoom, font, padding controlled dynamically by pomBuildAndPrint) */
     @page { margin: 10mm 12mm; }
 
     @page { margin: 10mm 12mm; }
@@ -1465,6 +1460,39 @@ if('serviceWorker' in navigator){
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══ PRINT QUICK-BAR (browser print dialog এর সময় দেখা যাবে) ══ -->
+<div id="print-quick-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999998;background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;padding:10px 20px;box-shadow:0 -4px 20px rgba(0,0,0,0.4);font-family:Arial,sans-serif;">
+  <div style="max-width:900px;margin:0 auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <span style="font-weight:700;font-size:13px;white-space:nowrap;">⚙️ সেটিংস পরিবর্তন করুন:</span>
+    <!-- Zoom -->
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;white-space:nowrap;">🔍 জুম:</span>
+      <input type="range" id="pqb-zoom" min="50" max="150" value="100" step="5"
+        style="width:90px;accent-color:#fff;"
+        oninput="pqbSetZoom(this.value)">
+      <span id="pqb-zoom-val" style="font-size:12px;min-width:36px;font-weight:700;">100%</span>
+    </div>
+    <!-- Row Height -->
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;white-space:nowrap;">↕️ হাইট:</span>
+      <input type="range" id="pqb-row" min="1" max="22" value="4" step="1"
+        style="width:80px;accent-color:#fff;"
+        oninput="pqbSetRow(this.value)">
+      <span id="pqb-row-val" style="font-size:12px;min-width:30px;font-weight:700;">4px</span>
+    </div>
+    <!-- Font -->
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;white-space:nowrap;">🔤 ফন্ট:</span>
+      <input type="range" id="pqb-font" min="6" max="13" value="8" step="0.5"
+        style="width:80px;accent-color:#fff;"
+        oninput="pqbSetFont(this.value)">
+      <span id="pqb-font-val" style="font-size:12px;min-width:34px;font-weight:700;">8pt</span>
+    </div>
+    <button onclick="pqbDoPrint()" style="padding:7px 22px;background:#27ae60;border:none;color:#fff;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🖨️ এখন প্রিন্ট</button>
+    <button onclick="pqbClose()" style="padding:7px 16px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;">✕ বাতিল</button>
   </div>
 </div>
 
@@ -8998,7 +9026,7 @@ function pomClose() {
 function pomDoPrint() {
   var cb = _pomCallback;
   var orient = _pomOrientation;
-  // Save all current settings before closing (pomClose nulls _pomAreaId/_pomCallback)
+  // Save all current settings before closing
   var savedZoom    = _pomZoom;
   var savedRowPad  = _pomRowPad;
   var savedColPad  = _pomColPad;
@@ -9007,9 +9035,8 @@ function pomDoPrint() {
   var savedAreaId  = _pomAreaId;
   var savedThColor = _pomThColor;
   pomClose();
-  // Wait for modal close animation before triggering print
   setTimeout(function() {
-    // Restore saved settings (pomClose may have nulled some globals)
+    // Restore saved settings
     _pomZoom     = savedZoom;
     _pomRowPad   = savedRowPad;
     _pomColPad   = savedColPad;
@@ -9017,7 +9044,26 @@ function pomDoPrint() {
     _pomBW       = savedBW;
     _pomAreaId   = savedAreaId;
     _pomThColor  = savedThColor;
-    if (typeof cb === 'function') cb(orient);
+
+    if (savedAreaId) {
+      // Show quick-bar for last-chance settings adjustment, then print
+      pqbShow(savedAreaId, savedThColor, orient);
+      pqbRebuild();
+      // Auto-print after short delay (quick-bar lets user adjust then click "এখন প্রিন্ট")
+      // If user wants immediate print without quick-bar adjustment, they can just click print button
+      // We show the bar and also auto-trigger print so browser dialog opens alongside
+      setTimeout(function(){
+        var bar = document.getElementById('print-quick-bar');
+        if (bar) bar.style.display = 'none';
+        window.print();
+        setTimeout(function(){
+          bar = document.getElementById('print-quick-bar');
+          if (bar) bar.style.display = 'block'; // re-show bar after print dialog closes
+        }, 500);
+      }, 200);
+    } else if (typeof cb === 'function') {
+      cb(orient);
+    }
   }, 350);
 }
 
@@ -9226,6 +9272,7 @@ function pomBuildAndPrint(areaId, thColor, orientation) {
     '@page { size: A4 ' + orientation + '; margin: 10mm 12mm; }',
     '@media print {',
     '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
+    '  #print-quick-bar { display: none !important; }',
     '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; zoom: ' + zoomVal + '; }',
     '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
     '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+thBg+' !important; color: '+thColor2+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
@@ -18048,6 +18095,111 @@ async function saveEditEntry() {
     closeEditModal();
     toast('✅ Needle এন্ট্রি আপডেট হয়েছে!', 'success');
   }
+}
+
+// ══ PRINT QUICK-BAR (পেজে floating settings bar) ══
+var _pqbAreaId  = null;
+var _pqbThColor = null;
+var _pqbOrient  = 'portrait';
+
+function pqbShow(areaId, thColor, orientation) {
+  _pqbAreaId  = areaId;
+  _pqbThColor = thColor || '#00838f';
+  _pqbOrient  = orientation || 'portrait';
+  // Sync sliders with current pom settings
+  var zs = document.getElementById('pqb-zoom');
+  var rs = document.getElementById('pqb-row');
+  var fs = document.getElementById('pqb-font');
+  if (zs) { zs.value = _pomZoom; document.getElementById('pqb-zoom-val').textContent = _pomZoom + '%'; }
+  if (rs) { rs.value = _pomRowPad; document.getElementById('pqb-row-val').textContent = _pomRowPad + 'px'; }
+  if (fs) { fs.value = _pomFontSize; document.getElementById('pqb-font-val').textContent = _pomFontSize + 'pt'; }
+  var bar = document.getElementById('print-quick-bar');
+  if (bar) bar.style.display = 'block';
+}
+
+function pqbClose() {
+  var bar = document.getElementById('print-quick-bar');
+  if (bar) bar.style.display = 'none';
+  // cleanup overlay
+  var o = document.getElementById('stn-req-print-overlay');
+  var s = document.getElementById('stn-req-print-style');
+  if (o) o.parentNode.removeChild(o);
+  if (s) s.parentNode.removeChild(s);
+}
+
+function pqbSetZoom(v) {
+  _pomZoom = parseInt(v);
+  document.getElementById('pqb-zoom-val').textContent = _pomZoom + '%';
+  pqbRebuild();
+}
+function pqbSetRow(v) {
+  _pomRowPad = parseInt(v);
+  document.getElementById('pqb-row-val').textContent = _pomRowPad + 'px';
+  pqbRebuild();
+}
+function pqbSetFont(v) {
+  _pomFontSize = parseFloat(v);
+  document.getElementById('pqb-font-val').textContent = _pomFontSize + 'pt';
+  pqbRebuild();
+}
+
+function pqbRebuild() {
+  // Rebuild the print overlay with new settings without re-printing
+  var area = document.getElementById(_pqbAreaId);
+  if (!area) return;
+  var old = document.getElementById('stn-req-print-overlay');
+  if (old) old.parentNode.removeChild(old);
+  var oldS = document.getElementById('stn-req-print-style');
+  if (oldS) oldS.parentNode.removeChild(oldS);
+
+  var overlay = document.createElement('div');
+  overlay.id  = 'stn-req-print-overlay';
+  overlay.innerHTML = area.innerHTML;
+  overlay.querySelectorAll('input').forEach(function(inp){
+    var span = document.createElement('span');
+    span.textContent = inp.value || '';
+    inp.parentNode.replaceChild(span, inp);
+  });
+  overlay.querySelectorAll('select').forEach(function(sel){ sel.parentNode.removeChild(sel); });
+  document.body.appendChild(overlay);
+
+  var tdPad   = _pomRowPad + 'px ' + _pomColPad + 'px';
+  var thPad   = Math.max(2,_pomRowPad-1) + 'px ' + _pomColPad + 'px';
+  var fontSize= _pomFontSize + 'pt';
+  var zoomVal = (_pomZoom / 100).toFixed(3);
+  var thBg    = _pomBW ? '#fff' : (_pqbThColor || '#00838f');
+  var thColor2= _pomBW ? '#000' : '#fff';
+  var evenBg  = _pomBW ? '#fff' : '#f7f7f7';
+
+  var style = document.createElement('style');
+  style.id  = 'stn-req-print-style';
+  style.textContent = [
+    '@page { size: A4 ' + _pqbOrient + '; margin: 10mm 12mm; }',
+    '@media print {',
+    '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
+    '  #print-quick-bar { display: none !important; }',
+    '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; zoom: ' + zoomVal + '; }',
+    '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
+    '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+thBg+' !important; color: '+thColor2+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
+    '  #stn-req-print-overlay tr:nth-child(even) td { background: '+evenBg+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  .no-print { display: none !important; }',
+    '}',
+    '#stn-req-print-overlay { display: none; }'
+  ].join('\n');
+  document.head.appendChild(style);
+}
+
+function pqbDoPrint() {
+  pqbRebuild();
+  var bar = document.getElementById('print-quick-bar');
+  if (bar) bar.style.display = 'none';
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){
+      pqbClose();
+    }, 1500);
+  }, 100);
 }
 </script>
 
