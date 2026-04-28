@@ -522,25 +522,81 @@ if('serviceWorker' in navigator){
 
   /* ── Print Orientation Modal ── */
   #print-orient-modal {
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
-    z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(3px);
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+    z-index:99999; align-items:stretch; justify-content:center; backdrop-filter:blur(4px);
   }
   #print-orient-modal.open { display:flex; }
   #print-orient-modal .pom-box {
-    background:#fff; border-radius:14px; padding:28px 32px; width:340px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.35); text-align:center;
+    background:#fff; width:100%; max-width:1100px; margin:16px;
+    border-radius:14px; display:flex; flex-direction:column;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4); overflow:hidden;
   }
-  #print-orient-modal h3 { font-size:16px;font-weight:700;color:#1a5276;margin-bottom:6px; }
-  #print-orient-modal p { font-size:12px;color:#888;margin-bottom:20px; }
-  .pom-btns { display:flex; gap:12px; justify-content:center; margin-bottom:14px; }
+  /* Header */
+  .pom-header {
+    background:linear-gradient(135deg,#1a5276,#2980b9);
+    color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  .pom-header h3 { margin:0; font-size:15px; font-weight:700; }
+  .pom-header-close {
+    background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4);
+    color:#fff; border-radius:6px; padding:4px 12px; cursor:pointer; font-size:13px; font-weight:700;
+  }
+  /* Body */
+  .pom-body { display:flex; flex:1; overflow:hidden; min-height:0; }
+  /* Left panel — settings */
+  .pom-settings {
+    width:300px; flex-shrink:0; border-right:1px solid #e0e4ea;
+    overflow-y:auto; padding:16px; background:#f8f9fa;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  /* Right panel — preview */
+  .pom-preview-panel {
+    flex:1; overflow:auto; background:#c8d0da; padding:20px;
+    display:flex; align-items:flex-start; justify-content:center;
+  }
+  #pom-preview-page {
+    background:#fff; box-shadow:0 4px 24px rgba(0,0,0,0.25);
+    transform-origin:top center; transition:transform 0.15s, width 0.15s, height 0.15s;
+    overflow:hidden; flex-shrink:0;
+  }
+  /* Footer */
+  .pom-footer {
+    border-top:1px solid #e0e4ea; padding:12px 20px;
+    display:flex; gap:10px; align-items:center; justify-content:flex-end;
+    background:#fff; flex-shrink:0;
+  }
+  /* Settings elements */
+  .pom-section-title {
+    font-size:10px; font-weight:800; color:#7f8c8d; letter-spacing:0.8px;
+    text-transform:uppercase; margin-bottom:6px; display:block;
+  }
+  .pom-orient-btns { display:flex; gap:8px; }
   .pom-btn {
-    flex:1; padding:14px 10px; border:2.5px solid #d5d8dc; border-radius:10px;
-    background:#f8f9fa; cursor:pointer; font-size:13px; font-weight:700; color:#5d6d7e;
-    transition:all 0.18s; display:flex; flex-direction:column; align-items:center; gap:6px;
+    flex:1; padding:10px 6px; border:2px solid #d5d8dc; border-radius:8px;
+    background:#fff; cursor:pointer; font-size:12px; font-weight:700; color:#5d6d7e;
+    transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:4px;
   }
   .pom-btn:hover { border-color:#2980b9; color:#1a5276; background:#eaf4fb; }
-  .pom-btn.selected { border-color:#2980b9; background:#eaf4fb; color:#1a5276; box-shadow:0 0 0 3px rgba(41,128,185,0.15); }
-  .pom-btn svg { width:36px; height:36px; }
+  .pom-btn.selected { border-color:#1a5276; background:#1a5276; color:#fff; }
+  .pom-btn.selected svg { stroke:#fff; }
+  .pom-btn svg { width:28px; height:28px; }
+  .pom-ctrl-section {
+    background:#fff; border-radius:8px; padding:12px; border:1px solid #e8eaed;
+  }
+  .pom-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .pom-ctrl-row:last-child { margin-bottom:0; }
+  .pom-ctrl-label { font-size:11px; color:#5d6d7e; min-width:72px; font-weight:600; }
+  .pom-zoom-btns { display:flex; gap:3px; flex-wrap:wrap; }
+  .pom-zoom-btn {
+    padding:3px 7px; border:1.5px solid #d5d8dc; border-radius:5px; background:#f8f9fa;
+    font-size:10px; font-weight:700; color:#5d6d7e; cursor:pointer; transition:all 0.12s;
+  }
+  .pom-zoom-btn:hover { border-color:#2980b9; color:#1a5276; }
+  .pom-zoom-btn.active { border-color:#1a5276; background:#1a5276; color:#fff; }
+  .pom-slider-wrap { display:flex; align-items:center; gap:6px; flex:1; }
+  .pom-slider { flex:1; accent-color:#1a5276; cursor:pointer; height:4px; }
+  .pom-slider-val { font-size:11px; font-weight:700; color:#1a5276; min-width:34px; text-align:right; }
   .pom-cancel { background:none; border:none; color:#888; font-size:12px; cursor:pointer; text-decoration:underline; }
 
   /* ── Landscape @page for stationery prints ── */
@@ -585,7 +641,7 @@ if('serviceWorker' in navigator){
     #stn-req-print-overlay table { font-size: 8.5pt !important; border-collapse: collapse !important; }
     #stn-req-print-overlay th { padding: 3px 5px !important; font-size: 8.5pt !important; }
     #stn-req-print-overlay td { padding: 2px 5px !important; line-height: 1.3 !important; }
-    #stn-req-print-overlay div[style*="padding:90px"] { padding: 30px 40px 10px !important; }
+    #stn-req-print-overlay div[style*="padding:60px"] { padding: 30px 40px 10px !important; }
     @page { margin: 10mm 12mm; }
 
     @page { margin: 10mm 12mm; }
@@ -867,49 +923,6 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
-  }
-
-  /* ── Print Scale (zoom) ── */
-  @media print {
-    body.print-scale-95 { zoom: 0.95; }
-    body.print-scale-90 { zoom: 0.90; }
-    body.print-scale-85 { zoom: 0.85; }
-    body.print-scale-80 { zoom: 0.80; }
-    body.print-scale-75 { zoom: 0.75; }
-  }
-  /* Print Scale Selector UI */
-  #igl-print-scale-bar {
-    position: fixed;
-    bottom: 18px;
-    right: 18px;
-    z-index: 9999;
-    background: #1a5276;
-    color: #fff;
-    border-radius: 10px;
-    padding: 7px 13px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    box-shadow: 0 3px 14px rgba(0,0,0,0.28);
-    user-select: none;
-  }
-  #igl-print-scale-bar label { margin: 0; font-size: 12px; white-space: nowrap; }
-  #igl-print-scale-bar .bar-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.3); margin: 0 2px; }
-  #igl-print-scale-bar select {
-    border: none;
-    border-radius: 5px;
-    padding: 2px 6px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #1a5276;
-    background: #eaf4fb;
-    cursor: pointer;
-    outline: none;
-  }
-  @media print {
-    #igl-print-scale-bar { display: none !important; }
   }
 
   /*  Responsive  */
@@ -1319,33 +1332,152 @@ if('serviceWorker' in navigator){
 <!-- ══ PRINT ORIENTATION MODAL ══ -->
 <div id="print-orient-modal">
   <div class="pom-box">
-    <div style="font-size:34px;margin-bottom:8px;">🖨️</div>
-    <h3>প্রিন্ট অরিয়েন্টেশন</h3>
-    <p>প্রিন্ট করার আগে পেপার মোড সিলেক্ট করুন</p>
-    <div class="pom-btns">
-      <button class="pom-btn selected" id="pom-portrait" onclick="pomSelect('portrait')">
-        <svg viewBox="0 0 36 48" fill="none" stroke="#1a5276" stroke-width="2.5" stroke-linecap="round">
-          <rect x="4" y="2" width="28" height="44" rx="3"/>
-          <line x1="10" y1="12" x2="26" y2="12"/>
-          <line x1="10" y1="18" x2="26" y2="18"/>
-          <line x1="10" y1="24" x2="20" y2="24"/>
-        </svg>
-        Portrait<br><span style="font-size:10px;font-weight:400;color:#888;">লম্বা (A4)</span>
-      </button>
-      <button class="pom-btn" id="pom-landscape" onclick="pomSelect('landscape')">
-        <svg viewBox="0 0 48 36" fill="none" stroke="#1a5276" stroke-width="2.5" stroke-linecap="round">
-          <rect x="2" y="4" width="44" height="28" rx="3"/>
-          <line x1="8" y1="13" x2="40" y2="13"/>
-          <line x1="8" y1="19" x2="40" y2="19"/>
-          <line x1="8" y1="25" x2="28" y2="25"/>
-        </svg>
-        Landscape<br><span style="font-size:10px;font-weight:400;color:#888;">আড়া (A4)</span>
+
+    <!-- Header -->
+    <div class="pom-header">
+      <h3>🖨️ প্রিন্ট প্রিভিউ ও সেটিংস</h3>
+      <button class="pom-header-close" onclick="pomClose()">✕ বাতিল</button>
+    </div>
+
+    <!-- Body: settings (left) + preview (right) -->
+    <div class="pom-body">
+
+      <!-- ── Left: Settings Panel ── -->
+      <div class="pom-settings">
+
+        <!-- Orientation -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">📄 অরিয়েন্টেশন</span>
+          <div class="pom-orient-btns">
+            <button class="pom-btn selected" id="pom-portrait" onclick="pomSelect('portrait')">
+              <svg viewBox="0 0 36 48" fill="none" stroke="#1a5276" stroke-width="2.5" stroke-linecap="round">
+                <rect x="4" y="2" width="28" height="44" rx="3"/>
+                <line x1="10" y1="12" x2="26" y2="12"/>
+                <line x1="10" y1="18" x2="26" y2="18"/>
+                <line x1="10" y1="24" x2="20" y2="24"/>
+              </svg>
+              Portrait
+            </button>
+            <button class="pom-btn" id="pom-landscape" onclick="pomSelect('landscape')">
+              <svg viewBox="0 0 48 36" fill="none" stroke="#1a5276" stroke-width="2.5" stroke-linecap="round">
+                <rect x="2" y="4" width="44" height="28" rx="3"/>
+                <line x1="8" y1="13" x2="40" y2="13"/>
+                <line x1="8" y1="19" x2="40" y2="19"/>
+                <line x1="8" y1="25" x2="28" y2="25"/>
+              </svg>
+              Landscape
+            </button>
+          </div>
+        </div>
+
+        <!-- Zoom -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">🔍 জুম</span>
+          <div class="pom-ctrl-row">
+            <div class="pom-zoom-btns" id="pom-zoom-presets">
+              <button class="pom-zoom-btn" onclick="pomSetZoom(125)">125%</button>
+              <button class="pom-zoom-btn active" onclick="pomSetZoom(100)">100%</button>
+              <button class="pom-zoom-btn" onclick="pomSetZoom(95)">95%</button>
+              <button class="pom-zoom-btn" onclick="pomSetZoom(90)">90%</button>
+              <button class="pom-zoom-btn" onclick="pomSetZoom(85)">85%</button>
+              <button class="pom-zoom-btn" onclick="pomSetZoom(80)">80%</button>
+              <button class="pom-zoom-btn" onclick="pomSetZoom(75)">75%</button>
+            </div>
+          </div>
+          <div class="pom-ctrl-row" style="margin-top:6px;">
+            <span class="pom-ctrl-label">কাস্টম:</span>
+            <div class="pom-slider-wrap">
+              <input type="range" class="pom-slider" id="pom-zoom-slider" min="50" max="150" value="100" step="5" oninput="pomSetZoom(this.value)">
+              <span class="pom-slider-val" id="pom-zoom-val">100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row Height -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">↕️ রো হাইট</span>
+          <div class="pom-ctrl-row">
+            <div class="pom-zoom-btns" id="pom-row-presets">
+              <button class="pom-zoom-btn" onclick="pomSetRow(2)">XS</button>
+              <button class="pom-zoom-btn active" onclick="pomSetRow(4)">S</button>
+              <button class="pom-zoom-btn" onclick="pomSetRow(8)">M</button>
+              <button class="pom-zoom-btn" onclick="pomSetRow(14)">L</button>
+              <button class="pom-zoom-btn" onclick="pomSetRow(22)">XL</button>
+            </div>
+            <div class="pom-slider-wrap">
+              <input type="range" class="pom-slider" id="pom-row-slider" min="1" max="30" value="4" step="1" oninput="pomSliderRow(this.value)">
+              <span class="pom-slider-val" id="pom-row-val">4px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Font Size -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">🔤 ফন্ট সাইজ</span>
+          <div class="pom-ctrl-row">
+            <div class="pom-zoom-btns" id="pom-font-presets">
+              <button class="pom-zoom-btn" onclick="pomSetFont(7)">7pt</button>
+              <button class="pom-zoom-btn active" onclick="pomSetFont(8)">8pt</button>
+              <button class="pom-zoom-btn" onclick="pomSetFont(9)">9pt</button>
+              <button class="pom-zoom-btn" onclick="pomSetFont(10)">10pt</button>
+              <button class="pom-zoom-btn" onclick="pomSetFont(11)">11pt</button>
+            </div>
+            <div class="pom-slider-wrap">
+              <input type="range" class="pom-slider" id="pom-font-slider" min="6" max="14" value="8" step="0.5" oninput="pomSliderFont(this.value)">
+              <span class="pom-slider-val" id="pom-font-val">8pt</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column Padding -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">↔️ কলাম প্যাডিং</span>
+          <div class="pom-ctrl-row">
+            <div class="pom-zoom-btns" id="pom-col-presets">
+              <button class="pom-zoom-btn" onclick="pomSetCol(2)">XS</button>
+              <button class="pom-zoom-btn active" onclick="pomSetCol(5)">S</button>
+              <button class="pom-zoom-btn" onclick="pomSetCol(10)">M</button>
+              <button class="pom-zoom-btn" onclick="pomSetCol(16)">L</button>
+            </div>
+            <div class="pom-slider-wrap">
+              <input type="range" class="pom-slider" id="pom-col-slider" min="1" max="20" value="5" step="1" oninput="pomSliderCol(this.value)">
+              <span class="pom-slider-val" id="pom-col-val">5px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- B&W Toggle -->
+        <div class="pom-ctrl-section">
+          <span class="pom-section-title">🎨 ব্যাকগ্রাউন্ড কালার</span>
+          <div style="display:flex;gap:8px;margin-top:2px;">
+            <button id="pom-color-btn" class="pom-zoom-btn active" onclick="pomSetBW(false)" style="flex:1;padding:8px 6px;font-size:11px;">
+              🌈 রঙিন
+            </button>
+            <button id="pom-bw-btn" class="pom-zoom-btn" onclick="pomSetBW(true)" style="flex:1;padding:8px 6px;font-size:11px;">
+              ⬛ সাদা-কালো
+            </button>
+          </div>
+          <div style="font-size:10px;color:#999;margin-top:6px;">সাদা-কালো সিলেক্ট করলে হেডার ও ব্যাকগ্রাউন্ড রঙ সরে যাবে</div>
+        </div>
+
+      </div><!-- /pom-settings -->
+
+      <!-- ── Right: Preview Panel ── -->
+      <div class="pom-preview-panel">
+        <div id="pom-preview-page"></div>
+      </div>
+
+    </div><!-- /pom-body -->
+
+    <!-- Footer -->
+    <div class="pom-footer">
+      <span style="font-size:11px;color:#999;flex:1;">সেটিংস পরিবর্তন করলে প্রিভিউ আপডেট হবে</span>
+      <button class="pom-cancel" onclick="pomClose()">বাতিল</button>
+      <button class="btn btn-primary" onclick="pomDoPrint()" style="padding:9px 28px;font-size:14px;font-weight:700;">
+        🖨️ প্রিন্ট করুন
       </button>
     </div>
-    <button class="btn btn-primary" id="pom-print-btn" onclick="pomDoPrint()" style="width:100%;margin-bottom:10px;padding:12px;">
-      🖨️ প্রিন্ট করুন
-    </button>
-    <button class="pom-cancel" onclick="pomClose()">বাতিল</button>
+
   </div>
 </div>
 
@@ -1417,7 +1549,6 @@ function iglDoLogin(){
 
   toast('✅ Welcome, ' + IGL_CURRENT_USER.name + '!', 'success');
   setTimeout(function(){ window.iglPopulateUserFilters && window.iglPopulateUserFilters(); }, 300);
-  setTimeout(function(){ window.iglShowRowHeightIfAdmin && window.iglShowRowHeightIfAdmin(); }, 200);
   // Login এর পরে monthly backup check করো
   setTimeout(function(){ try { checkMonthlyAutoBackup(); } catch(e){} }, 3000);
 }
@@ -1441,7 +1572,6 @@ function iglDoLogin(){
         }
         iglApplyPermissions(); // permission অনুযায়ী menu show/hide (admin menu + requisition সহ)
         window.iglPopulateUserFilters && window.iglPopulateUserFilters();
-        window.iglShowRowHeightIfAdmin && window.iglShowRowHeightIfAdmin();
         // Auto session restore এর পরেও backup check
         setTimeout(function(){ try { checkMonthlyAutoBackup(); } catch(e){} }, 4000);
       });
@@ -2683,7 +2813,7 @@ window.iglSaveUsers = function(){
         <p>মাসিক Requisition তৈরি করুন এবং Stock Register দেখুন</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-        <button onclick="pomOpen(function(o){stnReqPrintAreaOriented('req-print-area-1','#00838f',o);})" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
+        <button onclick="pomOpenForReq('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
         <button onclick="stnReqExcel()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Excel</button>
       </div>
     </div>
@@ -2732,7 +2862,7 @@ window.iglSaveUsers = function(){
     <div class="card" id="req-preview-card" style="display:none;margin-bottom:16px;">
       <div class="card-header no-print" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
         <span>📄 Requisition Preview</span>
-        <button onclick="pomOpen(function(o){stnReqPrintAreaOriented('req-print-area-1','#00838f',o);})" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+        <button onclick="pomOpenForReq('req-print-area-1','#00838f')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
       </div>
       <div class="card-body" style="padding:0;">
         <div id="req-print-area-1">
@@ -2758,9 +2888,9 @@ window.iglSaveUsers = function(){
               <tfoot id="req-preview-tfoot"></tfoot>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:90px 40px 16px;font-size:12px;color:#555;">
-            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Store/Admin</div></div>
-            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Authority</div></div>
+          <div style="display:flex;justify-content:space-between;padding:100px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Authority</div></div>
           </div>
         </div>
       </div>
@@ -2773,7 +2903,7 @@ window.iglSaveUsers = function(){
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:12px;font-weight:400;">Balance তারিখ:</label>
           <input type="date" id="reg-bal-date" onchange="stnReqSyncRegister(stnReqGetSelected())" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;">
-          <button onclick="pomOpen(function(o){stnReqPrintAreaOriented('req-print-area-2','#7d3c98',o);})" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+          <button onclick="pomOpenForReq('req-print-area-2','#7d3c98')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
         </div>
       </div>
       <div class="card-body" style="padding:0;">
@@ -2800,9 +2930,9 @@ window.iglSaveUsers = function(){
               </tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:90px 40px 16px;font-size:12px;color:#555;">
-            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Store/Admin</div></div>
-            <div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #999;padding-top:5px;">Authority</div></div>
+          <div style="display:flex;justify-content:space-between;padding:100px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Authority</div></div>
           </div>
         </div>
       </div>
@@ -7105,7 +7235,6 @@ function stnPrint() {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 portrait;margin:10mm 8mm;}';
-  html += iglGetPrintZoomCSS();
   html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
@@ -8040,15 +8169,14 @@ function stnReqUpdatePreview() {
   items.forEach(function(it, i){
     var amt = it.amount || 0;
     totalAmt += amt;
-    var rp = iglGetReqRowPad();
     html += '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">';
-    html += '<td style="text-align:center;padding:'+rp+' 4px;border:1px solid #ddd;">'+(i+1)+'</td>';
-    html += '<td style="padding:'+rp+' 8px;border:1px solid #ddd;">'+it.name+'</td>';
-    html += '<td style="text-align:center;padding:'+rp+' 4px;border:1px solid #ddd;">'+(it.qty||'')+'</td>';
-    html += '<td style="text-align:center;padding:'+rp+' 4px;border:1px solid #ddd;">'+it.unit+'</td>';
-    html += '<td class="no-print" style="text-align:center;padding:'+rp+' 4px;border:1px solid #ddd;">'+(it.rate ? it.rate.toLocaleString() : '')+'</td>';
-    html += '<td class="no-print" style="text-align:center;padding:'+rp+' 4px;border:1px solid #ddd;font-weight:600;color:#1a5276;">'+(amt ? '৳'+amt.toLocaleString() : '')+'</td>';
-    html += '<td style="padding:'+rp+' 4px;border:1px solid #ddd;"><input type="text" value="'+(it.remarks||'')+'" placeholder="" onchange="stnReqUpdateRemark(\''+it.id+'\',this.value)" style="width:100%;border:none;background:transparent;font-size:12px;padding:2px 4px;outline:none;" class="no-print-input"></td>';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(i+1)+'</td>';
+    html += '<td style="padding:5px 8px;border:1px solid #ddd;">'+it.name+'</td>';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(it.qty||'')+'</td>';
+    html += '<td style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+it.unit+'</td>';
+    html += '<td class="no-print" style="text-align:center;padding:5px 4px;border:1px solid #ddd;">'+(it.rate ? it.rate.toLocaleString() : '')+'</td>';
+    html += '<td class="no-print" style="text-align:center;padding:5px 4px;border:1px solid #ddd;font-weight:600;color:#1a5276;">'+(amt ? '৳'+amt.toLocaleString() : '')+'</td>';
+    html += '<td style="padding:3px 4px;border:1px solid #ddd;"><input type="text" value="'+(it.remarks||'')+'" placeholder="" onchange="stnReqUpdateRemark(\''+it.id+'\',this.value)" style="width:100%;border:none;background:transparent;font-size:12px;padding:2px 4px;outline:none;" class="no-print-input"></td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
@@ -8117,12 +8245,12 @@ function stnReqSyncRegister(items) {
     var balClr = bal <= 0 ? '#c0392b' : bal <= 5 ? '#e67e22' : '#1a6b3a';
 
     html += '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">';
-    html += '<td style="text-align:center;padding:'+iglGetReqRowPad()+' 4px;border:1px solid #e0e0e0;">'+(i+1)+'</td>';
-    html += '<td style="padding:'+iglGetReqRowPad()+' 8px;border:1px solid #e0e0e0;font-weight:500;">'+it.name+'</td>';
-    html += '<td style="text-align:center;padding:'+iglGetReqRowPad()+' 4px;border:1px solid #e0e0e0;">'+(reqQty||'')+'</td>';
-    html += '<td style="text-align:center;padding:'+iglGetReqRowPad()+' 4px;border:1px solid #e0e0e0;color:#555;">'+unit+'</td>';
-    html += '<td style="text-align:center;padding:'+iglGetReqRowPad()+' 4px;border:1px solid #e0e0e0;font-weight:600;color:#1a5276;">'+(rcvQty||'')+'</td>';
-    html += '<td style="text-align:center;padding:'+iglGetReqRowPad()+' 4px;border:1px solid #e0e0e0;font-weight:700;color:'+balClr+';">'+bal+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;">'+(i+1)+'</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;font-weight:500;">'+it.name+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;">'+(reqQty||'')+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;color:#555;">'+unit+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;font-weight:600;color:#1a5276;">'+(rcvQty||'')+'</td>';
+    html += '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;font-weight:700;color:'+balClr+';">'+bal+'</td>';
     html += '</tr>';
   });
   regTbody.innerHTML = html;
@@ -8202,22 +8330,17 @@ function stnReqPrintArea(areaId, thColor) {
   var isReq    = areaId === 'req-print-area-1';
   var tdPad, thPad, fontSize, sigPad;
   if (!isReq) {
-    tdPad = '4px 6px'; thPad = '4px 6px'; fontSize = '9pt'; sigPad = '70px 40px 10px';
+    tdPad = '4px 6px'; thPad = '4px 6px'; fontSize = '9pt'; sigPad = '40px 40px 10px';
   } else if (rowCount >= 35) {
-    tdPad = '1px 4px'; thPad = '2px 4px'; fontSize = '7.5pt'; sigPad = '20px 40px 6px';
+    tdPad = '1px 4px'; thPad = '2px 4px'; fontSize = '7.5pt'; sigPad = '10px 40px 6px';
   } else if (rowCount >= 28) {
-    tdPad = '3px 5px'; thPad = '3px 5px'; fontSize = '8pt';   sigPad = '30px 40px 6px';
+    tdPad = '3px 5px'; thPad = '3px 5px'; fontSize = '8pt';   sigPad = '14px 40px 6px';
   } else if (rowCount >= 20) {
-    tdPad = '6px 5px'; thPad = '5px 5px'; fontSize = '8.5pt'; sigPad = '45px 40px 8px';
+    tdPad = '6px 5px'; thPad = '5px 5px'; fontSize = '8.5pt'; sigPad = '20px 40px 8px';
   } else if (rowCount >= 12) {
-    tdPad = '11px 5px'; thPad = '7px 5px'; fontSize = '9pt';  sigPad = '60px 40px 8px';
+    tdPad = '11px 5px'; thPad = '7px 5px'; fontSize = '9pt';  sigPad = '28px 40px 8px';
   } else {
-    tdPad = '17px 5px'; thPad = '10px 5px'; fontSize = '9.5pt'; sigPad = '70px 40px 8px';
-  }
-  // Admin row height override
-  if (isReq) {
-    var adminRH = iglGetReqRowPad();
-    if (adminRH) { tdPad = adminRH + ' 5px'; thPad = adminRH + ' 5px'; }
+    tdPad = '17px 5px'; thPad = '10px 5px'; fontSize = '9.5pt'; sigPad = '40px 40px 8px';
   }
 
   // Input → span
@@ -8229,19 +8352,9 @@ function stnReqPrintArea(areaId, thColor) {
   overlay.querySelectorAll('select').forEach(function(sel){
     sel.parentNode.removeChild(sel);
   });
-  // ── Inline padding সরাসরি override করো (CSS specificity এড়াতে) ──
-  if (isReq) {
-    var rh = iglGetReqRowPad();
-    overlay.querySelectorAll('tbody td').forEach(function(td){
-      td.style.padding = rh + 'px 5px';
-    });
-    overlay.querySelectorAll('thead th').forEach(function(th){
-      th.style.padding = rh + 'px 5px';
-    });
-  }
   // Signature div — inline style দিয়ে page break prevent করো
   overlay.querySelectorAll('div').forEach(function(d){
-    if (d.style && d.style.padding && d.style.padding.indexOf('90px') >= 0) {
+    if (d.style && d.style.padding && d.style.padding.indexOf('60px') >= 0) {
       d.style.pageBreakInside = 'avoid';
       d.style.breakInside     = 'avoid';
       d.style.padding         = sigPad;
@@ -8254,7 +8367,6 @@ function stnReqPrintArea(areaId, thColor) {
   style.id  = 'stn-req-print-style';
   style.textContent = [
     '@page { margin: 10mm 12mm; }',
-    iglGetPrintZoomCSS(),
     '@media print {',
     '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
     '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; padding: 0; color: #000; }',
@@ -8284,22 +8396,13 @@ function stnReqPrintArea(areaId, thColor) {
 
 // উপরের Print বাটন থেকে call হয় (পুরানো compatibility এর জন্য রাখা)
 function stnReqPrint() {
-  pomOpen(function(o){ stnReqPrintAreaOriented('req-print-area-1', '#00838f', o); });
+  pomOpenForReq('req-print-area-1', '#00838f');
 }
 
 function stnReqPrintAreaOriented(areaId, thColor, orientation) {
-  // orientation: 'portrait' or 'landscape'
-  var _origFn = stnReqPrintArea;
-  // Temporarily override @page size
-  var overrideStyle = document.createElement('style');
-  overrideStyle.id = 'stn-req-orient-override';
-  overrideStyle.textContent = '@media print { @page { size: A4 '+orientation+'; } }';
-  document.head.appendChild(overrideStyle);
-  stnReqPrintArea(areaId, thColor);
-  setTimeout(function(){
-    var s = document.getElementById('stn-req-orient-override');
-    if (s) s.remove();
-  }, 2000);
+  // shim → new system
+  _pomOrientation = orientation || 'portrait';
+  pomBuildAndPrint(areaId, thColor, _pomOrientation);
 }
 
 function stnReqExcel() {
@@ -8726,7 +8829,6 @@ function stnPrintItemWise(orientation) {
 
   var printHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Item Wise Issue Report</title><style>';
   printHtml += '@page{size:A4 '+orientation+';margin:10mm 8mm;}';
-  printHtml += iglGetPrintZoomCSS();
   printHtml += 'body{font-family:Arial,sans-serif;font-size:9pt;color:#000;margin:0;padding:0;}';
   printHtml += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #6c3483;padding-bottom:6px;margin-bottom:10px;}';
   printHtml += '.hdr h2{margin:0;font-size:14pt;color:#6c3483;}';
@@ -8799,8 +8901,15 @@ function stnPrintItemWise(orientation) {
 }
 
 // ── Print Orientation Modal (Global) ──
-var _pomCallback = null;
+var _pomCallback    = null;
 var _pomOrientation = 'portrait';
+var _pomZoom        = 100;
+var _pomRowPad      = 4;
+var _pomColPad      = 5;
+var _pomFontSize    = 8;
+var _pomAreaId      = null;
+var _pomThColor     = null;
+var _pomBW          = false;
 
 function pomSelect(orient) {
   _pomOrientation = orient;
@@ -8809,21 +8918,289 @@ function pomSelect(orient) {
 }
 
 function pomOpen(callback) {
-  _pomCallback  = callback;
+  _pomCallback    = callback;
   _pomOrientation = 'portrait';
+  _pomZoom        = 100;
+  _pomRowPad      = 4;
+  _pomColPad      = 5;
+  _pomFontSize    = 8;
+  _pomAreaId      = null;
+  _pomThColor     = null;
   pomSelect('portrait');
+  _pomSyncUI();
   document.getElementById('print-orient-modal').classList.add('open');
+}
+
+function pomOpenForReq(areaId, thColor) {
+  _pomAreaId  = areaId;
+  _pomThColor = thColor || '#00838f';
+  _pomCallback = function(orientation){ pomBuildAndPrint(areaId, _pomThColor, orientation); };
+  _pomOrientation = 'portrait';
+  _pomZoom    = 100;
+  _pomRowPad  = 4;
+  _pomColPad  = 5;
+  _pomFontSize= 8;
+  _pomBW      = false;
+  pomSelect('portrait');
+  _pomSyncUI();
+  // Reset B&W buttons
+  var cb = document.getElementById('pom-color-btn');
+  var bb = document.getElementById('pom-bw-btn');
+  if(cb){ cb.classList.add('active'); }
+  if(bb){ bb.classList.remove('active'); }
+  document.getElementById('print-orient-modal').classList.add('open');
+  setTimeout(function(){ pomBuildPreview(); }, 80);
+}
+
+function pomSetBW(bw) {
+  _pomBW = bw;
+  var cb = document.getElementById('pom-color-btn');
+  var bb = document.getElementById('pom-bw-btn');
+  if(cb) cb.classList.toggle('active', !bw);
+  if(bb) bb.classList.toggle('active', bw);
+  pomBuildPreview();
 }
 
 function pomClose() {
   document.getElementById('print-orient-modal').classList.remove('open');
   _pomCallback = null;
+  _pomAreaId   = null;
 }
 
 function pomDoPrint() {
   pomClose();
   if (typeof _pomCallback === 'function') _pomCallback(_pomOrientation);
 }
+
+function pomSelect(orient) {
+  _pomOrientation = orient;
+  document.getElementById('pom-portrait').classList.toggle('selected', orient === 'portrait');
+  document.getElementById('pom-landscape').classList.toggle('selected', orient === 'landscape');
+  pomBuildPreview();
+}
+
+// ── Sync sliders & labels to current values ──
+function _pomSyncUI() {
+  var zs = document.getElementById('pom-zoom-slider');
+  var rs = document.getElementById('pom-row-slider');
+  var fs = document.getElementById('pom-font-slider');
+  var cs = document.getElementById('pom-col-slider');
+  if(zs) zs.value = _pomZoom;
+  if(rs) rs.value = _pomRowPad;
+  if(fs) fs.value = _pomFontSize;
+  if(cs) cs.value = _pomColPad;
+  _pomUpdateLabels();
+  _pomMarkActive('pom-zoom-presets', _pomZoom + '%');
+  _pomMarkActive('pom-row-presets',  {2:'XS',4:'S',8:'M',14:'L',22:'XL'}[_pomRowPad]);
+  _pomMarkActive('pom-font-presets', _pomFontSize + 'pt');
+  _pomMarkActive('pom-col-presets',  {2:'XS',5:'S',10:'M',16:'L'}[_pomColPad]);
+}
+
+function _pomUpdateLabels() {
+  var zv = document.getElementById('pom-zoom-val');
+  var rv = document.getElementById('pom-row-val');
+  var fv = document.getElementById('pom-font-val');
+  var cv = document.getElementById('pom-col-val');
+  if(zv) zv.textContent = _pomZoom + '%';
+  if(rv) rv.textContent = _pomRowPad + 'px';
+  if(fv) fv.textContent = _pomFontSize + 'pt';
+  if(cv) cv.textContent = _pomColPad + 'px';
+}
+
+function _pomMarkActive(groupId, activeText) {
+  var grp = document.getElementById(groupId);
+  if (!grp || !activeText) return;
+  grp.querySelectorAll('.pom-zoom-btn').forEach(function(b){
+    b.classList.toggle('active', b.textContent.trim() === String(activeText));
+  });
+}
+
+// ── Zoom ──
+function pomSetZoom(v) {
+  _pomZoom = parseInt(v);
+  var sl = document.getElementById('pom-zoom-slider');
+  if(sl) sl.value = _pomZoom;
+  document.getElementById('pom-zoom-val').textContent = _pomZoom + '%';
+  _pomMarkActive('pom-zoom-presets', _pomZoom + '%');
+  pomBuildPreview();
+}
+
+// ── Row Height ──
+function pomSetRow(v) {
+  _pomRowPad = parseInt(v);
+  var sl = document.getElementById('pom-row-slider');
+  if(sl) sl.value = _pomRowPad;
+  document.getElementById('pom-row-val').textContent = _pomRowPad + 'px';
+  _pomMarkActive('pom-row-presets', {2:'XS',4:'S',8:'M',14:'L',22:'XL'}[_pomRowPad]);
+  pomBuildPreview();
+}
+function pomSliderRow(v) { _pomRowPad = parseInt(v); document.getElementById('pom-row-val').textContent = _pomRowPad+'px'; pomBuildPreview(); }
+
+// ── Font Size ──
+function pomSetFont(v) {
+  _pomFontSize = parseFloat(v);
+  var sl = document.getElementById('pom-font-slider');
+  if(sl) sl.value = _pomFontSize;
+  document.getElementById('pom-font-val').textContent = _pomFontSize + 'pt';
+  _pomMarkActive('pom-font-presets', _pomFontSize + 'pt');
+  pomBuildPreview();
+}
+function pomSliderFont(v) { _pomFontSize = parseFloat(v); document.getElementById('pom-font-val').textContent = _pomFontSize+'pt'; pomBuildPreview(); }
+
+// ── Column Padding ──
+function pomSetCol(v) {
+  _pomColPad = parseInt(v);
+  var sl = document.getElementById('pom-col-slider');
+  if(sl) sl.value = _pomColPad;
+  document.getElementById('pom-col-val').textContent = _pomColPad + 'px';
+  _pomMarkActive('pom-col-presets', {2:'XS',5:'S',10:'M',16:'L'}[_pomColPad]);
+  pomBuildPreview();
+}
+function pomSliderCol(v) { _pomColPad = parseInt(v); document.getElementById('pom-col-val').textContent = _pomColPad+'px'; pomBuildPreview(); }
+
+// ── Live Preview Builder ──
+function pomBuildPreview() {
+  var pi = document.getElementById('pom-preview-page');
+  if (!pi) return;
+
+  // If no area id, just show empty page
+  if (!_pomAreaId) { pi.innerHTML = '<div style="color:#aaa;font-size:12px;padding:40px;text-align:center;">প্রিভিউ নেই</div>'; return; }
+
+  var area = document.getElementById(_pomAreaId);
+  if (!area) { pi.innerHTML = ''; return; }
+
+  // Clone and clean
+  var clone = area.cloneNode(true);
+  clone.querySelectorAll('input').forEach(function(inp){
+    var s = document.createElement('span');
+    s.textContent = inp.value || '';
+    inp.parentNode.replaceChild(s, inp);
+  });
+  clone.querySelectorAll('select').forEach(function(sel){ sel.parentNode.removeChild(sel); });
+  // Remove no-print elements from preview
+  clone.querySelectorAll('.no-print').forEach(function(el){ el.parentNode.removeChild(el); });
+
+  // Apply inline styles for font/padding
+  var tdPad = _pomRowPad + 'px ' + _pomColPad + 'px';
+  clone.querySelectorAll('th, td').forEach(function(cell){
+    cell.style.padding  = tdPad;
+    cell.style.fontSize = _pomFontSize + 'pt';
+    cell.style.border   = '0.5px solid #aaa';
+    cell.style.lineHeight = '1.2';
+  });
+  clone.querySelectorAll('th').forEach(function(th){
+    th.style.background = _pomBW ? '#fff' : (_pomThColor || '#00838f');
+    th.style.color      = _pomBW ? '#000' : '#fff';
+    th.style.fontWeight = '700';
+  });
+  clone.querySelectorAll('tr:nth-child(even) td').forEach(function(td){
+    td.style.background = _pomBW ? '#fff' : '#f7f7f7';
+  });
+  // Fix signature padding
+  clone.querySelectorAll('div').forEach(function(d){
+    if(d.style && d.style.padding && d.style.padding.indexOf('60px') >= 0){
+      d.style.padding = '24px 40px 10px';
+    }
+  });
+
+  // A4 dimensions in px at 96dpi
+  var isLS = _pomOrientation === 'landscape';
+  var A4W_MM = isLS ? 297 : 210;
+  var A4H_MM = isLS ? 210 : 297;
+  var PX_PER_MM = 3.7795; // 96dpi
+  var docW = Math.round(A4W_MM * PX_PER_MM);
+  var docH = Math.round(A4H_MM * PX_PER_MM);
+
+  // Set preview page as A4 size, then apply zoom via transform
+  pi.style.width   = docW + 'px';
+  pi.style.height  = docH + 'px';
+  pi.style.fontFamily = 'Arial, sans-serif';
+  pi.style.color   = '#000';
+  pi.style.overflow= 'hidden';
+  pi.style.position= 'relative';
+  pi.innerHTML = clone.innerHTML;
+
+  // Compute scale to fit within preview panel
+  var panel = document.querySelector('.pom-preview-panel');
+  var panelW = panel ? (panel.offsetWidth - 40) : 600;
+  var panelH = panel ? (panel.offsetHeight - 40) : 600;
+  var fitScale = Math.min(panelW / docW, panelH / docH, 1);
+  var finalScale = fitScale * (_pomZoom / 100);
+
+  pi.style.transform      = 'scale(' + finalScale.toFixed(3) + ')';
+  pi.style.transformOrigin= 'top center';
+  pi.style.marginBottom   = Math.round(docH * finalScale - docH) + 'px';
+}
+
+// ── Build and send to printer ──
+function pomBuildAndPrint(areaId, thColor, orientation) {
+  var area = document.getElementById(areaId);
+  if (!area) return;
+
+  var old = document.getElementById('stn-req-print-overlay');
+  if (old) old.parentNode.removeChild(old);
+  var oldS = document.getElementById('stn-req-print-style');
+  if (oldS) oldS.parentNode.removeChild(oldS);
+
+  var overlay = document.createElement('div');
+  overlay.id  = 'stn-req-print-overlay';
+  overlay.innerHTML = area.innerHTML;
+
+  overlay.querySelectorAll('input').forEach(function(inp){
+    var span = document.createElement('span');
+    span.textContent = inp.value || '';
+    inp.parentNode.replaceChild(span, inp);
+  });
+  overlay.querySelectorAll('select').forEach(function(sel){ sel.parentNode.removeChild(sel); });
+  overlay.querySelectorAll('div').forEach(function(d){
+    if (d.style && d.style.padding && d.style.padding.indexOf('60px') >= 0) {
+      d.style.pageBreakInside = 'avoid';
+      d.style.breakInside     = 'avoid';
+      d.style.padding         = '24px 40px 10px';
+    }
+  });
+
+  document.body.appendChild(overlay);
+
+  var tdPad   = _pomRowPad + 'px ' + _pomColPad + 'px';
+  var thPad   = Math.max(2,_pomRowPad-1) + 'px ' + _pomColPad + 'px';
+  var fontSize= _pomFontSize + 'pt';
+  var zoom    = (_pomZoom / 100).toFixed(2);
+
+  var thBg    = _pomBW ? '#fff' : (thColor || '#00838f');
+  var thColor2= _pomBW ? '#000' : '#fff';
+  var evenBg  = _pomBW ? '#fff' : '#f7f7f7';
+
+  var style = document.createElement('style');
+  style.id  = 'stn-req-print-style';
+  style.textContent = [
+    '@page { size: A4 ' + orientation + '; margin: 10mm 12mm; }',
+    '@media print {',
+    '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
+    '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; zoom: ' + zoom + '; }',
+    '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
+    '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+thBg+' !important; color: '+thColor2+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
+    '  #stn-req-print-overlay tr:nth-child(even) td { background: '+evenBg+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #stn-req-print-overlay div[style*="padding:60px"], #stn-req-print-overlay div[style*="padding: 60px"], #stn-req-print-overlay div[style*="padding:100px"], #stn-req-print-overlay div[style*="padding: 100px"] { page-break-inside: avoid !important; break-inside: avoid !important; }',
+    '  .no-print { display: none !important; }',
+    '}',
+    '#stn-req-print-overlay { display: none; }'
+  ].join('\n');
+  document.head.appendChild(style);
+
+  window.print();
+
+  setTimeout(function(){
+    var o = document.getElementById('stn-req-print-overlay');
+    var s = document.getElementById('stn-req-print-style');
+    if (o) o.parentNode.removeChild(o);
+    if (s) s.parentNode.removeChild(s);
+  }, 1500);
+}
+
+// ── Compatibility shims ──
+function pomApplyTableStyle() { pomBuildPreview(); }
 
 // Stationery print with orientation selector
 function stnPrintWithOrient() {
@@ -8845,7 +9222,6 @@ function stnPrintOriented(orientation) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 '+orientation+';margin:10mm 8mm;}';
-  html += iglGetPrintZoomCSS();
   html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
@@ -17624,121 +18000,6 @@ async function saveEditEntry() {
     toast('✅ Needle এন্ট্রি আপডেট হয়েছে!', 'success');
   }
 }
-</script>
-
-<!-- ═══ Print Scale Bar ═══ -->
-<div id="igl-print-scale-bar" title="প্রিন্টের সময় পেজ স্কেল (zoom) পরিবর্তন করুন">
-  <span>🖨️</span>
-  <label for="igl-print-scale-sel">Print Scale:</label>
-  <select id="igl-print-scale-sel" onchange="iglSetPrintScale(this.value)">
-    <option value="100">100%</option>
-    <option value="95">95%</option>
-    <option value="90">90%</option>
-    <option value="85">85%</option>
-    <option value="80">80%</option>
-    <option value="75">75%</option>
-  </select>
-  <!-- Row Height — admin only, JS দিয়ে show/hide -->
-  <span class="bar-sep" id="igl-rowh-sep" style="display:none;"></span>
-  <label for="igl-rowh-sel" id="igl-rowh-label" style="display:none;">📋 Row Height:</label>
-  <select id="igl-rowh-sel" style="display:none;" onchange="iglSetReqRowHeight(this.value)" title="Requisition রো হাইট">
-    <option value="2">Compact (2px)</option>
-    <option value="4">Tight (4px)</option>
-    <option value="5" selected>Normal (5px)</option>
-    <option value="7">Comfortable (7px)</option>
-    <option value="10">Spacious (10px)</option>
-    <option value="14">Large (14px)</option>
-    <option value="18">X-Large (18px)</option>
-  </select>
-</div>
-
-<script>
-// ── IGL Print Scale System ──
-// Global helper: popup window গুলোতে zoom CSS inject করতে ব্যবহার হয়
-window.iglGetPrintZoomCSS = function() {
-  var val = localStorage.getItem('igl_print_scale') || '100';
-  if (!val || val === '100') return '';
-  return '@media print { body { zoom: ' + (parseInt(val)/100).toFixed(2) + '; } }';
-};
-
-// ── Requisition Row Height System ──
-var IGL_REQ_ROWH_KEY = 'igl_req_row_height';
-
-window.iglGetReqRowPad = function() {
-  return localStorage.getItem(IGL_REQ_ROWH_KEY) || '5';
-};
-
-window.iglSetReqRowHeight = function(val) {
-  localStorage.setItem(IGL_REQ_ROWH_KEY, val);
-  // preview live update
-  if (typeof stnReqUpdatePreview === 'function') stnReqUpdatePreview();
-};
-
-// Admin হলে Row Height selector দেখাও
-function iglShowRowHeightIfAdmin() {
-  var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
-  var sep   = document.getElementById('igl-rowh-sep');
-  var label = document.getElementById('igl-rowh-label');
-  var sel   = document.getElementById('igl-rowh-sel');
-  if (!sep || !label || !sel) return;
-  var d = isAdmin ? '' : 'none';
-  sep.style.display   = isAdmin ? '' : 'none';
-  label.style.display = isAdmin ? '' : 'none';
-  sel.style.display   = isAdmin ? '' : 'none';
-  if (isAdmin) {
-    var saved = localStorage.getItem(IGL_REQ_ROWH_KEY) || '5';
-    sel.value = saved;
-  }
-}
-
-// Login/logout হলে re-check করার জন্য global hook
-var _iglOrigShowPage = window.showPage;
-if (typeof _iglOrigShowPage === 'function') {
-  window.showPage = function() {
-    _iglOrigShowPage.apply(this, arguments);
-    iglShowRowHeightIfAdmin();
-  };
-}
-
-(function(){
-  var SCALE_KEY = 'igl_print_scale';
-
-  function iglSetPrintScale(val){
-    localStorage.setItem(SCALE_KEY, val);
-    applyScaleClass(val);
-  }
-  window.iglSetPrintScale = iglSetPrintScale;
-
-  function applyScaleClass(val){
-    var bd = document.body;
-    // remove old scale classes
-    bd.className = bd.className.replace(/\bprint-scale-\d+\b/g, '').trim();
-    if(val && val !== '100'){
-      bd.classList.add('print-scale-' + val);
-    }
-  }
-
-  // ── Override window.print to apply/remove scale class ──
-  var _origPrint = window.print.bind(window);
-  window.print = function(){
-    var sel = document.getElementById('igl-print-scale-sel');
-    var val = sel ? sel.value : '100';
-    applyScaleClass(val);
-    _origPrint();
-    // remove after print dialog closes (setTimeout gives browser time)
-    setTimeout(function(){ applyScaleClass(val); }, 1000);
-  };
-
-  // ── Init: restore saved scale on load ──
-  document.addEventListener('DOMContentLoaded', function(){
-    var saved = localStorage.getItem(SCALE_KEY) || '100';
-    var sel = document.getElementById('igl-print-scale-sel');
-    if(sel) sel.value = saved;
-    applyScaleClass(saved);
-    // Row height restore (admin check is inside)
-    setTimeout(function(){ window.iglShowRowHeightIfAdmin && window.iglShowRowHeightIfAdmin(); }, 500);
-  });
-})();
 </script>
 
 </body>
