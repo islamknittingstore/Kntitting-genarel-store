@@ -624,9 +624,9 @@ if('serviceWorker' in navigator){
 
     /* Requisition print overlay — let JS-injected styles control sizing */
     /* (zoom, font, padding controlled dynamically by pomBuildAndPrint) */
-    @page { margin: 10mm 12mm; }
+    @page { margin: 10mm 12mm 10mm 10mm; }
 
-    @page { margin: 10mm 12mm; }
+    @page { margin: 10mm 12mm 10mm 10mm; }
     body.print-landscape { }
     body.print-portrait  { }
     body.print-landscape * { }
@@ -9465,7 +9465,7 @@ function stnPrintItemWise(orientation) {
                 : dateFrom ? _fmtDMY(dateFrom)+' থেকে' : dateTo ? _fmtDMY(dateTo)+' পর্যন্ত' : 'সব তারিখ';
 
   var printHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Item Wise Issue Report</title><style>';
-  printHtml += '@page{size:A4 '+orientation+';margin:10mm 8mm;}';
+  printHtml += '@page{size:A4 '+orientation+';margin:10mm 8mm 10mm 10mm;}';
   printHtml += 'body{font-family:Arial,sans-serif;font-size:9pt;color:#000;margin:0;padding:0;}';
   printHtml += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #6c3483;padding-bottom:6px;margin-bottom:10px;}';
   printHtml += '.hdr h2{margin:0;font-size:14pt;color:#6c3483;}';
@@ -9973,7 +9973,7 @@ function stnPrintOriented(orientation, stockFilter) {
                 : dateFrom ? _fmtDMY(dateFrom)+' থেকে' : dateTo ? _fmtDMY(dateTo)+' পর্যন্ত' : 'সব তারিখ';
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
-  html += '@page{size:A4 '+orientation+';margin:10mm 8mm;}';
+  html += '@page{size:A4 '+orientation+';margin:10mm 8mm 10mm 10mm;}';
   html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
