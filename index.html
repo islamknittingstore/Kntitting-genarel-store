@@ -2775,7 +2775,14 @@ window.iglSaveUsers = function(){
         🔍 Stationery Search & Reports
         <span id="stn-total-items" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
         <div style="margin-left:auto;display:flex;gap:6px;" class="no-print">
-          <button class="btn btn-sm" onclick="stnPrintWithOrient()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">🖨️ Print</button>
+          <div style="position:relative;display:inline-block;" id="stn-print-dropdown-wrap">
+            <button class="btn btn-sm" onclick="stnTogglePrintMenu()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">🖨️ Print ▾</button>
+            <div id="stn-print-menu" style="display:none;position:absolute;right:0;top:110%;background:#1a2332;border:1px solid #2c3e50;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.5);z-index:9999;min-width:190px;overflow:hidden;">
+              <div onclick="stnPrintWithOrient('all')"     style="padding:10px 16px;color:#fff;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">📋 সব আইটেম</div>
+              <div onclick="stnPrintWithOrient('running')" style="padding:10px 16px;color:#2ecc71;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">✅ রানিং ব্যালেন্স</div>
+              <div onclick="stnPrintWithOrient('zero')"    style="padding:10px 16px;color:#e74c3c;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">⭕ শূন্য ব্যালেন্স</div>
+            </div>
+          </div>
           <button class="btn btn-sm" onclick="stnExportExcel()" style="background:rgba(34,139,34,0.5);color:#fff;border:1px solid rgba(255,255,255,0.4);">📊 Excel</button>
         </div>
       </div>
@@ -9288,9 +9295,11 @@ function renderStationeryDashboard() {
         var d = iwMap[itemName];
           var cardBf = (function(){
           var stnItC = stnItems.find(function(i){ return i.name === itemName; });
+          if (!stnItC) stnItC = (DB.items||[]).find(function(i){ return i.name === itemName; });
           var bfC = stnItC ? (Number(stnItC.bf)||0) : 0;
-          var rcvC = DB.receives.filter(function(r){ return r.item===itemName && (!dateFromIW||r.date<dateFromIW); }).reduce(function(s,r){ return s+r.qty; },0);
-          var issC = DB.issues.filter(function(r){ return r.item===itemName && (!dateFromIW||r.date<dateFromIW); }).reduce(function(s,r){ return s+r.qty; },0);
+          if (!dateFromIW) return bfC;
+          var rcvC = DB.receives.filter(function(r){ return r.item===itemName && r.date<dateFromIW; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+          var issC = DB.issues.filter(function(r){ return r.item===itemName && r.date<dateFromIW; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
           return bfC + rcvC - issC;
         })();
         html += '<div class="stn-iw-card" style="background:#f5eef8;border-left:4px solid #8e44ad;border-radius:6px;padding:10px 14px;cursor:pointer;transition:all 0.15s;" data-item="'+itemName+'" onclick="stnIWToggle(this)">'+
@@ -9319,9 +9328,12 @@ function renderStationeryDashboard() {
         // Opening stock for this item up to dateFromIW
         var bf = (function(){
           var stnIt = stnItems.find(function(i){ return i.name === itemName; });
+          if (!stnIt) stnIt = (DB.items||[]).find(function(i){ return i.name === itemName; });
           var bfVal = stnIt ? (Number(stnIt.bf)||0) : 0;
-          var rcv = DB.receives.filter(function(r){ return r.item === itemName && (!dateFromIW || r.date < dateFromIW); }).reduce(function(s,r){ return s+r.qty; },0);
-          var iss = DB.issues.filter(function(r){ return r.item === itemName && (!dateFromIW || r.date < dateFromIW); }).reduce(function(s,r){ return s+r.qty; },0);
+          // তারিখ না দিলে শুধু stored BF, তারিখ দিলে সেই তারিখের আগের সব receive-issue যোগ করো
+          if (!dateFromIW) return bfVal;
+          var rcv = DB.receives.filter(function(r){ return r.item === itemName && r.date < dateFromIW; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+          var iss = DB.issues.filter(function(r){ return r.item === itemName && r.date < dateFromIW; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
           return bfVal + rcv - iss;
         })();
 
@@ -9336,7 +9348,9 @@ function renderStationeryDashboard() {
           '<th style="padding:6px 10px;border:1px solid #e8daef;">তারিখ</th>'+
           '<th style="padding:6px 10px;border:1px solid #e8daef;">Slip No.</th>'+
           '<th style="padding:6px 10px;border:1px solid #e8daef;">Department</th>'+
-          '<th style="padding:6px 10px;text-align:right;border:1px solid #e8daef;color:#27ae60;">Issue Qty</th>'+
+          '<th style="padding:6px 10px;text-align:right;border:1px solid #e8daef;color:#6c3483;">BF</th>'+
+          '<th style="padding:6px 10px;text-align:right;border:1px solid #e8daef;color:#27ae60;">Receive</th>'+
+          '<th style="padding:6px 10px;text-align:right;border:1px solid #e8daef;color:#c0392b;">Issue</th>'+
           '<th style="padding:6px 10px;text-align:right;border:1px solid #e8daef;color:#1a5276;">Balance</th>'+
           '<th style="padding:6px 10px;border:1px solid #e8daef;">Remarks</th>'+
           '</tr></thead><tbody>'+
@@ -9345,29 +9359,52 @@ function renderStationeryDashboard() {
           '<td style="padding:5px 10px;border:1px solid #d5f0e0;font-weight:700;color:#1a5276;">Opening BF</td>'+
           '<td style="padding:5px 10px;border:1px solid #d5f0e0;">-</td>'+
           '<td style="padding:5px 10px;border:1px solid #d5f0e0;">-</td>'+
+          '<td style="text-align:right;padding:5px 10px;border:1px solid #d5f0e0;font-weight:700;color:#6c3483;">'+bf+'</td>'+
+          '<td style="padding:5px 10px;border:1px solid #d5f0e0;">-</td>'+
           '<td style="padding:5px 10px;border:1px solid #d5f0e0;">-</td>'+
           '<td style="text-align:right;padding:5px 10px;border:1px solid #d5f0e0;font-weight:700;color:#117a65;">'+bf+'</td>'+
           '<td style="padding:5px 10px;border:1px solid #d5f0e0;color:#888;font-style:italic;">Brought Forward</td>'+
           '</tr>';
 
+        // Issue + Receive একসাথে date অনুযায়ী sort
+        var rcvEntries = DB.receives.filter(function(r){
+          if (r.item !== itemName) return false;
+          if (dateFromIW && r.date < dateFromIW) return false;
+          if (dateToIW   && r.date > dateToIW)   return false;
+          return true;
+        }).map(function(r){ return {type:'receive', date:r.date, qty:Number(r.qty)||0, slip:r.chalan||'-', dept:r.supplier||'-', remarks:r.remarks||'-'}; });
+
+        var allEntries = sortedEntries.map(function(r){ return {type:'issue', date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-'}; })
+          .concat(rcvEntries)
+          .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
+
         runBal = bf;
-        sortedEntries.forEach(function(r, i){
-          runBal -= Number(r.qty)||0;
+        var rowNum = 0;
+        var totalRcv = 0;
+        allEntries.forEach(function(r){
+          var prevBal = runBal;
+          var isRcv = r.type === 'receive';
+          if (isRcv) { runBal += r.qty; totalRcv += r.qty; } else { runBal -= r.qty; rowNum++; }
           var balColor = runBal < 0 ? '#c0392b' : runBal === 0 ? '#e67e22' : '#117a65';
-          html += '<tr style="'+(i%2===1?'background:#fdf4ff;':'')+'">'+
-            '<td style="text-align:center;padding:5px 10px;border:1px solid #f0e6f8;">'+(i+1)+'</td>'+
+          var rowBg = isRcv ? 'background:#eafaf1;' : (rowNum%2===0?'background:#fdf4ff;':'');
+          html += '<tr style="'+rowBg+'">'+
+            '<td style="text-align:center;padding:5px 10px;border:1px solid #f0e6f8;">'+(isRcv?'R':rowNum)+'</td>'+
             '<td style="padding:5px 10px;border:1px solid #f0e6f8;">'+fmtDate(r.date)+'</td>'+
-            '<td style="padding:5px 10px;border:1px solid #f0e6f8;"><span class="slip-badge">'+(r.slip||'-')+'</span></td>'+
-            '<td style="padding:5px 10px;border:1px solid #f0e6f8;font-weight:600;color:#0e6655;">'+(r.machineId||'-')+'</td>'+
-            '<td style="text-align:right;padding:5px 10px;border:1px solid #f0e6f8;font-weight:700;color:#c0392b;">'+r.qty+'</td>'+
+            '<td style="padding:5px 10px;border:1px solid #f0e6f8;">'+(isRcv?'<span style="background:#27ae60;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;">RCV</span> ':'')+r.slip+'</td>'+
+            '<td style="padding:5px 10px;border:1px solid #f0e6f8;font-weight:600;color:'+(isRcv?'#117a65':'#0e6655')+';">'+r.dept+'</td>'+
+            '<td style="text-align:right;padding:5px 10px;border:1px solid #f0e6f8;color:#6c3483;">'+prevBal+'</td>'+
+            '<td style="text-align:right;padding:5px 10px;border:1px solid #f0e6f8;font-weight:700;color:#27ae60;">'+(isRcv?r.qty:'-')+'</td>'+
+            '<td style="text-align:right;padding:5px 10px;border:1px solid #f0e6f8;font-weight:700;color:#c0392b;">'+(isRcv?'-':r.qty)+'</td>'+
             '<td style="text-align:right;padding:5px 10px;border:1px solid #f0e6f8;font-weight:700;color:'+balColor+';">'+runBal+'</td>'+
-            '<td style="padding:5px 10px;border:1px solid #f0e6f8;color:#555;">'+(r.remarks||'-')+'</td>'+
+            '<td style="padding:5px 10px;border:1px solid #f0e6f8;color:#555;">'+r.remarks+'</td>'+
             '</tr>';
         });
         html += '<tr style="background:#4a235a;color:#fff;font-weight:700;">'+
-          '<td colspan="4" style="text-align:right;padding:6px 10px;">সর্বমোট Issue:</td>'+
-          '<td style="text-align:right;padding:6px 10px;font-size:13px;">'+d.totalIssue+'</td>'+
-          '<td style="text-align:right;padding:6px 10px;font-size:12px;color:#f9e79f;">Closing Bal: '+runBal+'</td>'+
+          '<td colspan="4" style="text-align:right;padding:6px 10px;">সর্বমোট:</td>'+
+          '<td></td>'+
+          '<td style="text-align:right;padding:6px 10px;color:#2ecc71;">'+totalRcv+'</td>'+
+          '<td style="text-align:right;padding:6px 10px;">'+d.totalIssue+'</td>'+
+          '<td style="text-align:right;padding:6px 10px;color:#f9e79f;">'+runBal+'</td>'+
           '<td></td></tr>';
         html += '</tbody></table></div>';
       });
@@ -9475,19 +9512,51 @@ function stnPrintItemWise(orientation) {
     var d = iwMap2[itemName];
     var sortedE = d.entries.slice().sort(function(a,b){ return a.date > b.date ? 1 : -1; });
     var stnIt = stnItems2.find(function(i){ return i.name === itemName; });
+    if (!stnIt) stnIt = (DB.items||[]).find(function(i){ return i.name === itemName; });
     var bfVal = stnIt ? (Number(stnIt.bf)||0) : 0;
-    var rcvBf = DB.receives.filter(function(r){ return r.item===itemName && (!dateFromV||r.date<dateFromV); }).reduce(function(s,r){return s+r.qty;},0);
-    var issBf = DB.issues.filter(function(r){ return r.item===itemName && (!dateFromV||r.date<dateFromV); }).reduce(function(s,r){return s+r.qty;},0);
-    var runBal2 = bfVal + rcvBf - issBf;
+    var runBal2;
+    if (!dateFromV) {
+      runBal2 = bfVal;
+    } else {
+      var rcvBf = DB.receives.filter(function(r){ return r.item===itemName && r.date<dateFromV; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var issBf = DB.issues.filter(function(r){ return r.item===itemName && r.date<dateFromV; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      runBal2 = bfVal + rcvBf - issBf;
+    }
 
     printHtml += '<div class="item-hdr"><span>📋 '+itemName+'</span><span>BF: '+runBal2+' | মোট Issue: '+d.totalIssue+' pcs</span></div>';
-    printHtml += '<table><thead><tr><th>SL</th><th>তারিখ</th><th>Slip No.</th><th>Department</th><th style="text-align:right;">Issue Qty</th><th style="text-align:right;">Balance</th><th>Remarks</th></tr></thead><tbody>';
-    printHtml += '<tr style="background:#e8f8f0;"><td style="text-align:center;">-</td><td style="font-weight:700;color:#1a5276;">Opening BF</td><td>-</td><td>-</td><td style="text-align:right;">-</td><td style="text-align:right;font-weight:700;color:#117a65;">'+runBal2+'</td><td style="color:#888;font-style:italic;">Brought Forward</td></tr>';
-    sortedE.forEach(function(r,i){
-      runBal2 -= Number(r.qty)||0;
-      printHtml += '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td>'+(r.slip||'-')+'</td><td>'+(r.machineId||'-')+'</td><td style="text-align:right;font-weight:700;color:#c0392b;">'+r.qty+'</td><td style="text-align:right;font-weight:700;color:'+(runBal2<0?'#c0392b':'#117a65')+'">'+runBal2+'</td><td>'+(r.remarks||'-')+'</td></tr>';
+    printHtml += '<table><thead><tr><th>SL</th><th>তারিখ</th><th>Slip No.</th><th>Department</th><th style="text-align:right;">BF</th><th style="text-align:right;">Receive</th><th style="text-align:right;">Issue</th><th style="text-align:right;">Balance</th><th>Remarks</th></tr></thead><tbody>';
+    printHtml += '<tr style="background:#e8f8f0;"><td style="text-align:center;">-</td><td style="font-weight:700;color:#1a5276;">Opening BF</td><td>-</td><td>-</td><td style="text-align:right;font-weight:700;color:#6c3483;">'+runBal2+'</td><td>-</td><td>-</td><td style="text-align:right;font-weight:700;color:#117a65;">'+runBal2+'</td><td style="color:#888;font-style:italic;">Brought Forward</td></tr>';
+    // Issue + Receive একসাথে date অনুযায়ী sort
+    var rcvE = DB.receives.filter(function(r){
+      if (r.item !== itemName) return false;
+      if (dateFromV && r.date < dateFromV) return false;
+      if (dateToV   && r.date > dateToV)   return false;
+      return true;
+    }).map(function(r){ return {type:'receive', date:r.date, qty:Number(r.qty)||0, slip:r.chalan||'-', dept:r.supplier||'-', remarks:r.remarks||'-'}; });
+
+    var allE = sortedE.map(function(r){ return {type:'issue', date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-'}; })
+      .concat(rcvE)
+      .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
+
+    var rowNum2 = 0;
+    var totalRcv2 = 0;
+    allE.forEach(function(r){
+      var prevBal2 = runBal2;
+      var isRcv = r.type === 'receive';
+      if (isRcv) { runBal2 += r.qty; totalRcv2 += r.qty; } else { runBal2 -= r.qty; rowNum2++; }
+      var bColor = runBal2 < 0 ? '#c0392b' : '#117a65';
+      printHtml += '<tr style="background:'+(isRcv?'#eafaf1':'')+';">'+
+        '<td>'+(isRcv?'R':rowNum2)+'</td>'+
+        '<td>'+fmtDate(r.date)+'</td>'+
+        '<td>'+(isRcv?'[RCV] ':'')+r.slip+'</td>'+
+        '<td>'+r.dept+'</td>'+
+        '<td style="text-align:right;color:#6c3483;">'+prevBal2+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:#27ae60;">'+(isRcv?r.qty:'-')+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:#c0392b;">'+(isRcv?'-':r.qty)+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:'+bColor+';">'+runBal2+'</td>'+
+        '<td>'+r.remarks+'</td></tr>';
     });
-    printHtml += '<tr class="total-row"><td colspan="4" style="text-align:right;">সর্বমোট</td><td style="text-align:right;">'+d.totalIssue+'</td><td style="text-align:right;">'+runBal2+'</td><td></td></tr>';
+    printHtml += '<tr class="total-row"><td colspan="4" style="text-align:right;">সর্বমোট:</td><td></td><td style="text-align:right;">'+totalRcv2+'</td><td style="text-align:right;">'+d.totalIssue+'</td><td style="text-align:right;">'+runBal2+'</td><td></td></tr>';
     printHtml += '</tbody></table>';
   });
 
@@ -9844,17 +9913,59 @@ function pomBuildAndPrint(areaId, thColor, orientation) {
 function pomApplyTableStyle() { pomBuildPreview(); }
 
 // Stationery print with orientation selector
-function stnPrintWithOrient() {
-  pomOpen(function(orientation){
-    stnPrintOriented(orientation);
-  });
+function stnTogglePrintMenu() {
+  var menu = document.getElementById('stn-print-menu');
+  if (!menu) return;
+  var isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    // স্টক ট্যাব না হলে মেনু দেখাবে না, সরাসরি print
+    if (_stnTab !== 'stock') {
+      menu.style.display = 'none';
+      stnPrintOriented('portrait', 'all');
+    } else {
+      setTimeout(function(){
+        document.addEventListener('click', function closePrintMenu(e){
+          if (!document.getElementById('stn-print-dropdown-wrap').contains(e.target)) {
+            menu.style.display = 'none';
+            document.removeEventListener('click', closePrintMenu);
+          }
+        });
+      }, 10);
+    }
+  }
 }
 
-function stnPrintOriented(orientation) {
+function stnPrintWithOrient(stockFilter) {
+  var menu = document.getElementById('stn-print-menu');
+  if (menu) menu.style.display = 'none';
+  stnPrintOriented('portrait', stockFilter || 'all');
+}
+
+function stnPrintOriented(orientation, stockFilter) {
   var data = stnGetTableData();
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
   if (_stnTab === 'itemwise') { stnPrintItemWise(orientation); return; }
+
+  // Stock ট্যাবে filter প্রয়োগ করো
+  if (_stnTab === 'stock' && stockFilter && stockFilter !== 'all') {
+    var filteredRows = data.rows.filter(function(r) {
+      var bal = Number(r[6]);
+      if (stockFilter === 'running') return bal > 0;
+      if (stockFilter === 'zero')    return bal <= 0;
+      return true;
+    });
+    if (filteredRows.length === 0) { toast('এই ফিল্টারে কোনো ডেটা নেই!', 'warning'); return; }
+    // totals পুনরায় হিসাব করো
+    var tBF=0, tR=0, tI=0, tS=0;
+    filteredRows.forEach(function(r){ tBF+=Number(r[3]); tR+=Number(r[4]); tI+=Number(r[5]); tS+=Number(r[6]); });
+    filteredRows = filteredRows.map(function(r,i){ var nr=r.slice(); nr[0]=i+1; return nr; });
+    data = { title: data.title, subtitle: data.subtitle, headers: data.headers, rows: filteredRows,
+      totals: ['','Total','', tBF, tR, tI, tS, ''] };
+    var filterLabel = stockFilter === 'running' ? ' [রানিং ব্যালেন্স]' : ' [শূন্য ব্যালেন্স]';
+    data.title += filterLabel;
+  }
 
   var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
