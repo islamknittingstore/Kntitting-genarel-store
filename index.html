@@ -8447,15 +8447,17 @@ function stnReqSimplePrint(areaId, thColor) {
     });
   }
 
-  // slot: min 30, max 40, কিন্তু real rows এর চেয়ে কম না
-  var slotCount = Math.max(30, Math.min(40, Math.max(realRows, 30)));
+  // slot: realRows ৩০ এর কম হলে ৩০, বেশি হলে সর্বোচ্চ ৪০
+  var slotCount = realRows <= 30 ? 30 : Math.min(realRows, 40);
 
-  // row height (mm) = 220mm / slotCount
-  var rowHmm  = 220 / slotCount;          // 30→7.33mm, 40→5.5mm
-  // font size: rowHeight এর 55%, 7pt–10pt
-  var fontPt  = Math.min(10, Math.max(7, parseFloat((rowHmm * 0.55 * 2.835).toFixed(2))));
-  // cell padding (px): উপরে-নিচে যা বাকি থাকে তার অর্ধেক
-  var padV    = Math.max(1, parseFloat((((rowHmm - fontPt/2.835)/2)*3.7796).toFixed(1)));
+  // A4 usable rows area = 239mm (margin 8mm top+bottom, header 20mm, thead 6mm, sig 16mm)
+  var availMm = 239;
+  var rowHmm  = availMm / slotCount;   // 30→7.97mm, 40→5.97mm
+
+  // font: 1mm = 2.835pt, row height এর 60%
+  var fontPt  = Math.min(10, Math.max(7.5, parseFloat((rowHmm * 0.60 * 2.835).toFixed(1))));
+  // vertical padding px: বাকি height এর অর্ধেক  (1mm=3.7796px)
+  var padV    = Math.max(1, parseFloat((((rowHmm - fontPt/2.835) / 2) * 3.7796).toFixed(1)));
   var padH    = 5;
 
   // ── title text ──
@@ -8478,17 +8480,17 @@ function stnReqSimplePrint(areaId, thColor) {
     // Requisition: SL | Item Name | Qty | Unit | Remarks (Rate,Amount বাদ)
     colHtml =
       '<colgroup>'
-      + '<col style="width:30px;">'
+      + '<col style="width:38px;">'
       + '<col>'
       + '<col style="width:62px;">'
       + '<col style="width:52px;">'
       + '<col style="width:110px;">'
       + '</colgroup>';
     var thS = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-            + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+            + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
-      + '<th style="'+thS+'">SL</th>'
+      + '<th style="'+thS+';text-align:center;">SL</th>'
       + '<th style="'+thS+'">Item Name</th>'
       + '<th style="'+thS+';text-align:center;">Qty</th>'
       + '<th style="'+thS+';text-align:center;">Unit</th>'
@@ -8505,15 +8507,15 @@ function stnReqSimplePrint(areaId, thColor) {
         if (tds.length < 2) return;
         var bg = (ri % 2 === 1) ? 'background:#f5f5f5;' : '';
         tbodyHtml += '<tr>';
-        // SL(0), Name(1), Qty(2), Unit(3), skip Rate(4 no-print), skip Amount(5 no-print), Remarks(6)
         var printCols = [0,1,2,3,6];
         printCols.forEach(function(ci, pIdx){
           var td = tds[ci];
           var txt = td ? td.textContent.trim() : '';
-          // input value থাকলে
           var inp = td ? td.querySelector('input') : null;
           if (inp) txt = inp.value || '';
-          var align = (pIdx >= 2 && pIdx <= 3) ? 'text-align:center;' : '';
+          // SL(pIdx=0): center+nowrap, Qty/Unit(pIdx=2,3): center
+          var align = (pIdx === 0) ? 'text-align:center;white-space:nowrap;'
+                    : (pIdx === 2 || pIdx === 3) ? 'text-align:center;' : '';
           tbodyHtml += '<td style="'+tdS+bg+align+'">'+txt+'</td>';
         });
         tbodyHtml += '</tr>';
@@ -8537,7 +8539,7 @@ function stnReqSimplePrint(areaId, thColor) {
     // Stock Register: SL | Item Name | Req Qty | Unit | Rcv Qty | Stock Balance
     colHtml =
       '<colgroup>'
-      + '<col style="width:30px;">'
+      + '<col style="width:38px;">'
       + '<col>'
       + '<col style="width:62px;">'
       + '<col style="width:52px;">'
@@ -8545,10 +8547,10 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:80px;">'
       + '</colgroup>';
     var thS2 = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
-      + '<th style="'+thS2+'">SL</th>'
+      + '<th style="'+thS2+';text-align:center;">SL</th>'
       + '<th style="'+thS2+'">Item Name</th>'
       + '<th style="'+thS2+';text-align:center;">Req Qty</th>'
       + '<th style="'+thS2+';text-align:center;">Unit</th>'
@@ -8566,7 +8568,9 @@ function stnReqSimplePrint(areaId, thColor) {
         var bg3 = (ri2%2===1)?'background:#f5f5f5;':'';
         tbodyHtml += '<tr>';
         tds.forEach(function(td, ci){
-          var align = (ci>=2)?'text-align:center;':'';
+          // SL(ci=0): center+nowrap, বাকি numeric cols: center
+          var align = (ci===0) ? 'text-align:center;white-space:nowrap;'
+                    : (ci>=2)  ? 'text-align:center;' : '';
           tbodyHtml += '<td style="'+tdS2+bg3+align+'">'+td.textContent.trim()+'</td>';
         });
         tbodyHtml += '</tr>';
@@ -8594,9 +8598,9 @@ function stnReqSimplePrint(areaId, thColor) {
 
   // ── Signature ──
   var sigHtml =
-    '<div style="display:flex;justify-content:space-between;padding:14px 40px 6px;font-size:9.5pt;color:#333;">'
-    + '<div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #555;padding-top:4px;">Store/Admin</div></div>'
-    + '<div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #555;padding-top:4px;">Authority</div></div>'
+    '<div style="display:flex;justify-content:space-between;padding:38px 50px 8px;font-size:10pt;color:#333;">'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Store/Admin</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Authority</div></div>'
     + '</div>';
 
   // ── Overlay তৈরি ──
@@ -8610,7 +8614,7 @@ function stnReqSimplePrint(areaId, thColor) {
   var style = document.createElement('style');
   style.id = 'stn-req-print-style';
   style.innerHTML =
-    '@page { size: A4 portrait; margin: 10mm 12mm 10mm 15mm; }\n'
+    '@page { size: A4 portrait; margin: 8mm 12mm 8mm 15mm; }\n'
     + '@media print {\n'
     + '  body > *:not(#stn-req-print-overlay) { display: none !important; }\n'
     + '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
