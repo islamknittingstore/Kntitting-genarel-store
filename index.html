@@ -8421,9 +8421,220 @@ function stnReqPrintAreaOriented(areaId, thColor, orientation) {
 
 // ── Simple browser print (modal ছাড়া) ──────────────────────────────
 function stnReqSimplePrint(areaId, thColor) {
-  var area = document.getElementById(areaId);
-  if (!area) { toast('❌ Print area পাওয়া যায়নি।', 'error'); return; }
+  thColor = thColor || '#00838f';
 
+  // পুরনো overlay/style সরাও
+  ['stn-req-print-overlay','stn-req-print-style'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.remove();
+  });
+
+  // ══════════════════════════════════════════════════
+  // A4 Portrait: usable height = 297 - 20(margins) = 277mm
+  // Header ≈ 28mm, Signature ≈ 22mm, thead ≈ 7mm
+  // Table rows available: 277 - 28 - 22 - 7 = 220mm
+  // Target: 30~40 rows এক পাতায় fit করো
+  // ══════════════════════════════════════════════════
+
+  var isArea1 = (areaId === 'req-print-area-1');
+
+  // ── row count নির্ধারণ ──
+  var tbodyId  = isArea1 ? 'req-preview-tbody' : 'reg-tbody';
+  var tbodyEl  = document.getElementById(tbodyId);
+  var realRows = 0;
+  if (tbodyEl) {
+    tbodyEl.querySelectorAll('tr').forEach(function(tr){
+      if (tr.querySelectorAll('td').length >= 2) realRows++;
+    });
+  }
+
+  // slot: min 30, max 40, কিন্তু real rows এর চেয়ে কম না
+  var slotCount = Math.max(30, Math.min(40, Math.max(realRows, 30)));
+
+  // row height (mm) = 220mm / slotCount
+  var rowHmm  = 220 / slotCount;          // 30→7.33mm, 40→5.5mm
+  // font size: rowHeight এর 55%, 7pt–10pt
+  var fontPt  = Math.min(10, Math.max(7, parseFloat((rowHmm * 0.55 * 2.835).toFixed(2))));
+  // cell padding (px): উপরে-নিচে যা বাকি থাকে তার অর্ধেক
+  var padV    = Math.max(1, parseFloat((((rowHmm - fontPt/2.835)/2)*3.7796).toFixed(1)));
+  var padH    = 5;
+
+  // ── title text ──
+  var titleDispId = isArea1 ? 'req-print-title-disp' : 'reg-print-title-disp';
+  var titleEl2    = document.getElementById(titleDispId);
+  var titleTxt    = titleEl2 ? titleEl2.textContent.trim() : '';
+
+  // ── Header HTML ──
+  var headerHtml =
+    '<div style="text-align:center;padding:6px 10px 4px;border-bottom:2px solid #333;margin-bottom:4px;">'
+    + '<div style="font-size:15pt;font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
+    + '<div style="font-size:8.5pt;color:#444;margin-top:1px;">Jarun, Konabari, Gazipur</div>'
+    + (titleTxt ? '<div style="font-size:10.5pt;font-weight:700;margin-top:3px;">'+titleTxt+'</div>' : '')
+    + '</div>';
+
+  // ── Table HTML ──
+  var theadHtml, tbodyHtml, colHtml;
+
+  if (isArea1) {
+    // Requisition: SL | Item Name | Qty | Unit | Remarks (Rate,Amount বাদ)
+    colHtml =
+      '<colgroup>'
+      + '<col style="width:30px;">'
+      + '<col>'
+      + '<col style="width:62px;">'
+      + '<col style="width:52px;">'
+      + '<col style="width:110px;">'
+      + '</colgroup>';
+    var thS = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+            + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+    theadHtml =
+      '<thead><tr>'
+      + '<th style="'+thS+'">SL</th>'
+      + '<th style="'+thS+'">Item Name</th>'
+      + '<th style="'+thS+';text-align:center;">Qty</th>'
+      + '<th style="'+thS+';text-align:center;">Unit</th>'
+      + '<th style="'+thS+';text-align:center;">Remarks</th>'
+      + '</tr></thead>';
+
+    // real rows কপি — no-print td বাদ
+    var tdS = 'border:0.5px solid #ccc;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;line-height:1.2;';
+    tbodyHtml = '<tbody>';
+    var ri = 0;
+    if (tbodyEl) {
+      tbodyEl.querySelectorAll('tr').forEach(function(tr){
+        var tds = tr.querySelectorAll('td');
+        if (tds.length < 2) return;
+        var bg = (ri % 2 === 1) ? 'background:#f5f5f5;' : '';
+        tbodyHtml += '<tr>';
+        // SL(0), Name(1), Qty(2), Unit(3), skip Rate(4 no-print), skip Amount(5 no-print), Remarks(6)
+        var printCols = [0,1,2,3,6];
+        printCols.forEach(function(ci, pIdx){
+          var td = tds[ci];
+          var txt = td ? td.textContent.trim() : '';
+          // input value থাকলে
+          var inp = td ? td.querySelector('input') : null;
+          if (inp) txt = inp.value || '';
+          var align = (pIdx >= 2 && pIdx <= 3) ? 'text-align:center;' : '';
+          tbodyHtml += '<td style="'+tdS+bg+align+'">'+txt+'</td>';
+        });
+        tbodyHtml += '</tr>';
+        ri++;
+      });
+    }
+    // empty slot rows
+    for (var e=ri; e<slotCount; e++) {
+      var bg2 = (e%2===1)?'background:#f5f5f5;':'';
+      tbodyHtml += '<tr>'
+        + '<td style="'+tdS+bg2+'">&nbsp;</td>'
+        + '<td style="'+tdS+bg2+'">&nbsp;</td>'
+        + '<td style="'+tdS+bg2+';text-align:center;">&nbsp;</td>'
+        + '<td style="'+tdS+bg2+';text-align:center;">&nbsp;</td>'
+        + '<td style="'+tdS+bg2+'">&nbsp;</td>'
+        + '</tr>';
+    }
+    tbodyHtml += '</tbody>';
+
+  } else {
+    // Stock Register: SL | Item Name | Req Qty | Unit | Rcv Qty | Stock Balance
+    colHtml =
+      '<colgroup>'
+      + '<col style="width:30px;">'
+      + '<col>'
+      + '<col style="width:62px;">'
+      + '<col style="width:52px;">'
+      + '<col style="width:65px;">'
+      + '<col style="width:80px;">'
+      + '</colgroup>';
+    var thS2 = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+    theadHtml =
+      '<thead><tr>'
+      + '<th style="'+thS2+'">SL</th>'
+      + '<th style="'+thS2+'">Item Name</th>'
+      + '<th style="'+thS2+';text-align:center;">Req Qty</th>'
+      + '<th style="'+thS2+';text-align:center;">Unit</th>'
+      + '<th style="'+thS2+';text-align:center;">Rcv Qty</th>'
+      + '<th style="'+thS2+';text-align:center;">Stock Balance</th>'
+      + '</tr></thead>';
+
+    var tdS2 = 'border:0.5px solid #ccc;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;line-height:1.2;';
+    tbodyHtml = '<tbody>';
+    var ri2 = 0;
+    if (tbodyEl) {
+      tbodyEl.querySelectorAll('tr').forEach(function(tr){
+        var tds = tr.querySelectorAll('td');
+        if (tds.length < 2) return;
+        var bg3 = (ri2%2===1)?'background:#f5f5f5;':'';
+        tbodyHtml += '<tr>';
+        tds.forEach(function(td, ci){
+          var align = (ci>=2)?'text-align:center;':'';
+          tbodyHtml += '<td style="'+tdS2+bg3+align+'">'+td.textContent.trim()+'</td>';
+        });
+        tbodyHtml += '</tr>';
+        ri2++;
+      });
+    }
+    for (var e2=ri2; e2<slotCount; e2++) {
+      var bg4 = (e2%2===1)?'background:#f5f5f5;':'';
+      tbodyHtml += '<tr>'
+        + '<td style="'+tdS2+bg4+'">&nbsp;</td>'
+        + '<td style="'+tdS2+bg4+'">&nbsp;</td>'
+        + '<td style="'+tdS2+bg4+';text-align:center;">&nbsp;</td>'
+        + '<td style="'+tdS2+bg4+';text-align:center;">&nbsp;</td>'
+        + '<td style="'+tdS2+bg4+';text-align:center;">&nbsp;</td>'
+        + '<td style="'+tdS2+bg4+';text-align:center;">&nbsp;</td>'
+        + '</tr>';
+    }
+    tbodyHtml += '</tbody>';
+  }
+
+  var tableHtml =
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">'
+    + colHtml + theadHtml + tbodyHtml
+    + '</table>';
+
+  // ── Signature ──
+  var sigHtml =
+    '<div style="display:flex;justify-content:space-between;padding:14px 40px 6px;font-size:9.5pt;color:#333;">'
+    + '<div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #555;padding-top:4px;">Store/Admin</div></div>'
+    + '<div style="text-align:center;min-width:140px;"><div style="border-top:1px solid #555;padding-top:4px;">Authority</div></div>'
+    + '</div>';
+
+  // ── Overlay তৈরি ──
+  var overlay = document.createElement('div');
+  overlay.id  = 'stn-req-print-overlay';
+  overlay.innerHTML = headerHtml + tableHtml + sigHtml;
+  overlay.style.display = 'block';
+  document.body.appendChild(overlay);
+
+  // ── Print Style ──
+  var style = document.createElement('style');
+  style.id = 'stn-req-print-style';
+  style.innerHTML =
+    '@page { size: A4 portrait; margin: 10mm 12mm 10mm 15mm; }\n'
+    + '@media print {\n'
+    + '  body > *:not(#stn-req-print-overlay) { display: none !important; }\n'
+    + '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
+    + '  #stn-req-print-overlay thead th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; forced-color-adjust: none !important; }\n'
+    + '  #stn-req-print-overlay tr:nth-child(even) td { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n'
+    + '}\n';
+  document.head.appendChild(style);
+
+  // ── Print ──
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      window.print();
+      setTimeout(function(){
+        var o = document.getElementById('stn-req-print-overlay');
+        var s = document.getElementById('stn-req-print-style');
+        if (o) o.remove();
+        if (s) s.remove();
+      }, 2000);
+    });
+  });
+}
+
+// ════════ OLD function kept for compatibility ════════
+function stnReqSimplePrint__OLD_UNUSED(areaId, thColor) {
   thColor = thColor || '#00838f';
 
   // পুরনো overlay/style সরাও
@@ -8568,21 +8779,14 @@ function stnReqSimplePrint(areaId, thColor) {
     ].join('\n');
     document.head.appendChild(style);
 
-    // overlay কে print এর আগে explicitly block করো
-    var ovEl = document.getElementById('stn-req-print-overlay');
-    if (ovEl) ovEl.style.display = 'block';
+    window.print();
 
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        window.print();
-        setTimeout(function(){
-          var o = document.getElementById('stn-req-print-overlay');
-          var s = document.getElementById('stn-req-print-style');
-          if (o) o.remove();
-          if (s) s.remove();
-        }, 1800);
-      });
-    });
+    setTimeout(function(){
+      var o = document.getElementById('stn-req-print-overlay');
+      var s = document.getElementById('stn-req-print-style');
+      if (o) o.remove();
+      if (s) s.remove();
+    }, 1800);
     return;
   }
 
@@ -8709,21 +8913,14 @@ function stnReqSimplePrint(areaId, thColor) {
   ].join('\n');
   document.head.appendChild(style);
 
-  // overlay কে print এর আগে explicitly block করো
-  var ovEl2 = document.getElementById('stn-req-print-overlay');
-  if (ovEl2) ovEl2.style.display = 'block';
+  window.print();
 
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      window.print();
-      setTimeout(function(){
-        var o = document.getElementById('stn-req-print-overlay');
-        var s = document.getElementById('stn-req-print-style');
-        if (o) o.remove();
-        if (s) s.remove();
-      }, 1800);
-    });
-  });
+  setTimeout(function(){
+    var o = document.getElementById('stn-req-print-overlay');
+    var s = document.getElementById('stn-req-print-style');
+    if (o) o.remove();
+    if (s) s.remove();
+  }, 1800);
 }
 
 // ── Requisition Excel Download ──────────────────────────────────────
