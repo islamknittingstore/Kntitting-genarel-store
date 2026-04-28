@@ -8998,8 +8998,27 @@ function pomClose() {
 function pomDoPrint() {
   var cb = _pomCallback;
   var orient = _pomOrientation;
+  // Save all current settings before closing (pomClose nulls _pomAreaId/_pomCallback)
+  var savedZoom    = _pomZoom;
+  var savedRowPad  = _pomRowPad;
+  var savedColPad  = _pomColPad;
+  var savedFont    = _pomFontSize;
+  var savedBW      = _pomBW;
+  var savedAreaId  = _pomAreaId;
+  var savedThColor = _pomThColor;
   pomClose();
-  if (typeof cb === 'function') cb(orient);
+  // Wait for modal close animation before triggering print
+  setTimeout(function() {
+    // Restore saved settings (pomClose may have nulled some globals)
+    _pomZoom     = savedZoom;
+    _pomRowPad   = savedRowPad;
+    _pomColPad   = savedColPad;
+    _pomFontSize = savedFont;
+    _pomBW       = savedBW;
+    _pomAreaId   = savedAreaId;
+    _pomThColor  = savedThColor;
+    if (typeof cb === 'function') cb(orient);
+  }, 350);
 }
 
 function pomSelect(orient) {
@@ -9195,7 +9214,7 @@ function pomBuildAndPrint(areaId, thColor, orientation) {
   var tdPad   = _pomRowPad + 'px ' + _pomColPad + 'px';
   var thPad   = Math.max(2,_pomRowPad-1) + 'px ' + _pomColPad + 'px';
   var fontSize= _pomFontSize + 'pt';
-  var zoom    = (_pomZoom / 100).toFixed(2);
+  var zoomVal = (_pomZoom / 100).toFixed(3);
 
   var thBg    = _pomBW ? '#fff' : (thColor || '#00838f');
   var thColor2= _pomBW ? '#000' : '#fff';
@@ -9207,7 +9226,7 @@ function pomBuildAndPrint(areaId, thColor, orientation) {
     '@page { size: A4 ' + orientation + '; margin: 10mm 12mm; }',
     '@media print {',
     '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
-    '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; zoom: ' + zoom + '; }',
+    '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; zoom: ' + zoomVal + '; }',
     '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
     '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+thBg+' !important; color: '+thColor2+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
     '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
