@@ -2802,6 +2802,7 @@ window.iglSaveUsers = function(){
             <button class="btn btn-sm stn-tab"        id="stn-tab-slip"     onclick="stnSetTab('slip')"     style="background:#e8f8f5;color:#0e6655;border:1px solid #1abc9c;border-radius:20px;">🧾 Slip</button>
             <button class="btn btn-sm stn-tab"        id="stn-tab-dept"     onclick="stnSetTab('dept')"     style="background:#e8f8f5;color:#0e6655;border:1px solid #1abc9c;border-radius:20px;">🏢 Department</button>
             <button class="btn btn-sm stn-tab"        id="stn-tab-itemwise" onclick="stnSetTab('itemwise')" style="background:#e8f8f5;color:#6c3483;border:1px solid #9b59b6;border-radius:20px;">📊 Item Wise Issue</button>
+            <button class="btn btn-sm stn-tab"        id="stn-tab-itemdept" onclick="stnSetTab('itemdept')" style="background:#e8f8f5;color:#7b241c;border:1px solid #e74c3c;border-radius:20px;">📋 Item × Dept Summary</button>
           </div>
         </div>
       </div>
@@ -7174,7 +7175,10 @@ function stnGetTableData() {
 
   if (_stnTab === 'stock') {
     var itemStats = stnItems.map(function(it){
-      var bf  = Number(it.bf) || 0;
+      var baseBf = Number(it.bf) || 0;
+      var recBefore = dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+      var issBefore = dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+      var bf  = dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
       var rec = DB.receives.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var iss = DB.issues.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var stk = bf + rec - iss;
@@ -7394,6 +7398,8 @@ function stnSetTab(tab) {
   if (active) {
     if (tab === 'itemwise') {
       active.style.background = '#6c3483'; active.style.color = '#fff';
+    } else if (tab === 'itemdept') {
+      active.style.background = '#c0392b'; active.style.color = '#fff';
     } else {
       active.style.background = '#0e6655'; active.style.color = '#fff';
     }
@@ -8454,16 +8460,19 @@ function stnReqSimplePrint(areaId, thColor) {
     });
   }
 
-  // slot: realRows ৩০ এর কম হলে ৩০, বেশি হলে সর্বোচ্চ ৪০
-  var slotCount = realRows <= 30 ? 30 : Math.min(realRows, 40);
+  // slot: realRows ৩০ এর কম হলে ৩০, বেশি হলে সর্বোচ্চ ৪৫
+  var slotCount = realRows <= 30 ? 30 : Math.min(realRows, 45);
 
-  // A4 usable rows area = 239mm (margin 8mm top+bottom, header 20mm, thead 6mm, sig 16mm)
-  var availMm = 239;
-  var rowHmm  = availMm / slotCount;   // 30→7.97mm, 40→5.97mm
+  // A4 Portrait usable height:
+  //   @page margin 8mm top+bottom+left = 297 - 16 = 281mm
+  //   Header ≈ 20mm, thead ≈ 6mm, signature ≈ 18mm → rows area = 237mm
+  //   ৩৫ items: 237/35 = 6.77mm/row → font ≈ 8pt, padV ≈ 2px  ✓ one page
+  var availMm = 237;
+  var rowHmm  = availMm / slotCount;
 
-  // font: 1mm = 2.835pt, row height এর 60%
-  var fontPt  = Math.min(10, Math.max(7.5, parseFloat((rowHmm * 0.60 * 2.835).toFixed(1))));
-  // vertical padding px: বাকি height এর অর্ধেক  (1mm=3.7796px)
+  // font: row height এর 58%, 7pt–9.5pt
+  var fontPt  = Math.min(9.5, Math.max(7, parseFloat((rowHmm * 0.58 * 2.835).toFixed(1))));
+  // vertical padding px (1mm = 3.7796px)
   var padV    = Math.max(1, parseFloat((((rowHmm - fontPt/2.835) / 2) * 3.7796).toFixed(1)));
   var padH    = 5;
 
@@ -8473,11 +8482,13 @@ function stnReqSimplePrint(areaId, thColor) {
   var titleTxt    = titleEl2 ? titleEl2.textContent.trim() : '';
 
   // ── Header HTML ──
+  var hdrPad = slotCount >= 35 ? '4px 10px 3px' : '6px 10px 4px';
+  var hdrTitleSize = slotCount >= 35 ? '14pt' : '15pt';
   var headerHtml =
-    '<div style="text-align:center;padding:6px 10px 4px;border-bottom:2px solid #333;margin-bottom:4px;">'
-    + '<div style="font-size:15pt;font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
-    + '<div style="font-size:8.5pt;color:#444;margin-top:1px;">Jarun, Konabari, Gazipur</div>'
-    + (titleTxt ? '<div style="font-size:10.5pt;font-weight:700;margin-top:3px;">'+titleTxt+'</div>' : '')
+    '<div style="text-align:center;padding:'+hdrPad+';border-bottom:2px solid #333;margin-bottom:4px;">'
+    + '<div style="font-size:'+hdrTitleSize+';font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
+    + '<div style="font-size:8pt;color:#444;margin-top:1px;">Jarun, Konabari, Gazipur</div>'
+    + (titleTxt ? '<div style="font-size:9.5pt;font-weight:700;margin-top:2px;">'+titleTxt+'</div>' : '')
     + '</div>';
 
   // ── Table HTML ──
@@ -8604,8 +8615,10 @@ function stnReqSimplePrint(areaId, thColor) {
     + '</table>';
 
   // ── Signature ──
+  // ৩৫+ items হলে signature padding কমাও যাতে এক পাতায় আসে
+  var sigTopPad = slotCount >= 35 ? '14px' : slotCount >= 30 ? '24px' : '38px';
   var sigHtml =
-    '<div style="display:flex;justify-content:space-between;padding:38px 50px 8px;font-size:10pt;color:#333;">'
+    '<div style="display:flex;justify-content:space-between;padding:'+sigTopPad+' 50px 8px;font-size:10pt;color:#333;">'
     + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Store/Admin</div></div>'
     + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Authority</div></div>'
     + '</div>';
@@ -8620,8 +8633,9 @@ function stnReqSimplePrint(areaId, thColor) {
   // ── Print Style ──
   var style = document.createElement('style');
   style.id = 'stn-req-print-style';
+  var pageMargin = slotCount >= 35 ? '6mm 12mm 6mm 15mm' : '8mm 12mm 8mm 15mm';
   style.innerHTML =
-    '@page { size: A4 portrait; margin: 8mm 12mm 8mm 15mm; }\n'
+    '@page { size: A4 portrait; margin: '+pageMargin+'; }\n'
     + '@media print {\n'
     + '  body > *:not(#stn-req-print-overlay) { display: none !important; }\n'
     + '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
@@ -9076,13 +9090,19 @@ async function stnDeleteTx(type, id) {
 
 function renderStationeryDashboard() {
   var q = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
+  var _dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
+  var _dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
   var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnNames = stnItems.map(function(i){ return i.name; });
 
   var itemStats = stnItems.map(function(it){
-    var bf  = Number(it.bf) || 0;
-    var rec = DB.receives.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
-    var iss = DB.issues.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
+    var baseBf = Number(it.bf) || 0;
+    // dateFrom থাকলে: সেই তারিখের আগের সব receive - issue দিয়ে Opening Stock বের করো
+    var recBefore = _dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+    var issBefore = _dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+    var bf  = _dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
+    var rec = DB.receives.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var iss = DB.issues.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     return { name: it.name, bf: bf, rec: rec, iss: iss, stk: bf + rec - iss };
   });
 
@@ -9411,7 +9431,252 @@ function renderStationeryDashboard() {
     }
   }
 
+  // ── Item × Department Summary ──
+  else if (_stnTab === 'itemdept') {
+    var dateFromID = (document.getElementById('stn-date-from')||{value:''}).value;
+    var dateToID   = (document.getElementById('stn-date-to')||{value:''}).value;
+
+    var idIss = DB.issues.filter(function(r){
+      if (!stnNames.includes(r.item)) return false;
+      if (q && !r.item.toLowerCase().includes(q) && !(r.machineId||'').toLowerCase().includes(q)) return false;
+      if (dateFromID && r.date < dateFromID) return false;
+      if (dateToID   && r.date > dateToID)   return false;
+      return true;
+    });
+
+    // Build: itemMap[item][dept] = totalQty
+    var idItemMap = {};
+    var idDeptSet = {};
+    idIss.forEach(function(r){
+      var it = r.item, dp = r.machineId || '(অজানা)';
+      if (!idItemMap[it]) idItemMap[it] = {};
+      idItemMap[it][dp] = (idItemMap[it][dp] || 0) + (Number(r.qty)||0);
+      idDeptSet[dp] = true;
+    });
+
+    var idItems = Object.keys(idItemMap).sort();
+    var idDepts = Object.keys(idDeptSet).sort();
+    var idGrandTotal = idIss.reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+
+    if (totalItemsEl) totalItemsEl.textContent = idItems.length + ' items | ' + idDepts.length + ' departments | ' + idGrandTotal + ' pcs total';
+
+    var periodLabelID = dateFromID && dateToID
+      ? _fmtDMY(dateFromID)+' — '+_fmtDMY(dateToID)
+      : dateFromID ? _fmtDMY(dateFromID)+' থেকে'
+      : dateToID   ? _fmtDMY(dateToID)+' পর্যন্ত'
+      : 'সব তারিখ';
+
+    if (idItems.length === 0) {
+      html = '<div style="padding:20px;text-align:center;color:#888;"><div style="font-size:32px;margin-bottom:8px;">📋</div><div>কোন Issue রেকর্ড পাওয়া যায়নি।<br>তারিখ দিন অথবা ফিল্টার পরিবর্তন করুন।</div></div>';
+    } else {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px;">';
+      html += '<div style="font-size:13px;color:#7b241c;font-weight:700;">📋 Item × Department Summary — '+periodLabelID+'</div>';
+      html += '<div style="display:flex;gap:6px;">';
+      html += '<button onclick="stnPrintItemDept()" class="btn btn-sm" style="background:#7b241c;color:#fff;border:none;border-radius:5px;">🖨️ Print</button>';
+      html += '<button onclick="stnExportItemDeptCSV()" class="btn btn-sm" style="background:#c0392b;color:#fff;border:none;border-radius:5px;">⬇️ CSV Export</button>';
+      html += '</div>';
+      html += '</div>';
+
+      // Summary cards per department (total across all items)
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:14px;">';
+      idDepts.forEach(function(dp){
+        var dTotal = idIss.filter(function(r){ return (r.machineId||'(অজানা)') === dp; }).reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+        html += '<div style="background:#fdedec;border-left:4px solid #e74c3c;border-radius:6px;padding:8px 12px;">'+
+          '<div style="font-size:10px;color:#922b21;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+dp+'">🏢 '+dp+'</div>'+
+          '<div style="font-size:22px;font-weight:700;color:#c0392b;">'+dTotal+'</div>'+
+          '<div style="font-size:10px;color:#888;">পিছ মোট</div></div>';
+      });
+      html += '</div>';
+
+      // Main cross-table: rows = items, cols = departments
+      html += '<div style="overflow-x:auto;">';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px;">';
+      // Header
+      html += '<thead><tr style="background:linear-gradient(135deg,#7b241c,#c0392b);color:#fff;">';
+      html += '<th style="padding:8px 12px;text-align:left;border:1px solid #e74c3c;white-space:nowrap;">আইটেম নাম</th>';
+      idDepts.forEach(function(dp){
+        html += '<th style="padding:8px 10px;text-align:center;border:1px solid #e74c3c;white-space:nowrap;">'+dp+'</th>';
+      });
+      html += '<th style="padding:8px 10px;text-align:center;border:1px solid #e74c3c;background:#4a1010;">মোট</th>';
+      html += '</tr></thead><tbody>';
+
+      var grandRowTotal = 0;
+      var deptColTotals = {};
+      idDepts.forEach(function(dp){ deptColTotals[dp] = 0; });
+
+      idItems.forEach(function(it, idx){
+        var rowTotal = Object.values ? Object.values(idItemMap[it]).reduce(function(s,v){ return s+v; },0)
+          : Object.keys(idItemMap[it]).reduce(function(s,k){ return s+idItemMap[it][k]; }, 0);
+        grandRowTotal += rowTotal;
+        html += '<tr style="'+(idx%2===0?'background:#fff4f4;':'background:#fff;')+'">';
+        html += '<td style="padding:6px 12px;border:1px solid #f5b7b1;font-weight:600;color:#1a1a1a;white-space:nowrap;">'+it+'</td>';
+        idDepts.forEach(function(dp){
+          var val = idItemMap[it][dp] || 0;
+          deptColTotals[dp] += val;
+          var cellStyle = val > 0
+            ? 'font-weight:700;color:#c0392b;background:#fdedec;'
+            : 'color:#ccc;';
+          html += '<td style="padding:6px 10px;text-align:center;border:1px solid #f5b7b1;'+cellStyle+'">'+(val > 0 ? val : '—')+'</td>';
+        });
+        html += '<td style="padding:6px 10px;text-align:center;border:1px solid #f5b7b1;font-weight:700;background:#fce4e4;color:#7b241c;">'+rowTotal+'</td>';
+        html += '</tr>';
+      });
+
+      // Footer totals row
+      html += '<tr style="background:linear-gradient(135deg,#7b241c,#c0392b);color:#fff;font-weight:700;">';
+      html += '<td style="padding:7px 12px;border:1px solid #e74c3c;">সর্বমোট</td>';
+      idDepts.forEach(function(dp){
+        html += '<td style="padding:7px 10px;text-align:center;border:1px solid #e74c3c;">'+deptColTotals[dp]+'</td>';
+      });
+      html += '<td style="padding:7px 10px;text-align:center;border:1px solid #e74c3c;background:#4a1010;font-size:14px;">'+grandRowTotal+'</td>';
+      html += '</tr>';
+      html += '</tbody></table></div>';
+
+      // Store data for CSV export
+      window._stnItemDeptData = { items: idItems, depts: idDepts, map: idItemMap, period: periodLabelID };
+    }
+  }
+
   resultDiv.innerHTML = html;
+}
+
+// ── Print: Item × Department Summary (Landscape A4) ──────────────────────
+function stnPrintItemDept() {
+  var d = window._stnItemDeptData;
+  if (!d || !d.items || d.items.length === 0) {
+    alert('প্রিন্ট করার জন্য ডেটা নেই। প্রথমে ফিল্টার করুন।');
+    return;
+  }
+
+  var items  = d.items;
+  var depts  = d.depts;
+  var map    = d.map;
+  var period = d.period || 'সব তারিখ';
+  var thColor = '#7b241c';
+
+  // A4 Landscape: 297×210mm, margin 10mm → usable 277×190mm
+  // Header~18mm, thead~7mm, tfoot~7mm → rows area ~158mm
+  var rowCount  = items.length;
+  var slotCount = Math.max(rowCount, 1);
+  var availMm   = 158;
+  var rowHmm    = Math.min(10, availMm / slotCount);
+  var fontPt    = Math.min(9.5, Math.max(6.5, parseFloat((rowHmm * 0.56 * 2.835).toFixed(1))));
+  var padV      = Math.max(1, parseFloat((((rowHmm - fontPt/2.835)/2)*3.7796).toFixed(1)));
+  var padH      = Math.max(3, Math.min(7, parseFloat((rowHmm * 0.5).toFixed(1))));
+
+  // Col widths: item=52mm, total=22mm, rest split among depts
+  var deptCount  = depts.length;
+  var itemColMm  = 52;
+  var totalColMm = 22;
+  var deptColMm  = deptCount > 0
+    ? Math.max(14, parseFloat(((277 - itemColMm - totalColMm) / deptCount).toFixed(1)))
+    : 20;
+
+  var headerHtml =
+    '<div style="text-align:center;padding:4px 10px 3px;border-bottom:2px solid #333;margin-bottom:4px;">'
+    + '<div style="font-size:14pt;font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
+    + '<div style="font-size:7.5pt;color:#444;margin-top:1px;">Jarun, Konabari, Gazipur</div>'
+    + '<div style="font-size:9pt;font-weight:700;margin-top:2px;">Stationery Item &times; Department Issue Summary</div>'
+    + '<div style="font-size:8pt;color:#555;margin-top:1px;">Period: '+period+'</div>'
+    + '</div>';
+
+  var thS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;background:'+thColor+';color:#fff;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+  var thIS = thS + 'text-align:left;';
+  var tdS  = 'border:0.5px solid #ddd;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;line-height:1.2;';
+  var tdNS = tdS  + 'text-align:center;';
+  var tdVS = tdNS + 'font-weight:700;color:#c0392b;background:#fdedec;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  var tdZS = tdNS + 'color:#ccc;';
+  var tdTS = tdNS + 'font-weight:700;background:#fce4e4;color:#7b241c;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+  var tfGS = tfS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
+
+  var colHtml = '<colgroup><col style="width:'+itemColMm+'mm;">';
+  depts.forEach(function(){ colHtml += '<col style="width:'+deptColMm+'mm;">'; });
+  colHtml += '<col style="width:'+totalColMm+'mm;"></colgroup>';
+
+  var theadHtml = '<thead><tr><th style="'+thIS+'">আইটেম নাম</th>';
+  depts.forEach(function(dp){ theadHtml += '<th style="'+thS+'">'+dp+'</th>'; });
+  theadHtml += '<th style="'+thS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010')+'">মোট</th></tr></thead>';
+
+  var deptTotals = {};
+  depts.forEach(function(dp){ deptTotals[dp] = 0; });
+  var grandTotal = 0;
+  var tbodyHtml  = '<tbody>';
+  items.forEach(function(it, idx){
+    var bgR = (idx%2===1) ? 'background:#fff8f8;-webkit-print-color-adjust:exact;print-color-adjust:exact;' : '';
+    var rT  = depts.reduce(function(s,dp){ return s+(map[it][dp]||0); }, 0);
+    grandTotal += rT;
+    tbodyHtml += '<tr>';
+    tbodyHtml += '<td style="'+tdS+bgR+'font-weight:600;">'+it+'</td>';
+    depts.forEach(function(dp){
+      var v = map[it][dp]||0;
+      deptTotals[dp] += v;
+      tbodyHtml += '<td style="'+(v>0 ? tdVS : tdZS)+bgR+'">'+(v>0?v:'&mdash;')+'</td>';
+    });
+    tbodyHtml += '<td style="'+tdTS+'">'+rT+'</td></tr>';
+  });
+  tbodyHtml += '</tbody>';
+
+  var tfootHtml = '<tfoot><tr><td style="'+tfS+'text-align:left;">সর্বমোট</td>';
+  depts.forEach(function(dp){ tfootHtml += '<td style="'+tfS+'">'+deptTotals[dp]+'</td>'; });
+  tfootHtml += '<td style="'+tfGS+'">'+grandTotal+'</td></tr></tfoot>';
+
+  var tableHtml = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">'
+    + colHtml + theadHtml + tbodyHtml + tfootHtml + '</table>';
+
+  ['stn-idept-overlay','stn-idept-style'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.remove();
+  });
+
+  var overlay = document.createElement('div');
+  overlay.id  = 'stn-idept-overlay';
+  overlay.innerHTML = headerHtml + tableHtml;
+  document.body.appendChild(overlay);
+
+  var style = document.createElement('style');
+  style.id  = 'stn-idept-style';
+  style.innerHTML =
+    '@page { size: A4 landscape; margin: 10mm 12mm; }\n'
+    + '@media print {\n'
+    + '  body > *:not(#stn-idept-overlay) { display: none !important; }\n'
+    + '  #stn-idept-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
+    + '  #stn-idept-overlay thead th, #stn-idept-overlay tfoot td { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; forced-color-adjust: none !important; }\n'
+    + '  #stn-idept-overlay tbody tr:nth-child(even) td { background: #fff8f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n'
+    + '}\n'
+    + '#stn-idept-overlay { display: none; }\n';
+  document.head.appendChild(style);
+
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      window.print();
+      setTimeout(function(){
+        ['stn-idept-overlay','stn-idept-style'].forEach(function(id){
+          var el = document.getElementById(id); if(el) el.remove();
+        });
+      }, 2000);
+    });
+  });
+}
+
+// CSV Export for Item × Department Summary
+function stnExportItemDeptCSV() {
+  var d = window._stnItemDeptData;
+  if (!d) return;
+  var rows = [];
+  rows.push(['আইটেম নাম'].concat(d.depts).concat(['মোট']));
+  d.items.forEach(function(it){
+    var rowTotal = d.depts.reduce(function(s,dp){ return s+(d.map[it][dp]||0); }, 0);
+    rows.push([it].concat(d.depts.map(function(dp){ return d.map[it][dp]||0; })).concat([rowTotal]));
+  });
+  var colTotals = d.depts.map(function(dp){ return d.items.reduce(function(s,it){ return s+(d.map[it][dp]||0); }, 0); });
+  var grand = colTotals.reduce(function(s,v){ return s+v; }, 0);
+  rows.push(['সর্বমোট'].concat(colTotals).concat([grand]));
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = 'IGL_Stationery_Item_Dept_Summary_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Show all item detail tables (reset filter)
@@ -18694,12 +18959,6 @@ function buildNeedleEditForm(e) {
 
   var ndlType = e.needleType || 'new';
 
-  // Supervisor list
-  var workers = (typeof getWorkers === 'function') ? getWorkers() : [];
-  var curWorker = e.worker || e.supervisor || '';
-  var workerOpts = '<option value="">-- Select Supervisor --</option>'
-    + workers.map(function(w){ return '<option value="'+w.id+'"'+(w.id===curWorker?' selected':'')+'>'+w.name+'</option>'; }).join('');
-
   return '<div style="display:grid;gap:14px;">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📅 তারিখ *</label>'
@@ -18707,8 +18966,6 @@ function buildNeedleEditForm(e) {
       +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">🔄 Shift</label>'
         +'<select id="edit-n-shift" class="form-control">'+shiftOpts+'</select></div>'
     +'</div>'
-    +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">👷 Supervisor</label>'
-      +'<select id="edit-n-worker" class="form-control">'+workerOpts+'</select></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">⚙️ Machine *</label>'
       +'<select id="edit-n-machine" class="form-control"><option value="">-- Select Machine --</option>'+mOpts+'</select></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
@@ -18806,7 +19063,6 @@ async function saveEditEntry() {
     var type       = (document.getElementById('edit-n-type')||{}).value||'broken';
     var needleType = (document.getElementById('edit-n-needletype')||{}).value||'new';
     var shift      = (document.getElementById('edit-n-shift')||{}).value||'A';
-    var worker     = (document.getElementById('edit-n-worker')||{}).value||'';
     var remarks    = (document.getElementById('edit-n-remarks')||{}).value||'';
 
     if (!date)    { toast('তারিখ দিন!','warning'); return; }
@@ -18824,7 +19080,7 @@ async function saveEditEntry() {
     var mInfo = getNeedleMachines ? getNeedleMachines().find(function(m){ return m.id===machine; }) : {};
     mInfo = mInfo || {};
 
-    arr[idx] = Object.assign({}, arr[idx], { date, machine, qty, type, needleType, shift, worker, remarks, erp: mInfo.erp||arr[idx].erp, section: mInfo.section||arr[idx].section, gauge: mInfo.gauge||arr[idx].gauge, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, machine, qty, type, needleType, shift, remarks, erp: mInfo.erp||arr[idx].erp, section: mInfo.section||arr[idx].section, gauge: mInfo.gauge||arr[idx].gauge, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     NDB.needles = arr;
     triggerAutoSave();
     try { nmiRenderLog(); } catch(e){}
