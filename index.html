@@ -7174,7 +7174,11 @@ function stnGetTableData() {
 
   if (_stnTab === 'stock') {
     var itemStats = stnItems.map(function(it){
-      var bf  = Number(it.bf) || 0;
+      var baseBf = Number(it.bf) || 0;
+      // dateFrom থাকলে: আগের সব receive - issue দিয়ে opening stock বের করো
+      var recBefore = dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+      var issBefore = dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+      var bf  = dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
       var rec = DB.receives.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var iss = DB.issues.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var stk = bf + rec - iss;
@@ -9079,10 +9083,17 @@ function renderStationeryDashboard() {
   var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnNames = stnItems.map(function(i){ return i.name; });
 
+  var _dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
+  var _dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
+
   var itemStats = stnItems.map(function(it){
-    var bf  = Number(it.bf) || 0;
-    var rec = DB.receives.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
-    var iss = DB.issues.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
+    var baseBf = Number(it.bf) || 0;
+    // dateFrom থাকলে: আগের সব receive - issue দিয়ে opening stock বের করো
+    var recBefore = _dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+    var issBefore = _dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
+    var bf  = _dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
+    var rec = DB.receives.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var iss = DB.issues.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     return { name: it.name, bf: bf, rec: rec, iss: iss, stk: bf + rec - iss };
   });
 
