@@ -7174,11 +7174,7 @@ function stnGetTableData() {
 
   if (_stnTab === 'stock') {
     var itemStats = stnItems.map(function(it){
-      var baseBf = Number(it.bf) || 0;
-      // dateFrom থাকলে: আগের সব receive - issue দিয়ে opening stock বের করো
-      var recBefore = dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
-      var issBefore = dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
-      var bf  = dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
+      var bf  = Number(it.bf) || 0;
       var rec = DB.receives.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var iss = DB.issues.filter(function(r){ return r.item===it.name&&(!dateFrom||r.date>=dateFrom)&&(!dateTo||r.date<=dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       var stk = bf + rec - iss;
@@ -9083,17 +9079,10 @@ function renderStationeryDashboard() {
   var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
   var stnNames = stnItems.map(function(i){ return i.name; });
 
-  var _dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
-  var _dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
-
   var itemStats = stnItems.map(function(it){
-    var baseBf = Number(it.bf) || 0;
-    // dateFrom থাকলে: আগের সব receive - issue দিয়ে opening stock বের করো
-    var recBefore = _dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
-    var issBefore = _dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
-    var bf  = _dateFrom ? (baseBf + recBefore - issBefore) : baseBf;
-    var rec = DB.receives.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
-    var iss = DB.issues.filter(function(r){ return r.item===it.name && (!_dateFrom||r.date>=_dateFrom) && (!_dateTo||r.date<=_dateTo); }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var bf  = Number(it.bf) || 0;
+    var rec = DB.receives.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
+    var iss = DB.issues.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){return s+r.qty;},0);
     return { name: it.name, bf: bf, rec: rec, iss: iss, stk: bf + rec - iss };
   });
 
@@ -18705,6 +18694,12 @@ function buildNeedleEditForm(e) {
 
   var ndlType = e.needleType || 'new';
 
+  // Supervisor list
+  var workers = (typeof getWorkers === 'function') ? getWorkers() : [];
+  var curWorker = e.worker || e.supervisor || '';
+  var workerOpts = '<option value="">-- Select Supervisor --</option>'
+    + workers.map(function(w){ return '<option value="'+w.id+'"'+(w.id===curWorker?' selected':'')+'>'+w.name+'</option>'; }).join('');
+
   return '<div style="display:grid;gap:14px;">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📅 তারিখ *</label>'
@@ -18712,6 +18707,8 @@ function buildNeedleEditForm(e) {
       +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">🔄 Shift</label>'
         +'<select id="edit-n-shift" class="form-control">'+shiftOpts+'</select></div>'
     +'</div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">👷 Supervisor</label>'
+      +'<select id="edit-n-worker" class="form-control">'+workerOpts+'</select></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">⚙️ Machine *</label>'
       +'<select id="edit-n-machine" class="form-control"><option value="">-- Select Machine --</option>'+mOpts+'</select></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
@@ -18809,6 +18806,7 @@ async function saveEditEntry() {
     var type       = (document.getElementById('edit-n-type')||{}).value||'broken';
     var needleType = (document.getElementById('edit-n-needletype')||{}).value||'new';
     var shift      = (document.getElementById('edit-n-shift')||{}).value||'A';
+    var worker     = (document.getElementById('edit-n-worker')||{}).value||'';
     var remarks    = (document.getElementById('edit-n-remarks')||{}).value||'';
 
     if (!date)    { toast('তারিখ দিন!','warning'); return; }
@@ -18826,7 +18824,7 @@ async function saveEditEntry() {
     var mInfo = getNeedleMachines ? getNeedleMachines().find(function(m){ return m.id===machine; }) : {};
     mInfo = mInfo || {};
 
-    arr[idx] = Object.assign({}, arr[idx], { date, machine, qty, type, needleType, shift, remarks, erp: mInfo.erp||arr[idx].erp, section: mInfo.section||arr[idx].section, gauge: mInfo.gauge||arr[idx].gauge, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, machine, qty, type, needleType, shift, worker, remarks, erp: mInfo.erp||arr[idx].erp, section: mInfo.section||arr[idx].section, gauge: mInfo.gauge||arr[idx].gauge, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     NDB.needles = arr;
     triggerAutoSave();
     try { nmiRenderLog(); } catch(e){}
