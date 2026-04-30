@@ -3558,6 +3558,12 @@ function ok(msg) {
                 <option value="">-- Select Supervisor --</option>
               </select>
             </div>
+            <div class="form-group">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+                <input type="checkbox" id="nmi-offduty" style="width:16px;height:16px;accent-color:#e74c3c;cursor:pointer;">
+                <span style="font-size:12px;font-weight:700;color:#e74c3c;">🔴 Off Day / Holiday ডিউটি ছিল</span>
+              </label>
+            </div>
             <div class="form-group"><label>Remarks</label>
               <select class="form-control" id="nmi-remarks-drop" style="width:100%;margin-bottom:4px;" onchange="nmiRemarksDropChange()">
                 <option value="">-- Select Remarks --</option>
@@ -15911,6 +15917,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var machine=(document.getElementById('nmi-machine')||{}).value||'';
     var type=(document.getElementById('nmi-type')||{}).value||'broken';
     var remarks=(document.getElementById('nmi-remarks')||{}).value||'';
+    var offDuty=!!(document.getElementById('nmi-offduty')||{}).checked;
     if(!date){toast('Date দিন!','warning');return;}
     var _bdErr6=window.iglCheckBackdate(date);
     if(_bdErr6){toast(_bdErr6,'error');return;}
@@ -15944,10 +15951,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         id:Date.now()+saved,
         date:date, machine:machine,
         erp:m.erp||'', section:m.section||'', gauge:m.gauge||'',
-        type:finalType,       // 'broken'/'afterwash'/.../'used'
-        needleType:needleType, // 'new' বা 'used' — এটাই আসল classifier
+        type:finalType,
+        needleType:needleType,
         qty:qty, remarks:remarks,
         needleId:nId, needle:needle.name||needle.code||'', worker:worker, shift:shift,
+        offDuty:offDuty,
         userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'')
       };
       arr.push(rec);
@@ -15990,6 +15998,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     document.querySelectorAll('.nmi-qty').forEach(function(q){q.value='';});
     document.querySelectorAll('.nmi-chk').forEach(function(c){c.checked=false;});
     document.getElementById('nmi-check-all').checked=false;
+    var offDutyEl=document.getElementById('nmi-offduty');
+    if(offDutyEl) offDutyEl.checked=false;
     var remEl=document.getElementById('nmi-remarks');
     if(remEl){ remEl.value=''; remEl.readOnly=true; remEl.style.background='#f0f3f7'; remEl.style.color='#1a5276'; remEl.style.fontWeight='600'; remEl.placeholder='Auto filled...'; }
     var remDrop=document.getElementById('nmi-remarks-drop');
@@ -16713,7 +16723,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       html+='<tr style="background:#f8f9fa;">';
       html+='<td colspan="'+(1+totalCols+1)+'" style="padding:4px 8px;border:1px solid #ddd;font-size:9px;">';
       html+='<b>Total Needle Pcs: '+grandTotal+'</b>';
-      var workingDays=days.filter(function(d){return new Date(d).getDay()!==5;}).length;
+      var entryDays=days.filter(function(d){
+        return filtered.some(function(r){return r.date===d;});
+      });
+      var offDutyDays=days.filter(function(d){
+        return filtered.some(function(r){return r.date===d && r.offDuty===true;});
+      });
+      var workingDaySet=[];
+      entryDays.forEach(function(d){ if(workingDaySet.indexOf(d)<0) workingDaySet.push(d); });
+      offDutyDays.forEach(function(d){
+        // Off Duty দিনটা আগের দিন হিসেবে count — সেই আগের দিন যোগ করো
+        var prev=new Date(d); prev.setDate(prev.getDate()-1);
+        var prevStr=prev.toISOString().split('T')[0];
+        if(workingDaySet.indexOf(prevStr)<0) workingDaySet.push(prevStr);
+      });
+      var workingDays=workingDaySet.length;
       var avgPerDay=workingDays>0?(grandTotal/workingDays).toFixed(1):0;
       html+=' &nbsp;|&nbsp; Working Days: '+workingDays+' &nbsp;|&nbsp; Avg/Day: '+avgPerDay;
       html+='</td></tr>';
@@ -16936,7 +16960,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Summary
     var grandNew=0; p2NewTypes.forEach(function(t){grandNew+=gt2new[t.key].total;});
     var grandUsed=0; usedTypes.forEach(function(t){grandUsed+=gt2used[t.key].total;});
-    var workingDays2=days.filter(function(d){return new Date(d).getDay()!==5;}).length;
+    var p2EntryDays=days.filter(function(d){ return filtered.some(function(r){return r.date===d;}); });
+    var p2OffDutyDays=days.filter(function(d){ return filtered.some(function(r){return r.date===d && r.offDuty===true;}); });
+    var p2WdSet=[];
+    p2EntryDays.forEach(function(d){ if(p2WdSet.indexOf(d)<0) p2WdSet.push(d); });
+    p2OffDutyDays.forEach(function(d){
+      var prev=new Date(d); prev.setDate(prev.getDate()-1);
+      var prevStr=prev.toISOString().split('T')[0];
+      if(p2WdSet.indexOf(prevStr)<0) p2WdSet.push(prevStr);
+    });
+    var workingDays2=p2WdSet.length;
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
