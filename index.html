@@ -1226,7 +1226,14 @@ if('serviceWorker' in navigator){
         },
         ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
-        bin: JSON.parse(localStorage.getItem('igl_bin') || '[]')
+        bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
+        settings: {
+          userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
+          usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
+          printBold:       localStorage.getItem('igl_print_bold') || '0',
+          retailMachines:  JSON.parse(localStorage.getItem('igl_retail_machines')  || '[]'),
+          ndlVer:          localStorage.getItem('igl_ndl_ver') || ''
+        }
       };
       _fbDb.ref('igl_erp').set(data)
         .then(function(){
@@ -1273,6 +1280,17 @@ if('serviceWorker' in navigator){
         if(data.ndlRcv)    localStorage.setItem('igl_ndl_rcv',    JSON.stringify(data.ndlRcv));
         if(data.rnaManage) localStorage.setItem('igl_rna_manage', JSON.stringify(data.rnaManage));
         if(data.bin)       localStorage.setItem('igl_bin',        JSON.stringify(data.bin));
+        if(data.settings){
+          if(data.settings.userPermissions) localStorage.setItem('igl_user_permissions', JSON.stringify(data.settings.userPermissions));
+          if(data.settings.usersOverride)   localStorage.setItem('igl_users_override',   JSON.stringify(data.settings.usersOverride));
+          if(data.settings.printBold !== undefined) localStorage.setItem('igl_print_bold', data.settings.printBold);
+          if(data.settings.retailMachines && data.settings.retailMachines.length) localStorage.setItem('igl_retail_machines', JSON.stringify(data.settings.retailMachines));
+          if(data.settings.ndlVer) localStorage.setItem('igl_ndl_ver', data.settings.ndlVer);
+          // IGL_USERS override reload করো
+          if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
+            try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
+          }
+        }
 
         if(typeof updateDashboard === 'function') updateDashboard();
         if(typeof renderStock === 'function') renderStock();
@@ -1684,7 +1702,7 @@ window.iglToggleBoldPrint = function() {
     btn.style.color = isBold ? '#ffd700' : '#fff';
   }
   // localStorage এ save করো
-  try { localStorage.setItem('igl_print_bold', isBold ? '1' : '0'); } catch(e) {}
+  try { localStorage.setItem('igl_print_bold', isBold ? '1' : '0'); if(typeof triggerAutoSave === 'function') triggerAutoSave(); } catch(e) {}
   toast(isBold ? '🖨️ Bold Print mode চালু' : '🖨️ Normal Print mode চালু', 'info');
 };
 
@@ -1757,6 +1775,8 @@ function iglSaveUserPermissions(username, perms) {
   try { all = JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'); } catch(e){}
   all[username] = perms;
   localStorage.setItem('igl_user_permissions', JSON.stringify(all));
+  // Firebase এ sync করো
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
 }
 
 function iglHasPermission(permKey) {
@@ -1846,6 +1866,7 @@ window.iglSaveUsers = function(){
   Object.keys(IGL_USERS).forEach(function(k){ delete IGL_USERS[k]; });
   Object.keys(newIGL_USERS).forEach(function(k){ IGL_USERS[k] = newIGL_USERS[k]; });
   localStorage.setItem('igl_users_override', JSON.stringify(IGL_USERS));
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
   document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child').remove();
   var nb = document.getElementById('igl-user-badge');
   if(nb && window.IGL_CURRENT_USER) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
@@ -3547,6 +3568,7 @@ function ok(msg) {
                 <option value="r6">Needle breakage occurs during take-down after program change.</option>
                 <option value="r7">Needle breakage during design work.</option>
                 <option value="r8">Needle breakage during take-down setup.</option>
+                <option value="r9">Due to needle marks on fabric.</option>
                 <option value="others">✏️ Others (Custom)</option>
               </select>
               <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
@@ -3908,7 +3930,11 @@ function ok(msg) {
             <option value="r6">Needle breakage occurs during take-down after program change.</option>
             <option value="r7">Needle breakage during design work.</option>
             <option value="r8">Needle breakage during take-down setup.</option>
+            <option value="r9">Due to needle marks on fabric.</option>
             <option value="others">Others (Custom)</option>
+          </select>
+          <select class="form-control" id="nrr-supervisor" style="width:160px;" onchange="renderNeedleRemarksReport()">
+            <option value="">— Supervisor (All) —</option>
           </select>
           <button class="btn btn-primary btn-sm" onclick="renderNeedleRemarksReport()">🔍 View</button>
           <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button>
@@ -6806,6 +6832,15 @@ function showPage(name, el) {
       document.getElementById('nrr-year').value  = y;
       document.getElementById('nrr-month').value = now.getMonth()+1;
       document.getElementById('nrr-remarks').value = '';
+      // Supervisor dropdown populate
+      var nrrSupDrop = document.getElementById('nrr-supervisor');
+      if(nrrSupDrop){
+        var wList = getWorkers();
+        nrrSupDrop.innerHTML = '<option value="">— Supervisor (All) —</option>';
+        wList.forEach(function(w){
+          nrrSupDrop.innerHTML += '<option value="'+w.id+'">'+w.name+'</option>';
+        });
+      }
       renderNeedleRemarksReport();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
@@ -12256,7 +12291,7 @@ function getNeedleMachines(){
     });
   } catch(e){ return NEEDLE_MACHINES; }
 }
-function setNeedleMachines(v){ try{localStorage.setItem('igl_retail_machines', JSON.stringify(v));}catch(e){} }
+function setNeedleMachines(v){ try{localStorage.setItem('igl_retail_machines', JSON.stringify(v)); if(typeof triggerAutoSave === 'function') triggerAutoSave();}catch(e){} }
 
 // DB accessor for needle issues
 const NDB = {
@@ -12969,6 +13004,7 @@ function renderNeedleRemarksReport(){
   var from    = (document.getElementById('nrr-from')||{}).value||'';
   var to      = (document.getElementById('nrr-to')||{}).value||'';
   var remKey  = (document.getElementById('nrr-remarks')||{}).value||'';
+  var supFilter = (document.getElementById('nrr-supervisor')||{}).value||'';
   var tbody   = document.getElementById('nrrTable');
   var summary = document.getElementById('nrrSummary');
   var info    = document.getElementById('nrr-info');
@@ -12983,6 +13019,7 @@ function renderNeedleRemarksReport(){
     'r6': function(r){ return (r.remarks||'').trim() === 'Needle breakage occurs during take-down after program change.'; },
     'r7': function(r){ return (r.remarks||'').trim() === 'Needle breakage during design work.'; },
     'r8': function(r){ return (r.remarks||'').trim() === 'Needle breakage during take-down setup.'; },
+    'r9': function(r){ return (r.remarks||'').trim() === 'Due to needle marks on fabric.'; },
     'others': function(r){
       var rm = (r.remarks||'').trim();
       var fixed = ['new set','machine accident','due to entry of loose cotton.','due to loose yarn entry.',
@@ -13001,6 +13038,8 @@ function renderNeedleRemarksReport(){
     // Date range filter
     if(from && r.date < from) return false;
     if(to   && r.date > to)   return false;
+    // Supervisor filter
+    if(supFilter && (r.worker||'') !== supFilter) return false;
     // Remarks filter
     if(!remKey) return false;
     var matchFn = REMARKS_MAP[remKey];
@@ -15862,6 +15901,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       inp.value = 'Needle breakage during design work.';
     } else if(val === 'r8'){
       inp.value = 'Needle breakage during take-down setup.';
+    } else if(val === 'r9'){
+      inp.value = 'Due to needle marks on fabric.';
     }
   }
 
