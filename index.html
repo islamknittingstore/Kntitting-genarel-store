@@ -1566,8 +1566,12 @@ function iglDoLogin(){
   // body class দিয়ে admin/user UI control করো
   if(IGL_CURRENT_USER.role === 'admin'){
     document.body.classList.remove('igl-user-regular');
+    var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
+    if(nurOdBtn) nurOdBtn.style.display = 'inline-block';
   } else {
     document.body.classList.add('igl-user-regular');
+    var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
+    if(nurOdBtn) nurOdBtn.style.display = 'none';
   }
 
   // overlay hide
@@ -1600,8 +1604,12 @@ function iglDoLogin(){
         // body class
         if(IGL_CURRENT_USER.role === 'admin'){
           document.body.classList.remove('igl-user-regular');
+          var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
+          if(nurOdBtn) nurOdBtn.style.display = 'inline-block';
         } else {
           document.body.classList.add('igl-user-regular');
+          var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
+          if(nurOdBtn) nurOdBtn.style.display = 'none';
         }
         iglApplyPermissions(); // permission অনুযায়ী menu show/hide (admin menu + requisition সহ)
         window.iglPopulateUserFilters && window.iglPopulateUserFilters();
@@ -3558,12 +3566,6 @@ function ok(msg) {
                 <option value="">-- Select Supervisor --</option>
               </select>
             </div>
-            <div class="form-group">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
-                <input type="checkbox" id="nmi-offduty" style="width:16px;height:16px;accent-color:#e74c3c;cursor:pointer;">
-                <span style="font-size:12px;font-weight:700;color:#e74c3c;">🔴 Off Day / Holiday ডিউটি ছিল</span>
-              </label>
-            </div>
             <div class="form-group"><label>Remarks</label>
               <select class="form-control" id="nmi-remarks-drop" style="width:100%;margin-bottom:4px;" onchange="nmiRemarksDropChange()">
                 <option value="">-- Select Remarks --</option>
@@ -4130,8 +4132,29 @@ function ok(msg) {
           </select>
           <input type="number" class="form-control" id="nur-year" value="2026" min="2020" max="2050" style="width:90px;">
           <button class="btn btn-primary btn-sm" onclick="renderNeedleUseReport()">View</button>
-          <button class="btn btn-outline btn-sm no-print" onclick="nurShowPrintSettings()">🖨️ Print</button>
+          <button class="btn btn-outline btn-sm no-print" onclick="nurShowPrintSettings()">🖨️ Print (Both)</button>
+          <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(1)">🖨️ Page 1</button>
+          <button class="btn btn-sm no-print" style="background:#6e2f1a;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(2)">🖨️ Page 2</button>
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportNeedleUseExcel()">📊 Excel</button>
+          <span id="nur-offday-btn-wrap" style="display:none;">
+            <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurOpenOffDayManager()">🔴 Off Day / Holiday</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- Off Day / Holiday Manager Modal (Admin Only) -->
+      <div id="nur-offday-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:10px;padding:22px 26px;width:360px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 14px;color:#c0392b;font-size:15px;">🔴 Off Day / Holiday ডিউটি</h3>
+          <p style="font-size:12px;color:#555;margin-bottom:14px;">যেই তারিখে Off Day / Holiday তে ডিউটি ছিল সেই তারিখ যোগ করুন। Working Days এ count হবে।</p>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input type="date" id="nur-offday-input" class="form-control" style="flex:1;">
+            <button onclick="nurAddOffDay()" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-weight:700;">+ যোগ করুন</button>
+          </div>
+          <div id="nur-offday-list" style="margin-bottom:14px;min-height:40px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="nurCloseOffDayManager()" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">✅ Done</button>
+          </div>
         </div>
       </div>
 
@@ -15917,7 +15940,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var machine=(document.getElementById('nmi-machine')||{}).value||'';
     var type=(document.getElementById('nmi-type')||{}).value||'broken';
     var remarks=(document.getElementById('nmi-remarks')||{}).value||'';
-    var offDuty=!!(document.getElementById('nmi-offduty')||{}).checked;
     if(!date){toast('Date দিন!','warning');return;}
     var _bdErr6=window.iglCheckBackdate(date);
     if(_bdErr6){toast(_bdErr6,'error');return;}
@@ -15951,11 +15973,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         id:Date.now()+saved,
         date:date, machine:machine,
         erp:m.erp||'', section:m.section||'', gauge:m.gauge||'',
-        type:finalType,
-        needleType:needleType,
+        type:finalType,       // 'broken'/'afterwash'/.../'used'
+        needleType:needleType, // 'new' বা 'used' — এটাই আসল classifier
         qty:qty, remarks:remarks,
         needleId:nId, needle:needle.name||needle.code||'', worker:worker, shift:shift,
-        offDuty:offDuty,
         userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'')
       };
       arr.push(rec);
@@ -15998,8 +16019,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     document.querySelectorAll('.nmi-qty').forEach(function(q){q.value='';});
     document.querySelectorAll('.nmi-chk').forEach(function(c){c.checked=false;});
     document.getElementById('nmi-check-all').checked=false;
-    var offDutyEl=document.getElementById('nmi-offduty');
-    if(offDutyEl) offDutyEl.checked=false;
     var remEl=document.getElementById('nmi-remarks');
     if(remEl){ remEl.value=''; remEl.readOnly=true; remEl.style.background='#f0f3f7'; remEl.style.color='#1a5276'; remEl.style.fontWeight='600'; remEl.placeholder='Auto filled...'; }
     var remDrop=document.getElementById('nmi-remarks-drop');
@@ -16589,6 +16608,62 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     document.querySelectorAll('.wk-chk').forEach(function(c){c.checked=cb.checked;});
   }
 
+  // ── Off Day / Holiday Manager (Admin Only) ──────────────
+  function nurGetOffDays() {
+    try { return JSON.parse(localStorage.getItem('igl_nur_offdays')||'[]'); } catch(e){ return []; }
+  }
+  function nurSaveOffDays(arr) {
+    localStorage.setItem('igl_nur_offdays', JSON.stringify(arr));
+  }
+  function nurOpenOffDayManager() {
+    var modal = document.getElementById('nur-offday-modal');
+    modal.style.display = 'flex';
+    // default date = selected month এর ১ তারিখ
+    var m = String(document.getElementById('nur-month').value).padStart(2,'0');
+    var y = document.getElementById('nur-year').value;
+    document.getElementById('nur-offday-input').value = y+'-'+m+'-01';
+    nurRenderOffDayList();
+  }
+  function nurCloseOffDayManager() {
+    document.getElementById('nur-offday-modal').style.display = 'none';
+    renderNeedleUseReport(); // Working Days আপডেট করো
+  }
+  function nurAddOffDay() {
+    var val = document.getElementById('nur-offday-input').value;
+    if (!val) { toast('তারিখ দিন!','warning'); return; }
+    var arr = nurGetOffDays();
+    if (arr.indexOf(val) >= 0) { toast('এই তারিখ আগেই আছে!','warning'); return; }
+    arr.push(val);
+    arr.sort();
+    nurSaveOffDays(arr);
+    nurRenderOffDayList();
+    toast('✅ '+val+' যোগ হয়েছে','success');
+  }
+  function nurRemoveOffDay(date) {
+    var arr = nurGetOffDays().filter(function(d){ return d !== date; });
+    nurSaveOffDays(arr);
+    nurRenderOffDayList();
+  }
+  function nurRenderOffDayList() {
+    var m = Number(document.getElementById('nur-month').value);
+    var y = Number(document.getElementById('nur-year').value);
+    var arr = nurGetOffDays().filter(function(d){
+      var nd = new Date(d);
+      return nd.getMonth()+1===m && nd.getFullYear()===y;
+    });
+    var el = document.getElementById('nur-offday-list');
+    if (!arr.length) { el.innerHTML='<p style="color:#888;font-size:12px;">এই মাসে কোনো Off Day যোগ করা হয়নি।</p>'; return; }
+    var html = '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px;">এই মাসের Off Day গুলো:</div>';
+    arr.forEach(function(d){
+      var dayName = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][new Date(d).getDay()];
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#fdf2f2;border-radius:5px;margin-bottom:4px;">'
+        +'<span style="font-weight:600;color:#c0392b;">📅 '+d+' ('+dayName+')</span>'
+        +'<button onclick="nurRemoveOffDay(\''+d+'\')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">✖</button>'
+        +'</div>';
+    });
+    el.innerHTML = html;
+  }
+
   // ── Shift Needle Use Report ──────────────
   function renderNeedleUseReport(){
     var month=Number(document.getElementById('nur-month').value);
@@ -16723,21 +16798,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       html+='<tr style="background:#f8f9fa;">';
       html+='<td colspan="'+(1+totalCols+1)+'" style="padding:4px 8px;border:1px solid #ddd;font-size:9px;">';
       html+='<b>Total Needle Pcs: '+grandTotal+'</b>';
-      var entryDays=days.filter(function(d){
-        return filtered.some(function(r){return r.date===d;});
+      var nurOffDays=nurGetOffDays().filter(function(d){
+        var nd=new Date(d); return nd.getMonth()+1===month && nd.getFullYear()===year;
       });
-      var offDutyDays=days.filter(function(d){
-        return filtered.some(function(r){return r.date===d && r.offDuty===true;});
-      });
-      var workingDaySet=[];
-      entryDays.forEach(function(d){ if(workingDaySet.indexOf(d)<0) workingDaySet.push(d); });
-      offDutyDays.forEach(function(d){
-        // Off Duty দিনটা আগের দিন হিসেবে count — সেই আগের দিন যোগ করো
-        var prev=new Date(d); prev.setDate(prev.getDate()-1);
-        var prevStr=prev.toISOString().split('T')[0];
-        if(workingDaySet.indexOf(prevStr)<0) workingDaySet.push(prevStr);
-      });
-      var workingDays=workingDaySet.length;
+      var entryDays=days.filter(function(d){ return filtered.some(function(r){return r.date===d;}); });
+      var wdSet=[];
+      entryDays.forEach(function(d){ if(wdSet.indexOf(d)<0) wdSet.push(d); });
+      nurOffDays.forEach(function(d){ if(wdSet.indexOf(d)<0) wdSet.push(d); });
+      var workingDays=wdSet.length;
       var avgPerDay=workingDays>0?(grandTotal/workingDays).toFixed(1):0;
       html+=' &nbsp;|&nbsp; Working Days: '+workingDays+' &nbsp;|&nbsp; Avg/Day: '+avgPerDay;
       html+='</td></tr>';
@@ -16960,15 +17028,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Summary
     var grandNew=0; p2NewTypes.forEach(function(t){grandNew+=gt2new[t.key].total;});
     var grandUsed=0; usedTypes.forEach(function(t){grandUsed+=gt2used[t.key].total;});
+    var nurOffDays2=nurGetOffDays().filter(function(d){
+      var nd=new Date(d); return nd.getMonth()+1===month && nd.getFullYear()===year;
+    });
     var p2EntryDays=days.filter(function(d){ return filtered.some(function(r){return r.date===d;}); });
-    var p2OffDutyDays=days.filter(function(d){ return filtered.some(function(r){return r.date===d && r.offDuty===true;}); });
     var p2WdSet=[];
     p2EntryDays.forEach(function(d){ if(p2WdSet.indexOf(d)<0) p2WdSet.push(d); });
-    p2OffDutyDays.forEach(function(d){
-      var prev=new Date(d); prev.setDate(prev.getDate()-1);
-      var prevStr=prev.toISOString().split('T')[0];
-      if(p2WdSet.indexOf(prevStr)<0) p2WdSet.push(prevStr);
-    });
+    nurOffDays2.forEach(function(d){ if(p2WdSet.indexOf(d)<0) p2WdSet.push(d); });
     var workingDays2=p2WdSet.length;
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
@@ -17112,6 +17178,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nurDoPrint() {
     var pageSize = document.getElementById('nur-page-size').value;
     var fontSize = parseFloat(document.getElementById('nur-font-size').value) || 6.5;
+    localStorage.setItem('igl_nur_page_size', pageSize);
+    localStorage.setItem('igl_nur_font_size', fontSize);
     document.getElementById('nur-print-modal').style.display = 'none';
 
     var grid = document.getElementById('needleUseReportGrid');
@@ -17175,6 +17243,63 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shift Needle Use Report</title><style>' + css + '</style></head><body>');
     win.document.write('<div class="nur-p1">' + page1HTML + '</div>');
     win.document.write('<div class="nur-p2">' + page2HTML + '</div>');
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(function(){ win.print(); }, 700);
+  }
+
+  // ── Single Page Print (Page 1 বা Page 2 আলাদা) ──
+  function nurPrintPage(pg) {
+    var grid = document.getElementById('needleUseReportGrid');
+    if (!grid || !grid.innerHTML.trim()) { alert('আগে View বাটন চাপুন।'); return; }
+
+    var pageSize = localStorage.getItem('igl_nur_page_size') || 'A3 landscape';
+    var fontSize = parseFloat(localStorage.getItem('igl_nur_font_size') || '6.5');
+
+    var pageEl = grid.querySelector('.nur-page' + pg);
+    if (!pageEl) { alert('Page ' + pg + ' পাওয়া যায়নি।'); return; }
+
+    // Apply saved row/col settings
+    var pgIdx = pg - 1;
+    var rows = pageEl.querySelectorAll('tbody tr');
+    rows.forEach(function(tr, i) {
+      var h = (_nurRowHeights[pgIdx] && _nurRowHeights[pgIdx][i]) ? _nurRowHeights[pgIdx][i] : 29;
+      tr.style.height = h + 'px';
+    });
+    var colMap = _nurColWidths[pgIdx] || {};
+    if (Object.keys(colMap).length > 0) {
+      pageEl.querySelectorAll('table').forEach(function(table) {
+        table.querySelectorAll('tr').forEach(function(tr) {
+          tr.querySelectorAll('th,td').forEach(function(cell, i) {
+            if (colMap[i] !== undefined) {
+              cell.style.width = colMap[i] + 'px';
+              cell.style.minWidth = colMap[i] + 'px';
+              cell.style.maxWidth = colMap[i] + 'px';
+            }
+          });
+        });
+      });
+    }
+    pageEl.querySelectorAll('table').forEach(function(t){ t.style.fontSize = fontSize + 'pt'; });
+
+    var tmpDiv = document.createElement('div');
+    tmpDiv.innerHTML = pageEl.innerHTML;
+    tmpDiv.querySelectorAll('.no-print').forEach(function(el){ el.remove(); });
+    var pageHTML = tmpDiv.innerHTML;
+
+    var css = [
+      '@page { size: ' + pageSize + '; margin: 6mm; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; }',
+      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt; table-layout: fixed; }',
+      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt; }',
+      'thead { display: table-header-group; }',
+      'tr { page-break-inside: avoid; }',
+    ].join('\n');
+
+    var win = window.open('', '_blank', 'width=1100,height=800');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shift Needle Use Report — Page ' + pg + '</title><style>' + css + '</style></head><body>');
+    win.document.write(pageHTML);
     win.document.write('</body></html>');
     win.document.close();
     win.focus();
