@@ -763,7 +763,14 @@ if('serviceWorker' in navigator){
     .nur-page2 { page-break-before: always; overflow: visible !important; width: 100% !important; }
     .nur-page1 table, .nur-page2 table { width: 100% !important; font-size: 8pt !important; table-layout: fixed !important; }
     .nur-page1 th, .nur-page1 td,
-    .nur-page2 th, .nur-page2 td { padding: 1px 2px !important; border: 0.5px solid #999 !important; white-space: nowrap; overflow: hidden; }
+    .nur-page2 th, .nur-page2 td { padding: 1px 3px !important; border: 0.7px solid #000 !important; white-space: nowrap; overflow: hidden; background: #fff !important; color: #000 !important; font-weight: normal !important; }
+    .nur-page1 th, .nur-page2 th { font-weight: bold !important; background: #fff !important; }
+    /* Date column — প্রথম td/th একটু চওড়া */
+    .nur-page1 td:first-child, .nur-page1 th:first-child,
+    .nur-page2 td:first-child, .nur-page2 th:first-child { min-width: 52px !important; width: 52px !important; }
+    /* সব রঙ বাদ — Excel style */
+    .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
+    .nur-page1 tr[style], .nur-page2 tr[style] { background: #fff !important; color: #000 !important; }
 
     #page-retail_needle_account .no-print { display: none !important; }
     #page-retail_needle_account .page-header { display: none !important; }
@@ -4453,16 +4460,19 @@ function ok(msg) {
           <input type="date" class="form-control" id="rna-to" style="width:140px;" onchange="renderRetailNeedleAccount()">
         </div>
         <button class="btn btn-primary btn-sm" onclick="renderRetailNeedleAccount()" style="margin-top:16px;">🔍 View</button>
-        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll(false)" style="margin-top:16px;">🖨️ Print All</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintAll(true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="ব্যাকগ্রাউন্ড ছাড়া প্রিন্ট — কালি সাশ্রয়">🖨️ No BG (All)</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3,false)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ S/J NoBG</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Rib NoBG</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Sinker NoBG</button>
-        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3,true)" style="margin-top:16px;background:#fff;color:#555;border:1.5px dashed #999;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;" title="No BG">🖨️ Jacquard NoBG</button>
+        <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="rna-font-size-quick" value="7" min="4" max="14" step="0.5"
+              style="width:46px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;"
+              onchange="localStorage.setItem('igl_rna_font_size',this.value)"
+              title="Print Font Size (pt)">
+            <span style="font-size:10px;color:#888;">pt</span>
+          </span>
+        <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
         <button class="btn btn-sm no-print" onclick="rnaExportExcel()" style="margin-top:16px;background:#1e7e34;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">📊 Excel Export</button>
         <button class="btn btn-sm no-print" onclick="showUsedNeedleAccount()" style="margin-top:16px;background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">♻️ ইউজ নিডেল একাউন্ট</button>
       </div>
@@ -13834,7 +13844,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     rnaShowTab(_rnaCurrentTab, null);
   }
 
-  function rnaPrintAll(noBg){
+  function rnaPrintAll(){
     var fromDate = document.getElementById('rna-from').value;
     var toDate = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
@@ -13847,15 +13857,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       }
     }
 
+    var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
     var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
     var bodyHTML = _rnaTabData.map(function(html, i){
       return '<div class="rna-print-page">'
-        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[i] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
+        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[i] + ' &nbsp;|&nbsp; <span>' + fromDate + ' to ' + toDate + '</span></div>'
         + html
         + '</div>';
     }).join('');
 
-    var css = _rnaPrintCSS('A4 landscape', '6mm', noBg);
+    var css = _rnaPrintCSS('A4 landscape', '6mm', fontSize);
     var win = window.open('', '_blank', 'width=1200,height=800');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account</title><style>' + css + '</style></head><body>' + bodyHTML + '</body></html>');
     win.document.close();
@@ -13863,12 +13874,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     setTimeout(function(){ win.print(); }, 700);
   }
 
-  // Single tab print — auto-fit one page
-  function rnaPrintSingle(tabIdx, noBg){
+  // Single tab print — Excel crystal clear style
+  function rnaPrintSingle(tabIdx){
     var fromDate = document.getElementById('rna-from').value;
     var toDate   = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
 
+    var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
     var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
     var nm     = ndlGetMaster();
     var rcv    = ndlGetRcv();
@@ -13878,182 +13890,51 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
     }
 
-    // No-BG CSS helper
-    var noBgCSS = noBg ? [
-      '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
-      'th { border: 2px solid #000 !important; font-weight: 900 !important; }',
-      'tr[style*="Total"] td, tbody tr:last-child td { border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; }',
-      'td[style*="background:#e67e22"], td[style*="background:#1e7e34"], td[style*="background:#fef5e7"], td[style*="background:#eafaf1"] { border: 1.5px solid #000 !important; font-weight: 900 !important; }',
-    ].join('\n') : '';
-
-    // ── Tab 0 (S/J & Fleece): zoom-based auto-fit ──
-    if (tabIdx === 0) {
-      var tmpDiv = document.createElement('div');
-      tmpDiv.innerHTML = _rnaTabData[tabIdx];
-      var rowCount = tmpDiv.querySelectorAll('tbody tr').length;
-      var autoFont = rowCount<=15?8:rowCount<=20?7:rowCount<=28?6:rowCount<=36?5.5:rowCount<=45?5:4.5;
-
-      var bodyHTML =
-        '<div id="rna-content-wrap">'
-        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; <span style="color:#555;">' + fromDate + ' to ' + toDate + '</span></div>'
-        + _rnaTabData[tabIdx]
-        + '</div>';
-
-      var css = [
-        '@page { size: A4 landscape; margin: 6mm 8mm; }',
-        'html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }',
-        '#rna-content-wrap { width: 100%; }',
-        '.rna-header { font-size: ' + (autoFont+0.5) + 'pt; font-weight: 700; margin-bottom: 4px; border-bottom: 2px solid #000; padding-bottom: 3px; }',
-        'table { border-collapse: collapse; font-size: ' + autoFont + 'pt; table-layout: auto; width: auto; }',
-        'thead { display: table-header-group; }',
-        noBg
-          ? 'th { border: 2px solid #000; padding: 1px 3px; font-weight: 900; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-          : 'th { border: 1px solid #000; padding: 1px 3px; font-weight: 700; text-align: center; font-size: ' + autoFont + 'pt; white-space: nowrap; background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        noBg
-          ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-          : 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        noBg
-          ? 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-          : 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        noBg
-          ? 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-          : 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #555 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-        noBg
-          ? 'td[style*="background:#fef5e7"], td[style*="background:#eafaf1"], td[style*="background:#f5f8fb"] { background: #fff !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-          : '',
-        'td { border: 0.5px solid #999; padding: 1px 3px; font-size: ' + autoFont + 'pt; }',
-        'button { display: none !important; }',
-        'div[style*="background:#eaf4fb"], div[style*="background: #eaf4fb"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
-        noBgCSS,
-      ].join('\n');
-
-      // zoom দিয়ে fit
-      var fitScript = '<script>window.onload=function(){'
-        + 'var el=document.getElementById("rna-content-wrap");'
-        + 'if(!el)return;'
-        + 'var tbl=el.querySelector("table");'
-        + 'if(!tbl)return;'
-        + 'var mmPx=96/25.4;'
-        + 'var availW=(297-16)*mmPx;'
-        + 'var availH=(210-12)*mmPx;'
-        + 'var tblW=tbl.offsetWidth;'
-        + 'var tblH=el.offsetHeight;'
-        + 'var zoomW = tblW>0 ? availW/tblW : 1;'
-        + 'var zoomH = tblH>0 ? availH/tblH : 1;'
-        + 'var zoom = Math.min(zoomW, zoomH, 1);'
-        + 'if(zoom<1){'
-        + '  document.body.style.zoom = zoom;'
-        + '}'
-        + 'setTimeout(function(){window.print();},400);'
-        + '};<\/script>';
-
-      var win = window.open('', '_blank', 'width=1200,height=800');
-      win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
-      win.document.close();
-      win.focus();
-      return;
-    }
-
-    // ── Tabs 1,2,3: Full A4 landscape — fixed width, zoom height-fit ──
-    var CSS_FONT = '6.5pt';
-    var CSS_CELL_PAD = '1px 3px';
-
-    // Sinker (tabIdx===2) — row count অনুযায়ী height বাড়াও
-    if (tabIdx === 2) {
-      var tmpDiv2 = document.createElement('div');
-      tmpDiv2.innerHTML = _rnaTabData[tabIdx];
-      var sinkerRows = tmpDiv2.querySelectorAll('tbody tr').length;
-      if      (sinkerRows <= 10) { CSS_CELL_PAD = '10px 3px'; CSS_FONT = '7.5pt'; }
-      else if (sinkerRows <= 15) { CSS_CELL_PAD = '7px 3px';  CSS_FONT = '7pt'; }
-      else if (sinkerRows <= 20) { CSS_CELL_PAD = '4px 3px';  CSS_FONT = '6.5pt'; }
-      else if (sinkerRows <= 25) { CSS_CELL_PAD = '2px 3px';  CSS_FONT = '6.5pt'; }
-      else                       { CSS_CELL_PAD = '1px 3px';  CSS_FONT = '6.5pt'; }
-    }
-
-    var bodyHTML2 =
+    var bodyHTML =
       '<div id="rna-content-wrap">'
-      + '<div class="rna-hdr"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
+      + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
       + _rnaTabData[tabIdx]
       + '</div>';
 
-    var fixedBodyHTML = bodyHTML2.replace(
-      /<table style="[^"]*">/,
-      '<table style="width:100%;border-collapse:collapse;font-size:'+CSS_FONT+';table-layout:fixed;">' +
-      '<colgroup><col style="width:90px"><col style="width:26px"><col style="width:26px"><col><col style="width:30px"><col style="width:32px"></colgroup>'
-    );
+    var css = _rnaPrintCSS('A4 landscape', '6mm 8mm', fontSize);
 
-    var css2 = [
-      '@page { size: A4 landscape; margin: 6mm 8mm; }',
-      'html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }',
-      '#rna-content-wrap { width: 100%; }',
-      '.rna-hdr { font-size: 7pt; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 5px; }',
-      'table { width: 100%; border-collapse: collapse; font-size: ' + CSS_FONT + '; table-layout: fixed; }',
-      'thead { display: table-header-group; }',
-      noBg
-        ? 'th { border: 2px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 900; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'th { border: 1px solid #000; padding: ' + CSS_CELL_PAD + '; font-weight: 700; text-align: center; font-size: ' + CSS_FONT + '; overflow: hidden; white-space: nowrap; background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      'td { border: 0.5px solid #999; padding: ' + CSS_CELL_PAD + '; font-size: ' + CSS_FONT + '; overflow: hidden; }',
-      noBg
-        ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      noBg
-        ? 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'td[style*="background:#1e7e34"], td[style*="background: #1e7e34"], td[style*="background:#5c9e74"] { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      noBg
-        ? 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'td[style*="background:#e67e22"], td[style*="background: #e67e22"] { background: #555 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      noBg
-        ? 'td[style*="background:#fef5e7"], td[style*="background:#eafaf1"], td[style*="background:#f0f0f0"], td[style*="background:#f5f8fb"] { background: #fff !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'tr:nth-child(even) td { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-      'td span[style] { font-size: 5.5pt !important; }',
-      'button { display: none !important; }',
-      'div[style*="background:#eaf4fb"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
-      'div[style*="background:#f8f0fd"] { background: #fff !important; border: 1px solid #000 !important; color: #000 !important; }',
-      noBgCSS,
-    ].join('\n');
-
-    var fitScript2 = '<script>window.onload=function(){'
+    var fitScript = '<script>window.onload=function(){'
       + 'var el=document.getElementById("rna-content-wrap");'
       + 'if(!el)return;'
+      + 'var tbl=el.querySelector("table");'
+      + 'if(!tbl)return;'
       + 'var mmPx=96/25.4;'
+      + 'var availW=(297-16)*mmPx;'
       + 'var availH=(210-12)*mmPx;'
-      + 'var cH=el.offsetHeight;'
-      + 'if(cH>availH&&cH>0){'
-      + '  var zoom=availH/cH;'
-      + '  document.body.style.zoom=zoom;'
-      + '}'
+      + 'var tblW=tbl.offsetWidth;'
+      + 'var tblH=el.offsetHeight;'
+      + 'var zoomW=tblW>0?availW/tblW:1;'
+      + 'var zoomH=tblH>0?availH/tblH:1;'
+      + 'var zoom=Math.min(zoomW,zoomH,1);'
+      + 'if(zoom<1){document.body.style.zoom=zoom;}'
       + 'setTimeout(function(){window.print();},400);'
       + '};<\/script>';
 
     var win = window.open('', '_blank', 'width=1200,height=800');
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css2 + '</style></head><body>' + fixedBodyHTML + fitScript2 + '</body></html>');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
     win.document.close();
     win.focus();
   }
 
-  function _rnaPrintCSS(pageSize, margin, noBg) {
+  function _rnaPrintCSS(pageSize, margin, fontSize) {
+    var fs = (fontSize || 7) + 'pt';
     return [
       '@page { size: ' + pageSize + '; margin: ' + margin + '; }',
-      'body { font-family: Arial, sans-serif; font-size: 7pt; margin: 0; padding: 0; color: #000; }',
-      '.rna-header { font-size: 8pt; font-weight: 700; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 3px; }',
+      'html, body { font-family: Arial, sans-serif; font-size: ' + fs + '; margin: 0; padding: 0; color: #000; background: #fff; }',
+      '.rna-header { font-size: ' + (parseFloat(fontSize||7)+1) + 'pt; font-weight: 700; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 3px; color: #000; }',
       '.rna-print-page { page-break-after: always; width: 100%; }',
       '.rna-print-page:last-child { page-break-after: avoid; }',
-      'table { width: 100%; border-collapse: collapse; font-size: 7pt; table-layout: auto; }',
+      'table { width: 100%; border-collapse: collapse; font-size: ' + fs + ' !important; table-layout: auto; }',
       'thead { display: table-header-group; }',
-      noBg
-        ? 'th { border: 2px solid #000; padding: 1px 3px; font-weight: 900; text-align: center; font-size: 7pt; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : 'th { border: 1px solid #555; padding: 1px 3px; font-weight: 700; text-align: center; font-size: 7pt; background: #f0f0f0; }',
-      'td { border: 0.5px solid #aaa; padding: 1px 3px; font-size: 7pt; }',
-      'tr { page-break-inside: avoid; }',
-      noBg
-        ? 'tr[style*="background:#1a5276"] td, tr[style*="background: #1a5276"] td, tr[style*="background:#8da9bc"] td, tr[style*="background: #8da9bc"] td { background: #fff !important; color: #000 !important; border-top: 2.5px solid #000 !important; border-bottom: 2.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : '',
-      noBg
-        ? 'td[style*="background:#e67e22"], td[style*="background:#1e7e34"], td[style*="background:#5c9e74"] { background: #fff !important; color: #000 !important; border: 1.5px solid #000 !important; font-weight: 900 !important; -webkit-print-color-adjust: economy; print-color-adjust: economy; }'
-        : '',
-      noBg
-        ? '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }'
-        : '',
+      'th { border: 0.7px solid #000 !important; padding: 1px 3px; font-weight: bold; text-align: center; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; white-space: nowrap; }',
+      'td { border: 0.7px solid #000 !important; padding: 1px 3px; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; }',
+      'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
+      '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
       'button { display: none !important; }',
     ].join('\n');
   }
@@ -14732,6 +14613,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + '<div><label style="font-size:11px;font-weight:700;color:#7d3c98;display:block;margin-bottom:3px;">FROM DATE</label><input type="date" id="una-from" value="'+fromVal+'" style="border:1.5px solid #c39bd3;border-radius:5px;padding:5px 8px;font-size:12px;width:140px;"></div>'
       + '<div><label style="font-size:11px;font-weight:700;color:#7d3c98;display:block;margin-bottom:3px;">TO DATE</label><input type="date" id="una-to" value="'+toVal+'" style="border:1.5px solid #c39bd3;border-radius:5px;padding:5px 8px;font-size:12px;width:140px;"></div>'
       + '<button onclick="renderUsedNeedleAccount()" style="background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;">🔍 View</button>'
+      + '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #c39bd3;border-radius:4px;padding:2px 8px;">'
+      + '<label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>'
+      + '<input type="number" id="una-font-size-quick" value="7" min="4" max="14" step="0.5" style="width:46px;border:none;outline:none;font-size:12px;font-weight:700;color:#7d3c98;padding:0;" onchange="localStorage.setItem(\'igl_una_font_size\',this.value)" title="Print Font Size (pt)">'
+      + '<span style="font-size:10px;color:#888;">pt</span>'
+      + '</span>'
       + '<button onclick="unaPrintAll()" style="background:#2c3e50;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Print</button>'
       + '<button onclick="unaManageNeedles()" style="background:#e67e22;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:600;">⚙️ Needle Manage</button>'
       + '</div>'
@@ -15599,23 +15485,28 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var fromDate = document.getElementById('una-from') ? document.getElementById('una-from').value : '';
     var toDate = document.getElementById('una-to') ? document.getElementById('una-to').value : '';
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
+    var fontSize = parseFloat((document.getElementById('una-font-size-quick')||{}).value || localStorage.getItem('igl_una_font_size') || '7');
+    var fs = fontSize + 'pt';
     var nm = ndlGetMaster();
     var rcv = ndlGetRcv();
     var issues = NDB.needles;
     var allDates = _unaGetDatesInRange(fromDate, toDate);
     var dayCount = allDates.length;
     var pageSize = dayCount > 4 ? 'A4 landscape' : 'A4';
-    var bodyFs = dayCount <= 3 ? '9px' : dayCount <= 6 ? '7.5px' : dayCount <= 10 ? '6.5px' : '5.5px';
     var html = buildUsedNeedleUnified(nm, rcv, issues, fromDate, toDate);
     var pw = window.open('','_blank','width=1100,height=800');
     pw.document.write('<!DOCTYPE html><html><head><title>ইউজ নিডেল একাউন্ট</title>'
       +'<style>'
-      +'body{font-family:Arial,sans-serif;margin:6mm;font-size:'+bodyFs+';}'
       +'@page{size:'+pageSize+';margin:6mm;}'
+      +'html,body{font-family:Arial,sans-serif;margin:0;padding:6mm;font-size:'+fs+';color:#000;background:#fff;}'
       +'.no-print{display:none!important;}'
       +'.print-only{display:block!important;}'
-      +'table{border-collapse:collapse;width:100%;}'
-      +'td,th{padding:2px 3px;}'
+      +'table{border-collapse:collapse;width:100%;font-size:'+fs+' !important;}'
+      +'th,td{border:0.7px solid #000 !important;padding:1px 3px;font-size:'+fs+' !important;background:#fff !important;color:#000 !important;}'
+      +'th{font-weight:bold !important;}'
+      +'tr{background:#fff !important;color:#000 !important;page-break-inside:avoid;}'
+      +'*{background:#fff !important;color:#000 !important;-webkit-print-color-adjust:economy !important;print-color-adjust:economy !important;}'
+      +'button{display:none!important;}'
       +'</style>'
       +'</head><body>'+html+'</body></html>');
     pw.document.close();
@@ -17238,10 +17129,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> <span style="font-size:7.5px;color:#888;">(Flat Knit বাদে)</span> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" onkeydown="if(event.key===\'Enter\')this.blur()"> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Used Needle Pcs: '+grandUsed+'</b> | Records: '+usedInMonth+' | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandUsed/workingDays2).toFixed(1):0);
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" onkeydown="if(event.key===\'Enter\')this.blur()"> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     p2+='</tr>';
 
@@ -17440,13 +17333,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var css = [
       '@page { size: ' + pageSize + '; margin: 6mm; }',
-      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; color: #000; background: #fff; }',
       '.nur-p1 { width: 100%; page-break-after: always; }',
       '.nur-p2 { width: 100%; page-break-before: auto; }',
       'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
-      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; }',
+      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
+      'th { font-weight: bold !important; }',
+      'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
+      'td:first-child, th:first-child { min-width: 52pt; width: 52pt; }',
       'thead { display: table-header-group; }',
-      'tr { page-break-inside: avoid; }',
+      'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
     ].join('\n');
 
     var win = window.open('', '_blank', 'width=1100,height=800');
@@ -17501,11 +17397,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var css = [
       '@page { size: ' + pageSize + '; margin: 6mm; }',
-      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; color: #000; background: #fff; }',
       'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
-      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; }',
+      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
+      'th { font-weight: bold !important; }',
+      'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
+      'td:first-child, th:first-child { min-width: 52pt; width: 52pt; }',
       'thead { display: table-header-group; }',
-      'tr { page-break-inside: avoid; }',
+      'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
     ].join('\n');
 
     var win = window.open('', '_blank', 'width=1100,height=800');
