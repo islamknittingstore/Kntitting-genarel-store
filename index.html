@@ -4135,6 +4135,14 @@ function ok(msg) {
           <button class="btn btn-outline btn-sm no-print" onclick="nurShowPrintSettings()">🖨️ Print (Both)</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(1)">🖨️ Page 1</button>
           <button class="btn btn-sm no-print" style="background:#6e2f1a;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(2)">🖨️ Page 2</button>
+          <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="nur-font-size-quick" value="8" min="4" max="14" step="0.5"
+              style="width:46px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;"
+              onchange="nurSyncFontSize(this.value)"
+              title="Print Font Size (pt) — এখানে change করলে Page 1, Page 2, Both সবখানে apply হবে">
+            <span style="font-size:10px;color:#888;">pt</span>
+          </span>
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportNeedleUseExcel()">📊 Excel</button>
           <span id="nur-offday-btn-wrap" style="display:none;">
             <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurOpenOffDayManager()">🔴 Off Day / Holiday</button>
@@ -17326,7 +17334,18 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     nurBuildList('row', 2, grid);
     nurBuildList('col', 2, grid);
     nurSwitchTab(1);
+    // Quick font sync → modal input
+    var quick = document.getElementById('nur-font-size-quick');
+    var modal  = document.getElementById('nur-font-size');
+    if(quick && modal) modal.value = quick.value;
     document.getElementById('nur-print-modal').style.display = 'flex';
+  }
+
+  // Quick font size bar → modal input sync করো
+  function nurSyncFontSize(val) {
+    var modal = document.getElementById('nur-font-size');
+    if(modal) modal.value = val;
+    localStorage.setItem('igl_nur_font_size', val);
   }
 
   function nurSelectAll(type, pg) {
@@ -17446,7 +17465,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if (!grid || !grid.innerHTML.trim()) { alert('আগে View বাটন চাপুন।'); return; }
 
     var pageSize = localStorage.getItem('igl_nur_page_size') || 'A3 landscape';
-    var fontSize = parseFloat(localStorage.getItem('igl_nur_font_size') || '8');
+    var quickEl  = document.getElementById('nur-font-size-quick');
+    var fontSize = quickEl ? (parseFloat(quickEl.value)||8) : parseFloat(localStorage.getItem('igl_nur_font_size') || '8');
 
     var pageEl = grid.querySelector('.nur-page' + pg);
     if (!pageEl) { alert('Page ' + pg + ' পাওয়া যায়নি।'); return; }
