@@ -17421,11 +17421,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var css = [
       '@page { size: ' + pageSize + '; margin: 6mm; }',
-      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; }',
       '.nur-p1 { width: 100%; page-break-after: always; }',
       '.nur-p2 { width: 100%; page-break-before: auto; }',
-      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt; table-layout: fixed; }',
-      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt; }',
+      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
+      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; }',
       'thead { display: table-header-group; }',
       'tr { page-break-inside: avoid; }',
     ].join('\n');
@@ -17481,9 +17481,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var css = [
       '@page { size: ' + pageSize + '; margin: 6mm; }',
-      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; }',
-      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt; table-layout: fixed; }',
-      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt; }',
+      'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; }',
+      'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
+      'th, td { border: 0.5px solid #999; padding: 1px 2px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; }',
       'thead { display: table-header-group; }',
       'tr { page-break-inside: avoid; }',
     ].join('\n');
