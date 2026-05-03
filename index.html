@@ -19,8 +19,8 @@
     name: "IGL Store ERP",
     short_name: "IGL ERP",
     description: "Islam Garments Ltd - Store ERP System",
-    start_url: location.href,
-    scope: location.href,
+    start_url: location.pathname,
+    scope: location.pathname,
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#1a5276",
@@ -38,9 +38,10 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     var PAGE = location.href;
+    var SCOPE = location.pathname;
     var CACHE = 'igl-erp-v5';
 
-    var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '";' +
+    var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '",SC="' + SCOPE + '";' +
       'self.addEventListener("install",function(e){' +
         'e.waitUntil(caches.open(C).then(function(ca){return ca.add(P);}).then(function(){return self.skipWaiting();}));' +
       '});' +
@@ -71,7 +72,7 @@ if('serviceWorker' in navigator){
     function tryDataUrl(){
       try {
         var b64 = btoa(unescape(encodeURIComponent(swSrc)));
-        navigator.serviceWorker.register('data:application/javascript;base64,'+b64, {scope:'./'})
+        navigator.serviceWorker.register('data:application/javascript;base64,'+b64, {scope:SCOPE})
           .then(function(r){ console.log('[PWA] SW via data: OK',r.scope); cachePage(); })
           .catch(function(e){ console.warn('[PWA] SW data: failed',e); cachePage(); });
       } catch(e){ cachePage(); }
@@ -82,7 +83,7 @@ if('serviceWorker' in navigator){
     }).then(function(){
       try {
         var blobUrl = URL.createObjectURL(new Blob([swSrc],{type:'application/javascript'}));
-        navigator.serviceWorker.register(blobUrl, {scope:'./'})
+        navigator.serviceWorker.register(blobUrl, {scope:SCOPE})
           .then(function(r){ console.log('[PWA] SW via Blob OK',r.scope); cachePage(); })
           .catch(function(){ tryDataUrl(); });
       } catch(e){ tryDataUrl(); }
@@ -2087,6 +2088,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-needle" style="display:none;">
       <li><a href="#" onclick="showPage('needle_issue', this); return false;"><span class="icon">✏️</span> Needle Issue Entry</a></li>
+      <li><a href="#" onclick="showPage('needle_receive', this); return false;"><span class="icon">📥</span> Needle Receive</a></li>
       <li><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
       <li><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
       <li><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
@@ -3491,15 +3493,11 @@ function ok(msg) {
 
   <!-- NEEDLE ISSUE ENTRY -->
   <div class="page" id="page-needle_issue">
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-      <div><h2>🪡 Needle / Sinker</h2><p>Issue Entry &amp; Receive Entry</p></div>
-      <div style="display:flex;gap:8px;">
-        <button onclick="niSetTab('multi')" id="ni-tab-multi" class="btn btn-primary" style="border-radius:20px;">📤 Issue Entry</button>
-        <button onclick="niSetTab('receive')" id="ni-tab-receive" class="btn btn-outline" style="border-radius:20px;">📥 Receive Entry</button>
-      </div>
+    <div class="page-header">
+      <h2>🪡 Needle / Sinker Issue Entry</h2>
     </div>
     <!-- MULTI ISSUE FORM -->
-    <div id="ni-multi-form" style="display:none;">
+    <div id="ni-multi-form" style="display:block;">
     <div class="card" style="border-top:4px solid #e67e22;">
       <div class="card-header" style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;">📋 Multi-Needle Issue — এক Machine এ একবারে সব Needle</div>
       <div class="card-body">
@@ -3665,7 +3663,31 @@ function ok(msg) {
       </div>
     </div>
     </div>
-    <div id="ni-receive-form" style="display:none;">
+    <!-- Today's entries -->
+    <div class="card">
+      <div class="card-header" style="background:#f0f3f7;">
+        <span>Today's Needle Issues</span>
+        <div style="margin-left:auto;">
+          <button class="btn btn-outline btn-sm" onclick="renderTodayNeedle()">Refresh</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Date</th><th>Machine</th><th>Section</th><th>Gauge</th><th>Type</th><th>Qty</th><th>Remarks</th><th class="no-print">Del</th></tr></thead>
+            <tbody id="todayNeedleTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- NEEDLE RECEIVE PAGE -->
+  <div class="page" id="page-needle_receive">
+    <div class="page-header">
+      <h2>📥 Needle / Sinker Receive</h2><p>Receive Entry &amp; Log</p>
+    </div>
     <div class="card" style="border-top:4px solid #117a65;">
       <div class="card-header" style="background:linear-gradient(135deg,#117a65,#1abc9c);color:#fff;">📥 Needle / Sinker Receive</div>
       <div class="card-body">
@@ -3713,26 +3735,7 @@ function ok(msg) {
         <tbody id="needleReceiveLog"></tbody></table>
       </div></div>
     </div>
-    </div>
-    <!-- Today's entries -->
-    <div class="card">
-      <div class="card-header" style="background:#f0f3f7;">
-        <span>Today's Needle Issues</span>
-        <div style="margin-left:auto;">
-          <button class="btn btn-outline btn-sm" onclick="renderTodayNeedle()">Refresh</button>
-        </div>
-      </div>
-      <div class="card-body" style="padding:0;">
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Date</th><th>Machine</th><th>Section</th><th>Gauge</th><th>Type</th><th>Qty</th><th>Remarks</th><th class="no-print">Del</th></tr></thead>
-            <tbody id="todayNeedleTable"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   </div>
-</div>
 
   <!-- NEEDLE MONTHLY GRID REPORT -->
   <div class="page" id="page-needle_monthly">
@@ -6774,8 +6777,12 @@ function showPage(name, el) {
       document.getElementById('m-year').value = now.getFullYear();
       renderMonthly();
     }
+    else if (name === 'needle_receive') {
+      ndlPopulateDrop('nr-needle','');
+      renderNdlRcvLog();
+      var d=new Date(); document.getElementById('nr-date').value=d.toISOString().split('T')[0];
+    }
     else if (name === 'needle_issue') {
-      niSetTab('multi');
       nmiInit();
     }
     else if (name === 'needle_monthly') {
