@@ -101,8 +101,18 @@ if('serviceWorker' in navigator){
       if(b) b.style.display='none';
     });
     window._pwaInstall = function(){
-      if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(){deferredPrompt=null;}); }
+      if(deferredPrompt){
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(){deferredPrompt=null;});
+      } else {
+        alert('ইন্সটল করতে:\n\nChrome মেনু (⋮) → "Add to Home Screen" বা "Install App" চাপুন।');
+      }
     };
+    // Show install button after 2 seconds regardless
+    setTimeout(function(){
+      var b = document.getElementById('pwa-install-btn');
+      if(b && !window.matchMedia('(display-mode: standalone)').matches) b.style.display='flex';
+    }, 2000);
   });
 }
 </script>
@@ -751,7 +761,7 @@ if('serviceWorker' in navigator){
     .nur-page1 { page-break-after: always; overflow: visible !important; width: 100% !important; }
     .nur-page1 table { width: 100% !important; border-collapse: collapse !important; }
     .nur-page2 { page-break-before: always; overflow: visible !important; width: 100% !important; }
-    .nur-page1 table, .nur-page2 table { width: 100% !important; font-size: 6.5pt !important; table-layout: fixed !important; }
+    .nur-page1 table, .nur-page2 table { width: 100% !important; font-size: 8pt !important; table-layout: fixed !important; }
     .nur-page1 th, .nur-page1 td,
     .nur-page2 th, .nur-page2 td { padding: 1px 2px !important; border: 0.5px solid #999 !important; white-space: nowrap; overflow: hidden; }
 
@@ -4157,7 +4167,7 @@ function ok(msg) {
           <div style="display:flex;gap:12px;margin-bottom:12px;">
             <div style="flex:1;">
               <label style="font-size:11px;font-weight:600;color:#333;display:block;margin-bottom:4px;">Font Size (pt)</label>
-              <input type="number" id="nur-font-size" value="6.5" min="4" max="14" step="0.5" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+              <input type="number" id="nur-font-size" value="8" min="4" max="14" step="0.5" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
             </div>
             <div style="flex:1;">
               <label style="font-size:11px;font-weight:600;color:#333;display:block;margin-bottom:4px;">Page Size</label>
@@ -15775,13 +15785,23 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     nmiRemarksRefresh();
   }
 
-  function nmiRenderMachineStock(machineId){
+  function nmiRenderMachineStock(machineId, needleType){
     var panel  = document.getElementById('nmi-machine-stock-panel');
     var body   = document.getElementById('nmi-machine-stock-body');
     if(!panel || !body || !machineId) return;
 
+    // needleType না দিলে current select থেকে নাও
+    if(!needleType){
+      needleType = (document.getElementById('nmi-needle-type')||{}).value || 'new';
+    }
+    var isUsed = needleType === 'used';
+
+    // চলতি মাসের ১ তারিখ — B/F কাটঅফ
+    var now = new Date();
+    var monthStart = now.getFullYear() + '-'
+      + ('0'+(now.getMonth()+1)).slice(-2) + '-01'; // YYYY-MM-01
+
     var nm = ndlGetMaster();
-    // এই machine এ assign করা needles
     var assigned = nm.filter(function(n){ return (n.machines||[]).indexOf(machineId) >= 0; });
     if(!assigned.length){
       body.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 4px;">এই machine এ কোনো needle assign নেই</div>';
@@ -15789,15 +15809,47 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return;
     }
 
-    // Stock calculate
-    var allRcvs = ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
-    var allIss  = NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used'; });
+    // সব receive ও issue একবার load করো, তারপর filter করো
+    var allRcvRaw = ndlGetRcv();
+    var allIssRaw = NDB.needles;
+
+    // used/new অনুযায়ী type filter
+    var typeRcv, typeIss;
+    if(isUsed){
+      typeRcv = allRcvRaw.filter(function(r){ return (r.needleStockType||'new').toLowerCase()==='used'; });
+      typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; });
+    } else {
+      typeRcv = allRcvRaw.filter(function(r){ return (r.needleStockType||'new')==='new'; });
+      typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used'; });
+    }
+
+    // B/F কাটঅফ: মাসের ১ তারিখের আগের receive ও issue
+    var bfRcvs = typeRcv.filter(function(r){ return r.date < monthStart; });
+    var bfIsss = typeIss.filter(function(r){ return r.date < monthStart; });
+    // চলতি মাসের receive ও issue
+    var curRcvs = typeRcv.filter(function(r){ return r.date >= monthStart; });
+    var curIsss = typeIss.filter(function(r){ return r.date >= monthStart; });
+
+    var panelLabel = isUsed ? '♻️ Used Needle Stock' : '📦 New Needle Stock';
+    var headerBg   = isUsed ? '#fef3e2' : '#fef3e2';
+    // মাস নাম header এ দেখাবো
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var curMonthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
 
     var rows = assigned.map(function(n){
-      var bf  = Number(n.bf)||0;
-      var rcv = allRcvs.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var iss = allIss.filter(function(r){  return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var bal = bf + rcv - iss;
+      // Master B/F (needle master এ save করা)
+      var masterBf = isUsed ? Number(n.usedBf||n.usedBalance||0) : Number(n.bf||0);
+
+      // Running B/F = master B/F + মাস শুরুর আগের সব Receive − মাস শুরুর আগের সব Issue
+      var bfRcvQty = bfRcvs.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var bfIssQty = bfIsss.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var runBf = masterBf + bfRcvQty - bfIssQty;
+
+      // চলতি মাসের Receive ও Issue
+      var rcv = curRcvs.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var iss = curIsss.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+
+      var bal = runBf + rcv - iss;
       var color = bal <= 0 ? '#e74c3c' : bal <= 10 ? '#e67e22' : '#117a65';
       var badge = bal <= 0
         ? '<span style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">OUT</span>'
@@ -15806,7 +15858,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           : '<span style="background:#117a65;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">OK</span>';
       return '<tr>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+(n.name||n.code)+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#6c3483;">'+bf+'</td>'
+        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#6c3483;">'+runBf+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#117a65;">'+rcv+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#e74c3c;">'+iss+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
@@ -15814,12 +15866,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         + '</tr>';
     }).join('');
 
-    body.innerHTML = '<table style="width:100%;border-collapse:collapse;">'
-      + '<thead><tr style="background:#fef3e2;">'
+    body.innerHTML = '<div style="font-size:11px;font-weight:700;color:'+(isUsed?'#e67e22':'#1a5276')+';padding:4px 8px 2px;border-bottom:1px solid #f0e0d0;">'
+        + panelLabel + ' &nbsp;<span style="font-weight:400;color:#888;font-size:10px;">— '+curMonthLabel+'</span></div>'
+      + '<table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="background:'+headerBg+';">'
       + '<th style="padding:4px 8px;font-size:11px;color:#7d6608;text-align:left;">Needle</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#6c3483;text-align:center;">B/F</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#117a65;text-align:center;">Rcv</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;">Iss</th>'
+      + '<th style="padding:4px 8px;font-size:11px;color:#6c3483;text-align:center;" title="মাসের ১ তারিখের আগের Balance">B/F</th>'
+      + '<th style="padding:4px 8px;font-size:11px;color:#117a65;text-align:center;" title="'+curMonthLabel+' Receive">Rcv</th>'
+      + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;" title="'+curMonthLabel+' Issue">Iss</th>'
       + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Bal</th>'
       + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Status</th>'
       + '</tr></thead><tbody>'+rows+'</tbody></table>';
@@ -16902,7 +16956,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             && types.some(function(t){return t.key===r.type;});
         });
         html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'">';
-        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;">'+dayLabel+'</td>';
+        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -16994,7 +17048,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
         html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'">';
-        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;">'+dayLabel+'</td>';
+        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -17119,7 +17173,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
       var isFri = new Date(day).getDay()===5;
       p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'">';
-      p2 += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;">'+dayLabel+'</td>';
+      p2 += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
       p2NewTypes.forEach(function(t){
         var rowT=0;
@@ -17314,7 +17368,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
   function nurDoPrint() {
     var pageSize = document.getElementById('nur-page-size').value;
-    var fontSize = parseFloat(document.getElementById('nur-font-size').value) || 6.5;
+    var fontSize = parseFloat(document.getElementById('nur-font-size').value) || 8;
     localStorage.setItem('igl_nur_page_size', pageSize);
     localStorage.setItem('igl_nur_font_size', fontSize);
     document.getElementById('nur-print-modal').style.display = 'none';
@@ -17392,7 +17446,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if (!grid || !grid.innerHTML.trim()) { alert('আগে View বাটন চাপুন।'); return; }
 
     var pageSize = localStorage.getItem('igl_nur_page_size') || 'A3 landscape';
-    var fontSize = parseFloat(localStorage.getItem('igl_nur_font_size') || '6.5');
+    var fontSize = parseFloat(localStorage.getItem('igl_nur_font_size') || '8');
 
     var pageEl = grid.querySelector('.nur-page' + pg);
     if (!pageEl) { alert('Page ' + pg + ' পাওয়া যায়নি।'); return; }
@@ -17955,6 +18009,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       typeRow.style.opacity = isUsed ? '0.4' : '1';
       typeRow.style.pointerEvents = isUsed ? 'none' : '';
       typeRow.title = isUsed ? 'Used Needle-এ নিচের Used Issue Type ব্যবহার করুন' : '';
+    }
+    // Machine stock panel — needle type অনুযায়ী balance refresh করো
+    var machineId = (document.getElementById('nmi-machine')||{}).value || '';
+    if(machineId){
+      nmiRenderMachineStock(machineId, sel.value);
     }
   }
 
