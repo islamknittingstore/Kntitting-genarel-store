@@ -781,8 +781,9 @@ if('serviceWorker' in navigator){
     .nur-page1 tr[style], .nur-page2 tr[style] { background: #fff !important; color: #000 !important; }
     /* Off day/Holiday row — হালকা gray (Excel style) */
     .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    /* Total column — হালকা gray (Excel style) */
-    .nur-page1 td.nur-total, .nur-page2 td.nur-total { background: #d8d8d8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Total column ও worker name header — হালকা gray (Excel style) */
+    .nur-page1 td.nur-total, .nur-page2 td.nur-total,
+    .nur-page1 th.nur-total, .nur-page2 th.nur-total { background: #d8d8d8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row (TOTAL row) — একটু গাঢ় gray */
     .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a0a0a0 !important; color: #000 !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
@@ -16974,7 +16975,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             && (r.needleType||'new').toLowerCase()===ndlType
             && types.some(function(t){return t.key===r.type;});
         });
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(!hasData||isFri?'class="nur-offday"':'')+'">';
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isFri?'class="nur-offday"':'')+'>'; 
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -16986,7 +16987,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           gtw[t.key].total+=rowT;
           html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
         });
-        html+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
+        html+='<td style="border:1px solid #ddd;"></td>';
         html+='</tr>';
       });
 
@@ -17026,9 +17027,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var newTable=buildTable(newTypes,'(NEW NEEDLE)','#1a5276','new');
     var usedTable=buildTable(usedTypes,'(USED NEEDLE)','#6e2f1a','used');
-    // Apply same 29px row height to page 2 tables
-    newTable = newTable.replace(/<tr>/g, '<tr style="height:29px;">');
-    usedTable = usedTable.replace(/<tr>/g, '<tr style="height:29px;">');
+    // Apply same 29px row height to page 2 tables — class preserve করো
+    newTable = newTable.replace(/<tr(?![^>]*class=)/g, '<tr style="height:29px;"');
+    usedTable = usedTable.replace(/<tr(?![^>]*class=)/g, '<tr style="height:29px;"');
 
     // ── Old 5-type table (Breakage/Designing/AfterWash/FlatKnit/SetSetting) ──
     var allTypes5=[
@@ -17053,7 +17054,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       html+='<tr style="background:#2c3e50;color:#fff;">';
       types.forEach(function(){
         workers.forEach(function(w){
-          html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;">'+w.name+'</th>';
+          html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;" class="nur-total">'+w.name+'</th>';
         });
         html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;background:#117a65;" class="nur-total">Total</th>';
       });
@@ -17066,9 +17067,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var dayLabel=new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
-        var isOff=!hasData||isFri;
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>'; 
-        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
+        var isOff=isFri;
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -17087,7 +17087,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return rm.indexOf('new set') === 0 || rm.indexOf('machine accident') === 0;
         }).map(function(r){return r.remarks;});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;" class="nur-total">'+uniqueRemarks+'</td>';
+        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
@@ -17168,14 +17168,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2 += '<th style="border:1px solid #555;padding:2px;"></th>';
     p2NewTypes.forEach(function(){
       workers.forEach(function(w){
-        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;">'+w.name+'</th>';
+        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
     p2 += '<th style="border:1px solid #555;" class="nur-total"></th>';
     usedTypes.forEach(function(){
       workers.forEach(function(w){
-        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;">'+w.name+'</th>';
+        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
@@ -17192,7 +17192,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
       var isFri = new Date(day).getDay()===5;
       var hasData2 = filtered.some(function(r){ return r.date===day; });
-      var isOff2 = !hasData2 || isFri;
+      var isOff2 = isFri;
       p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'" '+(isOff2?'class="nur-offday"':'')+'>';
       p2 += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
@@ -17206,7 +17206,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         gt2new[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
+      p2+='<td style="border:1px solid #ddd;"></td>';
       // Used needle cols
       usedTypes.forEach(function(t){
         var rowT=0;
@@ -17218,7 +17218,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         gt2used[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#fef9e7;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
+      p2+='<td style="border:1px solid #ddd;"></td>';
       p2+='</tr>';
     });
 
