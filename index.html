@@ -17049,7 +17049,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       types.forEach(function(t){
         html+='<th colspan="'+(wCols+1)+'" style="padding:5px 8px;border:1px solid #555;text-align:center;">'+t.label+'</th>';
       });
-      html+='<th rowspan="2" style="padding:5px 8px;border:1px solid #555;text-align:center;">Remarks</th>';
+      html+='<th rowspan="2" style="padding:5px 8px;border:1px solid #555;text-align:center;width:80px;max-width:80px;">Remarks</th>';
       html+='</tr>';
       html+='<tr style="background:#2c3e50;color:#fff;">';
       types.forEach(function(){
@@ -17087,18 +17087,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return rm.indexOf('new set') === 0 || rm.indexOf('machine accident') === 0;
         }).map(function(r){return r.remarks;});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;">'+uniqueRemarks+'</td>';
+        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;width:80px;max-width:80px;overflow:hidden;word-break:break-word;">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
       html+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
+      html+='<td style="padding:4px 6px;border:1px solid #555;" class="nur-total">TOTAL</td>';
       types.forEach(function(t){
         workers.forEach(function(w){
           html+='<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gt[t.key][w.id]||'')+'</td>';
         });
         html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt[t.key].total||'')+'</td>';
       });
-      html+='<td style="border:1px solid #555;" class="nur-total"></td>';
+      html+='<td style="border:1px solid #555;background:#1c2833;" class="nur-total"></td>';
       html+='</tr>';
       html+='</tbody></table>';
       return html;
@@ -17112,7 +17113,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Remaining ~580px for data rows
     // 21.75pt row height (same as Excel) = ~29px at 96dpi
     // For 31 days this fills A4 landscape perfectly
-    var rowPx = 29;
+    var rowPx = 22;
     oldTable = oldTable.replace(/<tr>/g, '<tr style="height:'+rowPx+'px;">');
 
     var title='<h3 style="text-align:center;margin-bottom:2px;">Islam Garments Limited</h3>'
