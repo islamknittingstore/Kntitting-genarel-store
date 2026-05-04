@@ -17255,8 +17255,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
-    p2+='<b>Total Used Needle Pcs: '+grandUsed+'</b> | Records: '+usedInMonth+' | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandUsed/workingDays2).toFixed(1):0);
-    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" onkeydown="if(event.key===\'Enter\')this.blur()"> <span style="font-size:7.5px;color:#555;">kg</span>';
+    p2+='<b>Total Used Needle Pcs: '+grandUsed+'</b> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandUsed/workingDays2).toFixed(1):0);
     p2+='</td>';
     p2+='</tr>';
 
