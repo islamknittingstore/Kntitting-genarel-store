@@ -762,15 +762,29 @@ if('serviceWorker' in navigator){
     .nur-page1 table { width: 100% !important; border-collapse: collapse !important; }
     .nur-page2 { page-break-before: always; overflow: visible !important; width: 100% !important; }
     .nur-page1 table, .nur-page2 table { width: 100% !important; font-size: 8pt !important; table-layout: fixed !important; }
+    /* সব cell — base style */
     .nur-page1 th, .nur-page1 td,
-    .nur-page2 th, .nur-page2 td { padding: 1px 3px !important; border: 0.7px solid #000 !important; white-space: nowrap; overflow: hidden; background: #fff !important; color: #000 !important; font-weight: normal !important; }
-    .nur-page1 th, .nur-page2 th { font-weight: bold !important; background: #fff !important; }
-    /* Date column — প্রথম td/th একটু চওড়া */
+    .nur-page2 th, .nur-page2 td { padding: 1px 3px !important; border: 0.7px solid #000 !important; background: #fff !important; color: #000 !important; font-weight: normal !important; overflow: hidden !important; }
+    /* Header (th) — wrap হবে, কাটবে না */
+    .nur-page1 th, .nur-page2 th { font-weight: bold !important; background: #fff !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
+    /* Date column — চওড়া, nowrap, উপর-নিচে যাবে না */
     .nur-page1 td:first-child, .nur-page1 th:first-child,
-    .nur-page2 td:first-child, .nur-page2 th:first-child { min-width: 52px !important; width: 52px !important; }
+    .nur-page2 td:first-child, .nur-page2 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
+    /* Total column (last td per group) — wrap হবে */
+    .nur-page1 td.nur-total, .nur-page2 td.nur-total,
+    .nur-page1 th.nur-total, .nur-page2 th.nur-total { white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
+    /* Data cells — nowrap, font বড় হবে */
+    .nur-page1 td:not(:first-child):not(.nur-total),
+    .nur-page2 td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }
     /* সব রঙ বাদ — Excel style */
     .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
     .nur-page1 tr[style], .nur-page2 tr[style] { background: #fff !important; color: #000 !important; }
+    /* Off day/Holiday row — হালকা gray (Excel style) */
+    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Total column — হালকা gray (Excel style) */
+    .nur-page1 td.nur-total, .nur-page2 td.nur-total { background: #d8d8d8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Grand Total row (TOTAL row) — একটু গাঢ় gray */
+    .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a0a0a0 !important; color: #000 !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
     #page-retail_needle_account .no-print { display: none !important; }
     #page-retail_needle_account .page-header { display: none !important; }
@@ -1233,17 +1247,114 @@ if('serviceWorker' in navigator){
       _fbDb.ref('igl_erp').set(data)
         .then(function(){
           fbStatus('saved', '✅ Synced');
-          fbClearPending(); // success হলে pending clear করো
+          fbClearPending();
+          // Firebase save সফল হলে local JSON এ silently backup করো
+          iglLocalJsonAutoSave(data);
         })
         .catch(function(e){
           fbStatus('error', '❌ Sync failed');
-          fbMarkPending(); // fail হলে pending mark করো
+          fbMarkPending();
           console.error(e);
         });
     } catch(e){
       fbStatus('error', '❌ Error');
       fbMarkPending();
       console.error(e);
+    }
+  };
+
+  // ── Local JSON Auto-Save (File System Access API) ──
+  // Firebase save সফল হলে background এ local folder এ JSON সেভ করে
+  window.iglLocalJsonAutoSave = async function(data) {
+    try {
+      // folder handle আছে কিনা দেখো (IndexedDB তে রাখা)
+      var handle = window._iglLocalFolderHandle;
+      if (!handle) return; // folder select করা না থাকলে চুপচাপ বের হও
+
+      // Permission check করো
+      var perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') {
+        perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return;
+      }
+
+      var now = new Date();
+      var dateStr = now.getFullYear() + '-'
+        + ('0'+(now.getMonth()+1)).slice(-2) + '-'
+        + ('0'+now.getDate()).slice(-2);
+      var fileName = 'igl_backup_' + dateStr + '.json';
+
+      var fileHandle = await handle.getFileHandle(fileName, { create: true });
+      var writable   = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+
+      // topbar এ silent indicator update করো
+      var t = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      var el = document.getElementById('localJsonStatus');
+      if (el) { el.title = 'Local JSON saved: ' + fileName + ' at ' + t; }
+      var nm = document.getElementById('local-folder-name');
+      if (nm) { nm.textContent = '📁 ' + handle.name + ' — saved ' + t; nm.style.color = '#a9dfbf'; }
+    } catch(e) {
+      // silent fail — local save fail হলে user কে বিরক্ত করব না
+      console.warn('Local JSON save skipped:', e.message);
+    }
+  };
+
+  // ── Local Folder Select (একবার করতে হবে) ──
+  window.iglSelectLocalFolder = async function() {
+    if (!window.showDirectoryPicker) {
+      alert('এই browser এ File System Access API support নেই।\nChrome বা Edge ব্যবহার করুন।');
+      return;
+    }
+    try {
+      var handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      window._iglLocalFolderHandle = handle;
+      // folder name localStorage এ save করো (handle নিজে persist হয় না — session এ থাকে)
+      localStorage.setItem('igl_local_folder_name', handle.name);
+      var el = document.getElementById('localJsonStatus');
+      if (el) { el.title = 'Folder: ' + handle.name; }
+      var nm = document.getElementById('local-folder-name');
+      if (nm) { nm.textContent = '📁 ' + handle.name; nm.style.color = '#a9dfbf'; }
+      alert('✅ Folder selected: ' + handle.name + '\nএখন থেকে Firebase save হলে এই folder এ JSON backup হবে।');
+    } catch(e) {
+      if (e.name !== 'AbortError') console.error(e);
+    }
+  };
+
+  // ── Admin: Local JSON থেকে Firebase Restore ──
+  window.iglRestoreFromLocalJson = async function() {
+    // Admin check
+    var u = window.IGL_CURRENT_USER;
+    if (!u || u.role !== 'admin') { alert('শুধু Admin এই কাজ করতে পারবে।'); return; }
+
+    if (!window.showOpenFilePicker) {
+      alert('এই browser এ File System Access API support নেই।'); return;
+    }
+
+    try {
+      var [fileHandle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
+        multiple: false
+      });
+      var file = await fileHandle.getFile();
+      var text = await file.text();
+      var data = JSON.parse(text);
+
+      // Confirm
+      var ts = data.ts ? new Date(data.ts).toLocaleString('en-GB') : 'Unknown';
+      if (!confirm('⚠️ Firebase এ restore করবেন?\n\nFile: ' + file.name + '\nSaved: ' + ts + '\n\nএই action টি বর্তমান Firebase data overwrite করবে।')) return;
+
+      // Firebase এ write করো
+      fbStatus('saving', 'Restoring...');
+      await _fbDb.ref('igl_erp').set(data);
+      fbStatus('saved', '✅ Restored');
+      alert('✅ Restore সফল!\nPage reload করুন।');
+    } catch(e) {
+      if (e.name !== 'AbortError') {
+        fbStatus('error', '❌ Restore failed');
+        alert('❌ Restore failed: ' + e.message);
+      }
     }
   };
 
@@ -1291,6 +1402,9 @@ if('serviceWorker' in navigator){
         if(typeof renderStock === 'function') renderStock();
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
+
+        // Firebase load সফল হলে local JSON এও backup করো
+        iglLocalJsonAutoSave(data);
 
         // Firebase load এর পর JSON file এও auto-save করো
         setTimeout(function(){
@@ -2033,17 +2147,23 @@ window.iglSaveUsers = function(){
       <div style="background:#0f1923;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           <span id="panel-json-dot" style="width:10px;height:10px;border-radius:50%;background:#aaa;flex-shrink:0;"></span>
-          <b style="color:#e8f4f8;">📄 JSON Local File</b>
-          <span style="font-size:9px;background:rgba(39,174,96,0.2);color:#2ecc71;padding:1px 6px;border-radius:4px;margin-left:auto;">Backup Only</span>
+          <b style="color:#e8f4f8;">💾 Local JSON Folder</b>
+          <span style="font-size:9px;background:rgba(39,174,96,0.2);color:#2ecc71;padding:1px 6px;border-radius:4px;margin-left:auto;">Auto-Backup</span>
         </div>
-        <div id="panel-json-detail" style="font-size:11px;color:#8899aa;line-height:1.8;padding-left:18px;">Not connected</div>
+        <div id="panel-json-detail" style="font-size:11px;color:#8899aa;line-height:1.8;padding-left:18px;">
+          <span id="localJsonStatus">
+            <span id="local-folder-name" style="color:#ffd;">
+              ← একবার folder select করুন
+            </span>
+          </span>
+        </div>
         <div style="display:flex;gap:6px;margin-top:8px;padding-left:18px;flex-wrap:wrap;">
-          <button onclick="connectSaveFile();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(255,152,0,0.25);color:#ffd;cursor:pointer;">🔗 Connect File</button>
+          <button onclick="iglSelectLocalFolder();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(255,152,0,0.3);color:#ffd;cursor:pointer;">📁 Folder Select</button>
           <button onclick="manualMonthlyBackup();" style="font-size:10px;padding:3px 10px;border-radius:8px;border:none;background:rgba(66,133,244,0.25);color:#aed6f1;cursor:pointer;">⬇️ Download Backup</button>
         </div>
         <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
-          <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় ব্যবহার করুন:</div>
-          <button onclick="confirmRestoreFromJson();" style="font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.15);color:#e74c3c;cursor:pointer;font-weight:600;">🔄 JSON থেকে ডাটা রিস্টোর করুন</button>
+          <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় Admin ব্যবহার করবে:</div>
+          <button onclick="iglRestoreFromLocalJson();" style="font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.15);color:#e74c3c;cursor:pointer;font-weight:600;">🔄 Local JSON → Firebase Restore</button>
         </div>
       </div>
 
@@ -16854,7 +16974,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             && (r.needleType||'new').toLowerCase()===ndlType
             && types.some(function(t){return t.key===r.type;});
         });
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'">';
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(!hasData||isFri?'class="nur-offday"':'')+'">';
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -16864,22 +16984,22 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
           });
           gtw[t.key].total+=rowT;
-          html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;">'+(rowT||'')+'</td>';
+          html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
         });
-        html+='<td style="border:1px solid #ddd;"></td>';
+        html+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
         html+='</tr>';
       });
 
       // Total row
-      html+='<tr style="background:#1c2833;color:#fff;font-weight:700;">';
-      html+='<td style="padding:4px 6px;border:1px solid #555;">TOTAL</td>';
+      html+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
+      html+='<td style="padding:4px 6px;border:1px solid #555;" class="nur-total">TOTAL</td>';
       types.forEach(function(t){
         workers.forEach(function(w){
           html+='<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gtw[t.key][w.id]||'')+'</td>';
         });
-        html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;">'+(gtw[t.key].total||'')+'</td>';
+        html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gtw[t.key].total||'')+'</td>';
       });
-      html+='<td style="border:1px solid #555;"></td>';
+      html+='<td style="border:1px solid #555;" class="nur-total"></td>';
       html+='</tr>';
 
       // Summary rows
@@ -16935,7 +17055,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         workers.forEach(function(w){
           html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;">'+w.name+'</th>';
         });
-        html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;background:#117a65;">Total</th>';
+        html+='<th style="padding:3px 5px;border:1px solid #555;text-align:center;min-width:40px;background:#117a65;" class="nur-total">Total</th>';
       });
       html+='</tr></thead><tbody>';
 
@@ -16946,7 +17066,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var dayLabel=new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'">';
+        var isOff=!hasData||isFri;
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>'; 
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -16956,7 +17077,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
           });
           gt[t.key].total+=rowT;
-          html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;">'+(rowT||'')+'</td>';
+          html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
         });
         // Remarks — শুধু New Set ও Machine Accident দেখাবে
         var dayRemarks=filtered.filter(function(r){
@@ -16966,19 +17087,18 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return rm.indexOf('new set') === 0 || rm.indexOf('machine accident') === 0;
         }).map(function(r){return r.remarks;});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;">'+uniqueRemarks+'</td>';
+        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;" class="nur-total">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
-      html+='<tr style="background:#1c2833;color:#fff;font-weight:700;">';
-      html+='<td style="padding:4px 6px;border:1px solid #555;">TOTAL</td>';
+      html+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
       types.forEach(function(t){
         workers.forEach(function(w){
           html+='<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gt[t.key][w.id]||'')+'</td>';
         });
-        html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;">'+(gt[t.key].total||'')+'</td>';
+        html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt[t.key].total||'')+'</td>';
       });
-      html+='<td style="border:1px solid #555;"></td>';
+      html+='<td style="border:1px solid #555;" class="nur-total"></td>';
       html+='</tr>';
       html+='</tbody></table>';
       return html;
@@ -17050,16 +17170,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       workers.forEach(function(w){
         p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;">'+w.name+'</th>';
       });
-      p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;">Total</th>';
+      p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
-    p2 += '<th style="border:1px solid #555;"></th>';
+    p2 += '<th style="border:1px solid #555;" class="nur-total"></th>';
     usedTypes.forEach(function(){
       workers.forEach(function(w){
         p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;">'+w.name+'</th>';
       });
-      p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;">Total</th>';
+      p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
-    p2 += '<th style="border:1px solid #555;"></th>';
+    p2 += '<th style="border:1px solid #555;" class="nur-total"></th>';
     p2 += '</tr></thead><tbody>';
 
     // Grand totals tracker
@@ -17071,7 +17191,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     days.forEach(function(day){
       var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
       var isFri = new Date(day).getDay()===5;
-      p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'">';
+      var hasData2 = filtered.some(function(r){ return r.date===day; });
+      var isOff2 = !hasData2 || isFri;
+      p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'" '+(isOff2?'class="nur-offday"':'')+'>';
       p2 += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
       p2NewTypes.forEach(function(t){
@@ -17082,9 +17204,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
         });
         gt2new[t.key].total+=rowT;
-        p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;">'+(rowT||'')+'</td>';
+        p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;"></td>';
+      p2+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
       // Used needle cols
       usedTypes.forEach(function(t){
         var rowT=0;
@@ -17094,25 +17216,25 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
         });
         gt2used[t.key].total+=rowT;
-        p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#fef9e7;">'+(rowT||'')+'</td>';
+        p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#fef9e7;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;"></td>';
+      p2+='<td style="border:1px solid #ddd;" class="nur-total"></td>';
       p2+='</tr>';
     });
 
     // Total row
-    p2+='<tr style="background:#1c2833;color:#fff;font-weight:700;">';
-    p2+='<td style="padding:3px 5px;border:1px solid #555;">TOTAL</td>';
+    p2+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
+    p2+='<td style="padding:3px 5px;border:1px solid #555;" class="nur-total">TOTAL</td>';
     p2NewTypes.forEach(function(t){
       workers.forEach(function(w){ p2+='<td style="padding:1px;border:1px solid #555;text-align:center;">'+(gt2new[t.key][w.id]||'')+'</td>'; });
-      p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;">'+(gt2new[t.key].total||'')+'</td>';
+      p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt2new[t.key].total||'')+'</td>';
     });
-    p2+='<td style="border:1px solid #555;"></td>';
+    p2+='<td style="border:1px solid #555;" class="nur-total"></td>';
     usedTypes.forEach(function(t){
       workers.forEach(function(w){ p2+='<td style="padding:1px;border:1px solid #555;text-align:center;">'+(gt2used[t.key][w.id]||'')+'</td>'; });
-      p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;">'+(gt2used[t.key].total||'')+'</td>';
+      p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt2used[t.key].total||'')+'</td>';
     });
-    p2+='<td style="border:1px solid #555;"></td>';
+    p2+='<td style="border:1px solid #555;" class="nur-total"></td>';
     p2+='</tr>';
 
     // Summary
@@ -17337,10 +17459,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       '.nur-p1 { width: 100%; page-break-after: always; }',
       '.nur-p2 { width: 100%; page-break-before: auto; }',
       'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
-      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
-      'th { font-weight: bold !important; }',
+      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
+      'th { font-weight: bold !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
-      'td:first-child, th:first-child { min-width: 52pt; width: 52pt; }',
+      'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
+      'td.nur-total, th.nur-total { background: #d8d8d8 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: #a0a0a0 !important; color: #000 !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
       'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
     ].join('\n');
@@ -17399,10 +17525,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       '@page { size: ' + pageSize + '; margin: 6mm; }',
       'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; color: #000; background: #fff; }',
       'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
-      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; white-space: nowrap; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
-      'th { font-weight: bold !important; }',
+      'th, td { border: 0.7px solid #000 !important; padding: 1px 3px; overflow: hidden; font-size: ' + fontSize + 'pt !important; background: #fff !important; color: #000 !important; font-weight: normal; }',
+      'th { font-weight: bold !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
-      'td:first-child, th:first-child { min-width: 52pt; width: 52pt; }',
+      'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
+      'td.nur-total, th.nur-total { background: #d8d8d8 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: #a0a0a0 !important; color: #000 !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
       'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
     ].join('\n');
