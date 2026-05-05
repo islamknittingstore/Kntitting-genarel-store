@@ -3798,7 +3798,7 @@ function ok(msg) {
         <div style="margin-bottom:12px;">
           <div style="font-weight:700;color:#2980b9;margin-bottom:6px;border-left:4px solid #2980b9;padding-left:8px;">🆕 New Needle</div>
           <div class="table-scroll">
-            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
+            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
             <tbody id="nmi-log-new-tbody"></tbody></table>
           </div>
         </div>
@@ -3806,7 +3806,7 @@ function ok(msg) {
         <div>
           <div style="font-weight:700;color:#e67e22;margin-bottom:6px;border-left:4px solid #e67e22;padding-left:8px;">♻️ Used Needle</div>
           <div class="table-scroll">
-            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
+            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
             <tbody id="nmi-log-used-tbody"></tbody></table>
           </div>
         </div>
@@ -16442,6 +16442,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td style="color:'+rowFg+';">'+r.type+'</td>'
         +'<td style="text-align:center;font-weight:800;font-size:14px;color:'+rowFg+';">'+r.qty+'</td>'
         +'<td style="text-align:center;">'+shiftCell+'</td>'
+        +'<td style="color:'+rowFg+';font-weight:600;">'+(r.worker?(function(){var workers=getWorkers();var w=workers.find(function(x){return x.id===r.worker;});return w?w.name:(r.worker||'-');})():'-')+'</td>'
         +'<td style="color:'+rowFg+';">'+(r.remarks||'-')+'</td>'
         +entryByCell
         +'<td class="no-print" style="text-align:center;white-space:nowrap;">'
@@ -16449,8 +16450,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           +(iglCanEdit('needle',r) ? '<button onclick="event.stopPropagation();openEditModal(\'needle\','+r.id+')" style="margin-left:4px;background:#e67e22;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700;" title="Edit">✏️</button>' : '')
         +'</td></tr>';
     }
-    newTbody.innerHTML=newIss.length?newIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?9:8)+'" class="no-data">কোনো New Needle issue নেই</td></tr>';
-    usedTbody.innerHTML=usedIss.length?usedIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?9:8)+'" class="no-data">কোনো Used Needle issue নেই</td></tr>';
+    newTbody.innerHTML=newIss.length?newIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো New Needle issue নেই</td></tr>';
+    usedTbody.innerHTML=usedIss.length?usedIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো Used Needle issue নেই</td></tr>';
 
     // User-wise Summary (Admin only)
     var summaryCard=document.getElementById('nmi-user-summary-card');
@@ -19922,6 +19923,14 @@ function buildNeedleEditForm(e) {
 
   var shiftOpts = ['A','B','C'].map(function(s){ return '<option value="'+s+'"'+(s===e.shift?' selected':'')+'>'+s+' Shift</option>'; }).join('');
 
+  // Supervisor dropdown
+  var workers = (typeof getWorkers === 'function') ? getWorkers() : [];
+  var workerOpts = '<option value="">-- Select Supervisor --</option>';
+  workers.forEach(function(w){
+    var sel = (w.id === e.worker) ? ' selected' : '';
+    workerOpts += '<option value="'+w.id+'"'+sel+'>'+w.name+'</option>';
+  });
+
   var ndlType = e.needleType || 'new';
 
   // Needle master dropdown
@@ -19953,9 +19962,11 @@ function buildNeedleEditForm(e) {
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📋 Issue Type</label>'
         +'<select id="edit-n-type" class="form-control">'+typeOptions+'</select></div>'
-      +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📝 Remarks</label>'
-        +'<input type="text" id="edit-n-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#2980b9;display:block;margin-bottom:5px;">👤 Supervisor</label>'
+        +'<select id="edit-n-worker" class="form-control" style="border-color:#2980b9;">'+workerOpts+'</select></div>'
     +'</div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📝 Remarks</label>'
+      +'<input type="text" id="edit-n-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
   +'</div>';
 }
 
@@ -20036,6 +20047,7 @@ async function saveEditEntry() {
     var type       = (document.getElementById('edit-n-type')||{}).value||'broken';
     var needleType = (document.getElementById('edit-n-needletype')||{}).value||'new';
     var shift      = (document.getElementById('edit-n-shift')||{}).value||'A';
+    var worker     = (document.getElementById('edit-n-worker')||{}).value||'';
     var remarks    = (document.getElementById('edit-n-remarks')||{}).value||'';
     var newNeedleId = (document.getElementById('edit-n-needleid')||{}).value||'';
 
@@ -20061,7 +20073,7 @@ async function saveEditEntry() {
     var needleCode = ndlMaster.code || ndlMaster.name || newNeedleId;
 
     arr[idx] = Object.assign({}, arr[idx], {
-      date, machine, qty, type, needleType, shift, remarks,
+      date, machine, qty, type, needleType, shift, worker, remarks,
       needleId: newNeedleId,
       needle: needleCode,
       needleCode: needleCode,
