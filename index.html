@@ -1377,7 +1377,24 @@ if('serviceWorker' in navigator){
         }
         if(data.ndb){
           if(data.ndb.needles) NDB.needles = data.ndb.needles;
-          if(data.ndb.master)  localStorage.setItem('igl_ndl_master', JSON.stringify(data.ndb.master));
+          if(data.ndb.master){
+            // rnaSection user এর সেট করা — backup থেকে overwrite করব না
+            var restoreMaster = data.ndb.master;
+            try {
+              var currentMaster = JSON.parse(localStorage.getItem('igl_ndl_master') || '[]');
+              if(currentMaster.length > 0){
+                var currentMap = {};
+                currentMaster.forEach(function(n){ currentMap[n.id] = n; });
+                restoreMaster = restoreMaster.map(function(n){
+                  if(currentMap[n.id] && currentMap[n.id].rnaSection){
+                    n.rnaSection = currentMap[n.id].rnaSection; // user এর assignment রাখো
+                  }
+                  return n;
+                });
+              }
+            } catch(e){}
+            localStorage.setItem('igl_ndl_master', JSON.stringify(restoreMaster));
+          }
         }
         if(data.stn){
           if(data.stn.issues)   localStorage.setItem('igl_stn_issues',   JSON.stringify(data.stn.issues));
@@ -13632,10 +13649,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             if(baseMap[n.id]){
               n.bf = baseMap[n.id].bf; // *** Always update B/F from base ***
               // preserve: n.code, n.name, n.type, n.machines, n.rnaSection (user edits)
-              if(baseMap[n.id].rnaSection && !n.rnaSection){
-                // শুধু user এর rnaSection না থাকলে base থেকে নাও
+              // rnaSection — user সেট করলে রাখো, না করলে base থেকে নাও
+              if(!n.rnaSection && baseMap[n.id].rnaSection){
+                n.rnaSection = baseMap[n.id].rnaSection;
               }
-              // n.rnaSection সবসময় user এর সেট করা রাখো
             }
           });
           // Add any new needles from base not in prev
