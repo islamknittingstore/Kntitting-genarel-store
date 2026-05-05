@@ -14958,16 +14958,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var qty=parts.join('+');
           var nmx=getNeedleMachines().find(function(x){return x.id===m;});
           var mlabel=nmx?(nmx.retail||m):m;
+          var cellStyle='flex:0 0 '+cellW+'px;width:'+cellW+'px;min-width:'+cellW+'px;max-width:'+cellW+'px;overflow:hidden;border-radius:2px;padding:1px 2px;';
           if(qty){
-            machineCells+='<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 2px;background:#fff;width:'+cellW+'px;min-width:'+cellW+'px;max-width:'+cellW+'px;overflow:hidden;vertical-align:top;">';
-            machineCells+='<span style="font-size:'+lblFs+';color:#000;font-weight:900;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;">'+_esc2(mlabel)+'</span>';
-            machineCells+='<span style="font-size:'+qtyFs+';font-weight:900;display:block;white-space:nowrap;overflow:hidden;line-height:1.5;color:#000;">'+qty+'</span></span>';
+            machineCells+='<div style="'+cellStyle+'border:1px solid #aaa;background:#fff;">';
+            machineCells+='<div style="font-size:'+lblFs+';color:#000;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;">'+_esc2(mlabel)+'</div>';
+            machineCells+='<div style="font-size:'+qtyFs+';font-weight:900;white-space:nowrap;overflow:hidden;line-height:1.5;color:#000;">'+qty+'</div></div>';
           } else {
-            machineCells+='<span style="display:inline-block;border:1px solid #eee;border-radius:2px;margin:0 1px;padding:1px 2px;background:#f9f9f9;width:'+cellW+'px;min-width:'+cellW+'px;max-width:'+cellW+'px;overflow:hidden;vertical-align:top;">';
-            machineCells+='<span style="display:block;line-height:1.5;">&nbsp;</span><span style="display:block;line-height:1.5;">&nbsp;</span></span>';
+            machineCells+='<div style="'+cellStyle+'border:1px solid #eee;background:#f9f9f9;">';
+            machineCells+='<div style="line-height:1.5;">&nbsp;</div><div style="line-height:1.5;">&nbsp;</div></div>';
           }
         });
-        h+='<td style="'+S+'padding:2px 3px;width:'+machineAreaW+'px;">'+machineCells+'</td>';
+        h+='<td style="'+S+'padding:2px 3px;width:'+machineAreaW+'px;"><div style="display:flex;flex-wrap:nowrap;gap:1px;">'+machineCells+'</div></td>';
         h+='<td style="'+S+'padding:2px;text-align:center;font-weight:700;width:'+issW+'px;font-size:9px;background:#fef5e7;">'+( row.totalIssue||'')+'</td>';
         var bc=row.balance<0?'#e74c3c':'#1e7e34';
         h+='<td style="'+S+'padding:2px;text-align:center;background:#eafaf1;font-weight:700;width:'+blW+'px;font-size:9px;color:'+bc+';">'+( row.balance===0?'':row.balance)+'</td>';
