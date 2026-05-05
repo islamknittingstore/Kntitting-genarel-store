@@ -768,7 +768,7 @@ if('serviceWorker' in navigator){
     /* Header (th) — wrap হবে, কাটবে না */
     .nur-page1 th, .nur-page2 th { font-weight: bold !important; background: #fff !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
     /* Date column — চওড়া, nowrap, উপর-নিচে যাবে না */
-    .nur-page1 td:first-child, .nur-page1 th:first-child { min-width: 38px !important; width: 38px !important; white-space: nowrap !important; overflow: visible !important; }
+    .nur-page1 td:first-child, .nur-page1 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
     .nur-page2 td:first-child, .nur-page2 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
     /* Total column (last td per group) — wrap হবে */
     .nur-page1 td.nur-total, .nur-page2 td.nur-total,
@@ -826,14 +826,15 @@ if('serviceWorker' in navigator){
     #rna-print-all td:first-child, #rna-print-all th:first-child {
       font-size: 6.5pt !important;
       white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      overflow: visible !important;
+      width: 105px !important;
+      min-width: 103px !important;
     }
     /* BF / Rcv columns */
     #rna-print-all th:nth-child(2), #rna-print-all th:nth-child(3),
     #rna-print-all td:nth-child(2), #rna-print-all td:nth-child(3) {
-      width: 32px !important;
-      min-width: 30px !important;
+      width: 18px !important;
+      min-width: 16px !important;
       text-align: center !important;
       white-space: nowrap !important;
       font-weight: 700 !important;
@@ -4594,6 +4595,7 @@ function ok(msg) {
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(3)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Jacquard</button>
+        <button class="btn btn-sm no-print" onclick="rnaPrintSingle(4)" style="margin-top:16px;background:#6c3483;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker + Jacquard</button>
         <button class="btn btn-sm no-print" onclick="rnaExportExcel()" style="margin-top:16px;background:#1e7e34;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">📊 Excel Export</button>
         <button class="btn btn-sm no-print" onclick="showUsedNeedleAccount()" style="margin-top:16px;background:#7d3c98;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">♻️ ইউজ নিডেল একাউন্ট</button>
       </div>
@@ -4604,6 +4606,7 @@ function ok(msg) {
       <button class="btn btn-sm rna-tab-btn" onclick="rnaShowTab(1,this)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px 4px 0 0;padding:7px 16px;">Rib &amp; Interlock</button>
       <button class="btn btn-sm rna-tab-btn" onclick="rnaShowTab(2,this)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px 4px 0 0;padding:7px 16px;">Sinker</button>
       <button class="btn btn-sm rna-tab-btn" onclick="rnaShowTab(3,this)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px 4px 0 0;padding:7px 16px;">Jacquard</button>
+      <button class="btn btn-sm rna-tab-btn" onclick="rnaShowTab(4,this)" style="background:#e0e0e0;color:#333;border:none;border-radius:4px 4px 0 0;padding:7px 16px;">Sinker + Jacquard</button>
       <button onclick="rnaManageNeedles()" style="margin-left:8px;background:#e67e22;color:#fff;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;">⚙️ Needle Manage</button>
     </div>
     <div id="rna-content" style="overflow-x:auto;"></div>
@@ -13843,9 +13846,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     return result;
   }
 
-  var RNA_TAB_NAMES = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+  var RNA_TAB_NAMES = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard','Sinker + Jacquard'];
   var _rnaCurrentTab = 0;
-  var _rnaTabData = [null,null,null,null];
+  var _rnaTabData = [null,null,null,null,null];
 
 
   function rnaCloseManage(){ var m=document.getElementById('rna-manage-modal'); if(m) m.remove(); }
@@ -13940,7 +13943,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function rnaShowTab(idx, btn){
     _rnaCurrentTab = idx;
     document.querySelectorAll('.rna-tab-btn').forEach(function(b,i){
-      if(i===idx){ b.style.background='#1a5276'; b.style.color='#fff'; }
+      if(i===idx){
+        b.style.background = (i===4) ? '#6c3483' : '#1a5276';
+        b.style.color='#fff';
+      }
       else { b.style.background='#e0e0e0'; b.style.color='#333'; }
     });
     var content = document.getElementById('rna-content');
@@ -13962,6 +13968,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     for(var i=0;i<4;i++){
       _rnaTabData[i] = buildRNATable(i, nm, rcv, issues, fromDate, toDate);
     }
+    // Tab 4: Sinker + Jacquard combined
+    _rnaTabData[4] = buildSinkerJacquardTable(nm, rcv, issues, fromDate, toDate);
     rnaShowTab(_rnaCurrentTab, null);
   }
 
@@ -13977,9 +13985,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         _rnaTabData[i] = buildRNATable(i, nm, rcv, issues, fromDate, toDate);
       }
     }
+    if(_rnaTabData[4]===null){
+      _rnaTabData[4] = buildSinkerJacquardTable(nm, rcv, issues, fromDate, toDate);
+    }
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
-    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard','Sinker + Jacquard'];
     var bodyHTML = _rnaTabData.map(function(html, i){
       return '<div class="rna-print-page">'
         + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[i] + ' &nbsp;|&nbsp; <span>' + fromDate + ' to ' + toDate + '</span></div>'
@@ -14002,42 +14013,58 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
-    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard','Sinker + Jacquard'];
     var nm     = ndlGetMaster();
     var rcv    = ndlGetRcv();
     var issues = NDB.needles;
 
     if(_rnaTabData[tabIdx]===null){
-      _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
+      if(tabIdx === 4){
+        _rnaTabData[4] = buildSinkerJacquardTable(nm, rcv, issues, fromDate, toDate);
+      } else {
+        _rnaTabData[tabIdx] = buildRNATable(tabIdx, nm, rcv, issues, fromDate, toDate);
+      }
     }
 
+    var isCombined = (tabIdx === 4);
     var bodyHTML =
       '<div id="rna-content-wrap">'
-      + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
+      + (isCombined ? '' : '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>')
       + _rnaTabData[tabIdx]
       + '</div>';
 
-    var css = _rnaPrintCSS('A4 landscape', '6mm 8mm', fontSize);
+    var css = _rnaPrintCSS('A4 landscape', isCombined ? '5mm 6mm' : '6mm 8mm', fontSize);
 
+    // No auto-fit for combined tab — table is already fixed 1020px = A4 landscape width
     var fitScript = '<script>window.onload=function(){'
-      + 'var el=document.getElementById("rna-content-wrap");'
-      + 'if(!el)return;'
-      + 'var tbl=el.querySelector("table");'
-      + 'if(!tbl)return;'
-      + 'var mmPx=96/25.4;'
-      + 'var availW=(297-16)*mmPx;'
-      + 'var availH=(210-12)*mmPx;'
-      + 'var tblW=tbl.offsetWidth;'
-      + 'var tblH=el.offsetHeight;'
-      + 'var zoomW=tblW>0?availW/tblW:1;'
-      + 'var zoomH=tblH>0?availH/tblH:1;'
-      + 'var zoom=Math.min(zoomW,zoomH,1);'
-      + 'if(zoom<1){document.body.style.zoom=zoom;}'
+      + (isCombined ? '' :
+          'var el=document.getElementById("rna-content-wrap");'
+        + 'if(!el)return;'
+        + 'var tbl=el.querySelector("table");'
+        + 'if(!tbl)return;'
+        + 'var mmPx=96/25.4;'
+        + 'var availW=(297-16)*mmPx;'
+        + 'var availH=(210-12)*mmPx;'
+        + 'var tblW=tbl.offsetWidth;'
+        + 'var tblH=el.offsetHeight;'
+        + 'var zoomW=tblW>0?availW/tblW:1;'
+        + 'var zoomH=tblH>0?availH/tblH:1;'
+        + 'var zoom=Math.min(zoomW,zoomH,1);'
+        + 'if(zoom<1){document.body.style.zoom=zoom;}'
+        )
       + 'setTimeout(function(){window.print();},400);'
       + '};<\/script>';
 
-    var win = window.open('', '_blank', 'width=1200,height=800');
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+    var combinedExtraCss = isCombined ? [
+      '.print-only { display:block !important; }',
+      'body { margin:0; padding:0; }',
+      '#rna-content-wrap { width:1020px; }',
+      'table { width:1020px !important; table-layout:fixed !important; }',
+      '.no-print { display:none !important; }',
+    ].join('\n') : '';
+
+    var win = window.open('', '_blank', 'width=1400,height=900');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + combinedExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
     win.document.close();
     win.focus();
   }
@@ -14704,6 +14731,207 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // =============================================
+  //  Sinker + Jacquard Combined Table
+  // =============================================
+  function buildSinkerJacquardTable(nmAll, rcvAll, issuesAll, fromDate, toDate){
+    var _fmtDMY = function(d){if(!d)return '';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+    var _esc2 = function(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+
+    // ── helper: build raw table rows HTML (no header, no slip) for a tab ──
+    function buildRawRows(tabIdx){
+      var needleObjs = getRNANeedles()[tabIdx] || [];
+      var nm = nmAll;
+      var issInRange = issuesAll.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used' && (iss.type||'').toLowerCase()!=='used'; });
+      var rcvInRange = rcvAll.filter(function(r){ return r.date>=fromDate && r.date<=toDate && (r.needleStockType||'new')==='new'; });
+
+      var dayMachineShiftMap = {};
+      issInRange.forEach(function(iss){
+        if(!iss.machine||!iss.date) return;
+        var d=iss.date, m=iss.machine, sup=iss.worker||iss.supervisor||'';
+        if(!sup) return;
+        if(!dayMachineShiftMap[d]) dayMachineShiftMap[d]={};
+        if(!dayMachineShiftMap[d][m]) dayMachineShiftMap[d][m]={};
+        var sm=dayMachineShiftMap[d][m];
+        if(!(sup in sm)){var cnt=Object.keys(sm).length; if(cnt<3) sm[sup]=cnt;}
+      });
+
+      var needleIdSet={};
+      needleObjs.forEach(function(obj){
+        if(obj.id){
+          var me=nm.find(function(n){return n.id===obj.id;});
+          if(me){var dn=me.name||me.code||obj.name; needleIdSet[dn]=me.id;}
+          else needleIdSet[obj.name]=obj.id;
+        } else {
+          var nL=obj.name.trim().toLowerCase();
+          var me=nm.find(function(n){return (n.code||''). trim().toLowerCase()===nL||(n.name||''). trim().toLowerCase()===nL;});
+          if(me) needleIdSet[me.name||me.code]=me.id;
+        }
+      });
+      var needleNames=needleObjs.map(function(obj){
+        if(obj.id){var me=nm.find(function(n){return n.id===obj.id;});return me?(me.name||me.code||obj.name):obj.name;}
+        return obj.name;
+      });
+      var needleNamesLower=needleNames.map(function(n){return n.trim().toLowerCase();});
+      var idToRna={};
+      Object.keys(needleIdSet).forEach(function(rna){idToRna[needleIdSet[rna]]=rna;});
+
+      var machineSet={};
+      issInRange.forEach(function(iss){
+        var matched=(iss.needleId&&idToRna[iss.needleId]);
+        if(!matched){var iN=(iss.needle||iss.needleName||'').trim().toLowerCase();if(iN&&needleNamesLower.indexOf(iN)>-1)matched=true;}
+        if(matched&&iss.machine) machineSet[iss.machine]=true;
+      });
+      var allMachines=getNeedleMachines().filter(function(nmx){return machineSet[nmx.id];}).map(function(nmx){return nmx.id;});
+      Object.keys(machineSet).forEach(function(m){if(allMachines.indexOf(m)<0)allMachines.push(m);});
+
+      var rows=needleNames.map(function(nName){
+        var nNameL=nName.trim().toLowerCase();
+        var nId=needleIdSet[nName]||null;
+        var nm_entry=nId?nm.find(function(n){return n.id===nId;}):nm.find(function(n){return (n.code||''). trim().toLowerCase()===nNameL||(n.name||''). trim().toLowerCase()===nNameL;});
+        if(!nId&&nm_entry) nId=nm_entry.id;
+        var initialBf=nm_entry?(parseFloat(nm_entry.bf||nm_entry.balance||0)||0):0;
+        var bfRcv=0,bfIss=0;
+        rcvAll.forEach(function(r){
+          if(r.date>=fromDate) return;
+          if((nId&&r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL){if((r.needleStockType||'new')==='new')bfRcv+=parseFloat(r.qty||0)||0;}
+        });
+        issuesAll.forEach(function(iss){
+          if(iss.date>=fromDate) return;
+          if((iss.needleType||'new').toLowerCase()==='used') return;
+          if((nId&&iss.needleId===nId)||(iss.needleCode||'').trim().toLowerCase()===nNameL)bfIss+=parseFloat(iss.qty||0)||0;
+        });
+        var bf=initialBf+bfRcv-bfIss;
+        var rcvQty=0;
+        rcvInRange.forEach(function(r){if((nId&&r.needleId===nId)||(r.needleCode||'').trim().toLowerCase()===nNameL)rcvQty+=parseFloat(r.qty||0)||0;});
+        var nmMachines=(nm_entry&&nm_entry.machines)?nm_entry.machines:[];
+        var machineShifts={};var totalIssue=0;
+        allMachines.forEach(function(mach){
+          var s=[0,0,0];
+          issInRange.forEach(function(iss){
+            var matchNeedle=(nId&&iss.needleId===nId)||((iss.needle||'').trim().toLowerCase()===nNameL);
+            if(matchNeedle&&iss.machine===mach){
+              var sup=iss.worker||iss.supervisor||'';var shiftIdx=0;
+              if(sup&&dayMachineShiftMap[iss.date]&&dayMachineShiftMap[iss.date][mach]&&(sup in dayMachineShiftMap[iss.date][mach]))shiftIdx=dayMachineShiftMap[iss.date][mach][sup];
+              s[shiftIdx]+=parseFloat(iss.qty||0)||0;
+            }
+          });
+          machineShifts[mach]={shifts:s,mapped:nmMachines.indexOf(mach)>-1};
+          totalIssue+=s[0]+s[1]+s[2];
+        });
+        return {name:nName,bf:bf,rcv:rcvQty,machineShifts:machineShifts,totalIssue:totalIssue,balance:bf+rcvQty-totalIssue};
+      });
+
+      var tBF=0,tRcv=0,tIss=0,tBal=0;
+      rows.forEach(function(r){tBF+=r.bf;tRcv+=r.rcv;tIss+=r.totalIssue;tBal+=r.balance;});
+
+      // ── Fixed layout for A4 Landscape (277mm usable @ 96dpi ≈ 1047px) ──
+      // needle col + BF + Rcv + Issue + BL = fixed; rest = 8 machine cells
+      var isTab2=(tabIdx===2);
+      var ndlColW=isTab2?160:110;
+      var bfW=38; var rcvW=34; var issW=38; var blW=44;
+      var fixedW=ndlColW+bfW+rcvW+issW+blW;
+      // A4 landscape usable ~1020px; 8 cells fill the rest
+      var machineAreaW=1020-fixedW;
+      var MACHINE_SLOTS=8;
+      var cellW=Math.floor(machineAreaW/MACHINE_SLOTS)-2;
+      var ndlFs='7.5px';
+      var S='border:1px solid #bbb;';
+      var lblFs='5.5px'; var qtyFs='9px';
+
+      var h='';
+      // table header — fixed width 1020px
+      h+='<table style="border-collapse:collapse;font-size:9px;width:1020px;table-layout:fixed;">';
+      var machColW=machineAreaW; // single th spans all machine slots
+      h+='<thead><tr style="background:#1a5276;color:#fff;">';
+      h+='<th style="'+S+'padding:3px 4px;text-align:left;width:'+ndlColW+'px;overflow:hidden;font-size:7pt;">Needle / Sinker No</th>';
+      h+='<th style="'+S+'padding:3px 2px;width:'+bfW+'px;text-align:center;font-size:7pt;">B/F</th>';
+      h+='<th style="'+S+'padding:3px 2px;width:'+rcvW+'px;text-align:center;font-size:7pt;">Rcv</th>';
+      h+='<th style="'+S+'padding:3px 2px;width:'+machColW+'px;text-align:center;font-size:7pt;">Machine &amp; Issue (A+B+C)</th>';
+      h+='<th style="'+S+'padding:3px 2px;width:'+issW+'px;text-align:center;background:#0d3b5e;font-size:7pt;">Issue</th>';
+      h+='<th style="'+S+'padding:3px 2px;width:'+blW+'px;text-align:center;background:#0a3d22;font-size:7pt;">B/L</th>';
+      h+='</tr></thead><tbody>';
+      // data rows
+      rows.forEach(function(row,ri){
+        var bg=ri%2===0?'#fff':'#f5f8fb';
+        h+='<tr style="background:'+bg+';height:20px;">';
+        h+='<td style="'+S+'padding:2px 3px;font-weight:700;font-size:'+ndlFs+';width:'+ndlColW+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_esc2(row.name)+'</td>';
+        h+='<td style="'+S+'padding:2px;text-align:center;width:'+bfW+'px;font-size:9px;">'+( row.bf||'')+'</td>';
+        h+='<td style="'+S+'padding:2px;text-align:center;color:#1a5276;font-weight:600;width:'+rcvW+'px;font-size:9px;">'+( row.rcv||'')+'</td>';
+        var machineCells='';
+        allMachines.forEach(function(m){
+          var ms=row.machineShifts[m];if(!ms||!ms.mapped)return;
+          var s=ms.shifts;var parts=[];s.forEach(function(v){if(v)parts.push(v);});
+          var qty=parts.join('+');
+          var nmx=getNeedleMachines().find(function(x){return x.id===m;});
+          var mlabel=nmx?(nmx.retail||m):m;
+          if(qty){
+            machineCells+='<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 2px;background:#fff;width:'+cellW+'px;min-width:'+cellW+'px;max-width:'+cellW+'px;overflow:hidden;vertical-align:top;">';
+            machineCells+='<span style="font-size:'+lblFs+';color:#000;font-weight:900;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;">'+_esc2(mlabel)+'</span>';
+            machineCells+='<span style="font-size:'+qtyFs+';font-weight:900;display:block;white-space:nowrap;overflow:hidden;line-height:1.5;color:#000;">'+qty+'</span></span>';
+          } else {
+            machineCells+='<span style="display:inline-block;border:1px solid #eee;border-radius:2px;margin:0 1px;padding:1px 2px;background:#f9f9f9;width:'+cellW+'px;min-width:'+cellW+'px;max-width:'+cellW+'px;overflow:hidden;vertical-align:top;">';
+            machineCells+='<span style="display:block;line-height:1.5;">&nbsp;</span><span style="display:block;line-height:1.5;">&nbsp;</span></span>';
+          }
+        });
+        h+='<td style="'+S+'padding:2px 3px;width:'+machineAreaW+'px;">'+machineCells+'</td>';
+        h+='<td style="'+S+'padding:2px;text-align:center;font-weight:700;width:'+issW+'px;font-size:9px;background:#fef5e7;">'+( row.totalIssue||'')+'</td>';
+        var bc=row.balance<0?'#e74c3c':'#1e7e34';
+        h+='<td style="'+S+'padding:2px;text-align:center;background:#eafaf1;font-weight:700;width:'+blW+'px;font-size:9px;color:'+bc+';">'+( row.balance===0?'':row.balance)+'</td>';
+        h+='</tr>';
+      });
+      // total row
+      h+='<tr style="background:#1a5276;color:#fff;font-weight:700;text-align:center;">';
+      h+='<td style="'+S+'padding:4px 6px;text-align:left;">Total</td>';
+      h+='<td style="'+S+'padding:4px;white-space:nowrap;">'+tBF+'</td>';
+      h+='<td style="'+S+'padding:4px;">'+tRcv+'</td>';
+      h+='<td style="'+S+'padding:4px;"></td>';
+      h+='<td style="'+S+'padding:4px;background:#e67e22;">'+tIss+'</td>';
+      h+='<td style="'+S+'padding:4px;background:#1e7e34;">'+tBal+'</td>';
+      h+='</tr></tbody></table>';
+      return h;
+    }
+
+    // ── Combined slip numbers (Sinker + Jacquard) ──
+    var issInRange = issuesAll.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used'; });
+    var rcvInRange = rcvAll.filter(function(r){ return r.date>=fromDate && r.date<=toDate && (r.needleStockType||'new')==='new'; });
+    var allSlipNums=[];
+    issInRange.forEach(function(iss){ if(iss.challan && allSlipNums.indexOf(iss.challan)<0) allSlipNums.push(iss.challan); });
+    rcvInRange.forEach(function(r){ if(r.challan && allSlipNums.indexOf(r.challan)<0) allSlipNums.push(r.challan); });
+    var combinedSlip = allSlipNums.length ? allSlipNums.join(', ') : '_______________';
+    var _fmtDMY = function(d){if(!d)return '';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+
+    var html = '<div style="font-family:Arial,sans-serif;width:max-content;">';
+
+    // ── একটাই header — print এ দেখাবে, screen এ দেখাবে ──
+    html += '<div class="print-only" style="text-align:center;margin-bottom:6px;">';
+    html += '<div style="font-size:13pt;font-weight:bold;letter-spacing:0.5px;">ISLAM GARMENTS LTD.</div>';
+    html += '<div style="font-size:10pt;font-weight:bold;">Retail Needle Account (Sinker + Jacquard)</div>';
+    html += '<div style="font-size:8.5pt;">Date: '+_fmtDMY(fromDate)+' to '+_fmtDMY(toDate)+'</div>';
+    html += '</div>';
+
+    // ── Sinker টেবিল (full width, auto-fit) ──
+    html += '<div style="page-break-inside:avoid;break-inside:avoid;">';
+    html += buildRawRows(2);
+    html += '</div>';
+
+    // ── Jacquard label (ট্যাব হেডার হিসেবে) ──
+    html += '<div style="margin:14px 0 0 0;page-break-inside:avoid;break-inside:avoid;">';
+    html += '<div style="display:table;width:100%;">';
+    html += '<span style="display:inline-block;background:#6c3483;color:#fff !important;font-size:9pt;font-weight:700;padding:3px 18px 0 18px;border-radius:3px 3px 0 0;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Jacquard</span>';
+    html += '</div>';
+
+    // ── Jacquard টেবিল ──
+    html += buildRawRows(3);
+    html += '</div>';
+
+    // ── একটাই combined slip নম্বর ──
+    html += '<div style="margin-top:8px;font-size:10px;padding:5px 10px;background:#eaf4fb;border-left:4px solid #2980b9;border-radius:4px;page-break-before:avoid;break-before:avoid;page-break-inside:avoid;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;">&#x1F9FE; নিডেল/সিনরো রিসিব স্লিপ নং: <b style="color:#1a5276;">'+_esc2(combinedSlip)+'</b></div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  // =============================================
   //  ইউজ নিডেল একাউন্ট — Used Needle Retail Account
   // =============================================
 
@@ -14950,9 +15178,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     // ── Header Row 1: নিডেল, B/F, রিসিভ, তারিখ (colspan 3), মোট ইসু, ব্যালেন্স
     html += '<tr style="background:#4a235a;color:#fff;text-align:center;">';
-    html += '<th rowspan="2" style="'+S+'padding:3px 5px;text-align:left;min-width:75px;font-size:7pt;white-space:nowrap;">নিডেল নম্বর</th>';
-    html += '<th rowspan="2" style="'+S+'padding:3px;width:28px;font-size:7pt;">B/F</th>';
-    html += '<th rowspan="2" style="'+S+'padding:3px;width:28px;font-size:7pt;">রিসিভ</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px 5px;text-align:left;min-width:110px;font-size:7pt;white-space:nowrap;">নিডেল নম্বর</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:20px;font-size:7pt;">B/F</th>';
+    html += '<th rowspan="2" style="'+S+'padding:3px;width:20px;font-size:7pt;">রিসিভ</th>';
     allDates.forEach(function(dt){
       html += '<th colspan="3" style="'+S+'padding:2px 1px;background:#6c3483;font-size:7pt;border-bottom:1px solid #9b59b6;">'+_fmtDay(dt)+'</th>';
     });
@@ -14978,9 +15206,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     filteredRows.forEach(function(row,ri){
       var bg=ri%2===0?'#fff':'#fdf2ff';
       html += '<tr style="background:'+bg+';height:18px;">';
-      html += '<td style="'+S+'padding:2px 4px;font-weight:700;font-size:7pt;white-space:nowrap;">'+_esc2(row.name)+'</td>';
-      html += '<td style="'+S+'padding:2px;text-align:center;">'+(row.bf||'')+'</td>';
-      html += '<td style="'+S+'padding:2px;text-align:center;color:#7d3c98;font-weight:600;">'+(row.rcv||'')+'</td>';
+      html += '<td style="'+S+'padding:2px 4px;font-weight:700;font-size:7pt;white-space:nowrap;min-width:110px;">'+_esc2(row.name)+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;max-width:20px;">'+( row.bf||'')+'</td>';
+      html += '<td style="'+S+'padding:2px;text-align:center;color:#7d3c98;font-weight:600;max-width:20px;">'+( row.rcv||'')+'</td>';
 
       allDates.forEach(function(dt){
         var vA=row.shiftIssue[dt].A||0;
@@ -15004,9 +15232,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     // Total row
     html += '<tr style="background:#4a235a;color:#fff;font-weight:700;text-align:center;">';
-    html += '<td style="'+S+'padding:3px 4px;text-align:left;font-size:7pt;">Total</td>';
-    html += '<td style="'+S+'padding:3px;">'+tBF+'</td>';
-    html += '<td style="'+S+'padding:3px;">'+tRcv+'</td>';
+    html += '<td style="'+S+'padding:3px 4px;text-align:left;font-size:7pt;min-width:110px;">Total</td>';
+    html += '<td style="'+S+'padding:3px;max-width:20px;">'+tBF+'</td>';
+    html += '<td style="'+S+'padding:3px;max-width:20px;">'+tRcv+'</td>';
     allDates.forEach(function(dt){
       html += '<td style="'+S+'padding:3px;background:#7d3c98;">'+(shiftTotals[dt].A||'')+'</td>';
       html += '<td style="'+S+'padding:3px;background:#6c3483;">'+(shiftTotals[dt].B||'')+'</td>';
@@ -17045,11 +17273,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var html='<table style="border-collapse:collapse;font-size:11px;width:100%;height:100%;table-layout:fixed;">';
       html+='<thead>';
       html+='<tr style="background:#1c2833;color:#fff;">';
-      html+='<th rowspan="2" style="padding:2px 3px;border:1px solid #555;width:38px;max-width:38px;text-align:center;font-size:8px;">Date</th>';
+      html+='<th rowspan="2" style="padding:2px 3px;border:1px solid #555;width:68px;max-width:68px;min-width:68px;text-align:center;font-size:8px;">Date</th>';
       types.forEach(function(t){
         html+='<th colspan="'+(wCols+1)+'" style="padding:5px 8px;border:1px solid #555;text-align:center;">'+t.label+'</th>';
       });
-      html+='<th rowspan="2" style="padding:5px 8px;border:1px solid #555;text-align:center;width:55px;max-width:55px;">Remarks</th>';
+      html+='<th rowspan="2" style="padding:5px 8px;border:2px solid #555;border-left:3px solid #555;border-right:3px solid #555;text-align:center;width:55px;max-width:55px;">Remarks</th>';
       html+='</tr>';
       html+='<tr style="background:#2c3e50;color:#fff;">';
       types.forEach(function(){
@@ -17068,7 +17296,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
         var isOff=isFri;
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';         html+='<td style="padding:1px 2px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:38px;max-width:38px;">'+dayLabel+'</td>';
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -17087,19 +17315,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return rm.indexOf('new set') === 0 || rm.indexOf('machine accident') === 0;
         }).map(function(r){return r.remarks;});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:1px solid #ddd;padding:2px 4px;font-size:8px;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;">'+uniqueRemarks+'</td>';
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:2px 4px;font-size:8px;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
       html+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
-      html+='<td style="padding:4px 2px;border:1px solid #555;text-align:center;width:38px;max-width:38px;font-size:8px;" class="nur-total">TOTAL</td>';
+      html+='<td style="padding:4px 2px;border:1px solid #555;text-align:center;width:68px;max-width:68px;min-width:68px;font-size:8px;" class="nur-total">TOTAL</td>';
       types.forEach(function(t){
         workers.forEach(function(w){
           html+='<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gt[t.key][w.id]||'')+'</td>';
         });
         html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt[t.key].total||'')+'</td>';
       });
-      html+='<td style="border:1px solid #555;background:#1c2833;" class="nur-total"></td>';
+      html+='<td style="border:2px solid #555;border-left:3px solid #555;border-right:3px solid #555;background:#1c2833;" class="nur-total"></td>';
       html+='</tr>';
       html+='</tbody></table>';
       return html;
@@ -17146,37 +17374,37 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     // Row 1: Section titles
     p2 += '<tr>';
-    p2 += '<th style="border:1px solid #555;padding:3px;background:#2c3e50;color:#fff;min-width:75px;">Month:<br>'+monthNames[month-1]+' '+year+'</th>';
+    p2 += '<th style="border:1px solid #555;border-left:3px solid #000;padding:3px;background:#2c3e50;color:#fff;min-width:75px;">Month:<br>'+monthNames[month-1]+' '+year+'</th>';
     p2 += '<th colspan="'+( p2NewTypes.length*(wCols+1)+1 )+'" style="border:1px solid #555;padding:4px;background:#1a5276;color:#fff;text-align:center;font-size:10px;">(NEW NEEDLE)</th>';
-    p2 += '<th colspan="'+( usedTypes.length*(wCols+1)+1 )+'" style="border:1px solid #555;padding:4px;background:#6e2f1a;color:#fff;text-align:center;font-size:10px;">(USED NEEDLE)</th>';
+    p2 += '<th colspan="'+( usedTypes.length*(wCols+1)+1 )+'" style="border:1px solid #555;border-left:4px double #000;padding:4px;background:#6e2f1a;color:#fff;text-align:center;font-size:10px;">(USED NEEDLE)</th>';
     p2 += '</tr>';
 
     // Row 2: Category headers
     p2 += '<tr style="background:#2c3e50;color:#fff;">';
-    p2 += '<th style="border:1px solid #555;padding:3px;">Date</th>';
+    p2 += '<th style="border:1px solid #555;border-left:3px solid #000;padding:3px;">Date</th>';
     p2NewTypes.forEach(function(t){
       p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;padding:2px;text-align:center;">'+t.label+'-Pcs</th>';
     });
-    p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;">Remarks</th>';
-    usedTypes.forEach(function(t){
-      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;padding:2px;text-align:center;">'+t.label+'-Pcs</th>';
+    p2 += '<th style="border:1px solid #555;border-right:3px solid #000;padding:2px;text-align:center;">Remarks</th>';
+    usedTypes.forEach(function(t,ti){
+      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;'+(ti===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;">'+t.label+'-Pcs</th>';
     });
     p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;">Remarks</th>';
     p2 += '</tr>';
 
     // Row 3: Worker names
     p2 += '<tr style="background:#34495e;color:#fff;">';
-    p2 += '<th style="border:1px solid #555;padding:2px;"></th>';
+    p2 += '<th style="border:1px solid #555;border-left:3px solid #000;padding:2px;"></th>';
     p2NewTypes.forEach(function(){
       workers.forEach(function(w){
         p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
-    p2 += '<th style="border:1px solid #555;" class="nur-total"></th>';
-    usedTypes.forEach(function(){
-      workers.forEach(function(w){
-        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
+    p2 += '<th style="border:1px solid #555;border-right:3px solid #000;" class="nur-total"></th>';
+    usedTypes.forEach(function(t,ti){
+      workers.forEach(function(w,wi){
+        p2 += '<th style="border:1px solid #555;'+(ti===0&&wi===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
@@ -17195,7 +17423,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var hasData2 = filtered.some(function(r){ return r.date===day; });
       var isOff2 = isFri;
       p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'" '+(isOff2?'class="nur-offday"':'')+'>';
-      p2 += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
+      p2 += '<td style="padding:2px 4px;border:1px solid #ddd;border-left:3px solid #000;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
       p2NewTypes.forEach(function(t){
         var rowT=0;
@@ -17207,14 +17435,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         gt2new[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;"></td>';
+      p2+='<td style="border:1px solid #ddd;border-right:3px solid #000;"></td>';
       // Used needle cols
-      usedTypes.forEach(function(t){
+      usedTypes.forEach(function(t,ti){
         var rowT=0;
-        workers.forEach(function(w){
+        workers.forEach(function(w,wi){
           var q=getQ(day,t.key,w.id,'used');
           gt2used[t.key][w.id]+=q; rowT+=q;
-          p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
+          p2+='<td style="padding:1px;border:1px solid #ddd;'+(ti===0&&wi===0?'border-left:4px double #000;':'')+'text-align:center;">'+(q||'')+'</td>';
         });
         gt2used[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#fef9e7;" class="nur-total">'+(rowT||'')+'</td>';
@@ -17225,14 +17453,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     // Total row
     p2+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
-    p2+='<td style="padding:3px 5px;border:1px solid #555;" class="nur-total">TOTAL</td>';
+    p2+='<td style="padding:3px 5px;border:1px solid #555;border-left:3px solid #000;" class="nur-total">TOTAL</td>';
     p2NewTypes.forEach(function(t){
       workers.forEach(function(w){ p2+='<td style="padding:1px;border:1px solid #555;text-align:center;">'+(gt2new[t.key][w.id]||'')+'</td>'; });
       p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt2new[t.key].total||'')+'</td>';
     });
-    p2+='<td style="border:1px solid #555;" class="nur-total"></td>';
-    usedTypes.forEach(function(t){
-      workers.forEach(function(w){ p2+='<td style="padding:1px;border:1px solid #555;text-align:center;">'+(gt2used[t.key][w.id]||'')+'</td>'; });
+    p2+='<td style="border:1px solid #555;border-right:3px solid #000;" class="nur-total"></td>';
+    usedTypes.forEach(function(t,ti){
+      workers.forEach(function(w,wi){ p2+='<td style="padding:1px;border:1px solid #555;'+(ti===0&&wi===0?'border-left:4px double #000;':'')+'text-align:center;">'+(gt2used[t.key][w.id]||'')+'</td>'; });
       p2+='<td style="padding:1px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt2used[t.key].total||'')+'</td>';
     });
     p2+='<td style="border:1px solid #555;" class="nur-total"></td>';
@@ -17252,7 +17480,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> <span style="font-size:7.5px;color:#888;">(Flat Knit বাদে)</span> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
-    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;localStorage.setItem(\'igl_nur_prod_\'+'+year+'+\'_\'+'+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="display:none;font-size:8px;font-weight:700;min-width:40px;display:inline-block;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="display:none;font-size:8px;font-weight:700;min-width:40px;display:inline-block;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
@@ -17269,14 +17497,56 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html+='</div>';
     document.getElementById('needleUseReportGrid').innerHTML=html;
 
-    // সেভ করা Total Production লোড করো
-    var savedProd = localStorage.getItem('igl_nur_prod_'+year+'_'+month);
+    // Firebase থেকে Total Production লোড করো
     var prodInput = document.getElementById('nur-prod-kg-'+year+'-'+month);
-    if (prodInput && savedProd) {
-      prodInput.value = savedProd;
-      prodInput.setAttribute('value', savedProd);
-      var span = prodInput.nextElementSibling;
-      if (span) span.textContent = savedProd;
+    if (prodInput) {
+      nurLoadProdKg(year, month, prodInput);
+    }
+  }
+
+  // Firebase এ Total Production save করো
+  function nurSaveProdKg(year, month, value) {
+    var key = 'nur_prod/' + year + '_' + month;
+    if (typeof _fbDb !== 'undefined') {
+      _fbDb.ref(key).set(value);
+    }
+    // backup: localStorage
+    localStorage.setItem('igl_nur_prod_'+year+'_'+month, value);
+  }
+
+  // Firebase থেকে Total Production load করো
+  function nurLoadProdKg(year, month, inputEl) {
+    var key = 'nur_prod/' + year + '_' + month;
+    if (typeof _fbDb !== 'undefined') {
+      _fbDb.ref(key).once('value', function(snap) {
+        var val = snap.val();
+        if (val) {
+          inputEl.value = val;
+          inputEl.setAttribute('value', val);
+          var span = inputEl.nextElementSibling;
+          if (span) span.textContent = val;
+        } else {
+          // Firebase এ নেই — localStorage এ আছে কিনা দেখো
+          var local = localStorage.getItem('igl_nur_prod_'+year+'_'+month);
+          if (local) {
+            inputEl.value = local;
+            inputEl.setAttribute('value', local);
+            var span2 = inputEl.nextElementSibling;
+            if (span2) span2.textContent = local;
+            // Firebase এ migrate করো
+            _fbDb.ref(key).set(local);
+          }
+        }
+      });
+    } else {
+      // Firebase নেই — localStorage fallback
+      var saved = localStorage.getItem('igl_nur_prod_'+year+'_'+month);
+      if (saved) {
+        inputEl.value = saved;
+        inputEl.setAttribute('value', saved);
+        var span3 = inputEl.nextElementSibling;
+        if (span3) span3.textContent = saved;
+      }
     }
   }
 
