@@ -13852,92 +13852,172 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
 
   function rnaCloseManage(){ var m=document.getElementById('rna-manage-modal'); if(m) m.remove(); }
-  function rnaManageCheckAll(v){ document.querySelectorAll('#rna-manage-modal input[type=checkbox]').forEach(function(c){c.checked=v;}); }
+
+  // ── Multi-tab Needle Manager ──────────────────────────────────────────
+  // _rnaManageState[needleId] = tabIndex (0-3) or -1 (unassigned)
+  var _rnaManageState = {};
+  var _rnaManageActiveTab = 0;
 
   function rnaManageNeedles(){
-    var tabIdx = _rnaCurrentTab;
-    var tabName = RNA_TAB_NAMES[tabIdx];
     var nm = ndlGetMaster();
+    var allNeedles = nm.filter(function(n){ return n.type==='Needle'||n.type==='Sinker'; });
 
-    // Master এর সব needle (section নির্বিশেষে)
-    var allNeedles = nm.filter(function(n){ return n.type === 'Needle' || n.type === 'Sinker'; });
+    // রনা ট্যাব ৪ (Sinker+Jacquard) বাদ দিই — সেটা combined view, manage নয়
+    var manageTabs = RNA_TAB_NAMES.slice(0,4); // [S/J, Rib, Sinker, Jacquard]
 
-    // এই tab এ এখন কোন needle আছে
-    var current = getRNANeedles()[tabIdx] || [];
-    var currentIds = current.map(function(o){ return o.id; }).filter(Boolean);
+    // বর্তমান assignment পড়ি
+    _rnaManageState = {};
+    allNeedles.forEach(function(n){
+      var sec = n.rnaSection || '';
+      var ti = manageTabs.indexOf(sec);
+      _rnaManageState[n.id] = ti; // -1 = unassigned
+    });
 
-    // Modal তৈরি
+    _rnaManageActiveTab = Math.min(_rnaCurrentTab, 3);
+
     var existing = document.getElementById('rna-manage-modal');
     if(existing) existing.remove();
 
     var div = document.createElement('div');
     div.id = 'rna-manage-modal';
-    div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-
-    // Section গুলো group করি
-    var sections = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard','Flat Knit',''];
-    var grouped = {};
-    sections.forEach(function(s){ grouped[s] = []; });
-    allNeedles.forEach(function(n){
-      var sec = n.cat || n.rnaSection || '';
-      if(!grouped[sec]) grouped[sec] = [];
-      grouped[sec].push(n);
-    });
-
-    var rows = '';
-    sections.forEach(function(sec){
-      var list = grouped[sec];
-      if(!list || !list.length) return;
-      rows += '<tr><td colspan="2" style="background:#1a5276;color:#fff;font-weight:700;padding:5px 10px;font-size:11px;">'+(sec||'Other')+'</td></tr>';
-      list.forEach(function(n){
-        var checked = currentIds.indexOf(n.id) >= 0 ? 'checked' : '';
-        rows += '<tr><td style="padding:3px 10px;"><input type="checkbox" data-nid="'+n.id+'" '+checked+'></td>'
-          + '<td style="padding:3px 10px;font-size:12px;">['+n.type+'] '+(n.name||n.code)+'</td></tr>';
-      });
-    });
-
-    div.innerHTML = '<div style="background:#fff;border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;">'
-      + '<div style="background:#1a5276;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">'
-      + '<b>⚙️ Needle Manage — ' + tabName + '</b>'
-      + '<button onclick="rnaCloseManage()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
-      + '</div>'
-      + '<div style="padding:8px 10px;background:#f8f9fa;border-bottom:1px solid #ddd;display:flex;gap:6px;">'
-      + '<button onclick="rnaManageCheckAll(true)" style="font-size:11px;padding:3px 10px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;">All</button>'
-      + '<button onclick="rnaManageCheckAll(false)" style="font-size:11px;padding:3px 10px;background:#aaa;color:#fff;border:none;border-radius:4px;cursor:pointer;">Clear</button>'
-      + '</div>'
-      + '<div style="overflow-y:auto;flex:1;padding:4px 0;">'
-      + '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>'
-      + '</div>'
-      + '<div style="padding:12px;border-top:1px solid #ddd;display:flex;gap:8px;">'
-      + '<button onclick="rnaSaveManage('+tabIdx+')" style="flex:1;background:#1e7e34;color:#fff;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;font-weight:600;">💾 Save</button>'
-      + '<button onclick="rnaCloseManage()" style="flex:1;background:#eee;color:#333;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;">Cancel</button>'
-      + '</div>'
-      + '</div>';
-
+    div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    div.innerHTML = rnaManageBuildHTML(allNeedles, manageTabs);
     document.body.appendChild(div);
   }
 
-  function rnaSaveManage(tabIdx){
-    var nm = ndlGetMaster();
-    var tabs = RNA_TAB_NAMES;
+  function rnaManageBuildHTML(allNeedles, manageTabs){
+    var TAB_COLORS = ['#1a5276','#1e7e34','#6c3483','#b7770d'];
+    var activeColor = TAB_COLORS[_rnaManageActiveTab] || '#1a5276';
 
-    // সব needle এর rnaSection clear করি এই tab এর জন্য
-    nm.forEach(function(n){
-      if(n.rnaSection === tabs[tabIdx]) n.rnaSection = '';
+    // ── Tab buttons ──
+    var tabBtns = manageTabs.map(function(t,i){
+      var active = i===_rnaManageActiveTab;
+      var bg = active ? TAB_COLORS[i] : '#e0e0e0';
+      var col = active ? '#fff' : '#333';
+      var fw = active ? '700' : '400';
+      // count assigned
+      var cnt = Object.keys(_rnaManageState).filter(function(id){ return _rnaManageState[id]===i; }).length;
+      return '<button onclick="rnaManageSwitchTab('+i+')" style="padding:7px 12px;border:none;border-radius:4px 4px 0 0;background:'+bg+';color:'+col+';font-weight:'+fw+';font-size:11px;cursor:pointer;margin-right:2px;">'
+        +t+'<span style="margin-left:4px;background:rgba(255,255,255,0.25);border-radius:8px;padding:1px 5px;font-size:10px;">'+cnt+'</span></button>';
+    }).join('');
+
+    // ── Needle list for active tab ──
+    var rows = rnaManageBuildRows(allNeedles, manageTabs);
+
+    return '<div style="background:#fff;border-radius:8px;width:500px;max-width:97vw;max-height:90vh;display:flex;flex-direction:column;">'
+      // header
+      +'<div style="background:'+activeColor+';color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">'
+      +'<b>⚙️ Needle Manage</b>'
+      +'<button onclick="rnaCloseManage()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">✕</button>'
+      +'</div>'
+      // tab bar
+      +'<div style="padding:8px 10px 0 10px;background:#f4f4f4;border-bottom:2px solid '+activeColor+';" id="rna-manage-tabbar">'+tabBtns+'</div>'
+      // search + check-all
+      +'<div style="padding:6px 10px;background:#f9f9f9;border-bottom:1px solid #ddd;display:flex;gap:6px;align-items:center;">'
+      +'<input id="rna-manage-search" oninput="rnaManageFilter()" placeholder="🔍 খুঁজুন..." style="flex:1;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">'
+      +'<button onclick="rnaManageCheckAllActive(true)" style="font-size:11px;padding:4px 8px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;">All</button>'
+      +'<button onclick="rnaManageCheckAllActive(false)" style="font-size:11px;padding:4px 8px;background:#aaa;color:#fff;border:none;border-radius:4px;cursor:pointer;">Clear</button>'
+      +'</div>'
+      // needle list
+      +'<div style="overflow-y:auto;flex:1;padding:4px 0;" id="rna-manage-list">'
+      +'<table style="width:100%;border-collapse:collapse;" id="rna-manage-table">'+rows+'</table>'
+      +'</div>'
+      // footer
+      +'<div style="padding:10px 12px;border-top:1px solid #ddd;display:flex;gap:8px;">'
+      +'<button onclick="rnaSaveManageAll()" style="flex:1;background:#1e7e34;color:#fff;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;font-weight:700;">💾 Save All</button>'
+      +'<button onclick="rnaCloseManage()" style="flex:1;background:#eee;color:#333;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;">Cancel</button>'
+      +'</div>'
+      +'</div>';
+  }
+
+  function rnaManageBuildRows(allNeedles, manageTabs){
+    var ASSIGNED_COLORS = ['#d6eaf8','#d5f5e3','#e8daef','#fdebd0'];
+    var activeTab = _rnaManageActiveTab;
+    var rows = '';
+    allNeedles.forEach(function(n){
+      var assignedTo = _rnaManageState[n.id]; // -1 or 0-3
+      var isChecked  = (assignedTo === activeTab);
+      var isOther    = (assignedTo >= 0 && assignedTo !== activeTab);
+      var otherName  = isOther ? manageTabs[assignedTo] : '';
+      var rowBg      = isOther ? ASSIGNED_COLORS[assignedTo] : (isChecked ? '#eaf4fb' : '#fff');
+      var disabled   = isOther ? 'disabled' : '';
+      var label      = (n.name||n.code||'');
+      var typeTag    = '<span style="font-size:9px;background:#ddd;border-radius:3px;padding:1px 4px;margin-right:4px;">'+n.type+'</span>';
+      var otherBadge = isOther
+        ? '<span style="font-size:9px;background:#e74c3c;color:#fff;border-radius:3px;padding:1px 5px;margin-left:6px;">'+otherName+'</span>'
+        : '';
+      rows += '<tr class="rna-manage-row" data-nid="'+n.id+'" style="background:'+rowBg+';border-bottom:1px solid #f0f0f0;">'
+        +'<td style="padding:4px 8px;width:32px;text-align:center;">'
+        +'<input type="checkbox" data-nid="'+n.id+'" '+(isChecked?'checked':'')+' '+disabled
+        +' onchange="rnaManageToggle(this)" style="width:15px;height:15px;cursor:'+(isOther?'not-allowed':'pointer')+';">'
+        +'</td>'
+        +'<td style="padding:4px 8px;font-size:12px;">'+typeTag+label+otherBadge+'</td>'
+        +'</tr>';
     });
+    return rows;
+  }
 
-    // Checked গুলো এই tab এ set করি
-    var checked = document.querySelectorAll('#rna-manage-modal input[type=checkbox]:checked');
-    checked.forEach(function(cb){
+  function rnaManageSwitchTab(tabIdx){
+    _rnaManageActiveTab = tabIdx;
+    var nm = ndlGetMaster();
+    var allNeedles = nm.filter(function(n){ return n.type==='Needle'||n.type==='Sinker'; });
+    var manageTabs = RNA_TAB_NAMES.slice(0,4);
+    // rebuild entire modal content
+    var modal = document.getElementById('rna-manage-modal');
+    if(modal) modal.innerHTML = rnaManageBuildHTML(allNeedles, manageTabs);
+  }
+
+  function rnaManageToggle(cb){
+    var nid = cb.dataset.nid;
+    if(cb.checked){
+      _rnaManageState[nid] = _rnaManageActiveTab;
+    } else {
+      _rnaManageState[nid] = -1;
+    }
+    // row এর style আপডেট
+    var row = cb.closest('tr');
+    if(row) row.style.background = cb.checked ? '#eaf4fb' : '#fff';
+  }
+
+  function rnaManageCheckAllActive(v){
+    document.querySelectorAll('#rna-manage-table input[type=checkbox]:not([disabled])').forEach(function(cb){
       var nid = cb.dataset.nid;
-      var n = nm.find(function(x){ return x.id === nid; });
-      if(n) n.rnaSection = tabs[tabIdx];
+      cb.checked = v;
+      _rnaManageState[nid] = v ? _rnaManageActiveTab : -1;
+      var row = cb.closest('tr');
+      if(row) row.style.background = v ? '#eaf4fb' : '#fff';
+    });
+  }
+
+  function rnaManageFilter(){
+    var q = (document.getElementById('rna-manage-search').value||'').toLowerCase();
+    document.querySelectorAll('#rna-manage-table .rna-manage-row').forEach(function(row){
+      var txt = row.textContent.toLowerCase();
+      row.style.display = (!q || txt.indexOf(q)>=0) ? '' : 'none';
+    });
+  }
+
+  function rnaSaveManageAll(){
+    var nm = ndlGetMaster();
+    var manageTabs = RNA_TAB_NAMES.slice(0,4);
+
+    // সব assignment reset করি manage করা needle গুলোর জন্য
+    nm.forEach(function(n){
+      if(n.type!=='Needle'&&n.type!=='Sinker') return;
+      var ti = _rnaManageState[n.id];
+      if(ti>=0 && ti<manageTabs.length){
+        n.rnaSection = manageTabs[ti];
+      } else {
+        n.rnaSection = '';
+      }
     });
 
     ndlSetMaster(nm);
     document.getElementById('rna-manage-modal').remove();
     renderRetailNeedleAccount();
-    toast('✅ '+ tabs[tabIdx] +' — '+checked.length+' needle saved', 'success');
+
+    var total = Object.keys(_rnaManageState).filter(function(id){ return _rnaManageState[id]>=0; }).length;
+    toast('✅ Needle assignment saved — '+total+' assigned', 'success');
   }
 
   function rnaShowTab(idx, btn){
