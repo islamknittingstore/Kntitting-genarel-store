@@ -14113,14 +14113,27 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + _rnaTabData[tabIdx]
       + '</div>';
 
-    var css = _rnaPrintCSS('A4 landscape', isCombined ? '5mm 6mm' : '6mm 8mm', fontSize);
+    var css = _rnaPrintCSS('A4 landscape', isCombined ? '4mm 5mm' : '6mm 8mm', fontSize);
 
-    // No auto-fit for combined tab — table is already fixed 1020px = A4 landscape width
+    // Combined tab: zoom সব content এক পেজে fit করবে
     var fitScript = '<script>window.onload=function(){'
-      + (isCombined ? '' :
-          'var el=document.getElementById("rna-content-wrap");'
-        + 'if(!el)return;'
-        + 'var tbl=el.querySelector("table");'
+      + 'var el=document.getElementById("rna-content-wrap");'
+      + 'if(!el)return;'
+      + (isCombined ?
+          // Combined: পুরো wrap এর height+width দেখে zoom করো
+          'var mmPx=96/25.4;'
+        + 'var pageW=(297-9)*mmPx;'
+        + 'var pageH=(210-8)*mmPx;'
+        + 'var elW=el.scrollWidth||el.offsetWidth;'
+        + 'var elH=el.scrollHeight||el.offsetHeight;'
+        + 'var zoomW=elW>0?(pageW/elW):1;'
+        + 'var zoomH=elH>0?(pageH/elH):1;'
+        + 'var zoom=Math.min(zoomW,zoomH,1);'
+        + 'document.body.style.zoom=zoom;'
+        + 'document.body.style.transformOrigin="top left";'
+        :
+          // Normal tabs: শুধু width দেখে zoom
+          'var tbl=el.querySelector("table");'
         + 'if(!tbl)return;'
         + 'var mmPx=96/25.4;'
         + 'var availW=(297-16)*mmPx;'
@@ -14132,15 +14145,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         + 'var zoom=Math.min(zoomW,zoomH,1);'
         + 'if(zoom<1){document.body.style.zoom=zoom;}'
         )
-      + 'setTimeout(function(){window.print();},400);'
+      + 'setTimeout(function(){window.print();},500);'
       + '};<\/script>';
 
     var combinedExtraCss = isCombined ? [
       '.print-only { display:block !important; }',
       'body { margin:0; padding:0; }',
-      '#rna-content-wrap { width:1020px; }',
+      '#rna-content-wrap { width:max-content; }',
       'table { width:1020px !important; table-layout:fixed !important; }',
       '.no-print { display:none !important; }',
+      '@media print { html,body { height:100%; overflow:hidden; } }',
     ].join('\n') : '';
 
     var win = window.open('', '_blank', 'width=1400,height=900');
