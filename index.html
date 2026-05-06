@@ -1371,12 +1371,40 @@ if('serviceWorker' in navigator){
         if(data.db){
           if(data.db.groups)   DB.groups   = data.db.groups;
           if(data.db.machines) DB.machines = data.db.machines;
-          if(data.db.receives) DB.receives = data.db.receives;
-          if(data.db.issues)   DB.issues   = data.db.issues;
+
+          // Firebase load এ local pending entries merge করো — overwrite নয়
+          if(data.db.receives){
+            var localRcv = DB.receives || [];
+            var fbRcv = data.db.receives;
+            var fbRcvIds = {}; fbRcv.forEach(function(r){ fbRcvIds[r.id]=true; });
+            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id]; });
+            DB.receives = fbRcv.concat(pendingRcv);
+            if(pendingRcv.length) toast('⚠️ '+pendingRcv.length+'টি pending receive entry merge হয়েছে','warning');
+          }
+          if(data.db.issues){
+            var localIss = DB.issues || [];
+            var fbIss = data.db.issues;
+            var fbIssIds = {}; fbIss.forEach(function(r){ fbIssIds[r.id]=true; });
+            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id]; });
+            DB.issues = fbIss.concat(pendingIss);
+            if(pendingIss.length) toast('⚠️ '+pendingIss.length+'টি pending issue entry merge হয়েছে','warning');
+          }
           if(data.db.items)    DB.items    = data.db.items;
         }
         if(data.ndb){
-          if(data.ndb.needles) NDB.needles = data.ndb.needles;
+          if(data.ndb.needles){
+            // NDB.needles এও local pending merge করো
+            var localNeedles = NDB.needles || [];
+            var fbNeedles = data.ndb.needles;
+            var fbNdlIds = {}; fbNeedles.forEach(function(r){ fbNdlIds[r.id]=true; });
+            var pendingNdl = localNeedles.filter(function(r){ return !fbNdlIds[r.id]; });
+            NDB.needles = fbNeedles.concat(pendingNdl);
+            if(pendingNdl.length){
+              toast('⚠️ '+pendingNdl.length+'টি pending needle entry merge হয়েছে','warning');
+              // Merge হওয়া data সাথে সাথে Firebase এ push করো
+              setTimeout(function(){ if(typeof window.fbSaveAll==='function') window.fbSaveAll(); }, 2000);
+            }
+          }
           if(data.ndb.master){
             // rnaSection user এর সেট করা — backup থেকে overwrite করব না
             var restoreMaster = data.ndb.master;
@@ -1402,7 +1430,16 @@ if('serviceWorker' in navigator){
           if(data.stn.items)    localStorage.setItem('igl_stn_items',    JSON.stringify(data.stn.items));
           if(data.stn.requisitions) localStorage.setItem('igl_stn_requisitions', JSON.stringify(data.stn.requisitions));
         }
-        if(data.ndlRcv)    localStorage.setItem('igl_ndl_rcv',    JSON.stringify(data.ndlRcv));
+        if(data.ndlRcv){
+          // Needle receive এও pending merge করো
+          var localNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]');
+          var fbNdlRcv = data.ndlRcv;
+          var fbNdlRcvIds = {}; fbNdlRcv.forEach(function(r){ fbNdlRcvIds[r.id]=true; });
+          var pendingNdlRcv = localNdlRcv.filter(function(r){ return r.id && !fbNdlRcvIds[r.id]; });
+          var mergedNdlRcv = fbNdlRcv.concat(pendingNdlRcv);
+          localStorage.setItem('igl_ndl_rcv', JSON.stringify(mergedNdlRcv));
+          if(pendingNdlRcv.length) toast('⚠️ '+pendingNdlRcv.length+'টি pending needle receive merge হয়েছে','warning');
+        }
         if(data.rnaManage) localStorage.setItem('igl_rna_manage', JSON.stringify(data.rnaManage));
         if(data.bin)       localStorage.setItem('igl_bin',        JSON.stringify(data.bin));
         if(data.settings){
@@ -7564,8 +7601,9 @@ function stnGetTableData() {
   }
 
   if (_stnTab === 'dept') {
+    var deptSel4 = (document.getElementById('stn-dept-filter')||{value:''}).value;
     var deptIss = DB.issues.filter(function(r){
-      return stnNames.includes(r.item) && (!q || (r.machineId||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
+      return stnNames.includes(r.item) && (!q || (r.machineId||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo) && (!deptSel4||(r.machineId||'')===deptSel4);
     }).sort(function(a,b){ return (a.machineId||'').localeCompare(b.machineId||'') || b.id-a.id; });
     var dTot = deptIss.reduce(function(s,r){return s+r.qty;},0);
     return {
@@ -7669,6 +7707,7 @@ function stnPrint() {
 
   html += '</body></html>';
   var w = window.open('','_blank','width=900,height=700');
+  if(!w){ toast('❌ Popup blocked! Browser এর popup allow করুন।','error'); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
@@ -10545,6 +10584,7 @@ function stnPrintOriented(orientation, stockFilter) {
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
   if (_stnTab === 'itemwise') { stnPrintItemWise(orientation); return; }
+  if (_stnTab === 'dept' || _stnTab === 'slip' || _stnTab === 'chalan') { stnPrint(); return; }
 
   // Stock ট্যাবে filter প্রয়োগ করো
   if (_stnTab === 'stock' && stockFilter && stockFilter !== 'all') {
