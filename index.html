@@ -2930,7 +2930,8 @@ window.iglSaveUsers = function(){
               </div>
               <div class="form-group">
                 <label>Remarks</label>
-                <input type="text" class="form-control" id="stn-i-remarks" placeholder="Any remarks (optional)">
+                <input type="text" class="form-control" id="stn-i-remarks" placeholder="Any remarks (optional)" autocomplete="off" list="stn-remarks-list" oninput="stnRemarksFilter(this.value)">
+                <datalist id="stn-remarks-list"></datalist>
               </div>
               <div class="form-group">
                 <label>Current Stock</label>
@@ -7406,6 +7407,7 @@ function stnToggleForm(type) {
       stnPopulateDeptDropdown();
       if (!document.getElementById('stn-i-date').value) document.getElementById('stn-i-date').value = todayStr();
       document.getElementById('stn-i-item').focus();
+      stnInitRemarksDatalist();
     }
   }
 }
@@ -7481,6 +7483,53 @@ function stnClearReceiveForm() {
   document.getElementById('stn-r-stock-badge').innerHTML = '';
 }
 
+// ── Stationery Remarks Autocomplete ──────────────────────────────
+function stnGetRemarkNames(){
+  // DB.issues থেকে সব unique remarks collect করো (empty বাদে)
+  var names = [];
+  (DB.issues||[]).forEach(function(r){
+    var rm = (r.remarks||'').trim();
+    if(rm && names.indexOf(rm) < 0) names.push(rm);
+  });
+  // localStorage এ saved names থাকলে সেগুলোও নাও
+  try {
+    var saved = JSON.parse(localStorage.getItem('igl_stn_remark_names')||'[]');
+    saved.forEach(function(n){ if(n && names.indexOf(n)<0) names.push(n); });
+  } catch(e){}
+  return names.sort();
+}
+
+function stnSaveRemarkName(name){
+  if(!name || !name.trim()) return;
+  try {
+    var saved = JSON.parse(localStorage.getItem('igl_stn_remark_names')||'[]');
+    if(saved.indexOf(name.trim()) < 0){
+      saved.push(name.trim());
+      localStorage.setItem('igl_stn_remark_names', JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
+function stnRemarksFilter(val){
+  var dl = document.getElementById('stn-remarks-list');
+  if(!dl) return;
+  var names = stnGetRemarkNames();
+  var q = (val||'').trim().toLowerCase();
+  var filtered = q ? names.filter(function(n){ return n.toLowerCase().indexOf(q) === 0; }) : names;
+  dl.innerHTML = filtered.slice(0,10).map(function(n){
+    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
+  }).join('');
+}
+
+function stnInitRemarksDatalist(){
+  var dl = document.getElementById('stn-remarks-list');
+  if(!dl) return;
+  var names = stnGetRemarkNames();
+  dl.innerHTML = names.slice(0,20).map(function(n){
+    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
+  }).join('');
+}
+
 async function stnSaveIssue() {
   var date    = document.getElementById('stn-i-date').value;
   var slip    = document.getElementById('stn-i-slip').value.trim();
@@ -7511,6 +7560,9 @@ async function stnSaveIssue() {
   var arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
+
+  // remarks এ নাম থাকলে future autocomplete এর জন্য save করো
+  if(remarks) stnSaveRemarkName(remarks);
 
   gsAutoSyncRow('issue', iss);
   toast('✅ Issue saved! Slip: ' + slip + ' | ' + item + ' — Qty: ' + qty, 'success');
@@ -14215,8 +14267,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var combinedExtraCss = '';
 
+    // Tab-specific needle column width
+    var tabExtraCss = '';
+    if(tabIdx===0){
+      tabExtraCss='td:first-child{min-width:145px!important;max-width:145px!important;white-space:normal!important;word-break:break-word!important;}';
+    } else {
+      tabExtraCss='';
+    }
+
     var win = window.open('', '_blank', 'width=1400,height=900');
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + combinedExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + combinedExtraCss + tabExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
     win.document.close();
     win.focus();
   }
@@ -14229,10 +14289,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       '.rna-header { font-size: ' + (parseFloat(fontSize||7)+1) + 'pt; font-weight: 700; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 3px; color: #000; }',
       '.rna-print-page { page-break-after: always; width: 100%; }',
       '.rna-print-page:last-child { page-break-after: avoid; }',
-      'table { width: 100%; border-collapse: collapse; font-size: ' + fs + ' !important; table-layout: auto; }',
+      'table { width: 100%; border-collapse: collapse; font-size: ' + fs + ' !important; table-layout: fixed; }',
       'thead { display: table-header-group; }',
-      'th { border: 0.7px solid #000 !important; padding: 1px 3px; font-weight: bold; text-align: center; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; white-space: nowrap; }',
-      'td { border: 0.7px solid #000 !important; padding: 1px 3px; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; }',
+      'th { border: 0.7px solid #000 !important; padding: 1px 3px; font-weight: bold; text-align: center; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; white-space: nowrap; overflow: hidden; }',
+      'td { border: 0.7px solid #000 !important; padding: 1px 3px; font-size: ' + fs + ' !important; background: #fff !important; color: #000 !important; overflow: hidden; }',
+      // needle name column — 1st td: no truncation, white-space normal so it wraps if needed
+      'td:first-child { white-space: normal !important; word-break: break-all; font-weight: 700; min-width: 100px; }',
+      'th:first-child { min-width: 100px; }',
+      // B/F, Rcv, Issue, B/L columns — narrow fixed
+      'td:nth-child(2), td:nth-child(3), td:nth-child(n+5) { white-space: nowrap; text-align: center; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
       'button { display: none !important; }',
@@ -14841,7 +14906,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var parts=[]; s.forEach(function(v){if(v)parts.push(v);});
         var qty = parts.join('+');
         var nmx = getNeedleMachines().find(function(x){return x.id===m;});
-        var mlabel = nmx ? (m.indexOf('Jacquard')===0 ? m : ((nmx.retail||m) + (nmx.erp ? ' ('+nmx.erp+')' : ''))) : m;
+        // Jacquard: id থেকে short label বানাও — "Jacquard S/J 34"(2)" → "Jaq S/J(2)"
+        var mlabel;
+        if(m.indexOf('Jacquard')===0){
+          var jShort = m.replace('Jacquard','Jaq').replace(/\s*\d+"\s*/,' ');
+          mlabel = jShort;
+        } else {
+          mlabel = nmx ? ((nmx.retail||m) + (nmx.erp ? ' ('+nmx.erp+')' : '')) : m;
+        }
         if(qty) {
           machineCells += '<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 1px;background:#fff;width:'+cellW+'px;text-align:center;overflow:hidden;vertical-align:top;">'
             +'<span style="font-size:'+lblFs+';color:#000;font-weight:900;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;text-align:left;letter-spacing:0.2px;">'+_esc(mlabel)+'</span>'
