@@ -5057,6 +5057,8 @@ async function _doSave() {
       retailMachines: retailMachines,
       // Workers
       needleWorkers: needleWorkers,
+      // Recycle Bin
+      bin: (function(){ try{ return JSON.parse(localStorage.getItem('igl_bin') || '[]'); }catch(e){ return []; } })(),
       // Meta
       savedAt: new Date().toISOString(),
       version: '3.0-full'
@@ -8289,6 +8291,8 @@ function binAdd(type, item, label) {
   // সর্বোচ্চ 200 item রাখো
   if (bin.length > 200) bin = bin.slice(0, 200);
   binSet(bin);
+  // Bin ডেটা Firebase/file-এ sync করো
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
 }
 
 // Bin render করো
