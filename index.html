@@ -1943,6 +1943,7 @@ window.iglLogout = function(){
 // Available permissions list
 var IGL_PERMISSIONS = {
   'stn_requisition':  '📋 Stationery Requisition',
+  'stn_item_master':   '📦 STN Item Master',
   'backdate_entry':   '📅 Back Date Entry (Needle Issue)'
 };
 
@@ -1985,6 +1986,11 @@ function iglApplyPermissions() {
   var reqNav = document.getElementById('nav-stn-requisition');
   if (reqNav) {
     reqNav.style.display = (isAdmin || iglHasPermission('stn_requisition')) ? '' : 'none';
+  }
+  // Item Master menu
+  var imNav = document.getElementById('nav-stn-item-master');
+  if (imNav) {
+    imNav.style.display = (isAdmin || iglHasPermission('stn_item_master')) ? '' : 'none';
   }
 }
 
@@ -2315,6 +2321,7 @@ window.iglSaveUsers = function(){
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
       <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
+      <li id="nav-stn-item-master" style="display:none;"><a href="#" onclick="showPage('stn_item_master', this); return false;"><span class="icon">📦</span> Item Master</a></li>
       <li id="nav-stn-requisition" style="display:none;"><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
     </ul>
   </div>
@@ -3045,6 +3052,54 @@ window.iglSaveUsers = function(){
 
 
   <!-- STATIONERY REQUISITION PAGE -->
+
+  <!-- STN ITEM MASTER PAGE -->
+  <div class="page" id="page-stn_item_master">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>📦 Stationery Item Master</h2>
+        <p>সব Stationery Item এর Unit, Rate ও Rate History এখান থেকে Manage করুন</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+        <button onclick="stnImPageAdd()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">➕ নতুন Item</button>
+      </div>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="card no-print" style="margin-bottom:14px;">
+      <div class="card-body" style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="sim-search" placeholder="🔍 Item খুঁজুন..." oninput="stnItemMasterRender()" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+        <select id="sim-cat-filter" onchange="stnItemMasterRender()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:160px;">
+          <option value="">সব Category</option>
+        </select>
+        <span id="sim-count" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+      </div>
+    </div>
+
+    <!-- Item Table -->
+    <div class="card">
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:700px;">
+          <thead>
+            <tr style="background:linear-gradient(135deg,#00695c,#00838f);color:#fff;font-size:13px;">
+              <th style="padding:10px 8px;text-align:center;width:40px;">SL</th>
+              <th style="padding:10px 8px;text-align:left;">Item Name</th>
+              <th style="padding:10px 8px;text-align:left;width:130px;">Category</th>
+              <th style="padding:10px 8px;text-align:center;width:70px;">Unit</th>
+              <th style="padding:10px 8px;text-align:center;width:100px;">Current Rate ৳</th>
+              <th style="padding:10px 8px;text-align:center;width:80px;">কার্যকর মাস</th>
+              <th style="padding:10px 8px;text-align:center;width:80px;">Stock</th>
+              <th style="padding:10px 8px;text-align:center;width:160px;" class="no-print">Action</th>
+            </tr>
+          </thead>
+          <tbody id="sim-tbody">
+            <tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /page-stn_item_master -->
+
   <div class="page" id="page-stn_requisition">
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div>
@@ -5057,8 +5112,6 @@ async function _doSave() {
       retailMachines: retailMachines,
       // Workers
       needleWorkers: needleWorkers,
-      // Recycle Bin
-      bin: (function(){ try{ return JSON.parse(localStorage.getItem('igl_bin') || '[]'); }catch(e){ return []; } })(),
       // Meta
       savedAt: new Date().toISOString(),
       version: '3.0-full'
@@ -7085,6 +7138,12 @@ function showPage(name, el) {
       renderNeedleRemarksReport();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
+    else if (name === 'stn_item_master') {
+      if (!isAdmin && !iglHasPermission('stn_item_master')) {
+        showPage('stationery_dashboard'); return;
+      }
+      stnItemMasterRender();
+    }
     else if (name === 'stn_requisition') {
       if (!iglHasPermission('stn_requisition')) {
         toast('⛔ এই পেজটি শুধুমাত্র Admin বা অনুমোদিত User এর জন্য।', 'error');
@@ -8291,8 +8350,6 @@ function binAdd(type, item, label) {
   // সর্বোচ্চ 200 item রাখো
   if (bin.length > 200) bin = bin.slice(0, 200);
   binSet(bin);
-  // Bin ডেটা Firebase/file-এ sync করো
-  if (typeof triggerAutoSave === 'function') triggerAutoSave();
 }
 
 // Bin render করো
@@ -13702,6 +13759,277 @@ function stnMtRender(){
   });
   tb.innerHTML=h;
 }
+
+// ════════════════════════════════════════════════════
+// STN ITEM MASTER PAGE — JS
+// ════════════════════════════════════════════════════
+
+function stnItemMasterRender() {
+  var q      = ((document.getElementById('sim-search')||{}).value||'').toLowerCase();
+  var catF   = ((document.getElementById('sim-cat-filter')||{}).value||'');
+  var items  = DB.stnItems || [];
+
+  // Category filter dropdown populate
+  var catSel = document.getElementById('sim-cat-filter');
+  if (catSel) {
+    var cats = [...new Set(items.map(function(i){ return i.category||''; }).filter(Boolean))].sort();
+    var curVal = catSel.value;
+    catSel.innerHTML = '<option value="">সব Category</option>'
+      + cats.map(function(ct){ return '<option value="'+ct+'"'+(ct===curVal?' selected':'')+'>'+ct+'</option>'; }).join('');
+  }
+
+  // Filter
+  var filtered = items.filter(function(it, idx){
+    it._idx = idx; // original index সংরক্ষণ
+    var nameOk = !q || (it.name||'').toLowerCase().includes(q);
+    var catOk  = !catF || (it.category||'') === catF;
+    return nameOk && catOk;
+  });
+
+  // Stock হিসাব
+  var receives = [], issues = [];
+  try { receives = JSON.parse(localStorage.getItem('igl_stn_receives')||'[]'); } catch(e){}
+  try { issues   = JSON.parse(localStorage.getItem('igl_stn_issues')  ||'[]'); } catch(e){}
+
+  var countEl = document.getElementById('sim-count');
+  if (countEl) countEl.textContent = filtered.length + ' টি আইটেম';
+
+  var tbody = document.getElementById('sim-tbody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa;">কোনো Item পাওয়া যায়নি</td></tr>';
+    return;
+  }
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  tbody.innerHTML = filtered.map(function(it, i) {
+    var idx    = items.indexOf(it);
+    var totRcv = receives.filter(function(r){ return r.item===it.name; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+    var totIss = issues.filter(function(r){   return r.item===it.name; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+    var bf     = Number(it.bf)||0;
+    var stock  = bf + totRcv - totIss;
+    var sClr   = stock <= 0 ? '#e74c3c' : stock <= 5 ? '#e67e22' : '#1a6b3a';
+
+    // কার্যকর মাস display
+    var effMonth = '';
+    if (it.rateEffDate) {
+      var parts = it.rateEffDate.split('-');
+      if (parts.length >= 2) effMonth = MONTHS[Number(parts[1])-1] + '-' + parts[0].slice(2);
+    }
+
+    var rateDisp = it.rate ? '<span style="color:#1a6b3a;font-weight:700;">৳'+Number(it.rate).toLocaleString()+'</span>' : '<span style="color:#aaa;">—</span>';
+    var isAdmin  = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+
+    return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+';border-bottom:1px solid #eee;">'
+      + '<td style="text-align:center;padding:8px 6px;font-size:12px;color:#888;">'+(i+1)+'</td>'
+      + '<td style="padding:8px 10px;font-size:13px;font-weight:600;">'+it.name+'</td>'
+      + '<td style="padding:8px 8px;font-size:12px;color:#555;">'+(it.category||'—')+'</td>'
+      + '<td style="text-align:center;padding:8px 6px;font-size:12px;">'+(it.unit||'Pcs')+'</td>'
+      + '<td style="text-align:center;padding:8px 6px;">'+rateDisp+'</td>'
+      + '<td style="text-align:center;padding:8px 6px;font-size:12px;color:#7d3c98;font-weight:600;">'+(effMonth||'—')+'</td>'
+      + '<td style="text-align:center;padding:8px 6px;font-weight:700;color:'+sClr+';">'+stock+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;" class="no-print">'
+      + '<button onclick="stnImSetRate('+idx+')" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">✏️ Rate</button>'
+      + '<button onclick="stnImHistory('+idx+')" style="background:#f0f0f0;color:#555;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;margin:2px;">📋</button>'
+      + (isAdmin ? '<button onclick="stnImDel('+idx+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// ── নতুন Item যোগ ──
+function stnImPageAdd() {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:26px 28px;width:360px;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
+    + '<div style="font-size:15px;font-weight:700;color:#00695c;margin-bottom:16px;">➕ নতুন STN Item</div>'
+    + '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Item Name *</div>'
+    + '<input type="text" id="sim-add-name" class="form-control" placeholder="আইটেমের নাম..." style="width:100%;box-sizing:border-box;"></div>'
+    + '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Category</div>'
+    + '<input type="text" id="sim-add-cat" class="form-control" placeholder="Office Supplies, Cleaning..." style="width:100%;box-sizing:border-box;"></div>'
+    + '<div style="display:flex;gap:10px;margin-bottom:10px;">'
+    + '<div style="flex:1;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Unit</div>'
+    + '<select id="sim-add-unit" class="form-control" style="width:100%;padding:8px;box-sizing:border-box;">'
+    + '<option>Pcs</option><option>Kg</option><option>Liter</option><option>Box</option><option>Packet</option><option>Roll</option><option>**</option>'
+    + '</select></div>'
+    + '<div style="flex:1;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Rate ৳</div>'
+    + '<input type="number" id="sim-add-rate" class="form-control" placeholder="0.00" min="0" step="0.01" style="width:100%;box-sizing:border-box;"></div>'
+    + '</div>'
+    + '<div id="sim-add-err" style="color:#e74c3c;font-size:11px;min-height:14px;margin-bottom:10px;"></div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button id="sim-add-ok" style="flex:1;padding:10px;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;">✓ Save</button>'
+    + '<button id="sim-add-cancel" style="padding:10px 14px;background:#f0f0f0;border:none;border-radius:7px;font-size:13px;cursor:pointer;">বাতিল</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#sim-add-name').focus();
+
+  function doAdd() {
+    var name = (overlay.querySelector('#sim-add-name').value||'').trim();
+    var cat  = (overlay.querySelector('#sim-add-cat').value||'').trim();
+    var unit = overlay.querySelector('#sim-add-unit').value || 'Pcs';
+    var rate = Number(overlay.querySelector('#sim-add-rate').value||0);
+    var err  = overlay.querySelector('#sim-add-err');
+    if (!name) { err.textContent='⚠️ Item Name দিন!'; return; }
+    if (DB.stnItems.find(function(i){ return i.name===name; })) { err.textContent='⚠️ এই আইটেম আগেই আছে!'; return; }
+    var rateHistory = rate>0 ? [{rate:rate, month:new Date().toISOString().slice(0,7), setAt:new Date().toISOString()}] : [];
+    var arr = DB.stnItems;
+    arr.push({id:'stn_item_'+Date.now(), name:name, category:cat, group:'Stationery', unit:unit, rate:rate, rateEffDate:new Date().toISOString().slice(0,7), rateHistory:rateHistory});
+    DB.stnItems = arr;
+    triggerAutoSave();
+    stnPopulateItems('stn-r-item');
+    stnPopulateItems('stn-i-item');
+    document.body.removeChild(overlay);
+    stnItemMasterRender();
+    toast('✅ "'+name+'" যোগ হয়েছে!', 'success');
+  }
+  overlay.querySelector('#sim-add-name').addEventListener('keydown', function(e){ if(e.key==='Enter') doAdd(); });
+  overlay.querySelector('#sim-add-ok').addEventListener('click', doAdd);
+  overlay.querySelector('#sim-add-cancel').addEventListener('click', function(){ document.body.removeChild(overlay); });
+}
+
+// ── Rate আপডেট (মাস হিসেবে) ──
+function stnImSetRate(idx) {
+  var items = DB.stnItems;
+  var item  = items[idx];
+  if (!item) return;
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var now = new Date();
+  var curMonthVal = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var curEffMonth = item.rateEffDate || curMonthVal;
+
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
+
+  // Month/Year selectors
+  var monthOpts = MONTHS.map(function(m,i){
+    var val = String(i+1).padStart(2,'0');
+    var selMonth = curEffMonth.split('-')[1] || String(now.getMonth()+1).padStart(2,'0');
+    return '<option value="'+val+'"'+(val===selMonth?' selected':'')+'>'+m+'</option>';
+  }).join('');
+
+  var curYear = curEffMonth.split('-')[0] || String(now.getFullYear());
+  var yearOpts = '';
+  for (var y = now.getFullYear()-2; y <= now.getFullYear()+1; y++) {
+    yearOpts += '<option value="'+y+'"'+(String(y)===curYear?' selected':'')+'>'+y+'</option>';
+  }
+
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:26px 28px;width:330px;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
+    + '<div style="font-size:15px;font-weight:700;color:#1a5276;margin-bottom:4px;">✏️ Rate আপডেট</div>'
+    + '<div style="font-size:13px;color:#555;margin-bottom:16px;">'+item.name+'</div>'
+    + '<div style="margin-bottom:12px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">নতুন Rate ৳</div>'
+    + '<input type="number" id="sim-rate-inp" value="'+(item.rate||'')+'" placeholder="0.00" min="0" step="0.01" style="width:100%;padding:10px;border:2px solid #2980b9;border-radius:7px;font-size:16px;text-align:center;outline:none;box-sizing:border-box;"></div>'
+    + '<div style="margin-bottom:16px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">কার্যকর মাস থেকে</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<select id="sim-rate-month" style="flex:2;padding:8px;border:2px solid #ddd;border-radius:7px;font-size:13px;outline:none;">'+monthOpts+'</select>'
+    + '<select id="sim-rate-year" style="flex:1;padding:8px;border:2px solid #ddd;border-radius:7px;font-size:13px;outline:none;">'+yearOpts+'</select>'
+    + '</div></div>'
+    + (item.rate ? '<div style="background:#fff8e1;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#856404;">পুরনো Rate: <b>৳'+Number(item.rate).toLocaleString()+'</b> ('+( item.rateEffDate ? item.rateEffDate : '—' )+') — History তে সংরক্ষিত হবে</div>' : '')
+    + '<div style="display:flex;gap:8px;">'
+    + '<button id="sim-rate-ok" style="flex:1;padding:10px;background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;">✓ সেভ</button>'
+    + '<button id="sim-rate-cancel" style="padding:10px 14px;background:#f0f0f0;border:none;border-radius:7px;font-size:13px;cursor:pointer;">বাতিল</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+  var inp = overlay.querySelector('#sim-rate-inp');
+  inp.focus(); inp.select();
+
+  function doSave() {
+    var newRate  = Number(inp.value);
+    var selMonth = overlay.querySelector('#sim-rate-month').value;
+    var selYear  = overlay.querySelector('#sim-rate-year').value;
+    var effMonth = selYear + '-' + selMonth;
+    if (!newRate || newRate <= 0) { inp.style.borderColor='#e74c3c'; inp.focus(); return; }
+    var items2 = DB.stnItems;
+    var it2    = items2[idx];
+    if (!it2.rateHistory) it2.rateHistory = [];
+    // পুরনো rate history তে রাখো
+    if (it2.rate && it2.rate !== newRate) {
+      it2.rateHistory.push({rate:it2.rate, month:it2.rateEffDate||effMonth, setAt:new Date().toISOString()});
+    }
+    it2.rate        = newRate;
+    it2.rateEffDate = effMonth;
+    DB.stnItems = items2;
+    triggerAutoSave();
+    document.body.removeChild(overlay);
+    stnItemMasterRender();
+    toast('✅ Rate আপডেট: ৳'+newRate.toLocaleString()+' ('+effMonth+')', 'success');
+  }
+  inp.addEventListener('keydown', function(e){ if(e.key==='Enter') doSave(); });
+  overlay.querySelector('#sim-rate-ok').addEventListener('click', doSave);
+  overlay.querySelector('#sim-rate-cancel').addEventListener('click', function(){ document.body.removeChild(overlay); });
+}
+
+// ── Rate History দেখাও ──
+function stnImHistory(idx) {
+  var items = DB.stnItems;
+  var item  = items[idx];
+  if (!item) return;
+  var history = item.rateHistory || [];
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
+  var rows = !history.length
+    ? '<tr><td colspan="3" style="text-align:center;padding:20px;color:#aaa;">কোনো পুরনো Rate নেই</td></tr>'
+    : history.slice().reverse().map(function(h,i){
+        return '<tr style="background:'+(i%2===0?'#f9f9f9':'#fff')+'">'
+          + '<td style="padding:8px 12px;border:1px solid #eee;font-weight:600;color:#7d3c98;">'+(h.month||'—')+'</td>'
+          + '<td style="padding:8px 12px;border:1px solid #eee;text-align:center;font-weight:700;color:#c0392b;">৳'+Number(h.rate).toLocaleString()+'</td>'
+          + '<td style="padding:8px 12px;border:1px solid #eee;text-align:center;font-size:11px;color:#888;">'+(h.setAt?h.setAt.slice(0,16).replace('T',' '):'—')+'</td>'
+          + '</tr>';
+      }).join('');
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:24px 26px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+    + '<div><div style="font-size:15px;font-weight:700;color:#1a5276;">📋 Rate History</div>'
+    + '<div style="font-size:12px;color:#555;">'+item.name+'</div></div>'
+    + '<button id="sim-hist-close" style="background:#f0f0f0;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:15px;">✕</button></div>'
+    + '<div style="background:#e8f8f2;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">'
+    + '<span style="font-size:12px;color:#555;">বর্তমান Rate</span>'
+    + '<span style="font-size:18px;font-weight:800;color:#1a6b3a;">৳'+(item.rate?Number(item.rate).toLocaleString():'—')+'</span>'
+    + '<span style="font-size:12px;color:#7d3c98;font-weight:600;">'+(item.rateEffDate||'')+'</span></div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<thead><tr style="background:#1a5276;color:#fff;">'
+    + '<th style="padding:8px 12px;text-align:left;">কার্যকর মাস</th>'
+    + '<th style="padding:8px 12px;text-align:center;">Rate</th>'
+    + '<th style="padding:8px 12px;text-align:center;">Set করা হয়েছে</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#sim-hist-close').addEventListener('click', function(){ document.body.removeChild(overlay); });
+}
+
+// ── Item ডিলিট ──
+async function stnImDel(idx) {
+  var items = DB.stnItems;
+  var item  = items[idx];
+  if (!item) return;
+  var ok = await igl_confirm('"'+item.name+'" ডিলিট করবেন?', 'Item Master থেকে সরে যাবে।', '🗑️');
+  if (!ok) return;
+  binAdd('stn_item', item, 'STN Item — '+item.name);
+  items.splice(idx, 1);
+  DB.stnItems = items;
+  triggerAutoSave();
+  stnItemMasterRender();
+  stnPopulateItems('stn-r-item');
+  stnPopulateItems('stn-i-item');
+  toast('🗑️ "'+item.name+'" ডিলিট হয়েছে।', 'warning');
+}
+
+// ── stnGetRateForDate — month-based ──
+function stnGetRateForDate(itemId, forDate) {
+  var items = DB.stnItems || [];
+  var item  = items.find(function(x){ return x.id === itemId; });
+  if (!item) return 0;
+  var forMonth = forDate ? forDate.slice(0,7) : new Date().toISOString().slice(0,7);
+  var history  = (item.rateHistory || []).slice();
+  if (item.rate) history.push({rate:item.rate, month:item.rateEffDate||forMonth});
+  history.sort(function(a,b){ return (a.month||'').localeCompare(b.month||''); });
+  var best = 0;
+  history.forEach(function(h){ if ((h.month||'') <= forMonth) best = h.rate; });
+  return best || item.rate || 0;
+}
+
+// ════════════════════════════════════════════════════
+// END STN ITEM MASTER PAGE
+// ════════════════════════════════════════════════════
 async function stnMtDel(idx){
   var allItems = DB.stnItems;
   var item = allItems[idx];
