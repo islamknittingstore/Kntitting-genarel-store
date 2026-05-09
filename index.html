@@ -1206,6 +1206,8 @@ if('serviceWorker' in navigator){
   // ── END Offline Queue ─────────────────────────────────────────────
 
   window.fbSaveAll = function(){
+    // Save হওয়ার পর deleted IDs list পরিষ্কার করো
+    try{ localStorage.removeItem('igl_deleted_needle_ids'); }catch(e){}
     if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
 
     // নেট না থাকলে pending mark করো
@@ -1396,8 +1398,12 @@ if('serviceWorker' in navigator){
             // NDB.needles এও local pending merge করো
             var localNeedles = NDB.needles || [];
             var fbNeedles = data.ndb.needles;
+            // Deleted IDs — Firebase এ যা আছে তার মধ্যে deleted গুলো বাদ দাও
+            var _delNdlIds=[];
+            try{_delNdlIds=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');}catch(e){}
+            fbNeedles = fbNeedles.filter(function(r){ return _delNdlIds.indexOf(String(r.id))<0; });
             var fbNdlIds = {}; fbNeedles.forEach(function(r){ fbNdlIds[r.id]=true; });
-            var pendingNdl = localNeedles.filter(function(r){ return !fbNdlIds[r.id]; });
+            var pendingNdl = localNeedles.filter(function(r){ return !fbNdlIds[r.id] && _delNdlIds.indexOf(String(r.id))<0; });
             NDB.needles = fbNeedles.concat(pendingNdl);
             if(pendingNdl.length){
               toast('⚠️ '+pendingNdl.length+'টি pending needle entry merge হয়েছে','warning');
@@ -17081,6 +17087,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
+    // Deleted ID track করো যাতে Firebase reload এ ফিরে না আসে
+    try{
+      var _delNdl=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');
+      if(_delNdl.indexOf(String(id))<0) _delNdl.push(String(id));
+      localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_delNdl));
+    }catch(e){}
     // সব সংশ্লিষ্ট জায়গা refresh
     try { nmiRenderLog(); } catch(e) {}
     try { renderTodayNeedle(); } catch(e) {}
