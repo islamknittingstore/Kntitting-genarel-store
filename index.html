@@ -3127,13 +3127,13 @@ window.iglSaveUsers = function(){
         <span>📝 Requisition — Item Select & Quantity</span>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <label style="font-size:12px;font-weight:400;">Month:</label>
-          <select id="req-month" onchange="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:110px;">
+          <select id="req-month" onchange="stnReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:110px;">
             <option value="1">January</option><option value="2">February</option><option value="3">March</option>
             <option value="4">April</option><option value="5">May</option><option value="6">June</option>
             <option value="7">July</option><option value="8">August</option><option value="9">September</option>
             <option value="10">October</option><option value="11">November</option><option value="12">December</option>
           </select>
-          <select id="req-year" onchange="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;width:85px;"></select>
+          <select id="req-year" onchange="stnReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;width:85px;"></select>
           <input type="text" id="req-title" placeholder="Title (optional)" oninput="stnReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;width:160px;">
         </div>
       </div>
@@ -8457,6 +8457,42 @@ function stnReqInit() {
 }
 
 // History dropdown populate করো
+
+// মাস/বছর চেঞ্জ হলে → সেই মাসের saved data লোড অথবা চেকলিস্ট রিসেট
+function stnReqOnMonthChange() {
+  var month = (document.getElementById('req-month')||{}).value || '';
+  var year  = (document.getElementById('req-year')||{}).value  || '';
+  if (!month || !year) return;
+  var key = 'req_' + year + '_' + String(month).padStart(2,'0');
+  var reqs = {};
+  try { reqs = JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}'); } catch(e) {}
+  if (reqs[key]) {
+    // সেই মাসের saved data আছে → লোড করো
+    var saved = reqs[key];
+    var titleEl = document.getElementById('req-title');
+    if (titleEl && saved.title) titleEl.value = saved.title;
+    stnReqBuildChecklistFromSaved(saved.items);
+    toast('📂 ' + year + '/' + String(month).padStart(2,'0') + ' এর Requisition লোড হয়েছে।', 'success');
+  } else {
+    // নতুন মাস → সব রিসেট করো
+    (DB.stnItems||[]).forEach(function(it){
+      var chk = document.getElementById('req-chk-'+it.id);
+      if (chk) { chk.checked = false; }
+      var row = document.getElementById('req-row-'+it.id);
+      if (row) row.style.display = 'none';
+      var qtyInp = document.getElementById('req-qty-'+it.id);
+      if (qtyInp) qtyInp.value = '';
+      var rmkInp = document.getElementById('req-rmk-'+it.id);
+      if (rmkInp) rmkInp.value = '';
+    });
+    stnReqUpdatePreview();
+    toast('🆕 নতুন মাস — চেকলিস্ট রিসেট হয়েছে।', 'info');
+  }
+  // History dropdown sync
+  var histSel = document.getElementById('req-history-select');
+  if (histSel) histSel.value = reqs[key] ? key : '';
+}
+
 function stnReqPopulateHistory() {
   var sel = document.getElementById('req-history-select');
   if (!sel) return;
