@@ -2692,7 +2692,7 @@ window.iglSaveUsers = function(){
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Quantity</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Quantity</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="receiveLogTable"></tbody>
           </table>
@@ -2770,7 +2770,7 @@ window.iglSaveUsers = function(){
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Slip No.</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Qty</th><th>Machine No.</th><th>Machine ID</th><th>Machine Cat.</th><th>Remarks</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Slip No.</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Qty</th><th>Machine No.</th><th>Machine ID</th><th>Machine Cat.</th><th>Remarks</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="issueLogTable"></tbody>
           </table>
@@ -3893,7 +3893,7 @@ function ok(msg) {
         <div style="margin-bottom:12px;">
           <div style="font-weight:700;color:#2980b9;margin-bottom:6px;border-left:4px solid #2980b9;padding-left:8px;">🆕 New Needle</div>
           <div class="table-scroll">
-            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
+            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print nmi-admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Del</th></tr></thead>
             <tbody id="nmi-log-new-tbody"></tbody></table>
           </div>
         </div>
@@ -3901,7 +3901,7 @@ function ok(msg) {
         <div>
           <div style="font-weight:700;color:#e67e22;margin-bottom:6px;border-left:4px solid #e67e22;padding-left:8px;">♻️ Used Needle</div>
           <div class="table-scroll">
-            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print">Del</th></tr></thead>
+            <table><thead><tr><th>Date</th><th>Machine</th><th>Needle</th><th>Type</th><th>Qty</th><th>Shift</th><th>Supervisor</th><th>Remarks</th><th class="no-print nmi-admin-col" style="display:none;">Entry By</th><th class="no-print nmi-admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Del</th></tr></thead>
             <tbody id="nmi-log-used-tbody"></tbody></table>
           </div>
         </div>
@@ -7304,7 +7304,7 @@ function saveReceive() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  const rec = { id: Date.now(), date, group, category, item, chalan, supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'') };
+  const rec = { id: Date.now(), date, group, category, item, chalan, supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -7389,7 +7389,7 @@ async function saveIssue() {
     if (!ok) return;
   }
 
-  const iss = { id: Date.now(), date, slip, group, category, item, qty, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'') };
+  const iss = { id: Date.now(), date, slip, group, category, item, qty, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -7518,7 +7518,7 @@ function stnSaveReceive() {
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  var rec = { id: Date.now(), date: date, group: 'Stationery', category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'') };
+  var rec = { id: Date.now(), date: date, group: 'Stationery', category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   var arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -7616,7 +7616,7 @@ async function stnSaveIssue() {
     if (!ok) return;
   }
 
-  var iss = { id: Date.now(), date: date, slip: slip, group: 'Stationery', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''),
+  var iss = { id: Date.now(), date: date, slip: slip, group: 'Stationery', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
               machineId: dept, machineNo: '', machineCat: 'Stationery', remarks: remarks };
   var arr = DB.issues;
   arr.push(iss);
@@ -8377,7 +8377,12 @@ function binRender() {
     if (d.qty)     details += ' — Qty: ' + d.qty;
     if (d.machine) details += ' | Machine: ' + d.machine;
     if (d.date)    details += ' | Date: ' + d.date;
-    var delAt = b.deletedAt ? b.deletedAt.slice(0,16).replace('T',' ') : '';
+    var delAt = '';
+    if (b.deletedAt) {
+      var _d = new Date(b.deletedAt);
+      delAt = _d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+             + ' ' + _d.toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true});
+    }
     return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
       + '<td style="text-align:center;padding:6px 4px;border:1px solid #e0e0e0;">'+(i+1)+'</td>'
       + '<td style="padding:6px 8px;border:1px solid #e0e0e0;font-size:12px;">'+(TYPE_LABELS[b.type]||b.type)+'</td>'
@@ -11497,6 +11502,7 @@ function renderReceiveLog() {
     <td><span style="font-weight:600;color:#1a5276;">${hl(r.chalan||'-', q)}</span></td>
     <td><b style="color:#1a5276;">${r.qty}</b></td>
     ${entryByCell}
+    ${isAdmin ? `<td class="no-print admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:4px 6px;">${r.entryTime ? (new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})) : '—'}</td>` : ''}
     <td class="no-print" style="white-space:nowrap;">${(isAdmin || (window.IGL_CURRENT_USER && r.userId === window.IGL_CURRENT_USER.role)) ? `<button class="btn-del" onclick="deleteReceive(${r.id})">✕</button>` : ''}${iglCanEdit('receive',r) ? `<button onclick="openEditModal('receive',${r.id})" style="margin-left:4px;background:#1a5276;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button>` : ''}</td>
   </tr>`;
   }).join('');
@@ -11626,6 +11632,7 @@ function renderIssueLog() {
     <td>${hl(r.machineCat||'-', q)}</td>
     <td>${hl(r.remarks||'-', q)}</td>
     ${entryByCell}
+    ${isAdmin && r.entryTime ? `<td style="font-size:10px;color:#888;white-space:nowrap;padding:4px 6px;">${new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}<br>${new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})}</td>` : (isAdmin ? '<td style="font-size:10px;color:#ccc;">—</td>' : '')}
     <td class="no-print" style="white-space:nowrap;">${(isAdmin || (window.IGL_CURRENT_USER && r.userId === window.IGL_CURRENT_USER.role)) ? `<button class="btn-del" onclick="deleteIssue(${r.id})">✕</button>` : ''}${iglCanEdit('issue',r) ? `<button onclick="openEditModal('issue',${r.id})" style="margin-left:4px;background:#7d3c98;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button>` : ''}</td>
   </tr>`;
   }).join('');
@@ -16406,7 +16413,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var needle=nm.find(function(n){return n.id===ndlId;});
     if(!needle){toast('Not found!','error');return;}
     var arr=ndlGetRcv();
-    arr.push({id:Date.now(),date:date,needleId:ndlId,needleCode:needle.code,needleType:needle.type,needleStockType:needleStockType,section:needle.section,challan:challan,qty:qty,userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'')});
+    arr.push({id:Date.now(),date:date,needleId:ndlId,needleCode:needle.code,needleType:needle.type,needleStockType:needleStockType,section:needle.section,challan:challan,qty:qty,userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''),entryTime:new Date().toISOString()});
     ndlSetRcv(arr);
     toast('✅ Receive saved: '+needle.code+' ('+needleStockType+')','success');
     triggerAutoSave();
@@ -17035,6 +17042,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td style="color:'+rowFg+';font-weight:600;">'+(r.worker?(function(){var workers=getWorkers();var w=workers.find(function(x){return x.id===r.worker;});return w?w.name:(r.worker||'-');})():'-')+'</td>'
         +'<td style="color:'+rowFg+';">'+(r.remarks||'-')+'</td>'
         +entryByCell
+        +(isAdmin?(r.entryTime?'<td class="no-print nmi-admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:3px 5px;border:1px solid #ddd;">'+new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})+'</td>':'<td class="no-print nmi-admin-col" style="display:none;font-size:10px;color:#ccc;border:1px solid #ddd;">—</td>'):'')
         +'<td class="no-print" style="text-align:center;white-space:nowrap;">'
           +(_canDelNmi ? '<button data-did="'+r.id+'" onclick="event.stopPropagation();nmiDelIss(this.dataset.did)" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">X</button>' : '')
           +(iglCanEdit('needle',r) ? '<button onclick="event.stopPropagation();openEditModal(\'needle\','+r.id+')" style="margin-left:4px;background:#e67e22;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700;" title="Edit">✏️</button>' : '')
