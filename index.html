@@ -1206,8 +1206,6 @@ if('serviceWorker' in navigator){
   // ── END Offline Queue ─────────────────────────────────────────────
 
   window.fbSaveAll = function(){
-    // Save হওয়ার পর deleted IDs list পরিষ্কার করো
-    try{ localStorage.removeItem('igl_deleted_needle_ids'); }catch(e){}
     if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
 
     // নেট না থাকলে pending mark করো
@@ -1487,6 +1485,8 @@ if('serviceWorker' in navigator){
     if(_fbLastTs === 0){ _fbLastTs = ts; fbStatus('connected', '🔗 Cloud Connected'); return; }
     if(ts > _fbLastTs){
       _fbLastTs = ts;
+      // Delete এর পরে সাময়িক block থাকলে load করবে না
+      if(window._fbIgnoreNextLoad){ window._fbIgnoreNextLoad = false; return; }
       window.fbLoadAll();
     }
   });
@@ -17087,12 +17087,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
-    // Deleted ID track করো যাতে Firebase reload এ ফিরে না আসে
-    try{
-      var _delNdl=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');
-      if(_delNdl.indexOf(String(id))<0) _delNdl.push(String(id));
-      localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_delNdl));
-    }catch(e){}
+    // Firebase realtime listener কে সাময়িক block করো
+    window._fbIgnoreNextLoad = true;
+    setTimeout(function(){ window._fbIgnoreNextLoad = false; }, 5000);
     // সব সংশ্লিষ্ট জায়গা refresh
     try { nmiRenderLog(); } catch(e) {}
     try { renderTodayNeedle(); } catch(e) {}
@@ -17101,7 +17098,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     try { renderNeedleLedger(); } catch(e) {}
     try { renderNewSetLog(); } catch(e) {}
     try { renderDashboard(); } catch(e) {}
-    triggerAutoSave();
+    // সরাসরি Firebase এ save করো (delay ছাড়া)
+    if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
     toast('✅ ডিলিট হয়েছে — সব জায়গা আপডেট হয়েছে', 'warning');
   }
 
