@@ -8819,23 +8819,40 @@ function stnReqUpdateRemark(itemId, val) {
 }
 
 function stnReqSaveRequisition() {
-  var items = stnReqGetSelected();
-  if (items.length === 0) { toast('⚠️ কমপক্ষে একটি Item টিক দিন!', 'warning'); return; }
+  var newItems = stnReqGetSelected();
+  if (newItems.length === 0) { toast('⚠️ কমপক্ষে একটি Item টিক দিন!', 'warning'); return; }
   var month = (document.getElementById('req-month')||{}).value;
   var year  = (document.getElementById('req-year')||{}).value;
   var title = (document.getElementById('req-title')||{}).value || '';
   var key   = 'req_'+year+'_'+month;
   var reqs  = DB.stnRequisitions || {};
-  reqs[key] = { month: Number(month), year: Number(year), title: title, items: items, savedAt: new Date().toISOString() };
+  // আগের saved items এর সাথে merge করো
+  var prevItems = (reqs[key] && reqs[key].items) ? reqs[key].items : [];
+  // নতুন items এ আগেরগুলো merge — একই item থাকলে নতুনটা রাখো
+  var merged = prevItems.slice();
+  newItems.forEach(function(ni){
+    var existing = merged.findIndex(function(pi){ return pi.id === ni.id || pi.name === ni.name; });
+    if (existing >= 0) {
+      merged[existing] = ni; // আপডেট করো
+    } else {
+      merged.push(ni); // নতুন যোগ করো
+    }
+  });
+  var addedCount = newItems.filter(function(ni){
+    return !prevItems.find(function(pi){ return pi.id===ni.id||pi.name===ni.name; });
+  }).length;
+  reqs[key] = { month: Number(month), year: Number(year), title: title, items: merged, savedAt: new Date().toISOString() };
   DB.stnRequisitions = reqs;
   triggerAutoSave();
-  stnReqPopulateHistory(); // history dropdown আপডেট করো
+  stnReqPopulateHistory();
   var regM = document.getElementById('reg-month');
   var regY = document.getElementById('reg-year');
   if (regM) regM.value = month;
   if (regY) regY.value = year;
-
-  toast('✅ Requisition সেভ হয়েছে! ('+items.length+' টি আইটেম)', 'success');
+  var msg = addedCount > 0
+    ? '✅ সেভ হয়েছে! '+addedCount+' টি নতুন Item যোগ হয়েছে। মোট: '+merged.length+' টি।'
+    : '✅ Requisition আপডেট হয়েছে! মোট: '+merged.length+' টি আইটেম।';
+  toast(msg, 'success');
   stnReqRenderRegister();
 }
 
