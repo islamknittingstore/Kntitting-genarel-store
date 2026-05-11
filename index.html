@@ -8497,6 +8497,11 @@ function stnReqOnMonthChange() {
       var rmkInp = document.getElementById('req-rmk-'+it.id);
       if (rmkInp) rmkInp.value = '';
     });
+    // নতুন মাসে item master rate auto-fill করো
+    (DB.stnItems||[]).forEach(function(it){
+      var rateInp3 = document.getElementById('req-rate-'+it.id);
+      if (rateInp3 && it.rate) rateInp3.value = it.rate;
+    });
     stnReqUpdatePreview();
     toast('🆕 নতুন মাস — চেকলিস্ট রিসেট হয়েছে।', 'info');
   }
@@ -8559,6 +8564,9 @@ function stnReqBuildChecklistFromSaved(savedItems) {
       if (qtyInp)  qtyInp.value  = si.qty  || '';
       if (unitSel) unitSel.value = si.unit  || 'Pcs';
       if (rmkInp)  rmkInp.value  = si.remarks || '';
+      // Saved rate দেখাও — এটা সেই মাসের actual rate
+      var rateInp2 = document.getElementById('req-rate-'+si.id);
+      if (rateInp2) rateInp2.value = si.rate || '';
     }
   });
   stnReqUpdatePreview();
@@ -8602,7 +8610,7 @@ function stnReqBuildChecklist() {
     var uOpts = ['Pcs','Kg','Liter','**'].map(function(u){
       return '<option value="'+u+'"'+(u===savedUnit?' selected':'')+'>'+u+'</option>';
     }).join('');
-    var savedRate = rates[it.id] || '';
+    var savedRate = it.rate || rates[it.id] || ''; // Item Master থেকে auto-fill
 
     html += '<div class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;background:'+(checked?'#e8f8f2':'#fff')+';">';
     html += '<input type="checkbox" id="req-chk-'+it.id+'" onchange="stnReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:16px;height:16px;accent-color:#00838f;cursor:pointer;">';
@@ -8663,14 +8671,15 @@ function stnReqFilterItems() {
 
 // Rate localStorage এ save করো (একবার set করলে সবসময় থাকে)
 function stnReqSaveRate(itemId, val) {
-  var rates = {};
-  try { rates = JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){}
-  if (val && Number(val) > 0) rates[itemId] = Number(val);
-  else delete rates[itemId];
-  localStorage.setItem('igl_stn_rates', JSON.stringify(rates));
+  // শুধু preview আপডেট করো — Item Master পরিবর্তন করবে না
+  // Rate সেভ হবে Requisition Save করার সময়
+  stnReqUpdatePreview();
 }
 function stnReqGetRates() {
-  try { return JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){ return {}; }
+  // Item Master থেকে rate map তৈরি করো
+  var map = {};
+  (DB.stnItems||[]).forEach(function(it){ if(it.id && it.rate) map[it.id] = it.rate; });
+  return map;
 }
 
 function stnReqGetSelected() {
@@ -8683,7 +8692,8 @@ function stnReqGetSelected() {
       var unitSel = document.getElementById('req-unit-'+it.id);
       var rmkInp  = document.getElementById('req-rmk-'+it.id);
       var rateInp = document.getElementById('req-rate-'+it.id);
-      var rate    = rateInp ? (Number(rateInp.value)||0) : (rates[it.id]||0);
+      // Rate priority: ১) checklist এ manual input ২) item master rate
+      var rate = rateInp && Number(rateInp.value) > 0 ? Number(rateInp.value) : (it.rate || 0);
       var qty     = qtyInp ? (Number(qtyInp.value)||0) : 0;
       items.push({
         id:      it.id,
@@ -8843,6 +8853,22 @@ function stnReqSaveRequisition() {
   }).length;
   reqs[key] = { month: Number(month), year: Number(year), title: title, items: merged, savedAt: new Date().toISOString() };
   DB.stnRequisitions = reqs;
+  // Save করার পর — Item Master এ rate আপডেট করো (পরের মাসের জন্য)
+  var _stnArr = DB.stnItems || [];
+  var _changed = false;
+  merged.forEach(function(mi){
+    if (!mi.rate) return;
+    var masterItem = _stnArr.find(function(x){ return x.id === mi.id; });
+    if (!masterItem) return;
+    if (masterItem.rate !== mi.rate) {
+      if (!masterItem.rateHistory) masterItem.rateHistory = [];
+      if (masterItem.rate) masterItem.rateHistory.push({rate:masterItem.rate, month:masterItem.rateEffDate||key.replace('req_','').replace('_','-'), setAt:new Date().toISOString()});
+      masterItem.rate = mi.rate;
+      masterItem.rateEffDate = year+'-'+String(month).padStart(2,'0');
+      _changed = true;
+    }
+  });
+  if (_changed) { DB.stnItems = _stnArr.slice(); }
   triggerAutoSave();
   stnReqPopulateHistory();
   var regM = document.getElementById('reg-month');
@@ -14087,7 +14113,7 @@ function stnImPageAdd() {
     var rh = rate>0?[{rate:rate, month:new Date().toISOString().slice(0,7), setAt:new Date().toISOString()}]:[];
     var arr = DB.stnItems||[];
     arr.push({id:'stn_item_'+Date.now(), name:name, category:cat, group:'Stationery', unit:unit, rate:rate, rateEffDate:new Date().toISOString().slice(0,7), rateHistory:rh});
-    DB.stnItems = arr;
+    DB.stnItems = arr; // setter trigger → localStorage এ সেভ
     triggerAutoSave();
     stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
     document.body.removeChild(overlay);
@@ -14133,7 +14159,7 @@ function stnImSetRate(idx) {
     if(!it2.rateHistory) it2.rateHistory=[];
     if(it2.rate && it2.rate!==newRate) it2.rateHistory.push({rate:it2.rate,month:it2.rateEffDate||effMonth,setAt:new Date().toISOString()});
     it2.rate=newRate; it2.rateEffDate=effMonth;
-    DB.stnItems=DB.stnItems;
+    var _stnArr = DB.stnItems.slice(); DB.stnItems = _stnArr; // setter trigger
     triggerAutoSave();
     document.body.removeChild(overlay);
     stnItemMasterRender();
@@ -14178,7 +14204,8 @@ async function stnImDel(idx) {
   var ok=await igl_confirm('"'+item.name+'" ডিলিট করবেন?','Item Master থেকে সরে যাবে।','🗑️');
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
-  items.splice(idx,1); DB.stnItems=items;
+  items.splice(idx,1);
+  DB.stnItems = items; // setter trigger → localStorage এ সেভ
   triggerAutoSave();
   stnItemMasterRender();
   stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
