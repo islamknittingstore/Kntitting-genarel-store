@@ -1125,6 +1125,7 @@ if('serviceWorker' in navigator){
 <!-- Firebase SDK (compat version - works with local HTML files) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyCZOs6EnL68T1vk1tFlNJBQJgr5FxqVl-s",
@@ -1735,6 +1736,11 @@ function iglDoLogin(){
   IGL_CURRENT_USER = { username: u, role: IGL_USERS[u].role, name: IGL_USERS[u].name };
   localStorage.setItem('igl_session', JSON.stringify(IGL_CURRENT_USER));
 
+  // Firebase Anonymous Auth — background এ sign-in করো
+  try {
+    firebase.auth().signInAnonymously().catch(function(e){ console.warn('Firebase auth:', e.message); });
+  } catch(e) { console.warn('Firebase auth error:', e); }
+
   // body class দিয়ে admin/user UI control করো
   if(IGL_CURRENT_USER.role === 'admin'){
     document.body.classList.remove('igl-user-regular');
@@ -1774,6 +1780,8 @@ function iglDoLogin(){
     var s = JSON.parse(localStorage.getItem('igl_session') || 'null');
     if(s && IGL_USERS[s.username] && IGL_USERS[s.username].pass === (s.pass||IGL_USERS[s.username].pass)){
       IGL_CURRENT_USER = s;
+      // Session restore এ Firebase Anonymous Auth
+      try { firebase.auth().signInAnonymously().catch(function(e){ console.warn('Firebase auth:', e.message); }); } catch(e){}
       document.addEventListener('DOMContentLoaded', function(){
         var ov = document.getElementById('igl-login-overlay');
         if(ov) ov.style.display = 'none';
