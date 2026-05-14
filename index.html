@@ -1437,6 +1437,10 @@ if('serviceWorker' in navigator){
           if(data.stn.items)    localStorage.setItem('igl_stn_items',    JSON.stringify(data.stn.items));
           if(data.stn.requisitions) localStorage.setItem('igl_stn_requisitions', JSON.stringify(data.stn.requisitions));
         }
+        // stnItems root level এ থাকলে লোড করো (নতুন save format)
+        if(data.stnItems && data.stnItems.length > 0){
+          DB.stnItems = data.stnItems;
+        }
         if(data.ndlRcv){
           // Needle receive এও pending merge করো
           var localNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]');
@@ -4505,6 +4509,7 @@ function ok(msg) {
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportNeedleUseExcel()">📊 Excel</button>
           <span id="nur-offday-btn-wrap" style="display:none;">
             <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurOpenOffDayManager()">🔴 Off Day / Holiday</button>
+            <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;margin-left:4px;" onclick="nurOpenProdManager()">📦 Monthly Production</button>
           </span>
         </div>
       </div>
@@ -4521,6 +4526,24 @@ function ok(msg) {
           <div id="nur-offday-list" style="margin-bottom:14px;min-height:40px;"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;">
             <button onclick="nurCloseOffDayManager()" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">✅ Done</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Production Manager Modal (Admin Only) -->
+      <div id="nur-prod-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:10px;padding:22px 26px;width:360px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 6px;color:#1e8449;font-size:15px;">📦 Monthly Total Production</h3>
+          <p style="font-size:12px;color:#555;margin-bottom:14px;" id="nur-prod-modal-label"></p>
+          <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+            <input type="number" id="nur-prod-modal-input" class="form-control" placeholder="kg পরিমাণ লিখুন" min="0" step="0.01"
+              style="flex:1;font-size:15px;font-weight:700;text-align:center;"
+              onkeydown="if(event.key==='Enter') nurSaveProdFromModal()">
+            <span style="font-size:13px;color:#555;font-weight:600;">kg</span>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+            <button onclick="nurCloseProdManager()" style="background:#95a5a6;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">বাতিল</button>
+            <button onclick="nurSaveProdFromModal()" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">✅ Save</button>
           </div>
         </div>
       </div>
@@ -18520,6 +18543,42 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       nurLoadProdKg(year, month, prodInput);
     }
   }
+
+  // ── Monthly Production Manager Modal ──────────────────────────
+  function nurOpenProdManager() {
+    var y = parseInt(document.getElementById('nur-year').value) || new Date().getFullYear();
+    var m = parseInt(document.getElementById('nur-month').value) || (new Date().getMonth()+1);
+    var mNames = ['','জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+    document.getElementById('nur-prod-modal-label').textContent = y + ' সালের ' + (mNames[m]||m) + ' মাসের মোট উৎপাদন বসান';
+    // বিদ্যমান value লোড করো
+    var existing = document.getElementById('nur-prod-kg-'+y+'-'+m);
+    document.getElementById('nur-prod-modal-input').value = existing ? (existing.value || '') : '';
+    document.getElementById('nur-prod-modal').style.display = 'flex';
+    setTimeout(function(){ document.getElementById('nur-prod-modal-input').focus(); }, 100);
+  }
+
+  function nurCloseProdManager() {
+    document.getElementById('nur-prod-modal').style.display = 'none';
+  }
+
+  function nurSaveProdFromModal() {
+    var val = document.getElementById('nur-prod-modal-input').value;
+    if (!val || isNaN(val) || Number(val) < 0) { toast('❌ সঠিক পরিমাণ দিন', 'error'); return; }
+    var y = parseInt(document.getElementById('nur-year').value) || new Date().getFullYear();
+    var m = parseInt(document.getElementById('nur-month').value) || (new Date().getMonth()+1);
+    // Page 2 এর input field এ বসাও
+    var inputEl = document.getElementById('nur-prod-kg-'+y+'-'+m);
+    if (inputEl) {
+      inputEl.value = val;
+      var span = inputEl.nextElementSibling;
+      if (span) span.textContent = val;
+    }
+    // Save to Firebase + localStorage
+    nurSaveProdKg(y, m, val);
+    nurCloseProdManager();
+    toast('✅ Total Production ' + val + ' kg সেভ হয়েছে', 'success');
+  }
+  // ──────────────────────────────────────────────────────────────
 
   // Firebase এ Total Production save করো
   function nurSaveProdKg(year, month, value) {
