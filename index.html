@@ -9943,6 +9943,16 @@ async function stnDeleteTx(type, id) {
   toast('✅ এন্ট্রি ডিলিট হয়েছে!', 'success');
 }
 
+function stnGetHiddenItems() {
+  try { return JSON.parse(localStorage.getItem('igl_stn_hidden') || '[]'); } catch(e) { return []; }
+}
+function stnSetHiddenItems(arr) {
+  localStorage.setItem('igl_stn_hidden', JSON.stringify(arr));
+}
+function stnIsItemVisible(itemId) {
+  return stnGetHiddenItems().indexOf(itemId) === -1;
+}
+
 function renderStationeryDashboard() {
   var q = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
   var _dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
@@ -20643,17 +20653,6 @@ function stnPopulateSupplierDatalist() {
   if (!dl) return;
   var list = stnGetSuppliers();
   dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
-}
-
-
-function stnGetHiddenItems() {
-  try { return JSON.parse(localStorage.getItem('igl_stn_hidden') || '[]'); } catch(e) { return []; }
-}
-function stnSetHiddenItems(arr) {
-  localStorage.setItem('igl_stn_hidden', JSON.stringify(arr));
-}
-function stnIsItemVisible(itemId) {
-  return stnGetHiddenItems().indexOf(itemId) === -1;
 }
 
 function stnShowVisibilityModal() {
