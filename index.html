@@ -13984,7 +13984,8 @@ function nsrSaveAll() {
       needle:    n.needle,
       qty:       n.qty,
       type:      'newset',
-      nsrOnly:   true,        // stock balance থেকে বাদ — শুধু record
+      nsrOnly:   true,
+      source:    'nsr',        // stock balance থেকে বাদ — শুধু record
       remarks:   remarks,
       userId:    userId,
       entryTime: new Date().toISOString()
@@ -15302,7 +15303,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var needleObjs  = getRNANeedles()[ti] || [];
       var tabName     = tabNames[ti];
 
-      var issInRange  = issues.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used' && (iss.type||'').toLowerCase()!=='used'; });
+      var issInRange  = issues.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used' && (iss.type||'').toLowerCase()!=='used' && !iss.nsrOnly && iss.source!=='nsr'; });
       var rcvInRange  = rcv.filter(function(r){ return r.date>=fromDate && r.date<=toDate && (r.needleStockType||'new')==='new'; });
 
       // supervisor→shift mapping
@@ -15363,6 +15364,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         issues.forEach(function(iss){
           if(iss.date>=fromDate)return;
           if((iss.needleType||'new').toLowerCase()==='used')return;
+          if(iss.nsrOnly || iss.source==='nsr') return; // NSR record — balance থেকে বাদ নয়
           if((nId&&iss.needleId===nId)||(iss.needleCode||'').trim().toLowerCase()===nNameL)bfIss+=parseFloat(iss.qty||0)||0;
         });
         var bf=initialBf+bfRcv-bfIss;
@@ -15642,8 +15644,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var needleObjs = getRNANeedles()[tabIdx] || [];
     var tabName = RNA_TAB_NAMES[tabIdx];
 
-    // Filter issues in date range — exclude used needles completely
-    var issInRange = issuesAll.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used' && (iss.type||'').toLowerCase()!=='used'; });
+    // Filter issues in date range — exclude used needles and NSR-only records completely
+    var issInRange = issuesAll.filter(function(iss){ return iss.date>=fromDate && iss.date<=toDate && (iss.needleType||'new').toLowerCase()!=='used' && (iss.type||'').toLowerCase()!=='used' && !iss.nsrOnly && iss.source!=='nsr'; });
     var rcvInRange = rcvAll.filter(function(r){ return r.date>=fromDate && r.date<=toDate && (r.needleStockType||'new')==='new'; });
 
     // Build supervisor→shift mapping per date per machine
@@ -15744,6 +15746,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       issuesAll.forEach(function(iss){
         if(iss.date >= fromDate) return; // only before fromDate
         if((iss.needleType||'new').toLowerCase()==='used') return;
+        if(iss.nsrOnly || iss.source==='nsr') return; // NSR record — balance থেকে বাদ নয়
         if((nId && iss.needleId===nId) || (iss.needleCode||'').trim().toLowerCase()===nNameL){
           bfIss += parseFloat(iss.qty||0)||0;
         }
@@ -17058,7 +17061,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; });
     } else {
       typeRcv = allRcvRaw.filter(function(r){ return (r.needleStockType||'new')==='new'; });
-      typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly; });
+      typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; });
     }
 
     // B/F কাটঅফ: মাসের ১ তারিখের আগের receive ও issue
@@ -17361,7 +17364,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // ─── Stock Balance Check (New Needle only) ────────────────────────────────
     if (needleType !== 'used') {
       var _allRcvs = ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
-      var _allIss  = NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly; });
+      var _allIss  = NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; });
       function _ndlCurrentStock(nId) {
         var _n = nm.find(function(x){ return x.id === nId; });
         var _bf  = _n ? (Number(_n.bf)||0) : 0;
@@ -17670,7 +17673,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var toDate=(document.getElementById('nst-to')||{}).value||'';
     var nm=ndlGetMaster();
     var allRcvs=ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
-    var allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly; }):[];
+    var allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }):[];
 
     // Date filter — যদি from/to দেওয়া থাকে তাহলে filter করো
     var rcvs = fromDate||toDate ? allRcvs.filter(function(r){
@@ -19103,7 +19106,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // B/F Date Calculator
     var bfDate = (document.getElementById('ndlm-bf-date')||{}).value||'';
     var allRcvs = ndlGetRcv ? ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';}) : [];
-    var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly;}) : [];
+    var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}) : [];
     var saveBtnEl = document.getElementById('ndlm-bf-save-all-btn');
     if(labelEl){
       if(bfDate){
@@ -19197,7 +19200,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var nm = ndlGetMaster();
     var allRcvs = ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';});
-    var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly;}) : [];
+    var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}) : [];
 
     var updated = 0;
     nm.forEach(function(n){
@@ -20351,7 +20354,7 @@ function renderNdlStockRegister() {
     allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'').toLowerCase()==='used'&&r.needleId===ndlId;}):[];
   } else {
     allRcvs=ndlGetRcv?ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new'&&r.needleId===ndlId;}):[];
-    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used'&&!r.nsrOnly&&r.needleId===ndlId;}):[];
+    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used'&&!r.nsrOnly && r.source!=='nsr'&&r.needleId===ndlId;}):[];
   }
   var mm=(month<10?'0':'')+month;
   var fromDate=year+'-'+mm+'-01';
@@ -20440,7 +20443,7 @@ function renderNdlConsolidated(){
     allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'').toLowerCase()==='used';}):[];
   } else {
     allRcvs=ndlGetRcv?ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';}):[];
-    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly;}):[];
+    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}):[];
   var toDate=year+'-'+mm+'-'+(daysInMonth<10?'0':'')+daysInMonth;
   var nm=ndlGetMaster?ndlGetMaster():[];
   var masterBF=0;
