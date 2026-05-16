@@ -4054,7 +4054,6 @@ function ok(msg) {
             <option value="Flat Knit">Flat Knit</option>
           </select>
           <button class="btn btn-primary btn-sm" onclick="renderNeedleMonthly()">View</button>
-          <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;margin-left:4px;" onclick="debugJaq()">&#128270; Jaq Debug</button>
           <button class="btn btn-outline btn-sm" onclick="printMachineWise()" style="background:#1a5276;color:#fff;border-color:#1a5276;">🖨️ প্রিন্ট করুন</button>
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportMonthlyExcel()">📊 Excel</button>
         </div>
@@ -21410,52 +21409,66 @@ function pqbDoPrint() {
   }, 100);
 }
 </script>
-
 <script>
-// ══ ERP 136-140 Migration ══
-(function migrateJacquardMachineNames(){
-  var erpMap = {
+// ══ ERP 136-140 Fix ══
+(function fixJacquardMachines(){
+  var correct = {
     '136': 'Jacquard Auto 34" (1)',
     '137': 'Jacquard S/J 34" (2)',
     '138': 'Jacquard S/J 34" (3)',
     '139': 'Jacquard Rib 34" (4)',
     '140': 'Jacquard Rib 34" (5)'
   };
-  var exactMap = {
-    'Jacquard Auto 34"(1)': {name:'Jacquard Auto 34" (1)', erp:'136'},
-    'Jacquard S/J 34"(2)':  {name:'Jacquard S/J 34" (2)',  erp:'137'},
-    'Jacquard S/J 34"(3)':  {name:'Jacquard S/J 34" (3)',  erp:'138'},
-    'Jacquard Rib 34"(4)':  {name:'Jacquard Rib 34" (4)',  erp:'139'},
-    'Jacquard Rib 34"(5)':  {name:'Jacquard Rib 34" (5)',  erp:'140'},
-    // নম্বর ছাড়া partial names → ERP 139 এ assign
-    'Jacquard Rib 34':      {name:'Jacquard Rib 34" (4)',  erp:'139'},
-    'Jacquard Rib 34"':     {name:'Jacquard Rib 34" (4)',  erp:'139'}
-  };
 
+  // Step 1: igl_retail_machines ঠিক করো — এটাই getNeedleMachines() এর source
   try {
     var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
-    var rmChanged = false;
-    rms.forEach(function(rm) {
-      var erp = (rm.erp || '').toString();
-      if (erpMap[erp] && rm.name !== erpMap[erp]) { rm.name = erpMap[erp]; rmChanged = true; }
+    var changed = false;
+    rms.forEach(function(m) {
+      var erp = (m.erp || '').toString().trim();
+      if (correct[erp] && m.name !== correct[erp]) {
+        m.name = correct[erp];
+        changed = true;
+      }
     });
-    if (rmChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+    if (changed) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
   } catch(e) {}
+
+  // Step 2: igl_needles ঠিক করো
+  // নাম → ERP mapping (সব সম্ভাব্য variation)
+  var nameToErp = {
+    'Jacquard Auto 34" (1)':  '136',
+    'Jacquard Auto 34"(1)':   '136',
+    'Jacquard Auto 34\" (1)':'136',
+    'Jacquard S/J 34" (2)':   '137',
+    'Jacquard S/J 34"(2)':    '137',
+    'Jacquard S/J 34" (3)':   '138',
+    'Jacquard S/J 34"(3)':    '138',
+    'Jacquard Rib 34" (4)':   '139',
+    'Jacquard Rib 34"(4)':    '139',
+    'Jacquard Rib 34" (5)':   '140',
+    'Jacquard Rib 34"(5)':    '140',
+    'Jacquard Rib 34':        '139'
+  };
 
   try {
     var needles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
     var ndlChanged = false;
     needles.forEach(function(n) {
+      var erp = (n.erp || '').toString().trim();
       var cur = (n.machine || '').trim();
-      var erp = (n.erp || '').toString();
+
       // ERP দিয়ে fix
-      if (erp && erpMap[erp] && cur !== erpMap[erp]) {
-        n.machine = erpMap[erp]; ndlChanged = true; return;
+      if (erp && correct[erp]) {
+        if (n.machine !== correct[erp]) { n.machine = correct[erp]; ndlChanged = true; }
+        return;
       }
-      // exact/partial name দিয়ে fix
-      if (exactMap[cur]) {
-        n.machine = exactMap[cur].name;
-        n.erp = exactMap[cur].erp;
+
+      // ERP নেই — name দিয়ে ERP বের করো, তারপর fix
+      var foundErp = nameToErp[cur];
+      if (foundErp) {
+        n.machine = correct[foundErp];
+        n.erp = foundErp;
         ndlChanged = true;
       }
     });
@@ -21464,36 +21477,5 @@ function pqbDoPrint() {
 })();
 </script>
 
-<script>
-function debugJaq() {
-  var month = Number(document.getElementById('nm-month').value);
-  var year  = Number(document.getElementById('nm-year').value);
-  var allN = NDB.needles.filter(function(n){
-    var nd = new Date(n.date);
-    return nd.getMonth()+1===month && nd.getFullYear()===year
-      && (n.needleType||'').toLowerCase()!=='used'
-      && (n.type||'').toLowerCase()!=='used';
-  });
-  // সব unique machine names যেগুলোতে জেকোয়ার্ড বা Jacquard আছে
-  var jaqNames = {};
-  allN.forEach(function(n){
-    var m = (n.machine||'').trim();
-    if(m.toLowerCase().indexOf('jacquard')>=0 || m.toLowerCase().indexOf('jaq')>=0){
-      if(!jaqNames[m]) jaqNames[m] = {erp: n.erp||'', count:0, qty:0};
-      jaqNames[m].count++;
-      jaqNames[m].qty += (n.qty||0);
-    }
-  });
-  var msg = 'Jacquard machine names in needles ('+month+'/'+year+'):\n\n';
-  Object.keys(jaqNames).forEach(function(k){
-    msg += '"'+k+'" | erp:"'+jaqNames[k].erp+'" | entries:'+jaqNames[k].count+' | qty:'+jaqNames[k].qty+'\n';
-  });
-  // Machine master এ কী আছে
-  var masters = getNeedleMachines().filter(function(m){ return parseInt(m.erp||0)>=136 && parseInt(m.erp||0)<=140; });
-  msg += '\nMachine Master 136-140:\n';
-  masters.forEach(function(m){ msg += 'ERP:'+m.erp+' | id:"'+m.id+'"\n'; });
-  alert(msg);
-}
-</script>
 </body>
 </html>
