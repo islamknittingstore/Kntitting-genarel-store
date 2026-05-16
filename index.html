@@ -13351,13 +13351,7 @@ function renderNeedleMonthly() {
     var dayTotals = days.map(function(){return 0;});
 
     machineList.forEach(function(machine) {
-      var mData = allNeedles.filter(function(n){
-        if(n.machine===machine.id) return true;
-        if(machine.erp && n.erp && n.erp.toString()===machine.erp.toString()) return true;
-        var nm=(n.machine||'').trim(), mid=(machine.id||'').trim();
-        if(nm && nm.length>5 && mid.indexOf(nm)===0) return true;
-        return false;
-      });
+      var mData = allNeedles.filter(function(n){return n.machine===machine.id;});
       var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
       t += '<tr>';
       t += '<td style="text-align:center;">' + machine.erp + '</td>';
@@ -13383,7 +13377,7 @@ function renderNeedleMonthly() {
     t += '<td style="text-align:center;color:#fff;background:#117a65;">' + pageTotal + '</td>';
     t += '</tr>';
     t += '</tbody></table></div></div>';
-    return t;
+    return {html: t, total: pageTotal, erpFrom: machineList[0]?machineList[0].erp:'', erpTo: machineList[machineList.length-1]?machineList[machineList.length-1].erp:''};
   }
 
   // Page 3: Circular sum + gap + Flat Knit আলাদা
@@ -13411,13 +13405,7 @@ function renderNeedleMonthly() {
       var secTotal = 0;
       var secDayTotals = days.map(function(){return 0;});
       machList.forEach(function(machine){
-        var mData = allNeedles.filter(function(n){
-          if(n.machine===machine.id) return true;
-          if(machine.erp && n.erp && n.erp.toString()===machine.erp.toString()) return true;
-          var nm=(n.machine||'').trim(), mid=(machine.id||'').trim();
-          if(nm && nm.length>5 && mid.indexOf(nm)===0) return true;
-          return false;
-        });
+        var mData = allNeedles.filter(function(n){return n.machine===machine.id;});
         var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
         t += '<tr>';
         t += '<td style="text-align:center;">'+machine.erp+'</td>';
@@ -13439,21 +13427,23 @@ function renderNeedleMonthly() {
       secDayTotals.forEach(function(dt){ t += '<td style="text-align:center;color:#fff;">'+(dt>0?dt:'')+'</td>'; });
       t += '<td style="text-align:center;color:#fff;background:#117a65;">'+secTotal+'</td>';
       t += '</tr>';
+      return secTotal;
     }
 
+    var _p3Total = 0;
     // Circular 130–140
-    if (circMachines.length > 0) buildRows(circMachines, 'Circular ERP 130–140');
+    if (circMachines.length > 0) { var _r1=buildRows(circMachines, 'Circular ERP 130–140'); _p3Total+=_r1; }
 
     // Gap row + Flat Knit header
     if (fkMachines.length > 0) {
       t += '<tr style="background:#f0f3f7;">';
       t += '<td colspan="'+(days.length+4)+'" style="padding:6px 8px;font-weight:700;color:#1a5276;font-size:9pt;border-top:2px solid #2980b9;">&#9654; Flat Knit Machines</td>';
       t += '</tr>';
-      buildRows(fkMachines, 'Flat Knit');
+      var _r2=buildRows(fkMachines, 'Flat Knit'); _p3Total+=_r2;
     }
 
     t += '</tbody></table></div></div>';
-    return t;
+    return {html: t, total: _p3Total, erpFrom: '130', erpTo: '140'};
   }
 
   // Machine range অনুযায়ী ৩টা page bucket
@@ -13464,8 +13454,8 @@ function renderNeedleMonthly() {
 
   machines.forEach(function(m) {
     var erp = parseInt(m.erp || 0, 10);
-    var mSec = m.section || '';
-    if (mSec === 'Flat Knit') {
+    var sec = m.section || '';
+    if (sec === 'Flat Knit') {
       flatKnitMachines.push(m);
     } else if (erp >= 130) {
       page3Machines.push(m);
@@ -13485,12 +13475,45 @@ function renderNeedleMonthly() {
 
   // Section filter already applied in machines variable above
 
-  if (page1Machines.length > 0)
-    html += buildMachineTable('Circular — Page 1 (ERP 8–81)', page1Machines, false);
-  if (page2Machines.length > 0)
-    html += buildMachineTable('Circular — Page 2 (ERP 82–129)', page2Machines, true);
-  if (page3Machines.length > 0 || flatKnitMachines.length > 0)
-    html += buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
+  var pageSummaries = [];
+  if (page1Machines.length > 0) {
+    var _p1 = buildMachineTable('Circular — Page 1 (ERP 8–81)', page1Machines, false);
+    html += _p1.html;
+    if (_p1.total > 0) pageSummaries.push({label: 'Page 1 (ERP '+_p1.erpFrom+'–'+_p1.erpTo+')', total: _p1.total});
+  }
+  if (page2Machines.length > 0) {
+    var _p2 = buildMachineTable('Circular — Page 2 (ERP 82–129)', page2Machines, true);
+    html += _p2.html;
+    if (_p2.total > 0) pageSummaries.push({label: 'Page 2 (ERP '+_p2.erpFrom+'–'+_p2.erpTo+')', total: _p2.total});
+  }
+  if (page3Machines.length > 0 || flatKnitMachines.length > 0) {
+    var _p3 = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
+    html += _p3.html;
+    if (_p3.total > 0) pageSummaries.push({label: 'Page 3 (ERP 130–140 + Flat Knit)', total: _p3.total});
+  }
+
+  // Grand Summary Table — সব পেজ মিলিয়ে
+  if (pageSummaries.length > 0) {
+    var grandTotal = pageSummaries.reduce(function(s,p){return s+p.total;},0);
+    var sumHtml = '<div style="padding:10px 15px;page-break-before:avoid;">';
+    sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:320px;margin-top:10px;">';
+    sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
+    sumHtml += '<th style="padding:6px 10px;text-align:left;">Page</th>';
+    sumHtml += '<th style="padding:6px 10px;text-align:center;">Total (pcs)</th>';
+    sumHtml += '</tr></thead><tbody>';
+    pageSummaries.forEach(function(p) {
+      sumHtml += '<tr style="border-bottom:1px solid #eee;">';
+      sumHtml += '<td style="padding:5px 10px;">'+p.label+'</td>';
+      sumHtml += '<td style="padding:5px 10px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td>';
+      sumHtml += '</tr>';
+    });
+    sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;">';
+    sumHtml += '<td style="padding:7px 10px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
+    sumHtml += '<td style="padding:7px 10px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
+    sumHtml += '</tr>';
+    sumHtml += '</tbody></table></div>';
+    html += sumHtml;
+  }
 
   if (!html) html = '<div class="no-data" style="padding:40px;">No needle issue data for this period.</div>';
   document.getElementById('needleMonthlyGrid').innerHTML = html;
@@ -21377,74 +21400,6 @@ function pqbDoPrint() {
     }, 1500);
   }, 100);
 }
-</script>
-
-<script>
-// ══ ERP 136-140 Migration — partial name match fix ══
-(function migrateJacquardMachineNames(){
-
-  // ERP 136-140 এর সব সম্ভাব্য পুরনো নাম → নতুন সঠিক নাম
-  var nameMap = [
-    { match: /^Jacquard Auto 34/i,  newName: 'Jacquard Auto 34" (1)', erp: '136' },
-    { match: /^Jacquard S\/J 34.*2/i, newName: 'Jacquard S/J 34" (2)', erp: '137' },
-    { match: /^Jacquard S\/J 34.*3/i, newName: 'Jacquard S/J 34" (3)', erp: '138' },
-    { match: /^Jacquard Rib 34.*4/i, newName: 'Jacquard Rib 34" (4)', erp: '139' },
-    { match: /^Jacquard Rib 34.*5/i, newName: 'Jacquard Rib 34" (5)', erp: '140' },
-    // শুধু "Jacquard Rib 34" — নম্বর নেই, ERP দিয়ে distinguish করা যাবে না
-    // তাই এগুলো আলাদাভাবে handle করতে হবে না — monthly তে দুটো machine এ দেখাবে
-  ];
-
-  // ERP → নতুন নাম
-  var erpMap = {
-    '136': 'Jacquard Auto 34" (1)',
-    '137': 'Jacquard S/J 34" (2)',
-    '138': 'Jacquard S/J 34" (3)',
-    '139': 'Jacquard Rib 34" (4)',
-    '140': 'Jacquard Rib 34" (5)'
-  };
-
-  // 1. retail_machines fix
-  try {
-    var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
-    var rmChanged = false;
-    rms.forEach(function(rm) {
-      var erp = (rm.erp || '').toString();
-      if (erpMap[erp] && rm.name !== erpMap[erp]) {
-        rm.name = erpMap[erp];
-        rmChanged = true;
-      }
-    });
-    if (rmChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
-  } catch(e) {}
-
-  // 2. needle issues fix
-  try {
-    var needles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
-    var ndlChanged = false;
-    needles.forEach(function(n) {
-      var cur = (n.machine || '').trim();
-      var erp = (n.erp || '').toString();
-
-      // ERP আছে → সরাসরি fix
-      if (erp && erpMap[erp] && cur !== erpMap[erp]) {
-        n.machine = erpMap[erp];
-        ndlChanged = true;
-        return;
-      }
-
-      // ERP নেই → name দিয়ে match করো
-      for (var i = 0; i < nameMap.length; i++) {
-        if (nameMap[i].match.test(cur) && cur !== nameMap[i].newName) {
-          n.machine = nameMap[i].newName;
-          n.erp = nameMap[i].erp;
-          ndlChanged = true;
-          break;
-        }
-      }
-    });
-    if (ndlChanged) localStorage.setItem('igl_needles', JSON.stringify(needles));
-  } catch(e) {}
-})();
 </script>
 
 </body>
