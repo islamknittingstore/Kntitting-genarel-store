@@ -13351,7 +13351,13 @@ function renderNeedleMonthly() {
     var dayTotals = days.map(function(){return 0;});
 
     machineList.forEach(function(machine) {
-      var mData = allNeedles.filter(function(n){return n.machine===machine.id;});
+      var mData = allNeedles.filter(function(n){
+        if(n.machine===machine.id) return true;
+        if(machine.erp && n.erp && n.erp.toString()===machine.erp.toString()) return true;
+        var nm=(n.machine||'').trim(), mid=(machine.id||'').trim();
+        if(nm && nm.length>5 && mid.indexOf(nm)===0) return true;
+        return false;
+      });
       var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
       t += '<tr>';
       t += '<td style="text-align:center;">' + machine.erp + '</td>';
@@ -13405,7 +13411,13 @@ function renderNeedleMonthly() {
       var secTotal = 0;
       var secDayTotals = days.map(function(){return 0;});
       machList.forEach(function(machine){
-        var mData = allNeedles.filter(function(n){return n.machine===machine.id;});
+        var mData = allNeedles.filter(function(n){
+          if(n.machine===machine.id) return true;
+          if(machine.erp && n.erp && n.erp.toString()===machine.erp.toString()) return true;
+          var nm=(n.machine||'').trim(), mid=(machine.id||'').trim();
+          if(nm && nm.length>5 && mid.indexOf(nm)===0) return true;
+          return false;
+        });
         var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
         t += '<tr>';
         t += '<td style="text-align:center;">'+machine.erp+'</td>';
@@ -13452,8 +13464,8 @@ function renderNeedleMonthly() {
 
   machines.forEach(function(m) {
     var erp = parseInt(m.erp || 0, 10);
-    var sec = m.section || '';
-    if (sec === 'Flat Knit') {
+    var mSec = m.section || '';
+    if (mSec === 'Flat Knit') {
       flatKnitMachines.push(m);
     } else if (erp >= 130) {
       page3Machines.push(m);
@@ -20444,6 +20456,10 @@ function renderNdlConsolidated(){
   } else {
     allRcvs=ndlGetRcv?ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';}):[];
     allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}):[];
+  }
+  var mm=(month<10?'0':'')+month;
+  var daysInMonth=new Date(year,month,0).getDate();
+  var fromDate=year+'-'+mm+'-01';
   var toDate=year+'-'+mm+'-'+(daysInMonth<10?'0':'')+daysInMonth;
   var nm=ndlGetMaster?ndlGetMaster():[];
   var masterBF=0;
@@ -21361,6 +21377,74 @@ function pqbDoPrint() {
     }, 1500);
   }, 100);
 }
+</script>
+
+<script>
+// ══ ERP 136-140 Migration — partial name match fix ══
+(function migrateJacquardMachineNames(){
+
+  // ERP 136-140 এর সব সম্ভাব্য পুরনো নাম → নতুন সঠিক নাম
+  var nameMap = [
+    { match: /^Jacquard Auto 34/i,  newName: 'Jacquard Auto 34" (1)', erp: '136' },
+    { match: /^Jacquard S\/J 34.*2/i, newName: 'Jacquard S/J 34" (2)', erp: '137' },
+    { match: /^Jacquard S\/J 34.*3/i, newName: 'Jacquard S/J 34" (3)', erp: '138' },
+    { match: /^Jacquard Rib 34.*4/i, newName: 'Jacquard Rib 34" (4)', erp: '139' },
+    { match: /^Jacquard Rib 34.*5/i, newName: 'Jacquard Rib 34" (5)', erp: '140' },
+    // শুধু "Jacquard Rib 34" — নম্বর নেই, ERP দিয়ে distinguish করা যাবে না
+    // তাই এগুলো আলাদাভাবে handle করতে হবে না — monthly তে দুটো machine এ দেখাবে
+  ];
+
+  // ERP → নতুন নাম
+  var erpMap = {
+    '136': 'Jacquard Auto 34" (1)',
+    '137': 'Jacquard S/J 34" (2)',
+    '138': 'Jacquard S/J 34" (3)',
+    '139': 'Jacquard Rib 34" (4)',
+    '140': 'Jacquard Rib 34" (5)'
+  };
+
+  // 1. retail_machines fix
+  try {
+    var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
+    var rmChanged = false;
+    rms.forEach(function(rm) {
+      var erp = (rm.erp || '').toString();
+      if (erpMap[erp] && rm.name !== erpMap[erp]) {
+        rm.name = erpMap[erp];
+        rmChanged = true;
+      }
+    });
+    if (rmChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+  } catch(e) {}
+
+  // 2. needle issues fix
+  try {
+    var needles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
+    var ndlChanged = false;
+    needles.forEach(function(n) {
+      var cur = (n.machine || '').trim();
+      var erp = (n.erp || '').toString();
+
+      // ERP আছে → সরাসরি fix
+      if (erp && erpMap[erp] && cur !== erpMap[erp]) {
+        n.machine = erpMap[erp];
+        ndlChanged = true;
+        return;
+      }
+
+      // ERP নেই → name দিয়ে match করো
+      for (var i = 0; i < nameMap.length; i++) {
+        if (nameMap[i].match.test(cur) && cur !== nameMap[i].newName) {
+          n.machine = nameMap[i].newName;
+          n.erp = nameMap[i].erp;
+          ndlChanged = true;
+          break;
+        }
+      }
+    });
+    if (ndlChanged) localStorage.setItem('igl_needles', JSON.stringify(needles));
+  } catch(e) {}
+})();
 </script>
 
 </body>
