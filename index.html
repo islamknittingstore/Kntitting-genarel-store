@@ -13020,7 +13020,7 @@ function _seedRetailMachinesIfEmpty(){
       localStorage.setItem('igl_retail_machines', JSON.stringify(seeded));
       return;
     }
-    // সবসময় NEEDLE_MACHINES এর সাথে মিলিয়ে name/gauge/section ঠিক করো
+    // শুধু missing বা ভুল থাকলে update করো
     var changed = false;
     NEEDLE_MACHINES.forEach(function(m, i){
       var erpStr = (m.erp||'').toString();
@@ -13028,15 +13028,24 @@ function _seedRetailMachinesIfEmpty(){
       var existIdx = -1;
       stored.forEach(function(x, xi){ if(x.erp === erpStr) existIdx = xi; });
       if(existIdx === -1){
+        // নতুন মেশিন — যোগ করো
         stored.push({ id:'rm_seed_'+i+'_'+Date.now(), erp:erpStr, name:m.id||'', retail:m.retail||m.id||'', gauge:m.gauge||'', section:m.section||''});
         changed = true;
       } else {
-        // name সবসময় NEEDLE_MACHINES এর id দিয়ে update করো
-        stored[existIdx].name    = m.id || '';
-        stored[existIdx].retail  = m.retail || m.id || '';
-        stored[existIdx].gauge   = m.gauge || '';
-        stored[existIdx].section = m.section || '';
-        changed = true;
+        // আছে — শুধু name ভুল থাকলে ঠিক করো, সবসময় না
+        var x = stored[existIdx];
+        if(x.name !== (m.id||'')){
+          stored[existIdx].name = m.id || '';
+          changed = true;
+        }
+        if(x.gauge !== (m.gauge||'')){
+          stored[existIdx].gauge = m.gauge || '';
+          changed = true;
+        }
+        if(x.section !== (m.section||'')){
+          stored[existIdx].section = m.section || '';
+          changed = true;
+        }
       }
     });
     if(changed) localStorage.setItem('igl_retail_machines', JSON.stringify(stored));
