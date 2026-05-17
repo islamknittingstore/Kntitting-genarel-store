@@ -13009,24 +13009,28 @@ const NEEDLE_MACHINES = [
 function _seedRetailMachinesIfEmpty(){
   try {
     var stored = JSON.parse(localStorage.getItem('igl_retail_machines') || 'null');
-    // Check if old section names exist — force re-seed if so
     var hasOldSections = stored && stored.some(function(m){
       var s = (m.section||'');
       return s==='S/J & Fleece' || s==='Auto S/J & Rib' || s==='Rib & Interlock' || s==='Auto S/J & Rib/Interlock';
     });
-    var needsUpdate = stored && stored.length < NEEDLE_MACHINES.length;
-    if(stored && stored.length > 0 && !hasOldSections && !needsUpdate) return;
-    var seeded = NEEDLE_MACHINES.map(function(m, i){
-      return {
-        id: 'rm_seed_' + i,
-        erp: (m.erp||'').toString(),
-        name: m.id || '',
-        retail: m.retail || m.id || '',
-        gauge: m.gauge || '',
-        section: m.section || ''
-      };
+    if(!stored || stored.length === 0 || hasOldSections){
+      var seeded = NEEDLE_MACHINES.map(function(m, i){
+        return { id:'rm_seed_'+i, erp:(m.erp||'').toString(), name:m.id||'', retail:m.retail||m.id||'', gauge:m.gauge||'', section:m.section||''};
+      });
+      localStorage.setItem('igl_retail_machines', JSON.stringify(seeded));
+      return;
+    }
+    var changed = false;
+    NEEDLE_MACHINES.forEach(function(m, i){
+      var alreadyExists = stored.some(function(x){
+        return x.erp === (m.erp||'').toString() || x.name === (m.id||'');
+      });
+      if(!alreadyExists){
+        stored.push({ id:'rm_seed_'+i+'_'+Date.now(), erp:(m.erp||'').toString(), name:m.id||'', retail:m.retail||m.id||'', gauge:m.gauge||'', section:m.section||''});
+        changed = true;
+      }
     });
-    localStorage.setItem('igl_retail_machines', JSON.stringify(seeded));
+    if(changed) localStorage.setItem('igl_retail_machines', JSON.stringify(stored));
   } catch(e){}
 }
 
@@ -13326,7 +13330,7 @@ function renderNeedleMonthly() {
 
     function buildNeedleToMachineMap(machineList) {
       var map = {};
-      // Pass 1: exact machine.id match
+      // Pass 1: exact machine.id match — section চেক করো না, exact হলেই নাও
       allNeedles.forEach(function(n) {
         machineList.forEach(function(machine) {
           if (n.machine === machine.id) {
@@ -13334,16 +13338,34 @@ function renderNeedleMonthly() {
           }
         });
       });
-      // Pass 2: ERP fallback — শুধু section মিললে (Flat Knit needle শুধু Flat Knit machine এ, Circular needle শুধু Circular machine এ)
+      // Pass 2: ERP number match — section অবশ্যই মিলতে হবে
       allNeedles.forEach(function(n) {
         if (map[n.id]) return;
         var nSec = (n.section || '').toLowerCase();
         machineList.forEach(function(machine) {
           if (map[n.id]) return;
           var mSec = (machine.section || '').toLowerCase();
-          // section mismatch হলে skip
-          if (nSec && mSec && nSec !== mSec) return;
+          // section মিলতেই হবে — cross-section match নিষিদ্ধ
+          if (!nSec || !mSec || nSec !== mSec) return;
           if (machine.erp && n.erp && n.erp.toString() === machine.erp.toString()) {
+            map[n.id] = machine.id;
+          }
+        });
+      });
+      // Pass 3: machine name exact match — section অবশ্যই মিলতে হবে
+      allNeedles.forEach(function(n) {
+        if (map[n.id]) return;
+        if (!n.machine) return;
+        var nSec = (n.section || '').toLowerCase();
+        var nMach = n.machine.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+        machineList.forEach(function(machine) {
+          if (map[n.id]) return;
+          var mSec = (machine.section || '').toLowerCase();
+          // section মিলতেই হবে — cross-section match নিষিদ্ধ
+          if (!nSec || !mSec || nSec !== mSec) return;
+          var mId = machine.id.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+          // শুধু exact match, partial নয়
+          if (nMach && mId && nMach === mId) {
             map[n.id] = machine.id;
           }
         });
@@ -13609,10 +13631,25 @@ function renderUsedNeedleMonthly() {
     var secMachines = machines.filter(function(m){ return m.section===section; });
     if (!secMachines.length) return;
 
-    // Only machines that have used needle data
+    // Only machines that have used needle data — erp বা id দিয়ে match
     var secData = allNeedles.filter(function(n){ return n.section===section; });
-    var activeMachineIds = [...new Set(secData.map(function(n){ return n.machine; }))];
-    var activeMachines = secMachines.filter(function(m){ return activeMachineIds.indexOf(m.id) >= 0; });
+    function _usedMatchMachine(n, machine) {
+      // section মিলতেই হবে — cross-section match নিষিদ্ধ
+      var nSec = (n.section || '').toLowerCase();
+      var mSec = (machine.section || '').toLowerCase();
+      // Pass 1: exact id match — section check ছাড়া
+      if (n.machine === machine.id) return true;
+      // বাকি সব pass এ section মিলতে হবে
+      if (!nSec || !mSec || nSec !== mSec) return false;
+      // Pass 2: erp match
+      if (machine.erp && n.erp && n.erp.toString() === machine.erp.toString()) return true;
+      // Pass 3: exact name match
+      var nM = (n.machine||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var mI = machine.id.toLowerCase().replace(/[^a-z0-9]/g,'');
+      if (nM && mI && nM === mI) return true;
+      return false;
+    }
+    var activeMachines = secMachines.filter(function(m){ return secData.some(function(n){ return _usedMatchMachine(n,m); }); });
     if (!activeMachines.length) return;
 
     html += '<div style="padding:15px 20px 0;">';
@@ -13635,7 +13672,7 @@ function renderUsedNeedleMonthly() {
     var dayTotals = days.map(function(){ return 0; });
 
     activeMachines.forEach(function(machine) {
-      var mData = allNeedles.filter(function(n){ return n.machine===machine.id; });
+      var mData = allNeedles.filter(function(n){ return _usedMatchMachine(n, machine); });
       var rowTotal = mData.reduce(function(s,n){ return s+n.qty; }, 0);
 
       html += '<tr>';
@@ -21459,13 +21496,14 @@ function pqbDoPrint() {
 
   // ERP 136-140 এর সব সম্ভাব্য পুরনো নাম → নতুন সঠিক নাম
   var nameMap = [
-    { match: /^Jacquard Auto 34/i,  newName: 'Jacquard Auto 34" (1)', erp: '136' },
-    { match: /^Jacquard S\/J 34.*2/i, newName: 'Jacquard S/J 34" (2)', erp: '137' },
-    { match: /^Jacquard S\/J 34.*3/i, newName: 'Jacquard S/J 34" (3)', erp: '138' },
-    { match: /^Jacquard Rib 34.*4/i, newName: 'Jacquard Rib 34" (4)', erp: '139' },
-    { match: /^Jacquard Rib 34.*5/i, newName: 'Jacquard Rib 34" (5)', erp: '140' },
-    // শুধু "Jacquard Rib 34" — নম্বর নেই, ERP দিয়ে distinguish করা যাবে না
-    // তাই এগুলো আলাদাভাবে handle করতে হবে না — monthly তে দুটো machine এ দেখাবে
+    { match: /Jaq.*Auto.*34|Jacquard.*Auto.*34/i,          newName: 'Jacquard Auto 34" (1)', erp: '136' },
+    { match: /Jaq.*S\/J.*34.*2|Jacquard.*S\/J.*34.*2/i,  newName: 'Jacquard S/J 34" (2)',  erp: '137' },
+    { match: /Jaq.*S\/J.*34.*3|Jacquard.*S\/J.*34.*3/i,  newName: 'Jacquard S/J 34" (3)',  erp: '138' },
+    { match: /Jaq.*Rib.*34.*4|Jacquard.*Rib.*34.*4/i,      newName: 'Jacquard Rib 34" (4)',  erp: '139' },
+    { match: /Jaq.*Rib.*34.*5|Jacquard.*Rib.*34.*5/i,      newName: 'Jacquard Rib 34" (5)',  erp: '140' },
+    // ERP দিয়ে match না হলে, সব Jaq S/J 34 → 137, সব Jaq Rib 34 (no number) → 139
+    { match: /Jaq.*S\/J.*34|Jacquard.*S\/J.*34/i,        newName: 'Jacquard S/J 34" (2)',  erp: '137' },
+    { match: /Jaq.*Rib.*34|Jacquard.*Rib.*34/i,            newName: 'Jacquard Rib 34" (4)',  erp: '139' },
   ];
 
   // ERP → নতুন নাম
