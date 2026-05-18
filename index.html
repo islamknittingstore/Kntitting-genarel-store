@@ -1231,10 +1231,10 @@ if('serviceWorker' in navigator){
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
-          issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
-          receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
-          items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
-          requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
+          issues:       (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){return r.group==='Stationery';}) : [],
+          receives:     (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){return r.group==='Stationery';}) : [],
+          items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [],
+          requisitions: (typeof DB !== 'undefined') ? (DB.requisitions||{}) : {}
         },
         ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
@@ -1432,12 +1432,31 @@ if('serviceWorker' in navigator){
           }
         }
         if(data.stn){
-          if(data.stn.issues)   localStorage.setItem('igl_stn_issues',   JSON.stringify(data.stn.issues));
-          if(data.stn.receives) localStorage.setItem('igl_stn_receives', JSON.stringify(data.stn.receives));
-          if(data.stn.items)    localStorage.setItem('igl_stn_items',    JSON.stringify(data.stn.items));
-          if(data.stn.requisitions) localStorage.setItem('igl_stn_requisitions', JSON.stringify(data.stn.requisitions));
+          // Stationery items → DB.stnItems
+          if(data.stn.items && data.stn.items.length > 0){
+            DB.stnItems = data.stn.items;
+          }
+          // Stationery requisitions → DB.requisitions
+          if(data.stn.requisitions){
+            DB.requisitions = data.stn.requisitions;
+          }
+          // Stationery receives → DB.receives (Stationery group merge)
+          if(data.stn.receives && data.stn.receives.length > 0){
+            var localAllRcv = DB.receives || [];
+            var fbStnRcv = data.stn.receives;
+            var fbStnRcvIds = {}; fbStnRcv.forEach(function(r){ fbStnRcvIds[r.id]=true; });
+            var nonStnRcv = localAllRcv.filter(function(r){ return r.group !== 'Stationery'; });
+            DB.receives = nonStnRcv.concat(fbStnRcv);
+          }
+          // Stationery issues → DB.issues (Stationery group merge)
+          if(data.stn.issues && data.stn.issues.length > 0){
+            var localAllIss = DB.issues || [];
+            var fbStnIss = data.stn.issues;
+            var nonStnIss = localAllIss.filter(function(r){ return r.group !== 'Stationery'; });
+            DB.issues = nonStnIss.concat(fbStnIss);
+          }
         }
-        // stnItems root level এ থাকলে লোড করো (নতুন save format)
+        // stnItems root level এ থাকলে লোড করো (legacy format)
         if(data.stnItems && data.stnItems.length > 0){
           DB.stnItems = data.stnItems;
         }
@@ -18727,7 +18746,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> <span style="font-size:7.5px;color:#888;">(Flat Knit বাদে)</span> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
-    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="display:none;font-size:8px;font-weight:700;min-width:40px;display:inline-block;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="font-size:8px;font-weight:700;min-width:40px;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
