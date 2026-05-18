@@ -8740,7 +8740,7 @@ function stnReqBuildChecklist() {
       var si = saved.items.find(function(x){ return x.id === it.id; });
       if (si) { savedQty = si.qty; savedUnit = si.unit || 'Pcs'; savedRemarks = si.remarks || ''; }
     }
-    var uOpts = ['Pcs','Kg','Liter','**'].map(function(u){
+    var uOpts = ['Pcs','Kg','Liter','Pek','**'].map(function(u){
       return '<option value="'+u+'"'+(u===savedUnit?' selected':'')+'>'+u+'</option>';
     }).join('');
     var savedRate = it.rate || rates[it.id] || ''; // Item Master থেকে auto-fill
@@ -13583,8 +13583,9 @@ function renderNeedleMonthly() {
     if(_p2total>0) pageSummaries.push({label:'Page 2 — Circular (ERP 82–129)', total:_p2total});
   }
 
+  var _page3Html = '';
   if (page3Machines.length > 0 || flatKnitMachines.length > 0) {
-    html += buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
+    _page3Html = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
     // Summary: combined map দিয়ে — double count হবে না
     var _p3fkAllM = page3Machines.concat(flatKnitMachines);
     var _p3fkMap = buildNeedleToMachineMap(_p3fkAllM);
@@ -13596,10 +13597,11 @@ function renderNeedleMonthly() {
     if(_p4total>0) pageSummaries.push({label:'Page 3 — Flat Knit', total:_p4total});
   }
 
-  // Grand Summary
+  // Grand Summary — Page 3 (Flat Knit এর পর ৩/৪ সেন্টিমিটার গ্যাপ সহ)
+  var sumHtml = '';
   if (pageSummaries.length > 0) {
     var grandTotal = pageSummaries.reduce(function(s,p){return s+p.total;},0);
-    var sumHtml = '<div style="padding:15px;margin-top:10px;">';
+    sumHtml = '<div style="padding:0 15px;margin-top:35px;page-break-before:avoid;break-before:avoid;">';
     sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
     sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
     sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
@@ -13615,8 +13617,22 @@ function renderNeedleMonthly() {
     sumHtml += '<td style="padding:8px 12px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
     sumHtml += '<td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
     sumHtml += '</tr></tbody></table></div>';
-    html += sumHtml;
   }
+
+  // Page 3 html এর closing </div> এর আগে Grand Total inject করো
+  if (_page3Html && sumHtml) {
+    // _page3Html শেষ হয় '</tbody></table></div></div>' দিয়ে
+    // ২য় </div> এর আগে sumHtml ঢোকাও
+    var insertPoint = _page3Html.lastIndexOf('</div>');
+    if (insertPoint !== -1) {
+      _page3Html = _page3Html.slice(0, insertPoint) + sumHtml + _page3Html.slice(insertPoint);
+    } else {
+      _page3Html += sumHtml;
+    }
+  } else if (sumHtml) {
+    html += sumHtml; // fallback: page 3 নেই কিন্তু summary আছে
+  }
+  if (_page3Html) html += _page3Html;
 
   if (!html) html = '<div class="no-data" style="padding:40px;">No needle issue data for this period.</div>';
   document.getElementById('needleMonthlyGrid').innerHTML = html;
@@ -14685,7 +14701,7 @@ function stnImPageAdd() {
     + '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Item Name *</div><input type="text" id="sim-add-name" class="form-control" placeholder="আইটেমের নাম..." style="width:100%;box-sizing:border-box;"></div>'
     + '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Category</div><input type="text" id="sim-add-cat" class="form-control" placeholder="Office, Cleaning..." style="width:100%;box-sizing:border-box;"></div>'
     + '<div style="display:flex;gap:10px;margin-bottom:14px;">'
-    + '<div style="flex:1;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Unit</div><select id="sim-add-unit" class="form-control" style="width:100%;padding:8px;box-sizing:border-box;"><option>Pcs</option><option>Kg</option><option>Liter</option><option>Box</option><option>Packet</option><option>Roll</option><option>**</option></select></div>'
+    + '<div style="flex:1;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Unit</div><select id="sim-add-unit" class="form-control" style="width:100%;padding:8px;box-sizing:border-box;"><option>Pcs</option><option>Kg</option><option>Liter</option><option>Box</option><option>Roll</option><option>Pek</option><option>**</option></select></div>'
     + '<div style="flex:1;"><div style="font-size:11px;color:#777;margin-bottom:4px;">Rate ৳</div><input type="number" id="sim-add-rate" class="form-control" placeholder="0.00" min="0" step="0.01" style="width:100%;box-sizing:border-box;"></div>'
     + '</div>'
     + '<div id="sim-add-err" style="color:#e74c3c;font-size:11px;min-height:14px;margin-bottom:10px;"></div>'
