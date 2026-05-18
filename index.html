@@ -8694,13 +8694,24 @@ function binRestore(binId) {
         if (_ilogTo)   _ilogTo.value   = _restoreDate;
       }
     }
-    try { nmiRenderLog(); }      catch(e){}
-    try { renderNdlRcvLog(); }   catch(e){}
-    try { renderReceiveLog(); }  catch(e){}
-    try { renderIssueLog(); }    catch(e){}
-    try { renderTodayNeedle(); } catch(e){}
-    try { renderNeedleStock(); } catch(e){}
-    try { renderNeedleLedger(); }catch(e){}
+    try { nmiRenderLog(); }              catch(e){}
+    try { renderNdlRcvLog(); }           catch(e){}
+    try { renderReceiveLog(); }          catch(e){}
+    try { renderIssueLog(); }            catch(e){}
+    try { renderTodayNeedle(); }         catch(e){}
+    try { renderNeedleStock(); }         catch(e){}
+    try { renderUsedNeedleStock(); }     catch(e){}
+    try { renderNeedleLedger(); }        catch(e){}
+    try { renderNeedleMonthly(); }       catch(e){}
+    try { renderUsedNeedleMonthly(); }   catch(e){}
+    try { renderNeedleDaily(); }         catch(e){}
+    try { renderNewSetLog(); }           catch(e){}
+    try { renderNeedleUseReport(); }     catch(e){}
+    try { renderNeedleRemarksReport(); } catch(e){}
+    try { renderNdlStockRegister(); }    catch(e){}
+    try { renderRetailNeedleAccount(); } catch(e){}
+    try { renderUsedNeedleAccount(); }   catch(e){}
+    try { renderDashboard(); }           catch(e){}
     try { updateDashboard && updateDashboard(); } catch(e){}
   } catch(e) {
     toast('❌ Restore failed: ' + e.message, 'error');
