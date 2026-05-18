@@ -1239,6 +1239,8 @@ if('serviceWorker' in navigator){
         ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
+        // Deleted IDs — সব device এ share হয়, যাতে কোনো device থেকেই deleted item ফিরে না আসে
+        deletedIds: (function(){ try{ return JSON.parse(localStorage.getItem('igl_deleted_ids')||'{}'); }catch(e){ return {}; } })(),
         settings: {
           userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
           usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
@@ -1252,6 +1254,8 @@ if('serviceWorker' in navigator){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
           _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
+          // পুরনো legacy deleted needle IDs আর দরকার নেই
+          localStorage.removeItem('igl_deleted_needle_ids');
           // Firebase save সফল হলে local JSON এ silently backup করো
           iglLocalJsonAutoSave(data);
         })
@@ -1376,11 +1380,20 @@ if('serviceWorker' in navigator){
           if(data.db.machines) DB.machines = data.db.machines;
 
           // Firebase load এ local pending entries merge করো — overwrite নয়
+          // Deleted IDs — Firebase এ সব device থেকে share হওয়া deleted list
+          var _allDelIds = {};
+          try { _allDelIds = JSON.parse(localStorage.getItem('igl_deleted_ids') || '{}'); } catch(e){}
+          // Firebase এর deleted_ids দিয়ে local কে update করো
+          if(data.deletedIds) {
+            Object.assign(_allDelIds, data.deletedIds);
+            try { localStorage.setItem('igl_deleted_ids', JSON.stringify(_allDelIds)); } catch(e){}
+          }
           if(data.db.receives){
             var localRcv = DB.receives || [];
             var fbRcv = data.db.receives;
             var fbRcvIds = {}; fbRcv.forEach(function(r){ fbRcvIds[r.id]=true; });
-            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id]; });
+            // Deleted receive গুলো pending হিসেবে যোগ হবে না
+            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
             DB.receives = fbRcv.concat(pendingRcv);
             if(pendingRcv.length) toast('⚠️ '+pendingRcv.length+'টি pending receive entry merge হয়েছে','warning');
           }
@@ -1388,7 +1401,8 @@ if('serviceWorker' in navigator){
             var localIss = DB.issues || [];
             var fbIss = data.db.issues;
             var fbIssIds = {}; fbIss.forEach(function(r){ fbIssIds[r.id]=true; });
-            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id]; });
+            // Deleted issue গুলো pending হিসেবে যোগ হবে না
+            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
             DB.issues = fbIss.concat(pendingIss);
             if(pendingIss.length) toast('⚠️ '+pendingIss.length+'টি pending issue entry merge হয়েছে','warning');
           }
@@ -1399,16 +1413,22 @@ if('serviceWorker' in navigator){
             // NDB.needles এও local pending merge করো
             var localNeedles = NDB.needles || [];
             var fbNeedles = data.ndb.needles;
-            // Deleted IDs — Firebase এ যা আছে তার মধ্যে deleted গুলো বাদ দাও
-            var _delNdlIds=[];
-            try{_delNdlIds=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');}catch(e){}
-            fbNeedles = fbNeedles.filter(function(r){ return _delNdlIds.indexOf(String(r.id))<0; });
+            // Deleted IDs — নতুন unified system + পুরনো igl_deleted_needle_ids (backward compat)
+            var _legacyDelNdl=[];
+            try{_legacyDelNdl=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');}catch(e){}
+            // উভয় source মিলিয়ে filter করো
+            fbNeedles = fbNeedles.filter(function(r){
+              return !_allDelIds['ndl:'+String(r.id)] && _legacyDelNdl.indexOf(String(r.id))<0;
+            });
             var fbNdlIds = {}; fbNeedles.forEach(function(r){ fbNdlIds[r.id]=true; });
-            var pendingNdl = localNeedles.filter(function(r){ return !fbNdlIds[r.id] && _delNdlIds.indexOf(String(r.id))<0; });
+            var pendingNdl = localNeedles.filter(function(r){
+              return !fbNdlIds[r.id]
+                && !_allDelIds['ndl:'+String(r.id)]
+                && _legacyDelNdl.indexOf(String(r.id))<0;
+            });
             NDB.needles = fbNeedles.concat(pendingNdl);
             if(pendingNdl.length){
               toast('⚠️ '+pendingNdl.length+'টি pending needle entry merge হয়েছে','warning');
-              // Merge হওয়া data সাথে সাথে Firebase এ push করো
               setTimeout(function(){ if(typeof window.fbSaveAll==='function') window.fbSaveAll(); }, 2000);
             }
           }
@@ -1465,7 +1485,10 @@ if('serviceWorker' in navigator){
           var localNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]');
           var fbNdlRcv = data.ndlRcv;
           var fbNdlRcvIds = {}; fbNdlRcv.forEach(function(r){ fbNdlRcvIds[r.id]=true; });
-          var pendingNdlRcv = localNdlRcv.filter(function(r){ return r.id && !fbNdlRcvIds[r.id]; });
+          // Deleted ndlRcv গুলো pending হিসেবে যোগ হবে না
+          var pendingNdlRcv = localNdlRcv.filter(function(r){
+            return r.id && !fbNdlRcvIds[r.id] && !_allDelIds['ndlrcv:'+String(r.id)];
+          });
           var mergedNdlRcv = fbNdlRcv.concat(pendingNdlRcv);
           localStorage.setItem('igl_ndl_rcv', JSON.stringify(mergedNdlRcv));
           if(pendingNdlRcv.length) toast('⚠️ '+pendingNdlRcv.length+'টি pending needle receive merge হয়েছে','warning');
@@ -8489,6 +8512,28 @@ function binSet(arr) {
   localStorage.setItem('igl_bin', JSON.stringify(arr));
 }
 
+// ── Deleted IDs tracker — Firebase এ save হয়, সব device share করে ──
+// Format: { "rcv:123": true, "iss:456": true, "ndl:789": true, "ndlrcv:101": true }
+function iglDelIds() {
+  try { return JSON.parse(localStorage.getItem('igl_deleted_ids') || '{}'); } catch(e){ return {}; }
+}
+function iglDelIdsSet(obj) {
+  try { localStorage.setItem('igl_deleted_ids', JSON.stringify(obj)); } catch(e){}
+}
+function iglDelIdsAdd(prefix, id) {
+  var obj = iglDelIds();
+  obj[prefix + ':' + String(id)] = true;
+  iglDelIdsSet(obj);
+}
+function iglDelIdsRemove(prefix, id) {
+  var obj = iglDelIds();
+  delete obj[prefix + ':' + String(id)];
+  iglDelIdsSet(obj);
+}
+function iglIsDeleted(prefix, id) {
+  return !!iglDelIds()[prefix + ':' + String(id)];
+}
+
 // Item bin এ পাঠাও
 function binAdd(type, item, label) {
   var bin = binGet();
@@ -8502,6 +8547,16 @@ function binAdd(type, item, label) {
   });
   if (bin.length > 200) bin = bin.slice(0, 200);
   binSet(bin);
+  // Deleted ID track করো — type অনুযায়ী prefix
+  var _id = item && (item.id !== undefined) ? item.id : null;
+  if (_id !== null) {
+    var _prefix = type === 'stn_receive'    ? 'rcv'
+                : type === 'stn_issue'      ? 'iss'
+                : type === 'needle_issue'   ? 'ndl'
+                : type === 'needle_receive' ? 'ndlrcv'
+                : null;
+    if (_prefix) iglDelIdsAdd(_prefix, _id);
+  }
   if (typeof triggerAutoSave === 'function') triggerAutoSave();
 }
 
@@ -8569,6 +8624,24 @@ function binRestore(binId) {
     } else if (item.type === 'stn_receive') {
       DB.receives = (DB.receives||[]).concat([d]);
     }
+    // Deleted ID list থেকে সরাও — যাতে Firebase reload এ আবার block না হয়
+    var _rid = d && (d.id !== undefined) ? d.id : null;
+    if (_rid !== null) {
+      var _rprefix = item.type === 'stn_receive'    ? 'rcv'
+                   : item.type === 'stn_issue'      ? 'iss'
+                   : item.type === 'needle_issue'   ? 'ndl'
+                   : item.type === 'needle_receive' ? 'ndlrcv'
+                   : null;
+      if (_rprefix) iglDelIdsRemove(_rprefix, _rid);
+    }
+    // পুরনো needle deleted ID list থেকেও সরাও (backward compat)
+    if (item.type === 'needle_issue' && _rid !== null) {
+      try {
+        var _oldDel = JSON.parse(localStorage.getItem('igl_deleted_needle_ids') || '[]');
+        _oldDel = _oldDel.filter(function(x){ return String(x) !== String(_rid); });
+        localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_oldDel));
+      } catch(e){}
+    }
     // Bin থেকে সরাও
     binSet(bin.filter(function(b){ return b.binId !== binId; }));
     triggerAutoSave();
@@ -8577,6 +8650,9 @@ function binRestore(binId) {
     // Relevant list refresh
     try { nmiRenderLog(); } catch(e){}
     try { renderNdlRcvLog(); } catch(e){}
+    try { renderReceiveLog(); } catch(e){}
+    try { renderIssueLog(); } catch(e){}
+    try { updateDashboard && updateDashboard(); } catch(e){}
   } catch(e) {
     toast('❌ Restore failed: ' + e.message, 'error');
   }
@@ -11750,6 +11826,7 @@ async function deleteReceive(id) {
   if (!ok) return;
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
   DB.receives = DB.receives.filter(r => r.id !== id);
+  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderReceiveLog();
   updateDashboard && updateDashboard();
   triggerAutoSave();
@@ -11880,6 +11957,7 @@ async function deleteIssue(id) {
   if (!ok) return;
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
   DB.issues = DB.issues.filter(r => r.id !== id);
+  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderIssueLog();
   updateDashboard && updateDashboard();
   triggerAutoSave();
@@ -13158,6 +13236,7 @@ async function deleteNeedle(id) {
   if (!ok) return;
   if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
   NDB.needles = NDB.needles.filter(function(r){return r.id!==id;});
+  _fbIgnoreLoad = true;
   // সব সংশ্লিষ্ট জায়গা refresh
   try { renderTodayNeedle(); } catch(e) {}
   try { nmiRenderLog(); } catch(e) {}
@@ -17847,7 +17926,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
-    // Firebase load block করো যাতে delete হওয়া item ফিরে না আসে
+      // Firebase load block করো যাতে delete হওয়া item ফিরে না আসে
     _fbIgnoreLoad = true;
     // সব সংশ্লিষ্ট জায়গা refresh
     try { nmiRenderLog(); } catch(e) {}
@@ -17869,6 +17948,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_receive', entry, 'Needle Receive — ' + (entry.needleCode||entry.needleId||''));
     ndlSetRcv(ndlGetRcv().filter(function(r){return String(r.id)!==String(id);}));
+    _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
     renderNdlRcvLog();triggerAutoSave();toast('Deleted','warning');
   }
 
