@@ -8611,20 +8611,7 @@ function binRestore(binId) {
 
   var d = item.data;
   try {
-    if (item.type === 'needle_issue') {
-      var arr = NDB.needles;
-      arr.push(d);
-      NDB.needles = arr;
-    } else if (item.type === 'needle_receive') {
-      var rcv = ndlGetRcv();
-      rcv.push(d);
-      ndlSetRcv(rcv);
-    } else if (item.type === 'stn_issue') {
-      DB.issues = (DB.issues||[]).concat([d]);
-    } else if (item.type === 'stn_receive') {
-      DB.receives = (DB.receives||[]).concat([d]);
-    }
-    // Deleted ID list থেকে সরাও — যাতে Firebase reload এ আবার block না হয়
+    // ── Step 1: Deleted ID list থেকে আগে সরাও ──
     var _rid = d && (d.id !== undefined) ? d.id : null;
     if (_rid !== null) {
       var _rprefix = item.type === 'stn_receive'    ? 'rcv'
@@ -8634,24 +8621,86 @@ function binRestore(binId) {
                    : null;
       if (_rprefix) iglDelIdsRemove(_rprefix, _rid);
     }
-    // পুরনো needle deleted ID list থেকেও সরাও (backward compat)
-    if (item.type === 'needle_issue' && _rid !== null) {
-      try {
-        var _oldDel = JSON.parse(localStorage.getItem('igl_deleted_needle_ids') || '[]');
-        _oldDel = _oldDel.filter(function(x){ return String(x) !== String(_rid); });
-        localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_oldDel));
-      } catch(e){}
+    // পুরনো legacy needle deleted ID list থেকেও সরাও
+    try {
+      var _oldDel = JSON.parse(localStorage.getItem('igl_deleted_needle_ids') || '[]');
+      _oldDel = _oldDel.filter(function(x){ return String(x) !== String(_rid); });
+      localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_oldDel));
+    } catch(e){}
+
+    // ── Step 2: _fbIgnoreLoad reset করো — restore এর পর load block থাকা যাবে না ──
+    _fbIgnoreLoad = false;
+
+    // ── Step 3: Data memory তে যোগ করো ──
+    if (item.type === 'needle_issue') {
+      // Duplicate check — আগে থেকে আছে কিনা দেখো
+      if (_rid !== null && NDB.needles.some(function(r){ return String(r.id)===String(_rid); })) {
+        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
+      }
+      NDB.needles = (NDB.needles||[]).concat([d]);
+    } else if (item.type === 'needle_receive') {
+      var rcv = ndlGetRcv();
+      if (_rid !== null && rcv.some(function(r){ return String(r.id)===String(_rid); })) {
+        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
+      }
+      rcv.push(d);
+      ndlSetRcv(rcv);
+    } else if (item.type === 'stn_issue') {
+      if (_rid !== null && (DB.issues||[]).some(function(r){ return String(r.id)===String(_rid); })) {
+        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
+      }
+      DB.issues = (DB.issues||[]).concat([d]);
+    } else if (item.type === 'stn_receive') {
+      if (_rid !== null && (DB.receives||[]).some(function(r){ return String(r.id)===String(_rid); })) {
+        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
+      }
+      DB.receives = (DB.receives||[]).concat([d]);
     }
-    // Bin থেকে সরাও
+
+    // ── Step 4: Bin থেকে সরাও ──
     binSet(bin.filter(function(b){ return b.binId !== binId; }));
-    triggerAutoSave();
-    toast('✅ Restore হয়েছে!', 'success');
+
+    // ── Step 5: Firebase এ সাথে সাথে save করো (deletedIds ছাড়া) ──
+    if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
+
+    // Restore সফল — কোন date এ গেছে সেটা দেখাও
+    var _rdate = d.date ? (' — তারিখ: ' + fmtDate(d.date)) : '';
+    toast('✅ Restore হয়েছে' + _rdate + ' (সেই তারিখে ফিল্টার করে দেখুন)', 'success');
     binRender();
-    // Relevant list refresh
-    try { nmiRenderLog(); } catch(e){}
-    try { renderNdlRcvLog(); } catch(e){}
-    try { renderReceiveLog(); } catch(e){}
-    try { renderIssueLog(); } catch(e){}
+
+    // ── Step 6: সব সংশ্লিষ্ট UI refresh ──
+    // Restore হওয়া item এর date এ filter সেট করো — যাতে সাথে সাথে দেখা যায়
+    var _restoreDate = d.date || '';
+    if (_restoreDate) {
+      if (item.type === 'needle_issue') {
+        var _nmiFrom = document.getElementById('nmi-log-from');
+        var _nmiTo   = document.getElementById('nmi-log-to');
+        if (_nmiFrom) _nmiFrom.value = _restoreDate;
+        if (_nmiTo)   _nmiTo.value   = _restoreDate;
+      } else if (item.type === 'needle_receive') {
+        var _ndlRcvFrom = document.getElementById('ndl-rcv-from');
+        var _ndlRcvTo   = document.getElementById('ndl-rcv-to');
+        if (_ndlRcvFrom) _ndlRcvFrom.value = _restoreDate;
+        if (_ndlRcvTo)   _ndlRcvTo.value   = _restoreDate;
+      } else if (item.type === 'stn_receive') {
+        var _rlogFrom = document.getElementById('rlog-from');
+        var _rlogTo   = document.getElementById('rlog-to');
+        if (_rlogFrom) _rlogFrom.value = _restoreDate;
+        if (_rlogTo)   _rlogTo.value   = _restoreDate;
+      } else if (item.type === 'stn_issue') {
+        var _ilogFrom = document.getElementById('ilog-from');
+        var _ilogTo   = document.getElementById('ilog-to');
+        if (_ilogFrom) _ilogFrom.value = _restoreDate;
+        if (_ilogTo)   _ilogTo.value   = _restoreDate;
+      }
+    }
+    try { nmiRenderLog(); }      catch(e){}
+    try { renderNdlRcvLog(); }   catch(e){}
+    try { renderReceiveLog(); }  catch(e){}
+    try { renderIssueLog(); }    catch(e){}
+    try { renderTodayNeedle(); } catch(e){}
+    try { renderNeedleStock(); } catch(e){}
+    try { renderNeedleLedger(); }catch(e){}
     try { updateDashboard && updateDashboard(); } catch(e){}
   } catch(e) {
     toast('❌ Restore failed: ' + e.message, 'error');
