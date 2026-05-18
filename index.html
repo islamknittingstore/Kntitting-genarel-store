@@ -1509,6 +1509,22 @@ if('serviceWorker' in navigator){
 
         if(typeof updateDashboard === 'function') updateDashboard();
         if(typeof renderStock === 'function') renderStock();
+        // Firebase load এর পর সব needle/issue/receive report refresh করো
+        // যাতে অন্য device এ restore/entry করলে এই device এও সাথে সাথে দেখা যায়
+        try { if(typeof nmiRenderLog         ==='function') nmiRenderLog(); }         catch(e){}
+        try { if(typeof renderNdlRcvLog      ==='function') renderNdlRcvLog(); }      catch(e){}
+        try { if(typeof renderTodayNeedle    ==='function') renderTodayNeedle(); }    catch(e){}
+        try { if(typeof renderNeedleStock    ==='function') renderNeedleStock(); }    catch(e){}
+        try { if(typeof renderUsedNeedleStock==='function') renderUsedNeedleStock(); }catch(e){}
+        try { if(typeof renderNeedleLedger   ==='function') renderNeedleLedger(); }   catch(e){}
+        try { if(typeof renderNeedleMonthly  ==='function') renderNeedleMonthly(); }  catch(e){}
+        try { if(typeof renderUsedNeedleMonthly==='function') renderUsedNeedleMonthly(); } catch(e){}
+        try { if(typeof renderNeedleDaily    ==='function') renderNeedleDaily(); }    catch(e){}
+        try { if(typeof renderNewSetLog      ==='function') renderNewSetLog(); }      catch(e){}
+        try { if(typeof renderNeedleUseReport==='function') renderNeedleUseReport(); }catch(e){}
+        try { if(typeof renderNdlStockRegister==='function') renderNdlStockRegister(); } catch(e){}
+        try { if(typeof renderReceiveLog     ==='function') renderReceiveLog(); }     catch(e){}
+        try { if(typeof renderIssueLog       ==='function') renderIssueLog(); }       catch(e){}
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
 
