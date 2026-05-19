@@ -8644,8 +8644,9 @@ function binRestore(binId) {
       localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_oldDel));
     } catch(e){}
 
-    // ── Step 2: _fbIgnoreLoad reset করো — restore এর পর load block থাকা যাবে না ──
-    _fbIgnoreLoad = false;
+    // ── Step 2: _fbIgnoreLoad = true করো — save সম্পন্ন না হওয়া পর্যন্ত Firebase load block থাকবে ──
+    // (fbSaveAll এর .then() এ _fbIgnoreLoad = false হবে)
+    _fbIgnoreLoad = true;
 
     // ── Step 3: Data memory তে যোগ করো ──
     if (item.type === 'needle_issue') {
