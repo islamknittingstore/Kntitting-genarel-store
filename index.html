@@ -695,7 +695,7 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
-    #needleMonthlyGrid table, #usedNeedleMonthlyGrid table {
+    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
       font-size: 5.5pt !important;
       border-collapse: collapse !important;
       width: 100% !important;
@@ -916,9 +916,8 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
+    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
   }
-
-  /*  Responsive  */
   @media (max-width: 900px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .form-grid { grid-template-columns: 1fr; }
@@ -13776,7 +13775,7 @@ function renderNeedleMonthly() {
   var sumHtml = '';
   if (pageSummaries.length > 0) {
     var grandTotal = pageSummaries.reduce(function(s,p){return s+p.total;},0);
-    sumHtml = '<div style="padding:0 15px;margin-top:35px;page-break-before:avoid;break-before:avoid;">';
+    sumHtml = '<div style="padding:0 15px;margin-top:10px;page-break-before:avoid;break-before:avoid;page-break-inside:avoid;break-inside:avoid;display:block;">';
     sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
     sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
     sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
@@ -13794,13 +13793,14 @@ function renderNeedleMonthly() {
     sumHtml += '</tr></tbody></table></div>';
   }
 
-  // Page 3 html এর closing </div> এর আগে Grand Total inject করো
+  // Page 3 html এর Grand Total — page 3 এর outer div এর ভেতরে শেষে inject করো
+  // (table এর পরে কিন্তু outer wrapper এর আগে)
   if (_page3Html && sumHtml) {
     // _page3Html শেষ হয় '</tbody></table></div></div>' দিয়ে
-    // ২য় </div> এর আগে sumHtml ঢোকাও
-    var insertPoint = _page3Html.lastIndexOf('</div>');
-    if (insertPoint !== -1) {
-      _page3Html = _page3Html.slice(0, insertPoint) + sumHtml + _page3Html.slice(insertPoint);
+    // শেষ থেকে ২য় </div> (outer wrapper closing) এর আগে sumHtml ঢোকাও
+    var lastDiv = _page3Html.lastIndexOf('</div>');
+    if (lastDiv !== -1) {
+      _page3Html = _page3Html.slice(0, lastDiv) + sumHtml + _page3Html.slice(lastDiv);
     } else {
       _page3Html += sumHtml;
     }
