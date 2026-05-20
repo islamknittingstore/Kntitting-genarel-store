@@ -695,7 +695,7 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
-    #needleMonthlyGrid table, #usedNeedleMonthlyGrid table {
+    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
       font-size: 5.5pt !important;
       border-collapse: collapse !important;
       width: 100% !important;
@@ -916,9 +916,8 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
+    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
   }
-
-  /*  Responsive  */
   @media (max-width: 900px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .form-grid { grid-template-columns: 1fr; }
@@ -1240,7 +1239,8 @@ if('serviceWorker' in navigator){
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
         // Deleted IDs — সব device এ share হয়, যাতে কোনো device থেকেই deleted item ফিরে না আসে
-        deletedIds: (function(){ try{ return JSON.parse(localStorage.getItem('igl_deleted_ids')||'{}'); }catch(e){ return {}; } })(),
+        // deletedIds আলাদাভাবে Firebase এ iglDelIdsAdd/Remove দিয়ে manage হয়
+        // fbSaveAll এ include করার দরকার নেই
         settings: {
           userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
           usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
@@ -1254,8 +1254,9 @@ if('serviceWorker' in navigator){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
           _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
-          // পুরনো legacy deleted needle IDs আর দরকার নেই
+          // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
+          localStorage.removeItem('igl_deleted_ids');
           // Firebase save সফল হলে local JSON এ silently backup করো
           iglLocalJsonAutoSave(data);
         })
@@ -1380,13 +1381,18 @@ if('serviceWorker' in navigator){
           if(data.db.machines) DB.machines = data.db.machines;
 
           // Firebase load এ local pending entries merge করো — overwrite নয়
-          // Deleted IDs — Firebase এ সব device থেকে share হওয়া deleted list
+          // Deleted IDs — Firebase থেকে সরাসরি cache এ লোড (localStorage নেই)
           var _allDelIds = {};
-          try { _allDelIds = JSON.parse(localStorage.getItem('igl_deleted_ids') || '{}'); } catch(e){}
-          // Firebase এর deleted_ids দিয়ে local কে update করো
           if(data.deletedIds) {
-            Object.assign(_allDelIds, data.deletedIds);
-            try { localStorage.setItem('igl_deleted_ids', JSON.stringify(_allDelIds)); } catch(e){}
+            // Firebase এর deletedIds সরাসরি in-memory cache এ রাখো
+            // key format Firebase এ: "rcv__123" → cache এ: "rcv:123"
+            Object.keys(data.deletedIds).forEach(function(k) {
+              var cacheKey = k.replace('__', ':');
+              _allDelIds[cacheKey] = true;
+            });
+            _fbDelIdsCache = _allDelIds; // cache update
+          } else {
+            _fbDelIdsCache = {};
           }
           if(data.db.receives){
             var localRcv = DB.receives || [];
@@ -1413,18 +1419,13 @@ if('serviceWorker' in navigator){
             // NDB.needles এও local pending merge করো
             var localNeedles = NDB.needles || [];
             var fbNeedles = data.ndb.needles;
-            // Deleted IDs — নতুন unified system + পুরনো igl_deleted_needle_ids (backward compat)
-            var _legacyDelNdl=[];
-            try{_legacyDelNdl=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');}catch(e){}
-            // উভয় source মিলিয়ে filter করো
+            // Deleted IDs — _fbDelIdsCache থেকে চেক করো
             fbNeedles = fbNeedles.filter(function(r){
-              return !_allDelIds['ndl:'+String(r.id)] && _legacyDelNdl.indexOf(String(r.id))<0;
+              return !_allDelIds['ndl:'+String(r.id)];
             });
             var fbNdlIds = {}; fbNeedles.forEach(function(r){ fbNdlIds[r.id]=true; });
             var pendingNdl = localNeedles.filter(function(r){
-              return !fbNdlIds[r.id]
-                && !_allDelIds['ndl:'+String(r.id)]
-                && _legacyDelNdl.indexOf(String(r.id))<0;
+              return !fbNdlIds[r.id] && !_allDelIds['ndl:'+String(r.id)];
             });
             NDB.needles = fbNeedles.concat(pendingNdl);
             if(pendingNdl.length){
@@ -1525,6 +1526,9 @@ if('serviceWorker' in navigator){
         try { if(typeof renderNdlStockRegister==='function') renderNdlStockRegister(); } catch(e){}
         try { if(typeof renderReceiveLog     ==='function') renderReceiveLog(); }     catch(e){}
         try { if(typeof renderIssueLog       ==='function') renderIssueLog(); }       catch(e){}
+        // Firebase load এর পর rnaSection init করো — load এর আগে initRNADefaults চলেছিল তাই data ছিল না
+        try { if(typeof initRNADefaults      ==='function') initRNADefaults(); }      catch(e){}
+        try { if(typeof renderRetailNeedleAccount==='function') renderRetailNeedleAccount(); } catch(e){}
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
 
@@ -1555,11 +1559,36 @@ if('serviceWorker' in navigator){
     }
   });
 
-  // Page load এ connect
-  document.addEventListener('DOMContentLoaded', function(){
+  // Firebase auth ready হলেই load করো — fixed timeout এর উপর নির্ভর নয়
+  var _fbAutoLoaded = false;
+  function _fbAutoLoad() {
+    if (_fbAutoLoaded) return;
+    _fbAutoLoaded = true;
     fbStatus('saving', 'Connecting...');
-    setTimeout(function(){ window.fbLoadAll(); }, 2000);
-  });
+    window.fbLoadAll();
+  }
+
+  try {
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user) {
+        // Auth confirmed — সাথে সাথে load করো
+        _fbAutoLoad();
+      } else {
+        // Auth নেই — anonymous sign-in করো, onAuthStateChanged আবার fire করবে
+        firebase.auth().signInAnonymously().catch(function(e) {
+          console.warn('Firebase auth:', e.message);
+          // Auth fail হলেও 3s পর try করো (fallback)
+          setTimeout(_fbAutoLoad, 3000);
+        });
+      }
+    });
+  } catch(e) {
+    // Firebase unavailable হলে fallback
+    document.addEventListener('DOMContentLoaded', function(){
+      fbStatus('saving', 'Connecting...');
+      setTimeout(_fbAutoLoad, 2000);
+    });
+  }
 </script>
 </head>
 <body>
@@ -7277,6 +7306,8 @@ function showPage(name, el) {
         document.getElementById('rna-from').value = todayVal;
       if (!document.getElementById('rna-to').value)
         document.getElementById('rna-to').value = todayVal;
+      // cache reset করো — fresh data দিয়ে render হবে
+      if (typeof _rnaTabData !== 'undefined') _rnaTabData = [null,null,null,null];
       renderRetailNeedleAccount();
     }
     else if (name === 'needle_stock') {
@@ -8530,24 +8561,32 @@ function binSet(arr) {
 
 // ── Deleted IDs tracker — Firebase এ save হয়, সব device share করে ──
 // Format: { "rcv:123": true, "iss:456": true, "ndl:789": true, "ndlrcv:101": true }
-function iglDelIds() {
-  try { return JSON.parse(localStorage.getItem('igl_deleted_ids') || '{}'); } catch(e){ return {}; }
-}
-function iglDelIdsSet(obj) {
-  try { localStorage.setItem('igl_deleted_ids', JSON.stringify(obj)); } catch(e){}
-}
+// ── Deleted IDs — সরাসরি Firebase এ, localStorage নেই ──
+// In-memory cache — Firebase থেকে load এর পর এখানে থাকে
+var _fbDelIdsCache = {};
+
 function iglDelIdsAdd(prefix, id) {
-  var obj = iglDelIds();
-  obj[prefix + ':' + String(id)] = true;
-  iglDelIdsSet(obj);
+  var key = prefix + ':' + String(id);
+  _fbDelIdsCache[key] = true;
+  // সরাসরি Firebase এ লেখো
+  try {
+    var _upd = {};
+    _upd['igl_erp/deletedIds/' + key.replace(':', '__')] = true;
+    _fbDb.ref().update(_upd);
+  } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
 }
+
 function iglDelIdsRemove(prefix, id) {
-  var obj = iglDelIds();
-  delete obj[prefix + ':' + String(id)];
-  iglDelIdsSet(obj);
+  var key = prefix + ':' + String(id);
+  delete _fbDelIdsCache[key];
+  // সরাসরি Firebase থেকে মুছো
+  try {
+    _fbDb.ref('igl_erp/deletedIds/' + key.replace(':', '__')).remove();
+  } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
 }
+
 function iglIsDeleted(prefix, id) {
-  return !!iglDelIds()[prefix + ':' + String(id)];
+  return !!_fbDelIdsCache[prefix + ':' + String(id)];
 }
 
 // Item bin এ পাঠাও
@@ -8637,18 +8676,10 @@ function binRestore(binId) {
                    : null;
       if (_rprefix) iglDelIdsRemove(_rprefix, _rid);
     }
-    // পুরনো legacy needle deleted ID list থেকেও সরাও
-    try {
-      var _oldDel = JSON.parse(localStorage.getItem('igl_deleted_needle_ids') || '[]');
-      _oldDel = _oldDel.filter(function(x){ return String(x) !== String(_rid); });
-      localStorage.setItem('igl_deleted_needle_ids', JSON.stringify(_oldDel));
-    } catch(e){}
+    // পুরনো legacy needle deleted ID list cleanup (obsolete)
+    try { localStorage.removeItem('igl_deleted_needle_ids'); } catch(e){}
 
-    // ── Step 2: _fbIgnoreLoad = true করো — save সম্পন্ন না হওয়া পর্যন্ত Firebase load block থাকবে ──
-    // (fbSaveAll এর .then() এ _fbIgnoreLoad = false হবে)
-    _fbIgnoreLoad = true;
-
-    // ── Step 3: Data memory তে যোগ করো ──
+    // ── Step 2: Data memory তে যোগ করো ──
     if (item.type === 'needle_issue') {
       // Duplicate check — আগে থেকে আছে কিনা দেখো
       if (_rid !== null && NDB.needles.some(function(r){ return String(r.id)===String(_rid); })) {
@@ -8677,7 +8708,8 @@ function binRestore(binId) {
     // ── Step 4: Bin থেকে সরাও ──
     binSet(bin.filter(function(b){ return b.binId !== binId; }));
 
-    // ── Step 5: Firebase এ সাথে সাথে save করো (deletedIds ছাড়া) ──
+    // ── Step 5: Firebase এ সাথে সাথে save করো (deletedIds সহ — restore তথ্য persist করো) ──
+    // _fbIgnoreLoad = true থাকবে fbSaveAll এর .then() পর্যন্ত — যাতে Firebase reload restored data মুছে না দেয়
     if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
 
     // Restore সফল — কোন date এ গেছে সেটা দেখাও
@@ -13638,7 +13670,7 @@ function renderNeedleMonthly() {
   }
 
   // Page 3: Circular sum + gap + Flat Knit আলাদা
-  function buildPage3Table(pageTitle, circMachines, fkMachines, pageBreak) {
+  function buildPage3Table(pageTitle, circMachines, fkMachines, pageBreak, injectSumHtml) {
     var pbStyle = pageBreak ? 'page-break-before:always;break-before:page;' : '';
     var t = '<div style="padding:10px 15px 0;'+pbStyle+'">';
     t += '<div style="text-align:center;margin-bottom:3px;">';
@@ -13708,7 +13740,14 @@ function renderNeedleMonthly() {
       buildRows(fkMachines, 'Flat Knit');
     }
 
-    t += '</tbody></table></div></div>';
+    t += '</tbody></table>';
+    // Flat Knit Total এর পরে Grand Summary — page break যাতে না হয় তার জন্য একই block এ রাখা হলো
+    if (injectSumHtml) {
+      t += '<div style="page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;">';
+      t += injectSumHtml;
+      t += '</div>';
+    }
+    t += '</div></div>';
     return t;
   }
 
@@ -13760,8 +13799,7 @@ function renderNeedleMonthly() {
 
   var _page3Html = '';
   if (page3Machines.length > 0 || flatKnitMachines.length > 0) {
-    _page3Html = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
-    // Summary: combined map দিয়ে — double count হবে না
+    // Summary totals আগে calculate করি
     var _p3fkAllM = page3Machines.concat(flatKnitMachines);
     var _p3fkMap = buildNeedleToMachineMap(_p3fkAllM);
     var _p3fkIdSet = {}; page3Machines.forEach(function(m){ _p3fkIdSet[m.id]=true; });
@@ -13770,44 +13808,49 @@ function renderNeedleMonthly() {
     var _p4total = allNeedles.filter(function(n){ return !!_p3fkMap[n.id] && !!_fkIdSet2[_p3fkMap[n.id]]; }).reduce(function(s,n){return s+n.qty;},0);
     if(_p3total>0) pageSummaries.push({label:'Page 3 — Circular (ERP 130–140)', total:_p3total});
     if(_p4total>0) pageSummaries.push({label:'Page 3 — Flat Knit', total:_p4total});
-  }
 
-  // Grand Summary — Page 3 (Flat Knit এর পর ৩/৪ সেন্টিমিটার গ্যাপ সহ)
-  var sumHtml = '';
-  if (pageSummaries.length > 0) {
-    var grandTotal = pageSummaries.reduce(function(s,p){return s+p.total;},0);
-    sumHtml = '<div style="padding:0 15px;margin-top:35px;page-break-before:avoid;break-before:avoid;">';
-    sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
-    sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
-    sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
-    sumHtml += '<th style="padding:7px 12px;text-align:center;">মোট (pcs)</th>';
-    sumHtml += '</tr></thead><tbody>';
-    pageSummaries.forEach(function(p){
-      sumHtml += '<tr style="border-bottom:1px solid #eee;">';
-      sumHtml += '<td style="padding:6px 12px;">'+p.label+'</td>';
-      sumHtml += '<td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td>';
-      sumHtml += '</tr>';
-    });
-    sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;">';
-    sumHtml += '<td style="padding:8px 12px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
-    sumHtml += '<td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
-    sumHtml += '</tr></tbody></table></div>';
-  }
-
-  // Page 3 html এর closing </div> এর আগে Grand Total inject করো
-  if (_page3Html && sumHtml) {
-    // _page3Html শেষ হয় '</tbody></table></div></div>' দিয়ে
-    // ২য় </div> এর আগে sumHtml ঢোকাও
-    var insertPoint = _page3Html.lastIndexOf('</div>');
-    if (insertPoint !== -1) {
-      _page3Html = _page3Html.slice(0, insertPoint) + sumHtml + _page3Html.slice(insertPoint);
-    } else {
-      _page3Html += sumHtml;
+    // Grand Summary HTML — Flat Knit এর নিচে একই পেজে থাকবে
+    var sumHtml = '';
+    var allSummaries = pageSummaries; // page1 + page2 + page3 + flatknit সব
+    if (allSummaries.length > 0) {
+      var grandTotal = allSummaries.reduce(function(s,p){return s+p.total;},0);
+      sumHtml = '<div style="padding:8px 15px 0;margin-top:6px;">';
+      sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
+      sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
+      sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
+      sumHtml += '<th style="padding:7px 12px;text-align:center;">মোট (pcs)</th>';
+      sumHtml += '</tr></thead><tbody>';
+      allSummaries.forEach(function(p){
+        sumHtml += '<tr style="border-bottom:1px solid #eee;">';
+        sumHtml += '<td style="padding:6px 12px;">'+p.label+'</td>';
+        sumHtml += '<td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td>';
+        sumHtml += '</tr>';
+      });
+      sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;">';
+      sumHtml += '<td style="padding:8px 12px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
+      sumHtml += '<td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
+      sumHtml += '</tr></tbody></table></div>';
     }
-  } else if (sumHtml) {
-    html += sumHtml; // fallback: page 3 নেই কিন্তু summary আছে
+
+    // sumHtml কে buildPage3Table এর ভেতরে Flat Knit total এর পরে inject করা হবে
+    _page3Html = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true, sumHtml);
+  }
+
+  // sumHtml এখন buildPage3Table এর ভেতরে handle হচ্ছে
+  var sumHtml = ''; // fallback empty — নিচের পুরনো logic এর জন্য
+  if (!_page3Html) {
+    // page 3 নেই কিন্তু summary দরকার হলে fallback
+    if (pageSummaries.length > 0) {
+      var grandTotal2 = pageSummaries.reduce(function(s,p){return s+p.total;},0);
+      sumHtml = '<div style="padding:0 15px;margin-top:10px;">';
+      sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;"><thead><tr style="background:#1a5276;color:#fff;"><th style="padding:7px 12px;text-align:left;">বিভাগ</th><th style="padding:7px 12px;text-align:center;">মোট (pcs)</th></tr></thead><tbody>';
+      pageSummaries.forEach(function(p){ sumHtml += '<tr><td style="padding:6px 12px;">'+p.label+'</td><td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td></tr>'; });
+      sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;"><td style="padding:8px 12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td><td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal2+' pcs</td></tr></tbody></table></div>';
+      html += sumHtml;
+    }
   }
   if (_page3Html) html += _page3Html;
+
 
   if (!html) html = '<div class="no-data" style="padding:40px;">No needle issue data for this period.</div>';
   document.getElementById('needleMonthlyGrid').innerHTML = html;
