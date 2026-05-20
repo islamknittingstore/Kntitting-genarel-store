@@ -695,7 +695,7 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
-    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
+    #needleMonthlyGrid table, #usedNeedleMonthlyGrid table {
       font-size: 5.5pt !important;
       border-collapse: collapse !important;
       width: 100% !important;
@@ -916,8 +916,9 @@ if('serviceWorker' in navigator){
     body.print-mw .main { margin-left:0 !important; padding-top:0 !important; }
     body.print-mw #page-needle_monthly { display:block !important; }
     body.print-mw #needleMonthlyGrid > div + div { page-break-before: always; }
-    body.print-mw #needleMonthlyGrid > div:last-child { page-break-before: avoid !important; break-before: avoid !important; }
   }
+
+  /*  Responsive  */
   @media (max-width: 900px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .form-grid { grid-template-columns: 1fr; }
@@ -7306,8 +7307,6 @@ function showPage(name, el) {
         document.getElementById('rna-from').value = todayVal;
       if (!document.getElementById('rna-to').value)
         document.getElementById('rna-to').value = todayVal;
-      // cache reset করো — fresh data দিয়ে render হবে
-      if (typeof _rnaTabData !== 'undefined') _rnaTabData = [null,null,null,null];
       renderRetailNeedleAccount();
     }
     else if (name === 'needle_stock') {
