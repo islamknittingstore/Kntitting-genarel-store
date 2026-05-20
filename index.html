@@ -1458,9 +1458,9 @@ if('serviceWorker' in navigator){
           if(data.stn.items && data.stn.items.length > 0){
             DB.stnItems = data.stn.items;
           }
-          // Stationery requisitions → DB.requisitions
+          // Stationery requisitions → DB.stnRequisitions
           if(data.stn.requisitions){
-            DB.requisitions = data.stn.requisitions;
+            DB.stnRequisitions = data.stn.requisitions;
           }
           // Stationery receives → DB.receives (Stationery group merge)
           if(data.stn.receives && data.stn.receives.length > 0){
@@ -9680,7 +9680,7 @@ function stnReqSimplePrint(areaId, thColor) {
   var sigTopPad = slotCount >= 35 ? '50px' : slotCount >= 30 ? '60px' : '80px';
   var sigHtml =
     '<div style="display:flex;justify-content:space-between;padding:'+sigTopPad+' 50px 8px;font-size:10pt;color:#333;">'
-    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Manager</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Store / Admin</div></div>'
     + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Manager</div></div>'
     + '</div>';
 
