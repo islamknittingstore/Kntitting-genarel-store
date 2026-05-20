@@ -9543,7 +9543,7 @@ function stnReqSimplePrint(areaId, thColor) {
 
   // ── Header HTML ──
   var hdrPad = slotCount >= 35 ? '4px 10px 3px' : '6px 10px 4px';
-  var hdrTitleSize = slotCount >= 35 ? '14pt' : '15pt';
+  var hdrTitleSize = '18pt';
   var headerHtml =
     '<div style="text-align:center;padding:'+hdrPad+';border-bottom:2px solid #333;margin-bottom:4px;">'
     + '<div style="font-size:'+hdrTitleSize+';font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
@@ -9677,7 +9677,7 @@ function stnReqSimplePrint(areaId, thColor) {
 
   // ── Signature ──
   // ৩৫+ items হলে signature padding কমাও যাতে এক পাতায় আসে
-  var sigTopPad = slotCount >= 35 ? '14px' : slotCount >= 30 ? '24px' : '38px';
+  var sigTopPad = slotCount >= 35 ? '50px' : slotCount >= 30 ? '60px' : '80px';
   var sigHtml =
     '<div style="display:flex;justify-content:space-between;padding:'+sigTopPad+' 50px 8px;font-size:10pt;color:#333;">'
     + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Manager</div></div>'
