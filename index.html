@@ -14932,11 +14932,77 @@ function stnItemMasterRender() {
       + '<td style="text-align:center;padding:8px 6px;font-size:12px;color:#7d3c98;font-weight:600;">'+(effMonth||'—')+'</td>'
       + '<td style="text-align:center;padding:8px 6px;font-weight:700;color:'+sClr+';">'+stock+'</td>'
       + '<td style="text-align:center;padding:6px 4px;" class="no-print">'
+      + (isAdmin ? '<button onclick="stnImEdit('+idx+')" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">📝 Edit</button>' : '')
       + '<button onclick="stnImSetRate('+idx+')" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">✏️ Rate</button>'
       + '<button onclick="stnImHistory('+idx+')" style="background:#f0f0f0;color:#555;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;margin:2px;">📋</button>'
       + (isAdmin ? '<button onclick="stnImDel('+idx+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
       + '</td></tr>';
   }).join('');
+}
+
+function stnImEdit(idx) {
+  var items = DB.stnItems || [];
+  var it = items[idx];
+  if (!it) return;
+
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:26px 28px;width:360px;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
+    + '<div style="font-size:16px;font-weight:700;color:#333;margin-bottom:18px;">📝 Item Edit</div>'
+    + '<div style="margin-bottom:12px;">'
+    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Item Name *</label>'
+    +   '<input id="sim-edit-name" type="text" value="'+_esc(it.name||'')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;">'
+    + '</div>'
+    + '<div style="margin-bottom:12px;">'
+    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Category</label>'
+    +   '<input id="sim-edit-cat" type="text" value="'+_esc(it.category||'')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;" placeholder="e.g. Office, Cleaning...">'
+    + '</div>'
+    + '<div style="margin-bottom:18px;">'
+    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Unit</label>'
+    +   '<input id="sim-edit-unit" type="text" value="'+_esc(it.unit||'Pcs')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;" placeholder="Pcs, Kg, Liter...">'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
+    +   '<button id="sim-edit-cancel" style="padding:9px 20px;border:1px solid #ddd;background:#f5f5f5;border-radius:7px;cursor:pointer;font-size:13px;">বাতিল</button>'
+    +   '<button id="sim-edit-save" style="padding:9px 22px;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;">✅ Save</button>'
+    + '</div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+  document.getElementById('sim-edit-name').focus();
+
+  document.getElementById('sim-edit-cancel').onclick = function(){ document.body.removeChild(overlay); };
+  overlay.onclick = function(e){ if(e.target===overlay) document.body.removeChild(overlay); };
+
+  document.getElementById('sim-edit-save').onclick = function(){
+    var newName = (document.getElementById('sim-edit-name').value||'').trim();
+    var newCat  = (document.getElementById('sim-edit-cat').value||'').trim();
+    var newUnit = (document.getElementById('sim-edit-unit').value||'Pcs').trim();
+    if (!newName) { toast('Item Name দিন!','error'); return; }
+
+    var oldName = it.name;
+    items[idx].name     = newName;
+    items[idx].category = newCat;
+    items[idx].unit     = newUnit || 'Pcs';
+
+    // Issue ও Receive রেকর্ডে নাম আপডেট করো
+    if (oldName !== newName) {
+      (DB.issues||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
+      (DB.receives||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
+      // Requisition এও আপডেট করো
+      var reqs = DB.stnRequisitions || {};
+      Object.keys(reqs).forEach(function(k){
+        var m = reqs[k]; if(!m||!m.items) return;
+        m.items.forEach(function(ri){ if(ri.name===oldName) ri.name=newName; });
+      });
+      localStorage.setItem('igl_stn_requisitions', JSON.stringify(reqs));
+    }
+
+    localStorage.setItem('igl_stn_items', JSON.stringify(items));
+    _triggerAutoSave();
+    document.body.removeChild(overlay);
+    stnItemMasterRender();
+    toast('✅ Item আপডেট হয়েছে','success');
+  };
 }
 
 function stnImPageAdd() {
