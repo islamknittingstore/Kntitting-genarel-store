@@ -645,11 +645,28 @@ if('serviceWorker' in navigator){
     [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
     [data-smr-print="item"]    #smr-panel-item     { display: block !important; }
 
-    /* No background colors — plain white print */
-    * { background: #fff !important; background-color: #fff !important; background-image: none !important; }
-    th { color: #000 !important; border: 1px solid #555 !important; font-weight: 700 !important; }
-    td { color: #000 !important; border: 0.5px solid #aaa !important; }
-    .badge, .tag, .slip-badge { background: #fff !important; border: 1px solid #555 !important; color: #000 !important; }
+    /* ── Clean print: background OFF → Excel-style, background ON → colored header ── */
+    /* background OFF হলে browser নিজেই bg সরায়; আমরা শুধু border/text ঠিক করি */
+    * { box-shadow: none !important; text-shadow: none !important; }
+    body, html { font-family: Arial, sans-serif !important; }
+
+    /* Table — crisp borders */
+    table { border-collapse: collapse !important; width: 100% !important; font-size: 8.5pt !important; }
+    th {
+      border: 1px solid #000 !important;
+      font-weight: 700 !important;
+      font-size: 8.5pt !important;
+      padding: 3px 5px !important;
+    }
+    td {
+      border: 0.5px solid #555 !important;
+      font-size: 8.5pt !important;
+      padding: 2px 5px !important;
+    }
+    tr { page-break-inside: avoid !important; }
+
+    .badge, .tag, .slip-badge { border: 1px solid #555 !important; }
+    .card { box-shadow: none !important; }
     body::before { display: none !important; }
 
     /* ── Watermark ── */
@@ -1530,6 +1547,7 @@ if('serviceWorker' in navigator){
         // Firebase load এর পর rnaSection init করো — load এর আগে initRNADefaults চলেছিল তাই data ছিল না
         try { if(typeof initRNADefaults      ==='function') initRNADefaults(); }      catch(e){}
         try { if(typeof renderRetailNeedleAccount==='function') renderRetailNeedleAccount(); } catch(e){}
+        try { if(typeof ndlPopulateRemarkDropdowns==='function') ndlPopulateRemarkDropdowns(); } catch(e){}
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
 
@@ -3912,15 +3930,6 @@ function ok(msg) {
             <div class="form-group"><label>Remarks</label>
               <select class="form-control" id="nmi-remarks-drop" style="width:100%;margin-bottom:4px;" onchange="nmiRemarksDropChange()">
                 <option value="">-- Select Remarks --</option>
-                <option value="newset">🆕 New Set</option>
-                <option value="accident">⚠️ Machine Accident</option>
-                <option value="r3">Due to entry of loose cotton.</option>
-                <option value="r4">Due to loose yarn entry.</option>
-                <option value="r6">Needle breakage occurs during take-down after program change.</option>
-                <option value="r7">Needle breakage during design work.</option>
-                <option value="r8">Needle breakage during take-down setup.</option>
-                <option value="r9">Due to needle marks on fabric.</option>
-                <option value="others">✏️ Others (Custom)</option>
               </select>
               <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
                 style="background:#f0f3f7;color:#1a5276;font-weight:600;">
@@ -4384,15 +4393,6 @@ function ok(msg) {
           <!-- Remarks filter -->
           <select class="form-control" id="nrr-remarks" style="width:220px;" onchange="renderNeedleRemarksReport()">
             <option value="">— Remarks সিলেক্ট করুন —</option>
-            <option value="newset">🆕 New Set</option>
-            <option value="accident">⚠️ Machine Accident</option>
-            <option value="r3">Due to entry of loose cotton.</option>
-            <option value="r4">Due to loose yarn entry.</option>
-            <option value="r6">Needle breakage occurs during take-down after program change.</option>
-            <option value="r7">Needle breakage during design work.</option>
-            <option value="r8">Needle breakage during take-down setup.</option>
-            <option value="r9">Due to needle marks on fabric.</option>
-            <option value="others">Others (Custom)</option>
           </select>
           <select class="form-control" id="nrr-supervisor" style="width:160px;" onchange="renderNeedleRemarksReport()">
             <option value="">— Supervisor (All) —</option>
@@ -4778,6 +4778,24 @@ function ok(msg) {
       </div>
       </div>
     </div>
+    <!-- Remarks Manager — Admin Only -->
+    <div class="card admin-only-action" style="margin-top:15px;border-top:4px solid #8e44ad;">
+      <div class="card-header" style="background:#f5eef8;cursor:pointer;" onclick="var b=document.getElementById('ndlm-remarks-body');b.style.display=b.style.display==='none'?'block':'none';">
+        📝 Needle Issue Remarks পরিচালনা
+        <span style="margin-left:auto;font-size:12px;color:#8e44ad;">▼ Toggle</span>
+      </div>
+      <div id="ndlm-remarks-body" style="display:none;">
+      <div class="card-body">
+        <p style="font-size:12px;color:#666;margin:0 0 10px;">এখান থেকে Needle Issue এর Remarks অপশন যোগ বা মুছতে পারবেন। এগুলো Issue Form ও Remarks Report উভয়তেই দেখাবে।</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <input type="text" id="ndlm-new-remark" class="form-control" placeholder="নতুন Remarks লিখুন..." style="flex:1;min-width:220px;">
+          <button class="btn btn-success btn-sm" onclick="ndlAddRemark()" style="white-space:nowrap;">➕ Add Remarks</button>
+        </div>
+        <div id="ndlm-remarks-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
+      </div>
+      </div>
+    </div>
+
     <!-- Master Table -->
     <div class="card" style="margin-top:15px;">
       <div class="card-header" style="background:#f0f3f7;">
@@ -7277,6 +7295,7 @@ function showPage(name, el) {
       var d=new Date(); document.getElementById('nr-date').value=d.toISOString().split('T')[0];
     }
     else if (name === 'needle_issue') {
+      ndlPopulateRemarkDropdowns();
       nmiInit();
     }
     else if (name === 'needle_monthly') {
@@ -7296,6 +7315,8 @@ function showPage(name, el) {
       renderNeedleMasterTable();
       renderMasterWorkers();
       renderRetailMachineTable();
+      ndlPopulateRemarkDropdowns();
+      ndlRenderRemarksList();
     }
     else if (name === 'retail_needle_account') {
       // Set default date range (current month)
@@ -9565,7 +9586,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:52px;">'
       + '<col style="width:110px;">'
       + '</colgroup>';
-    var thS = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+    var thS = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
@@ -9625,7 +9646,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:65px;">'
       + '<col style="width:80px;">'
       + '</colgroup>';
-    var thS2 = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+    var thS2 = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
              + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
@@ -9700,7 +9721,7 @@ function stnReqSimplePrint(areaId, thColor) {
     + '@media print {\n'
     + '  body > *:not(#stn-req-print-overlay) { display: none !important; }\n'
     + '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
-    + '  #stn-req-print-overlay thead th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; forced-color-adjust: none !important; }\n'
+    + '  #stn-req-print-overlay thead th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; border: 1.5px solid #333 !important; font-weight: 700 !important; }\n'
     + '  #stn-req-print-overlay tr:nth-child(even) td { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n'
     + '}\n';
   document.head.appendChild(style);
@@ -10661,7 +10682,7 @@ function stnPrintItemDept() {
   var tdZS = tdNS + 'color:#ccc;';
   var tdTS = tdNS + 'font-weight:700;background:#fce4e4;color:#7b241c;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
   var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
-  var tfGS = tfS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
+  var tfGS = tfS.replace(thColor,'#4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
 
   var colHtml = '<colgroup><col style="width:'+itemColMm+'mm;">';
   depts.forEach(function(){ colHtml += '<col style="width:'+deptColMm+'mm;">'; });
@@ -10669,7 +10690,7 @@ function stnPrintItemDept() {
 
   var theadHtml = '<thead><tr><th style="'+thIS+'">আইটেম নাম</th>';
   depts.forEach(function(dp){ theadHtml += '<th style="'+thS+'">'+dp+'</th>'; });
-  theadHtml += '<th style="'+thS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010')+'">মোট</th></tr></thead>';
+  theadHtml += '<th style="'+thS.replace(thColor,'#4a1010')+'">মোট</th></tr></thead>';
 
   var deptTotals = {};
   depts.forEach(function(dp){ deptTotals[dp] = 0; });
@@ -14486,25 +14507,28 @@ function renderNeedleRemarksReport(){
   var info    = document.getElementById('nrr-info');
   if(!tbody) return;
 
-  // Remarks key → match function
-  var REMARKS_MAP = {
-    'newset':   function(r){ return (r.remarks||'').trim().toLowerCase().indexOf('new set') === 0; },
-    'accident': function(r){ return (r.remarks||'').trim().toLowerCase().indexOf('machine accident') === 0; },
-    'r3': function(r){ return (r.remarks||'').trim() === 'Due to entry of loose cotton.'; },
-    'r4': function(r){ return (r.remarks||'').trim() === 'Due to loose yarn entry.'; },
-    'r6': function(r){ return (r.remarks||'').trim() === 'Needle breakage occurs during take-down after program change.'; },
-    'r7': function(r){ return (r.remarks||'').trim() === 'Needle breakage during design work.'; },
-    'r8': function(r){ return (r.remarks||'').trim() === 'Needle breakage during take-down setup.'; },
-    'r9': function(r){ return (r.remarks||'').trim() === 'Due to needle marks on fabric.'; },
-    'others': function(r){
-      var rm = (r.remarks||'').trim();
-      var fixed = ['new set','machine accident','due to entry of loose cotton.','due to loose yarn entry.',
-        'needle breakage occurs during take-down after program change.',
-        'needle breakage during design work.','needle breakage during take-down setup.'];
-      if(!rm) return false;
-      return !fixed.some(function(f){ return rm.toLowerCase().indexOf(f)===0 || rm.toLowerCase()===f; });
+  // Remarks key → match function (dynamic from ndlGetRemarks)
+  var _remarksList = ndlGetRemarks();
+  var _fixedTexts = _remarksList
+    .filter(function(r){return r.id!=='others';})
+    .map(function(r){return r.text.toLowerCase();});
+  var REMARKS_MAP = {};
+  _remarksList.forEach(function(r){
+    if(r.id==='others'){
+      REMARKS_MAP['others'] = function(rec){
+        var rm=(rec.remarks||'').trim();
+        if(!rm) return false;
+        return !_fixedTexts.some(function(f){ return rm.toLowerCase()===f || rm.toLowerCase().indexOf(f)===0; });
+      };
+    } else {
+      (function(rr){
+        REMARKS_MAP[rr.id] = function(rec){
+          if(rr.text==='__others__') return false;
+          return (rec.remarks||'').trim().toLowerCase().indexOf(rr.text.toLowerCase())===0;
+        };
+      })(r);
     }
-  };
+  });
 
   var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
   var nm  = ndlGetMaster();
@@ -16269,18 +16293,18 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var machineCells = '';
       allMachines.forEach(function(m){
         var ms = row.machineShifts[m];
-        if(!ms || !ms.mapped) return;
+        var hasIssue = ms && ms.shifts.some(function(v){return v>0;});
+        if(!ms || (!ms.mapped && !hasIssue)) return;
         var s = ms.shifts;
         var parts=[]; s.forEach(function(v){if(v)parts.push(v);});
         var qty = parts.join('+');
         var nmx = getNeedleMachines().find(function(x){return x.id===m;});
         // Jacquard: id থেকে short label বানাও — "Jacquard S/J 34"(2)" → "Jaq S/J(2)"
         var mlabel;
-        if(m.indexOf('Jacquard')===0){
-          var jShort = m.replace('Jacquard','Jaq').replace(/\s*\d+"\s*/,' ');
-          mlabel = jShort;
-        } else {
-          mlabel = nmx ? ((nmx.retail||m) + (nmx.erp ? ' ('+nmx.erp+')' : '')) : m;
+        {
+          var _r = nmx ? (nmx.retail||m) : m;
+          var _e = nmx && nmx.erp ? nmx.erp : '';
+          mlabel = (_e && _r.indexOf(_e)<0) ? _r+' ('+_e+')' : _r;
         }
         if(qty) {
           machineCells += '<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 1px;background:#fff;width:'+cellW+'px;text-align:center;overflow:hidden;vertical-align:top;">'
@@ -17730,11 +17754,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     inp.style.color = '#1a5276';
     inp.style.fontWeight = '600';
 
-    if(!val){
-      inp.value = '';
-      inp.placeholder = 'Auto filled...';
-      return;
-    }
+    if(!val){ inp.value = ''; inp.placeholder = 'Auto filled...'; return; }
 
     var machineErp = '';
     var machInp = document.getElementById('nmi-machine-input');
@@ -17742,22 +17762,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       machineErp = machInp.options[machInp.selectedIndex].text.trim();
     }
 
-    if(val === 'newset'){
-      inp.value = 'New Set (' + (machineErp || '?') + ')';
-    } else if(val === 'accident'){
-      inp.value = 'Machine Accident (' + (machineErp || '?') + ')';
-    } else if(val === 'r3'){
-      inp.value = 'Due to entry of loose cotton.';
-    } else if(val === 'r4'){
-      inp.value = 'Due to loose yarn entry.';
-    } else if(val === 'r6'){
-      inp.value = 'Needle breakage occurs during take-down after program change.';
-    } else if(val === 'r7'){
-      inp.value = 'Needle breakage during design work.';
-    } else if(val === 'r8'){
-      inp.value = 'Needle breakage during take-down setup.';
-    } else if(val === 'r9'){
-      inp.value = 'Due to needle marks on fabric.';
+    // Dynamic: find remark text from list
+    var list = ndlGetRemarks();
+    var found = list.find(function(r){return r.id===val;});
+    if(found && found.text && found.text!=='__others__'){
+      // newset/accident এর জন্য machine name যোগ করো
+      if(val==='newset'){
+        inp.value = 'New Set (' + (machineErp||'?') + ')';
+      } else if(val==='accident'){
+        inp.value = 'Machine Accident (' + (machineErp||'?') + ')';
+      } else {
+        inp.value = found.text;
+      }
+    } else {
+      inp.value = '';
     }
   }
 
@@ -19636,6 +19654,95 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     triggerAutoSave();
     toast('✅ '+updated+' টি Needle এর B/F আপডেট হয়েছে! ('+dateLabel+' পর্যন্ত)', 'success');
   }
+
+  // ── Needle Remarks Manager ──────────────────────────────────────────────
+  var _NDL_REMARKS_DEFAULT = [
+    {id:'newset',   label:'🆕 New Set',        text:'New Set'},
+    {id:'accident', label:'⚠️ Machine Accident', text:'Machine Accident'},
+    {id:'r3', label:'Due to entry of loose cotton.',         text:'Due to entry of loose cotton.'},
+    {id:'r4', label:'Due to loose yarn entry.',              text:'Due to loose yarn entry.'},
+    {id:'r6', label:'Needle breakage occurs during take-down after program change.', text:'Needle breakage occurs during take-down after program change.'},
+    {id:'r7', label:'Needle breakage during design work.',   text:'Needle breakage during design work.'},
+    {id:'r8', label:'Needle breakage during take-down setup.', text:'Needle breakage during take-down setup.'},
+    {id:'r9', label:'Due to needle marks on fabric.',        text:'Due to needle marks on fabric.'},
+    {id:'others', label:'✏️ Others (Custom)', text:'__others__'}
+  ];
+
+  function ndlGetRemarks(){
+    try{
+      var stored = localStorage.getItem('igl_needle_remarks');
+      if(stored){ var arr=JSON.parse(stored); if(Array.isArray(arr)&&arr.length) return arr; }
+    }catch(e){}
+    return JSON.parse(JSON.stringify(_NDL_REMARKS_DEFAULT));
+  }
+
+  function ndlSaveRemarks(arr){
+    localStorage.setItem('igl_needle_remarks', JSON.stringify(arr));
+  }
+
+  function ndlPopulateRemarkDropdowns(){
+    var list = ndlGetRemarks();
+    ['nmi-remarks-drop','nrr-remarks'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      var isIssue = id==='nmi-remarks-drop';
+      var placeholder = isIssue ? '-- Select Remarks --' : '— Remarks সিলেক্ট করুন —';
+      var cur = el.value;
+      el.innerHTML = '<option value="">'+placeholder+'</option>';
+      list.forEach(function(r){
+        var opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.label;
+        el.appendChild(opt);
+      });
+      if(cur) el.value = cur;
+    });
+  }
+
+  function ndlRenderRemarksList(){
+    var box = document.getElementById('ndlm-remarks-list');
+    if(!box) return;
+    var list = ndlGetRemarks();
+    if(!list.length){ box.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px;">কোনো remarks নেই।</div>'; return; }
+    box.innerHTML = list.map(function(r,i){
+      var isDefault = _NDL_REMARKS_DEFAULT.some(function(d){return d.id===r.id;});
+      var delBtn = isDefault ? '<span style="font-size:10px;color:#bbb;padding:3px 8px;">Built-in</span>'
+        : '<button onclick="ndlDeleteRemark(this.getAttribute(\'data-id\'))" data-id=\''+r.id+'\' style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:12px;">✕ মুছুন</button>';
+      return '<div style="display:flex;align-items:center;gap:8px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:5px;padding:6px 10px;">'
+        +'<span style="flex:1;font-size:12px;color:#333;">'+r.label+'</span>'
+        +delBtn
+        +'</div>';
+    }).join('');
+  }
+
+  function ndlAddRemark(){
+    var inp = document.getElementById('ndlm-new-remark');
+    if(!inp) return;
+    var txt = inp.value.trim();
+    if(!txt){ toast('Remarks টেক্সট লিখুন','error'); return; }
+    var list = ndlGetRemarks();
+    // Others এর আগে insert করি
+    var id = 'cr_'+Date.now();
+    var othIdx = list.findIndex(function(r){return r.id==='others';});
+    var newItem = {id:id, label:txt, text:txt};
+    if(othIdx>=0) list.splice(othIdx,0,newItem);
+    else list.push(newItem);
+    ndlSaveRemarks(list);
+    inp.value='';
+    ndlRenderRemarksList();
+    ndlPopulateRemarkDropdowns();
+    toast('✅ Remarks যোগ হয়েছে','success');
+  }
+
+  function ndlDeleteRemark(id){
+    var list = ndlGetRemarks();
+    list = list.filter(function(r){return r.id!==id;});
+    ndlSaveRemarks(list);
+    ndlRenderRemarksList();
+    ndlPopulateRemarkDropdowns();
+    toast('🗑️ Remarks মুছে গেছে','info');
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   function ndlMasterAdd(){
     var typ=document.getElementById('ndlm-type').value;
