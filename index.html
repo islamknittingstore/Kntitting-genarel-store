@@ -645,28 +645,11 @@ if('serviceWorker' in navigator){
     [data-smr-print="dept"]    #smr-panel-dept     { display: block !important; }
     [data-smr-print="item"]    #smr-panel-item     { display: block !important; }
 
-    /* ── Clean print: background OFF → Excel-style, background ON → colored header ── */
-    /* background OFF হলে browser নিজেই bg সরায়; আমরা শুধু border/text ঠিক করি */
-    * { box-shadow: none !important; text-shadow: none !important; }
-    body, html { font-family: Arial, sans-serif !important; }
-
-    /* Table — crisp borders */
-    table { border-collapse: collapse !important; width: 100% !important; font-size: 8.5pt !important; }
-    th {
-      border: 1px solid #000 !important;
-      font-weight: 700 !important;
-      font-size: 8.5pt !important;
-      padding: 3px 5px !important;
-    }
-    td {
-      border: 0.5px solid #555 !important;
-      font-size: 8.5pt !important;
-      padding: 2px 5px !important;
-    }
-    tr { page-break-inside: avoid !important; }
-
-    .badge, .tag, .slip-badge { border: 1px solid #555 !important; }
-    .card { box-shadow: none !important; }
+    /* No background colors — plain white print */
+    * { background: #fff !important; background-color: #fff !important; background-image: none !important; }
+    th { color: #000 !important; border: 1px solid #555 !important; font-weight: 700 !important; }
+    td { color: #000 !important; border: 0.5px solid #aaa !important; }
+    .badge, .tag, .slip-badge { background: #fff !important; border: 1px solid #555 !important; color: #000 !important; }
     body::before { display: none !important; }
 
     /* ── Watermark ── */
@@ -1095,7 +1078,7 @@ if('serviceWorker' in navigator){
   window.preItems = window.preItems || null; // will be set below
   var preItems = [{"id": "item_1", "name": "Bearing No - 607", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_2", "name": "Bearing No - 608", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_3", "name": "Bearing No - 627", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_4", "name": "Bearing No - 629", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_5", "name": "Bearing No - 688", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_6", "name": "Bearing No - 689", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_7", "name": "Bearing No - 6000", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_8", "name": "Bearing No - 6001", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_9", "name": "Bearing No - 6002", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_10", "name": "Bearing No - 6003", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_11", "name": "Bearing No - 6004", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_12", "name": "Bearing No - 6005", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_13", "name": "Bearing No - 6008", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_14", "name": "Bearing No - 6200", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_15", "name": "Bearing No - 6201", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_16", "name": "Bearing No - 6202", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_17", "name": "Bearing No - 6203", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_18", "name": "Bearing No - 6204", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_19", "name": "Bearing No - 6205", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_20", "name": "Bearing No - 6206", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_21", "name": "Bearing No - 6207", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_22", "name": "Bearing No - 6208", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_23", "name": "Bearing No - 6300", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_24", "name": "Bearing No - 6306", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_25", "name": "Bearing No - 6308", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_26", "name": "Bearing No - 6806", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_27", "name": "Bearing No - 6902", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_28", "name": "Bearing No - 6905", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_29", "name": "Circlip Bearing No - 6004", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_30", "name": "Taper Bearing No - NJ 2206", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_31", "name": "Taper Bearing No - NJ 2207", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_32", "name": "Taper Bearing No - 30208", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_33", "name": "Taper Bearing No - 30209", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_34", "name": "Taper Bearing No - 30210", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_35", "name": "Taper Bearing No - 30219 U", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_36", "name": "Taper Bearing No - 30310", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_37", "name": "Taper Bearing No - 30306", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_38", "name": "Roller Bearing No - 2520", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_39", "name": "Bearing No - UC-204", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_40", "name": "Bearing No - UC-204 Set", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_41", "name": "UC-204 Bearing Bais", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_42", "name": "Bearing No - UC-205", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_43", "name": "Lock Bearing No - 40 PP", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_44", "name": "Wire Race Ring/ Bearing Full Set", "group": "Belt & Bearing", "category": "Bearing", "minStock": 0}, {"id": "item_45", "name": "Gear Belt-880 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_46", "name": "Gear Belt-840 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_47", "name": "Gear Belt-720 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_48", "name": "Gear Belt-984 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_49", "name": "Gear Belt-1120 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_50", "name": "Gear Belt-1152 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_51", "name": "Gear Belt-1064 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_52", "name": "Gear Belt-1080 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_53", "name": "Gear Belt-1280 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_54", "name": "Gear Belt-1304 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_55", "name": "Gear Belt-1344 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_56", "name": "Gear Belt-1504 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_57", "name": "Gear Belt-1512 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_58", "name": "Gear Belt-1552 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_59", "name": "Gear Belt-1760 (8mx5cm)", "group": "Belt & Bearing", "category": "Gear Belt", "minStock": 0}, {"id": "item_60", "name": "Takeup Roun Belt-640x8m", "group": "Belt & Bearing", "category": "Takeup Belt", "minStock": 0}, {"id": "item_61", "name": "Carriage Belt - 8m X 3cm", "group": "Belt & Bearing", "category": "Carriage Belt", "minStock": 0}, {"id": "item_62", "name": "Motor Belt - A36", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_63", "name": "Motor Belt - A37", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_64", "name": "Motor Belt - A38", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_65", "name": "Motor Belt - A39", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_66", "name": "Motor Belt - A40", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_67", "name": "Motor Belt - A41", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_68", "name": "Motor Belt - A42", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_69", "name": "Motor Belt - A43", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_70", "name": "Motor Belt - A44", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_71", "name": "Motor Belt - A45", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_72", "name": "Motor Belt - A46", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_73", "name": "Motor Belt - A47", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_74", "name": "Motor Belt - A51", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_75", "name": "Motor Belt - A53", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_76", "name": "Motor Belt - A54", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_77", "name": "Motor Belt - A58", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_78", "name": "Motor Belt - A64", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_79", "name": "Motor Belt - A68", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_80", "name": "Motor Belt - A75", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_81", "name": "Motor Belt - A84", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_82", "name": "Motor Belt - A710 Li/A29/A28", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_83", "name": "Motor Belt - B52", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_84", "name": "Motor Belt - B53", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_85", "name": "Motor Belt - B60", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_86", "name": "Motor Belt - B62", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_87", "name": "Motor Belt - B69", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_88", "name": "Motor Belt - B85", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_89", "name": "Motor Belt -3V-530/MF-1530", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_90", "name": "Motor Belt -3V-1000", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_91", "name": "Motor Belt- VB-14x5x1015Li(1.5cm)", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_92", "name": "Polyflex Belt- 7M690", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_93", "name": "Polyflex Belt- 7M925", "group": "Belt & Bearing", "category": "Motor Belt", "minStock": 0}, {"id": "item_94", "name": "Timing Belt - 530(5m x 2cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_95", "name": "Timing Belt - 720(5m x 2cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_96", "name": "Timing Belt - 740(5m x 2cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_97", "name": "Timing Belt - 310H (2.5cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_98", "name": "Timing Belt - 810(5m x 2cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_99", "name": "Timing Belt - 600(8m x 4cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_100", "name": "Timing Belt - 640(8m x 4cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_101", "name": "Timing Belt - T5-255 (5mm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_102", "name": "Timing Belt - 250S(8m x 2.5cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_103", "name": "Timing Belt - 850(5m x 1.5cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_104", "name": "Timing Belt - 824(8m x 1.5cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_105", "name": "Timing Belt - 816(8m x 2.8cm)", "group": "Belt & Bearing", "category": "Timing Belt", "minStock": 0}, {"id": "item_106", "name": "Miminger Belt - 15600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_107", "name": "Miminger Belt - 15400", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_108", "name": "Miminger Belt - 14200", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_109", "name": "Miminger Belt - 12600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_110", "name": "Miminger Belt - 12200", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_111", "name": "Miminger Belt - 12000", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_112", "name": "Miminger Belt - 11600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_113", "name": "Miminger Belt - 11400", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_114", "name": "Miminger Belt - 10800", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_115", "name": "Miminger Belt - 10200", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_116", "name": "Miminger Belt - 10000", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_117", "name": "Miminger Belt - 9800", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_118", "name": "Miminger Belt - 9600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_119", "name": "Miminger Belt - 9400", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_120", "name": "Miminger Belt - 8800", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_121", "name": "Miminger Belt - 8600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_122", "name": "Miminger Belt - 8400", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_123", "name": "Miminger Belt - 8200", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_124", "name": "Miminger Belt - 7800", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_125", "name": "Miminger Belt - 7600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_126", "name": "Miminger Belt - 7400", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_127", "name": "Miminger Belt - 7200", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_128", "name": "Miminger Belt - 6800", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_129", "name": "Miminger Belt - 6600", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_130", "name": "Punching Belt", "group": "Belt & Bearing", "category": "Miminger Belt", "minStock": 0}, {"id": "item_131", "name": "Colling Fan Ac- 220v; 5″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_132", "name": "Colling Fan Ac- 220v; 4″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_133", "name": "Colling Fan Ac- 220v; 3″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_134", "name": "Colling Fan Dc- 24v; 5″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_135", "name": "Colling Fan Dc- 24v; 3″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_136", "name": "Colling Fan Dc- 24v; 3.5″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_137", "name": "Colling Fan Dc- 12v; 2.5″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_138", "name": "Colling Fan Dc- 24v; 2.5″", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_139", "name": "Colling Fan Dc- 24v; 2.5″(3-Cable)", "group": "Electrical", "category": "Colling Fan", "minStock": 0}, {"id": "item_140", "name": "Push Switch Red Colour", "group": "Electrical", "category": "Push Switch", "minStock": 0}, {"id": "item_141", "name": "Push Switch Yellow Colour", "group": "Electrical", "category": "Push Switch", "minStock": 0}, {"id": "item_142", "name": "Push Switch Green Colour", "group": "Electrical", "category": "Push Switch", "minStock": 0}, {"id": "item_143", "name": "2 Way Push Switch", "group": "Electrical", "category": "Push Switch", "minStock": 0}, {"id": "item_144", "name": "Pin Bulb - 100w-220v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_145", "name": "Pin Bulb-60w-220v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_146", "name": "2 Pin Bulb-5w-24v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_147", "name": "Thread Bulb-60w-220v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_148", "name": "Thread Bulb-100w-220v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_149", "name": "Thread Bulb-60w-24v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_150", "name": "U-Tipe 2pin Bulb -7w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_151", "name": "U-Tipe 4pin Bulb -7w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_152", "name": "Energy Saveing Light-30watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_153", "name": "Energy Saveing Light-32watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_154", "name": "Energy Saveing Light-24watt(Thread Type)", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_155", "name": "Energy Saveing Light-24watt(Pin Type)", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_156", "name": "Energy Saveing Light-14watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_157", "name": "Energy Saveing Light-13watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_158", "name": "Energy Saveing Light-8watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_159", "name": "LED Bulb-20watt(Pin Type)", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_160", "name": "Tub-light-40watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_161", "name": "Tub-light-36watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_162", "name": "Tub-light-18watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_163", "name": "Tub-light-10watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_164", "name": "Tub-light-8watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_165", "name": "Tub-light-6watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_166", "name": "UV Tub-light-18w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_167", "name": "Tub-light Set-36watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_168", "name": "Tub-light Set-18watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_169", "name": "LED Tub-light 4Pin; 20watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_170", "name": "LED Tub-light Set-22watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_171", "name": "LED Tub-light Set-5 watt", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_172", "name": "Panel LED Light-12w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_173", "name": "Panel LED Light-6w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_174", "name": "LED Panel Light-16w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_175", "name": "Miminger Light - 2watt; 24v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_176", "name": "Solenoid Valve-24v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_177", "name": "Rechargeable LED Flood Light", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_178", "name": "LED PCB DC Light 1w; 4v", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_179", "name": "Rechargeable Hand Light", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_180", "name": "Wall Light-15w", "group": "Electrical", "category": "Bulb & Light", "minStock": 0}, {"id": "item_181", "name": "Super wear- 22G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_182", "name": "Super wear- 23G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_183", "name": "Super wear- 28G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_184", "name": "Super wear- 29G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_185", "name": "Super wear- 30G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_186", "name": "Super wear- 32G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_187", "name": "Super wear- 35G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_188", "name": "Super wear- 34G", "group": "Electrical", "category": "Super Wear", "minStock": 0}, {"id": "item_189", "name": "Circuit Breaker(SP) - 6amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_190", "name": "Circuit Breaker(SP) - 10amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_191", "name": "Circuit Breaker(SP) - 16amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_192", "name": "Circuit Breaker(DP) - 16amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_193", "name": "Circuit Breaker(DP) - 32amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_194", "name": "Circuit Breaker(DP) - 40amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_195", "name": "Circuit Breaker(TP) - 16amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_196", "name": "Circuit Breaker(TP) - 20amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_197", "name": "Circuit Breaker(TP) - 32amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_198", "name": "Circuit Breaker(TP) - 40amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_199", "name": "Circuit Breaker(TP) - 63amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_200", "name": "MCCB Breaker -16amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_201", "name": "MCCB Breaker -20amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_202", "name": "MCCB Breaker -32amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_203", "name": "MCCB Breaker -40amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_204", "name": "MCCB Breaker - 63amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_205", "name": "MCCB Breaker -75amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_206", "name": "MCCB Breaker-100amp", "group": "Electrical", "category": "Breaker", "minStock": 0}, {"id": "item_207", "name": "Magnateick Contact-5.5kw;220v", "group": "Electrical", "category": "Contact", "minStock": 0}, {"id": "item_208", "name": "Magnateick Contact-5.5kw;24v", "group": "Electrical", "category": "Contact", "minStock": 0}, {"id": "item_209", "name": "Magnateick Contact-7.5kw;220v", "group": "Electrical", "category": "Contact", "minStock": 0}, {"id": "item_210", "name": "1.2 RM Flexible Cable", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_211", "name": "2.0 RM Flexible Cable", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_212", "name": "2.5 RM Flexible Cable-5 core", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_213", "name": "Flexible Cable-2 core (2X23/76)", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_214", "name": "Flexible Cable-4 core (2X23/76)", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_215", "name": "Carriage Cable (CA-02)", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_216", "name": "Program Cable (CN2)", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_217", "name": "Program Cable-10Pin [10corex7]", "group": "Electrical", "category": "Cable", "minStock": 0}, {"id": "item_218", "name": "Cable Lux-2.5 RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_219", "name": "Cable Lux-6 RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_220", "name": "Cable Lux-16 RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_221", "name": "Cable Lux-25RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_222", "name": "Cable Lux-35RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_223", "name": "Cable Lux-50RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_224", "name": "Cable Lux-75RM", "group": "Electrical", "category": "Cable Lux", "minStock": 0}, {"id": "item_225", "name": "Male Female Connector", "group": "Electrical", "category": "Connector", "minStock": 0}, {"id": "item_226", "name": "Stater s-10", "group": "Electrical", "category": "Stater", "minStock": 0}, {"id": "item_227", "name": "Stater- FG7E", "group": "Electrical", "category": "Stater", "minStock": 0}, {"id": "item_228", "name": "Stater- St 151 (S2)", "group": "Electrical", "category": "Stater", "minStock": 0}, {"id": "item_229", "name": "Magnateick Stater-3p; 380v", "group": "Electrical", "category": "Stater", "minStock": 0}, {"id": "item_230", "name": "Blast - 10w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_231", "name": "Blast - 18w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_232", "name": "Blast - 22w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_233", "name": "Blast - 36w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_234", "name": "Blast - 40w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_235", "name": "Auto Bllast-12w(In DC175-260)", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_236", "name": "UV Tub-light Ballast 20-28w", "group": "Electrical", "category": "Blast", "minStock": 0}, {"id": "item_237", "name": "PVC Tape", "group": "Electrical", "category": "Tape", "minStock": 0}, {"id": "item_238", "name": "Amper Tape", "group": "Electrical", "category": "Tape", "minStock": 0}, {"id": "item_239", "name": "P.I.B Tape", "group": "Electrical", "category": "Tape", "minStock": 0}, {"id": "item_240", "name": "Thread Tape", "group": "Electrical", "category": "Tape", "minStock": 0}, {"id": "item_241", "name": "Cotton Tape", "group": "Electrical", "category": "Tape", "minStock": 0}, {"id": "item_242", "name": "MK Socket - 3pin", "group": "Electrical", "category": "Socket", "minStock": 0}, {"id": "item_243", "name": "MK Socket - 6pin", "group": "Electrical", "category": "Socket", "minStock": 0}, {"id": "item_244", "name": "MK Socket Box", "group": "Electrical", "category": "Socket", "minStock": 0}, {"id": "item_245", "name": "Weatherproof Industril Male Female Socket -32", "group": "Electrical", "category": "Socket", "minStock": 0}, {"id": "item_246", "name": "3 Pin Plug", "group": "Electrical", "category": "Plug", "minStock": 0}, {"id": "item_247", "name": "2 Pin Plug", "group": "Electrical", "category": "Plug", "minStock": 0}, {"id": "item_248", "name": "Multi Plug", "group": "Electrical", "category": "Plug", "minStock": 0}, {"id": "item_249", "name": "Royel Piug No 10", "group": "Electrical", "category": "Plug", "minStock": 0}, {"id": "item_250", "name": "Capacitar- 3.5 uf", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_251", "name": "Capacitar- 3.0 uf", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_252", "name": "Capacitar- 2.5 uf", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_253", "name": "Capacitar- 1.5 uf", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_254", "name": "Capacitar- 1000 uf 16v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_255", "name": "Capacitar- 4700 uf 25v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_256", "name": "Capacitar- 220 uf 35v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_257", "name": "Capacitar- 20 uf 450v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_258", "name": "Capacitar- 10 uf 50v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_259", "name": "Capacitar- 4.5 uf 430v", "group": "Electrical", "category": "Capacitar", "minStock": 0}, {"id": "item_260", "name": "Cable Tie-300mm", "group": "Electrical", "category": "Cable Tie", "minStock": 0}, {"id": "item_261", "name": "Cable Tie-200mm", "group": "Electrical", "category": "Cable Tie", "minStock": 0}, {"id": "item_262", "name": "Cable Tie-150mm", "group": "Electrical", "category": "Cable Tie", "minStock": 0}, {"id": "item_263", "name": "Cable Tie-100mm", "group": "Electrical", "category": "Cable Tie", "minStock": 0}, {"id": "item_264", "name": "Dust Rotating Fan-3 plate(Big)", "group": "Electrical", "category": "Fan", "minStock": 0}, {"id": "item_265", "name": "Dust Rotating Fan-4 plate(Big)", "group": "Electrical", "category": "Fan", "minStock": 0}, {"id": "item_266", "name": "Dust Rotating Fan-4 plate(Small)", "group": "Electrical", "category": "Fan", "minStock": 0}, {"id": "item_267", "name": "Celing Fan", "group": "Electrical", "category": "Fan", "minStock": 0}, {"id": "item_268", "name": "Stand Fan", "group": "Electrical", "category": "Fan", "minStock": 0}, {"id": "item_269", "name": "Needle Detector - 24v", "group": "Electrical", "category": "Stoper", "minStock": 0}, {"id": "item_270", "name": "Body Stoper", "group": "Electrical", "category": "Stoper", "minStock": 0}, {"id": "item_271", "name": "Stoper ware-24v", "group": "Electrical", "category": "Stoper", "minStock": 0}, {"id": "item_272", "name": "Stoper ware (2 Pin)", "group": "Electrical", "category": "Stoper", "minStock": 0}, {"id": "item_273", "name": "Needle Breakeg Switch", "group": "Electrical", "category": "Stoper", "minStock": 0}, {"id": "item_274", "name": "Indecator", "group": "Electrical", "category": "Indecator", "minStock": 0}, {"id": "item_275", "name": "Fuse-1amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_276", "name": "Fuse-2amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_277", "name": "Fuse-3amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_278", "name": "Fuse-4amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_279", "name": "Fuse-5amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_280", "name": "Fuse-5amp(Small)", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_281", "name": "Fuse-6amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_282", "name": "Fuse-7amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_283", "name": "Fuse-8amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_284", "name": "Fuse-9amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_285", "name": "Fuse-10amp", "group": "Electrical", "category": "Fuse", "minStock": 0}, {"id": "item_286", "name": "2 Pin Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_287", "name": "Pin Bottom Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_288", "name": "Thread Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_289", "name": "Thread Bottom Holder (Ceramic)", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_290", "name": "2 Pin U-Tipe Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_291", "name": "4 Pin U-Tipe Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_292", "name": "Tub Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_293", "name": "UV Tub-light Holder", "group": "Electrical", "category": "Holder", "minStock": 0}, {"id": "item_294", "name": "Relay -24v(8 pin)", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_295", "name": "Relay -12v(14pin)", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_296", "name": "Relay -220v(14pin)", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_297", "name": "Relay -AC; 220v(8 pin)", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_298", "name": "Relay- AC; 220v(8 pin);5amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_299", "name": "Relay- AC; 220v(8 pin);8amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_300", "name": "Relay -DC;12v(6pin);5amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_301", "name": "Relay -DC;12v(6pin);16amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_302", "name": "Relay -DC;24v(4pin);10amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_303", "name": "Relay -DC;24v(5pin);5amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_304", "name": "Relay -DC;24v(8pin);16amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_305", "name": "Relay -DC;24v(11pin);40amp", "group": "Electrical", "category": "Relay", "minStock": 0}, {"id": "item_306", "name": "Digital Timer-8 pin-220v/m", "group": "Electrical", "category": "Timer", "minStock": 0}, {"id": "item_307", "name": "Digital Timer-8 pin-12v/m", "group": "Electrical", "category": "Timer", "minStock": 0}, {"id": "item_308", "name": "Power Supply (In-220v Out-24v; Dc-6.4amp)", "group": "Electrical", "category": "Power Supply", "minStock": 0}, {"id": "item_309", "name": "Power Supply In-220v Out-5v; Dc-3.0amp", "group": "Electrical", "category": "Power Supply", "minStock": 0}, {"id": "item_310", "name": "Power Supply In-220v Out-7.8v; Dc-1.5amp", "group": "Electrical", "category": "Power Supply", "minStock": 0}, {"id": "item_311", "name": "Battery - (9 Volt)", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_312", "name": "Battery - (3.7 Volt)", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_313", "name": "Battery - 2032", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_314", "name": "Battery- 6V; 4.5Ah", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_315", "name": "Battery- 4v; 4Ah", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_316", "name": "Battery- 4v; 2Ah(Flat)", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_317", "name": "Battery- 12v- 8.2Ah", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_318", "name": "Battery- 3V Coin Battery-CR1220", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_319", "name": "Pencil Battery", "group": "Electrical", "category": "Battery", "minStock": 0}, {"id": "item_320", "name": "Battery Water", "group": "Electrical", "category": "Battery Water", "minStock": 0}, {"id": "item_321", "name": "Power Switch-4 pin", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_322", "name": "Power Switch-3 pin DC", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_323", "name": "4-Gang Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_324", "name": "2-Gang Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_325", "name": "Singel Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_326", "name": "Monitor Keybord Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_327", "name": "Selector Switch(Double)", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_328", "name": "Safe Push Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_329", "name": "Piano Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_330", "name": "Reverse Forward Switch", "group": "Electrical", "category": "Switch", "minStock": 0}, {"id": "item_331", "name": "Distribution Board - SDB Way 7-9", "group": "Electrical", "category": "Board", "minStock": 0}, {"id": "item_332", "name": "Distribution Board - 6 Gang", "group": "Electrical", "category": "Board", "minStock": 0}, {"id": "item_333", "name": "Distribution Board - DP", "group": "Electrical", "category": "Board", "minStock": 0}, {"id": "item_334", "name": "Switch Board - 6 Gang", "group": "Electrical", "category": "Board", "minStock": 0}, {"id": "item_335", "name": "Switch Board - 8 Gang", "group": "Electrical", "category": "Board", "minStock": 0}, {"id": "item_336", "name": "Soldering Rang 8mm", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_337", "name": "Soldering Iron Gun 200-220Watt", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_338", "name": "Soldering Sucker", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_339", "name": "Wear Tube-1.5", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_340", "name": "Wear Tube No-1", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_341", "name": "Wear Tube No-2", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_342", "name": "Carbon- 4 Inchi", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_343", "name": "Voltage Stabilizer", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_344", "name": "Scrow Driver", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_345", "name": "Flexible Ploe-1/2 Inch", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_346", "name": "Flexible Ploe-1 Inch", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_347", "name": "Flexible Ploe-3/4 Inch", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_348", "name": "Varnish", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_349", "name": "Thinner T6", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_350", "name": "Socket-4inchi", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_351", "name": "Fiber-8 No", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_352", "name": "Fiber-7 No", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_353", "name": "Cable Clipe-14mm", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_354", "name": "Counter Sensor", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_355", "name": "Tab Charger", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_356", "name": "USB Tab Charging Port", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_357", "name": "Charger- 5v AC/DC", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_358", "name": "PVC Pipe-1/2 Inchi", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_359", "name": "Electrical Contact Cleaner", "group": "Electrical", "category": "Electrical Goods", "minStock": 0}, {"id": "item_360", "name": "Grinding Machine", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_361", "name": "Screwdriver Set", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_362", "name": "Electrical Testers", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_363", "name": "Digital Multi Meter", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_364", "name": "Yarn Tension Meter", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_365", "name": "Star Screw- 3/4 Inchi", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_366", "name": "Star Screw- 1 Inchi", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_367", "name": "Jaw Bearing Puller- 6 Inch", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_368", "name": "Cutting Plus-6 Inchi", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_369", "name": "Lock Plush 7Inchi/ 175mm", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_370", "name": "Fabric GSM Weight Scale", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_371", "name": "Aluminium House Hold Ladder 8 Step", "group": "Electrical", "category": "Electrical Tools", "minStock": 0}, {"id": "item_372", "name": "Inverter Current Trancforma ICTI", "group": "Electrical", "category": "Trancforma", "minStock": 0}, {"id": "item_373", "name": "Trancforma -In 220v Out 12x2 3000 A", "group": "Electrical", "category": "Trancforma", "minStock": 0}, {"id": "item_374", "name": "Trancforma -In 220v Out 12x2 6000 A", "group": "Electrical", "category": "Trancforma", "minStock": 0}, {"id": "item_375", "name": "Trancforma -In 220v Out 9v 1000 A", "group": "Electrical", "category": "Trancforma", "minStock": 0}, {"id": "item_376", "name": "IGBT- 7MBR50SA060", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_377", "name": "IGBT-7MBR15UG120", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_378", "name": "IGBT-Vinco -0715-P083A2009", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_379", "name": "IGBT-17158PA-026-174125", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_380", "name": "IGBT-GMHI-035120TNE", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_381", "name": "IGBT-G-20H60C3", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_382", "name": "IGBT-SD30M0AC", "group": "Electrical", "category": "IGBT", "minStock": 0}, {"id": "item_383", "name": "Diode -BP", "group": "Electrical", "category": "Diode", "minStock": 0}, {"id": "item_384", "name": "Diode -M7", "group": "Electrical", "category": "Diode", "minStock": 0}, {"id": "item_385", "name": "Diode -LZ", "group": "Electrical", "category": "Diode", "minStock": 0}, {"id": "item_386", "name": "Resistor-1 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_387", "name": "Resistor-2.2 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_388", "name": "Resistor-101 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_389", "name": "Resistor-102 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_390", "name": "Resistor-201 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_391", "name": "Resistor-2001- k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_392", "name": "Resistor-822 K Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_393", "name": "Resistor-683 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_394", "name": "Resistor-682 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_395", "name": "Resistor-680 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_396", "name": "Resistor-561- K Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_397", "name": "Resistor-390 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_398", "name": "Resistor-513 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_399", "name": "Resistor-474 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_400", "name": "Resistor-473- k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_401", "name": "Resistor-473- Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_402", "name": "Resistor-472- k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_403", "name": "Resistor-471- k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_404", "name": "Resistor-333 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_405", "name": "Resistor-331 Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_406", "name": "Resistor-332 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_407", "name": "Resistor-222 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_408", "name": "Resistor-223 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_409", "name": "Resistor-123 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_410", "name": "Resistor-121 k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_411", "name": "Resistor-102-1k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_412", "name": "Resistor-103-10k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_413", "name": "Resistor 152-1.5k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_414", "name": "Resistor 330-334k Ohm", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_415", "name": "Resistor- RXLG 100W30RJ", "group": "Electrical", "category": "Resistor", "minStock": 0}, {"id": "item_416", "name": "Transistrs-TL431", "group": "Electrical", "category": "Transistors", "minStock": 0}, {"id": "item_417", "name": "Transistrs- C458", "group": "Electrical", "category": "Transistors", "minStock": 0}, {"id": "item_418", "name": "Transistrs- TIP 122", "group": "Electrical", "category": "Transistors", "minStock": 0}, {"id": "item_419", "name": "Transistors- 3205", "group": "Electrical", "category": "Transistors", "minStock": 0}, {"id": "item_420", "name": "Distrbutor- SMA 7029M", "group": "Electrical", "category": "Distributor", "minStock": 0}, {"id": "item_421", "name": "IC-ATMEL-206-93C46", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_422", "name": "IC-SLA7026M", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_423", "name": "IC-ULN2003 [16 Pin]", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_424", "name": "IC-3232N [16 Pin]", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_425", "name": "IC-SP485EE [8 Pin]", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_426", "name": "IC-HC 245", "group": "Electrical", "category": "IC", "minStock": 0}, {"id": "item_427", "name": "Photocoupler- P109", "group": "Electrical", "category": "Photocoupler", "minStock": 0}, {"id": "item_428", "name": "Mosfet- Top222Y", "group": "Electrical", "category": "Mosfet", "minStock": 0}, {"id": "item_429", "name": "Mosfet- Top223YN", "group": "Electrical", "category": "Mosfet", "minStock": 0}, {"id": "item_430", "name": "Mosfet- 6C", "group": "Electrical", "category": "Mosfet", "minStock": 0}, {"id": "item_431", "name": "Volt Regulator", "group": "Electrical", "category": "Regulator", "minStock": 0}, {"id": "item_432", "name": "Celling Fan Regulator", "group": "Electrical", "category": "Regulator", "minStock": 0}, {"id": "item_433", "name": "Regulator-10k", "group": "Electrical", "category": "Regulator", "minStock": 0}, {"id": "item_434", "name": "Hole Saw-50mm", "group": "Electrical", "category": "Hole Saw", "minStock": 0}, {"id": "item_435", "name": "Pneumatic Nipple I - 10mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_436", "name": "Pneumatic Nipple I - 8mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_437", "name": "Pneumatic Nipple I - 6mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_438", "name": "Pneumatic Elbow - 6mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_439", "name": "Pneumatic Elbow - 8mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_440", "name": "Pneumatic Elbow - 10mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_441", "name": "Pneumatic Union I - 4mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_442", "name": "Pneumatic Union I - 6mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_443", "name": "Pneumatic Union I - 8mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_444", "name": "Pneumatic Union I - 10mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_445", "name": "Pneumatic Union Y - 6mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_446", "name": "Pneumatic Union Y - 8mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_447", "name": "Pneumatic Union T - 6mm", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_448", "name": "Hose Nipple-1/4 inchi brass", "group": "Spare Parts", "category": "Nipple", "minStock": 0}, {"id": "item_449", "name": "Air Hose Pipe Spring Tipe-8mm (6 Meter)", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_450", "name": "Air Hose Pipe Spring Tipe-8mm (9 Meter)", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_451", "name": "Air Hose Pipe - (4mm)", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_452", "name": "Air Hose Pipe - (6mm) Blue", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_453", "name": "Air Hose Pipe - (8mm) White", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_454", "name": "Air Hose Pipe - (10mm) Blue", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_455", "name": "Air Hose Pipe - (12mm)", "group": "Spare Parts", "category": "Hose Pipe", "minStock": 0}, {"id": "item_456", "name": "Oil Pipe - 4mm (Yellow)", "group": "Spare Parts", "category": "Oil Pipe", "minStock": 0}, {"id": "item_457", "name": "Oil Pipe -10mm(Green)", "group": "Spare Parts", "category": "Oil Pipe", "minStock": 0}, {"id": "item_458", "name": "Oil Seals - 62X35X10", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_459", "name": "Oil Seals - 50X30X11", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_460", "name": "Oil Seals - 45X60X10", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_461", "name": "Oil Seals - 45X60X8", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_462", "name": "Oil Seals - 42X65X12", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_463", "name": "Oil Seals - 40X65X12", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_464", "name": "Oil Seals - 30X50X10", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_465", "name": "Oil Seals - 30X17X7", "group": "Spare Parts", "category": "Oil Seals", "minStock": 0}, {"id": "item_466", "name": "Hose Clump 3/4", "group": "Spare Parts", "category": "Hose Clump", "minStock": 0}, {"id": "item_467", "name": "Air Gan (Steel)", "group": "Spare Parts", "category": "Air Gan", "minStock": 0}, {"id": "item_468", "name": "Air Gan (Plastic)", "group": "Spare Parts", "category": "Air Gan", "minStock": 0}, {"id": "item_469", "name": "Shima Needle Brush", "group": "Spare Parts", "category": "Brush", "minStock": 0}, {"id": "item_470", "name": "Yonthin Collar Machine Needle Brush", "group": "Spare Parts", "category": "Brush", "minStock": 0}, {"id": "item_471", "name": "Petal Brush", "group": "Spare Parts", "category": "Brush", "minStock": 0}, {"id": "item_472", "name": "Fiber Gear Pinium", "group": "Spare Parts", "category": "Pinium", "minStock": 0}, {"id": "item_473", "name": "Main Drive Shape Pinion 40T", "group": "Spare Parts", "category": "Pinium", "minStock": 0}, {"id": "item_474", "name": "Handel Bar Pinion (Fiber) 40T", "group": "Spare Parts", "category": "Pinium", "minStock": 0}, {"id": "item_475", "name": "Stepping Motor", "group": "Spare Parts", "category": "Motor", "minStock": 0}, {"id": "item_476", "name": "Servo Motor", "group": "Spare Parts", "category": "Motor", "minStock": 0}, {"id": "item_477", "name": "Polyflex Belt- 7M925", "group": "Spare Parts", "category": "Motor Belt", "minStock": 0}, {"id": "item_478", "name": "Takeup Motor", "group": "Spare Parts", "category": "Takeup Motor", "minStock": 0}, {"id": "item_479", "name": "Pully Gull", "group": "Spare Parts", "category": "Pully", "minStock": 0}, {"id": "item_480", "name": "Lycra Pully", "group": "Spare Parts", "category": "Pully", "minStock": 0}, {"id": "item_481", "name": "Roller Griper (Emery Belt)", "group": "Spare Parts", "category": "Griper", "minStock": 0}, {"id": "item_482", "name": "Wire Race Ring/ Bearing Full Set with Ball and Ball Cage/T", "group": "Spare Parts", "category": "Wire Bearing", "minStock": 0}, {"id": "item_483", "name": "05 B/R- Chine", "group": "Spare Parts", "category": "Chine", "minStock": 0}, {"id": "item_484", "name": "06 B/R- Chine", "group": "Spare Parts", "category": "Chine", "minStock": 0}, {"id": "item_485", "name": "Roller Chain-35-1R", "group": "Spare Parts", "category": "Chine", "minStock": 0}, {"id": "item_486", "name": "Roller Chain-428", "group": "Spare Parts", "category": "Chine", "minStock": 0}, {"id": "item_487", "name": "Roller Chain Lock", "group": "Spare Parts", "category": "Chine", "minStock": 0}, {"id": "item_488", "name": "Alenkey Nut-3mm", "group": "Spare Parts", "category": "Nut Bolt", "minStock": 0}, {"id": "item_489", "name": "Alenkey Nut-4mm X 20", "group": "Spare Parts", "category": "Nut Bolt", "minStock": 0}, {"id": "item_490", "name": "Alenkey Nut-6mm X 75", "group": "Spare Parts", "category": "Nut Bolt", "minStock": 0}, {"id": "item_491", "name": "Alenkey Cam Nut-5mm 1/2 Inch", "group": "Spare Parts", "category": "Nut Bolt", "minStock": 0}, {"id": "item_492", "name": "Knit Cam", "group": "Spare Parts", "category": "Cam", "minStock": 0}, {"id": "item_493", "name": "Tuck Cam", "group": "Spare Parts", "category": "Cam", "minStock": 0}, {"id": "item_494", "name": "Miss Cam", "group": "Spare Parts", "category": "Cam", "minStock": 0}, {"id": "item_495", "name": "Needle Cam", "group": "Spare Parts", "category": "Cam", "minStock": 0}, {"id": "item_496", "name": "Sinker Cam", "group": "Spare Parts", "category": "Cam", "minStock": 0}, {"id": "item_497", "name": "Oil Nozzle", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_498", "name": "Oil Nozzle Sinker", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_499", "name": "Oil Nozzle Cylinder", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_500", "name": "Positive Feeder", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_501", "name": "Lycra Feeder", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_502", "name": "Lycra Stoper Roller", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_503", "name": "Yarn Guide", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_504", "name": "Inverder- 4.0 kw", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_505", "name": "Inverder- 5.5 kw", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_506", "name": "Memminger Wheel Rubber", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_507", "name": "Magnetic Disk (Fukahama Machine)", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_508", "name": "Servo Motor", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_509", "name": "Spring (Knitting Machine)", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_510", "name": "Cylinder Comb- 18Gage", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_511", "name": "Knitting Machine Wire Bearing Ball", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_512", "name": "Air Regulator 1/4 Inchi", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_513", "name": "Magnet Set (TPF)-1", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_514", "name": "Magnet Set (TPF)-2", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_515", "name": "Magnet Set (TPF)-3", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_516", "name": "Magnet Set (TPF Spring Type)-4", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_517", "name": "Knot Catcher-7", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_518", "name": "Knot Catcher Kelly-8", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_519", "name": "Knot Catcher-9", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_520", "name": "Knot Catcher Kelly-10", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_521", "name": "Cylinder Oil Nozzel -21", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_522", "name": "Sinker Oil Nozzel -25", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_523", "name": "Oiler Venture - 29", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_524", "name": "Yarn Guide Kelly and Nat -31", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_525", "name": "Cylinder Spring -33", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_526", "name": "Oil Nozzel Cape -36", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_527", "name": "Servo Motor Drive Bord", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_528", "name": "ADK-A38LG-I2500L1P-AMS With coupling (Encoder)", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_529", "name": "Encoder Base Spring", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_530", "name": "Encoder Gear", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_531", "name": "Cylinder Jersey- 32Inchi Dia X 24 Gauge X 98 Feeders", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_532", "name": "Cylinder Jersey- 34Inchi Dia X 24 Gauge X 102 Feeders", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_533", "name": "Cam Block Base With Adjust Ring", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_534", "name": "Sinker Cam", "group": "Spare Parts", "category": "Knitting Machine", "minStock": 0}, {"id": "item_535", "name": "Clip", "group": "Spare Parts", "category": "Reconing Machine", "minStock": 0}, {"id": "item_536", "name": "Inverter- 1.5 kw", "group": "Spare Parts", "category": "Fabrics Inspection Machine", "minStock": 0}, {"id": "item_537", "name": "Selection Pin", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_538", "name": "Roller Tube-27 Inch", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_539", "name": "Dowel Fitting Plate Set (FFCG028)", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_540", "name": "Dowel Fitting Plate Set (FFCG029)", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_541", "name": "Servo Drive", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_542", "name": "Oil Pot with Brush", "group": "Spare Parts", "category": "Collar Machine", "minStock": 0}, {"id": "item_543", "name": "GI Pipe- 1.5 Inch", "group": "Maintenance", "category": "GI Pipe", "minStock": 0}, {"id": "item_544", "name": "GI Pipe- 0.5 Inch", "group": "Maintenance", "category": "GI Pipe", "minStock": 0}, {"id": "item_545", "name": "S.S Flange-1.5 Inchi", "group": "Maintenance", "category": "Hol Box", "minStock": 0}, {"id": "item_546", "name": "GI Ball Valve- 0.5 Inch", "group": "Maintenance", "category": "Valve", "minStock": 0}, {"id": "item_547", "name": "GI Ball Valve- 1.5 Inchi", "group": "Maintenance", "category": "Valve", "minStock": 0}, {"id": "item_548", "name": "G.I Short Pcs-0.5 Inchi", "group": "Maintenance", "category": "Short Pcs", "minStock": 0}, {"id": "item_549", "name": "G.I Tee-1.5 Inchi", "group": "Maintenance", "category": "Tee", "minStock": 0}, {"id": "item_550", "name": "G.I Bonplug -1.5 Inchi", "group": "Maintenance", "category": "Bonplug", "minStock": 0}, {"id": "item_551", "name": "Elbow-MS-1.5 Inchi", "group": "Maintenance", "category": "Elbow", "minStock": 0}, {"id": "item_552", "name": "Elbow-GI-1.5 Inchi", "group": "Maintenance", "category": "Elbow", "minStock": 0}, {"id": "item_553", "name": "Welding Rod (Vortic Marine) - 3.2mm", "group": "Maintenance", "category": "Welding Rod", "minStock": 0}, {"id": "item_554", "name": "Welding Rod (Vortic Marine) - 2.5mm", "group": "Maintenance", "category": "Welding Rod", "minStock": 0}, {"id": "item_555", "name": "Pneumatic Nipple I - 10 MM X 0.5 Inchi", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_556", "name": "Pneumatic Nipple I - 10 MM X 0.25 Inchi", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_557", "name": "Pneumatic Nipple I - 8 MM X 0.25 Inchi", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_558", "name": "Pneumatic Nipple I - 8mm X 10mm", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_559", "name": "Pneumatic Elbow - 10 MM X 0.25 Inchi", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_560", "name": "Pneumatic Elbow - 8 MM X 0.25 Inchi", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_561", "name": "Pneumatic Union T - 10mm X 10mm", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_562", "name": "Pneumatic Union I - 8mm X 10mm", "group": "Maintenance", "category": "Nipple", "minStock": 0}, {"id": "item_563", "name": "Royel Bolt-12mm X 4″", "group": "Maintenance", "category": "Bolt", "minStock": 0}, {"id": "item_564", "name": "Royel Bolt-8mmX2.5″", "group": "Maintenance", "category": "Bolt", "minStock": 0}, {"id": "item_565", "name": "Drill Chuck-13mm", "group": "Maintenance", "category": "Drill", "minStock": 0}, {"id": "item_566", "name": "Drill Top Bit-9mm", "group": "Maintenance", "category": "Drill", "minStock": 0}, {"id": "item_567", "name": "Drill Bit-6.5mm", "group": "Maintenance", "category": "Drill", "minStock": 0}, {"id": "item_568", "name": "Drill Bit-3mm", "group": "Maintenance", "category": "Drill", "minStock": 0}, {"id": "item_569", "name": "Matal Cupling", "group": "Maintenance", "category": "Cupling", "minStock": 0}, {"id": "item_570", "name": "Needle Files Set", "group": "Maintenance", "category": "Tools", "minStock": 0}, {"id": "item_571", "name": "S.S Squarebar- 8mm", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_572", "name": "S.S Squarebar- 6mm", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_573", "name": "Cutting Disk-4inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_574", "name": "Granding Stone", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_575", "name": "Granding Disk 4inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_576", "name": "Sand Paper No-120", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_577", "name": "Sand Paper No-2", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_578", "name": "Wheel - 6inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_579", "name": "PVC Bord (white)-Length 6 Feet X Wide - 4 Fe", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_580", "name": "PVC Pipe-3/4 Inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_581", "name": "PVC Socket-3/4 Inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_582", "name": "PVC Elbow-3/4 Inchi", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_583", "name": "Royel Plug", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_584", "name": "1 Inchi Scrow", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_585", "name": "Havy Floor Mat-Blue", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_586", "name": "3/4 inchi Saddle Clamp", "group": "Maintenance", "category": "Others", "minStock": 0}, {"id": "item_587", "name": "Label Paper - Thinmed (60mm X 200M)", "group": "ICT Equipment", "category": "Barcode Sticker", "minStock": 0}, {"id": "item_588", "name": "Ribbon - TTR004 (60mm X 300M)", "group": "ICT Equipment", "category": "Barcode Sticker", "minStock": 0}, {"id": "item_589", "name": "Temperature Controller", "group": "ICT Equipment", "category": "Spare", "minStock": 0}, {"id": "item_590", "name": "Barcode Printer Head (BP-700)", "group": "ICT Equipment", "category": "Spare", "minStock": 0}, {"id": "item_591", "name": "Barcode Printer Cutter", "group": "ICT Equipment", "category": "Spare", "minStock": 0}];
   window.preItems = preItems; // Make global so DB.items getter can access it
-  window.preStnItems = [{"name": "Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_1"}, {"name": "Ball Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_2"}, {"name": "Pencil", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_3"}, {"name": "Pencil Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_4"}, {"name": "Stepler Pin", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_5"}, {"name": "Stepler Machine", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_6"}, {"name": "Pin Remover", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_7"}, {"name": "Cutting Knife", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_8"}, {"name": "Gum Tape Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_9"}, {"name": "GSM Cutting Blade", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_10"}, {"name": "Scale - 12 inc", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_11"}, {"name": "Scale - 20 & 24 inc", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_12"}, {"name": "Black Marker (RED LEAF)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_13"}, {"name": "Quality Fabric Marker", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_14"}, {"name": "Correction Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_15"}, {"name": "Hi-Light Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_16"}, {"name": "Gham Pen (Glue Gham)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_17"}, {"name": "File Clip", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_18"}, {"name": "Bandel Clip", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_19"}, {"name": "Sheet Protector", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_20"}, {"name": "Clipboard", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_21"}, {"name": "Carbon Paper", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_22"}, {"name": "Letter Envelope (Chitir kham)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_23"}, {"name": "Register Khata (20&24)", "category": "File & Register", "group": "Stationery", "id": "stn_item_24"}, {"name": "Register Khata - 300", "category": "File & Register", "group": "Stationery", "id": "stn_item_25"}, {"name": "Register Khata - 500", "category": "File & Register", "group": "Stationery", "id": "stn_item_26"}, {"name": "Stock Register - 300", "category": "File & Register", "group": "Stationery", "id": "stn_item_27"}, {"name": "Stock Register - 500", "category": "File & Register", "group": "Stationery", "id": "stn_item_28"}, {"name": "Office File (Plastic File)", "category": "File & Register", "group": "Stationery", "id": "stn_item_29"}, {"name": "Ring File (Small & Big)", "category": "File & Register", "group": "Stationery", "id": "stn_item_30"}, {"name": "Magazine File (Holder File)", "category": "File & Register", "group": "Stationery", "id": "stn_item_31"}, {"name": "Record File", "category": "File & Register", "group": "Stationery", "id": "stn_item_32"}, {"name": "Scostep (Small Size)", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_33"}, {"name": "ScotchTape (Big Size)", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_34"}, {"name": "Magerment Tape", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_35"}, {"name": "Super Glue", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_36"}, {"name": "WD - 40", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_37"}, {"name": "Series Paper", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_38"}, {"name": "Pencil Battery (AA & AAA)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_39"}, {"name": "Security Lock (Tala-Small)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_40"}, {"name": "Security Lock (Tala-Big)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_41"}, {"name": "Panch Machine", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_42"}, {"name": "Stamp Ped", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_43"}, {"name": "Calculator", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_44"}, {"name": "Rubber (Eraser)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_45"}, {"name": "Earplug", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_46"}, {"name": "Laminating Paper", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_47"}, {"name": "Mousepad", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_48"}, {"name": "RFL Chair", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_49"}, {"name": "Room Spray", "category": "Cleaning", "group": "Stationery", "id": "stn_item_50"}, {"name": "Aerosol", "category": "Cleaning", "group": "Stationery", "id": "stn_item_51"}, {"name": "570 Shop", "category": "Cleaning", "group": "Stationery", "id": "stn_item_52"}, {"name": "Fuler Jharu (Flower Broom)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_53"}, {"name": "Sholar Jharu (Coconut Broom)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_54"}, {"name": "Wheel Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_55"}, {"name": "Harpic Liquid Toilet Cleaner", "category": "Cleaning", "group": "Stationery", "id": "stn_item_56"}, {"name": "Hand Wash", "category": "Cleaning", "group": "Stationery", "id": "stn_item_57"}, {"name": "Steel Dish Wash (Majuni)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_58"}, {"name": "Toilet Brush", "category": "Cleaning", "group": "Stationery", "id": "stn_item_59"}, {"name": "Bucket (Small & Big)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_60"}, {"name": "Waste Basket (Moylar Jhuri)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_61"}, {"name": "Plastic Belcha", "category": "Cleaning", "group": "Stationery", "id": "stn_item_62"}, {"name": "Tibet Telcum Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_63"}, {"name": "Sandal (Jhuta)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_64"}, {"name": "Bleaching Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_65"}];
+  window.preStnItems = [{"name": "Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_1"}, {"name": "Ball Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_2"}, {"name": "Pencil", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_3"}, {"name": "Pencil Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_4"}, {"name": "Stepler Pin", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_5"}, {"name": "Stepler Machine", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_6"}, {"name": "Pin Remover", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_7"}, {"name": "Cutting Knife", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_8"}, {"name": "Gum Tape Cutter", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_9"}, {"name": "GSM Cutting Blade", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_10"}, {"name": "Scale - 12 inc", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_11"}, {"name": "Scale - 20 & 24 inc", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_12"}, {"name": "Black Marker (RED LEAF)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_13"}, {"name": "Quality Fabric Marker", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_14"}, {"name": "Correction Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_15"}, {"name": "Hi-Light Pen", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_16"}, {"name": "Gham Pen (Glue Gham)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_17"}, {"name": "File Clip", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_18"}, {"name": "Bandel Clip", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_19"}, {"name": "Sheet Protector", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_20"}, {"name": "Clipboard", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_21"}, {"name": "Carbon Paper", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_22"}, {"name": "Letter Envelope (Chitir kham)", "category": "Office Supplies", "group": "Stationery", "id": "stn_item_23"}, {"name": "Register Khata (20&24)", "category": "File & Register", "group": "Stationery", "id": "stn_item_24"}, {"name": "Register Khata - 300", "category": "File & Register", "group": "Stationery", "id": "stn_item_25"}, {"name": "Register Khata - 500", "category": "File & Register", "group": "Stationery", "id": "stn_item_26"}, {"name": "Stock Register - 300", "category": "File & Register", "group": "Stationery", "id": "stn_item_27"}, {"name": "Stock Register - 500", "category": "File & Register", "group": "Stationery", "id": "stn_item_28"}, {"name": "Office File (Plastic File)", "category": "File & Register", "group": "Stationery", "id": "stn_item_29"}, {"name": "Ring File (Small & Big)", "category": "File & Register", "group": "Stationery", "id": "stn_item_30"}, {"name": "Magazine File (Holder File)", "category": "File & Register", "group": "Stationery", "id": "stn_item_31"}, {"name": "Record File", "category": "File & Register", "group": "Stationery", "id": "stn_item_32"}, {"name": "Scostep (Small Size)", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_33"}, {"name": "ScotchTape (Big Size)", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_34"}, {"name": "Magerment Tape", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_35"}, {"name": "Super Glue", "category": "Tape & Adhesive", "group": "Stationery", "id": "stn_item_36"}, {"name": "WD - 40", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_37"}, {"name": "Series Paper", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_38"}, {"name": "Pencil Battery (AA & AAA)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_39"}, {"name": "Security Lock (Tala-Small)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_40"}, {"name": "Security Lock (Tala-Big)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_41"}, {"name": "Panch Machine", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_42"}, {"name": "Stamp Ped", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_43"}, {"name": "Calculator", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_44"}, {"name": "Rubber (Eraser)", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_45"}, {"name": "Earplug", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_46"}, {"name": "Laminating Paper", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_47"}, {"name": "Mousepad", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_48"}, {"name": "RFL Chair", "category": "Misc & Tools", "group": "Stationery", "id": "stn_item_49"}, {"name": "Room Spray", "category": "Cleaning", "group": "Stationery", "id": "stn_item_50"}, {"name": "Aerosol", "category": "Cleaning", "group": "Stationery", "id": "stn_item_51"}, {"name": "570 Shop", "category": "Cleaning", "group": "Stationery", "id": "stn_item_52"}, {"name": "Fuler Jharu (Flower Broom)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_53"}, {"name": "Sholar Jharu (Coconut Broom)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_54"}, {"name": "Wheel Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_55"}, {"name": "Harpic Liquid Toilet Cleaner", "category": "Cleaning", "group": "Stationery", "id": "stn_item_56"}, {"name": "Hand Wash", "category": "Cleaning", "group": "Stationery", "id": "stn_item_57"}, {"name": "Steel Dish Wash (Majuni)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_58"}, {"name": "Toilet Brush", "category": "Cleaning", "group": "Stationery", "id": "stn_item_59"}, {"name": "Bucket (Small & Big)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_60"}, {"name": "Waste Basket (Moglar Jhuri)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_61"}, {"name": "Plastic Belcha", "category": "Cleaning", "group": "Stationery", "id": "stn_item_62"}, {"name": "Tibet Telcum Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_63"}, {"name": "Sandal (Jhuta)", "category": "Cleaning", "group": "Stationery", "id": "stn_item_64"}, {"name": "Bleaching Powder", "category": "Cleaning", "group": "Stationery", "id": "stn_item_65"}];
   var preReceives = [];
   var preIssues = [];
   
@@ -1248,17 +1231,14 @@ if('serviceWorker' in navigator){
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
-          issues:       (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){return r.group==='Stationery';}) : [],
-          receives:     (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){return r.group==='Stationery';}) : [],
-          items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [],
-          requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {}
+          issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
+          receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
+          items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
+          requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
         },
         ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
-        // Deleted IDs — সব device এ share হয়, যাতে কোনো device থেকেই deleted item ফিরে না আসে
-        // deletedIds আলাদাভাবে Firebase এ iglDelIdsAdd/Remove দিয়ে manage হয়
-        // fbSaveAll এ include করার দরকার নেই
         settings: {
           userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
           usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
@@ -1272,9 +1252,6 @@ if('serviceWorker' in navigator){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
           _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
-          // পুরনো legacy localStorage keys cleanup
-          localStorage.removeItem('igl_deleted_needle_ids');
-          localStorage.removeItem('igl_deleted_ids');
           // Firebase save সফল হলে local JSON এ silently backup করো
           iglLocalJsonAutoSave(data);
         })
@@ -1399,25 +1376,11 @@ if('serviceWorker' in navigator){
           if(data.db.machines) DB.machines = data.db.machines;
 
           // Firebase load এ local pending entries merge করো — overwrite নয়
-          // Deleted IDs — Firebase থেকে সরাসরি cache এ লোড (localStorage নেই)
-          var _allDelIds = {};
-          if(data.deletedIds) {
-            // Firebase এর deletedIds সরাসরি in-memory cache এ রাখো
-            // key format Firebase এ: "rcv__123" → cache এ: "rcv:123"
-            Object.keys(data.deletedIds).forEach(function(k) {
-              var cacheKey = k.replace('__', ':');
-              _allDelIds[cacheKey] = true;
-            });
-            _fbDelIdsCache = _allDelIds; // cache update
-          } else {
-            _fbDelIdsCache = {};
-          }
           if(data.db.receives){
             var localRcv = DB.receives || [];
             var fbRcv = data.db.receives;
             var fbRcvIds = {}; fbRcv.forEach(function(r){ fbRcvIds[r.id]=true; });
-            // Deleted receive গুলো pending হিসেবে যোগ হবে না
-            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
+            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id]; });
             DB.receives = fbRcv.concat(pendingRcv);
             if(pendingRcv.length) toast('⚠️ '+pendingRcv.length+'টি pending receive entry merge হয়েছে','warning');
           }
@@ -1425,8 +1388,7 @@ if('serviceWorker' in navigator){
             var localIss = DB.issues || [];
             var fbIss = data.db.issues;
             var fbIssIds = {}; fbIss.forEach(function(r){ fbIssIds[r.id]=true; });
-            // Deleted issue গুলো pending হিসেবে যোগ হবে না
-            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
+            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id]; });
             DB.issues = fbIss.concat(pendingIss);
             if(pendingIss.length) toast('⚠️ '+pendingIss.length+'টি pending issue entry merge হয়েছে','warning');
           }
@@ -1437,17 +1399,16 @@ if('serviceWorker' in navigator){
             // NDB.needles এও local pending merge করো
             var localNeedles = NDB.needles || [];
             var fbNeedles = data.ndb.needles;
-            // Deleted IDs — _fbDelIdsCache থেকে চেক করো
-            fbNeedles = fbNeedles.filter(function(r){
-              return !_allDelIds['ndl:'+String(r.id)];
-            });
+            // Deleted IDs — Firebase এ যা আছে তার মধ্যে deleted গুলো বাদ দাও
+            var _delNdlIds=[];
+            try{_delNdlIds=JSON.parse(localStorage.getItem('igl_deleted_needle_ids')||'[]');}catch(e){}
+            fbNeedles = fbNeedles.filter(function(r){ return _delNdlIds.indexOf(String(r.id))<0; });
             var fbNdlIds = {}; fbNeedles.forEach(function(r){ fbNdlIds[r.id]=true; });
-            var pendingNdl = localNeedles.filter(function(r){
-              return !fbNdlIds[r.id] && !_allDelIds['ndl:'+String(r.id)];
-            });
+            var pendingNdl = localNeedles.filter(function(r){ return !fbNdlIds[r.id] && _delNdlIds.indexOf(String(r.id))<0; });
             NDB.needles = fbNeedles.concat(pendingNdl);
             if(pendingNdl.length){
               toast('⚠️ '+pendingNdl.length+'টি pending needle entry merge হয়েছে','warning');
+              // Merge হওয়া data সাথে সাথে Firebase এ push করো
               setTimeout(function(){ if(typeof window.fbSaveAll==='function') window.fbSaveAll(); }, 2000);
             }
           }
@@ -1471,31 +1432,12 @@ if('serviceWorker' in navigator){
           }
         }
         if(data.stn){
-          // Stationery items → DB.stnItems
-          if(data.stn.items && data.stn.items.length > 0){
-            DB.stnItems = data.stn.items;
-          }
-          // Stationery requisitions → DB.stnRequisitions
-          if(data.stn.requisitions){
-            DB.stnRequisitions = data.stn.requisitions;
-          }
-          // Stationery receives → DB.receives (Stationery group merge)
-          if(data.stn.receives && data.stn.receives.length > 0){
-            var localAllRcv = DB.receives || [];
-            var fbStnRcv = data.stn.receives;
-            var fbStnRcvIds = {}; fbStnRcv.forEach(function(r){ fbStnRcvIds[r.id]=true; });
-            var nonStnRcv = localAllRcv.filter(function(r){ return r.group !== 'Stationery'; });
-            DB.receives = nonStnRcv.concat(fbStnRcv);
-          }
-          // Stationery issues → DB.issues (Stationery group merge)
-          if(data.stn.issues && data.stn.issues.length > 0){
-            var localAllIss = DB.issues || [];
-            var fbStnIss = data.stn.issues;
-            var nonStnIss = localAllIss.filter(function(r){ return r.group !== 'Stationery'; });
-            DB.issues = nonStnIss.concat(fbStnIss);
-          }
+          if(data.stn.issues)   localStorage.setItem('igl_stn_issues',   JSON.stringify(data.stn.issues));
+          if(data.stn.receives) localStorage.setItem('igl_stn_receives', JSON.stringify(data.stn.receives));
+          if(data.stn.items)    localStorage.setItem('igl_stn_items',    JSON.stringify(data.stn.items));
+          if(data.stn.requisitions) localStorage.setItem('igl_stn_requisitions', JSON.stringify(data.stn.requisitions));
         }
-        // stnItems root level এ থাকলে লোড করো (legacy format)
+        // stnItems root level এ থাকলে লোড করো (নতুন save format)
         if(data.stnItems && data.stnItems.length > 0){
           DB.stnItems = data.stnItems;
         }
@@ -1504,10 +1446,7 @@ if('serviceWorker' in navigator){
           var localNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]');
           var fbNdlRcv = data.ndlRcv;
           var fbNdlRcvIds = {}; fbNdlRcv.forEach(function(r){ fbNdlRcvIds[r.id]=true; });
-          // Deleted ndlRcv গুলো pending হিসেবে যোগ হবে না
-          var pendingNdlRcv = localNdlRcv.filter(function(r){
-            return r.id && !fbNdlRcvIds[r.id] && !_allDelIds['ndlrcv:'+String(r.id)];
-          });
+          var pendingNdlRcv = localNdlRcv.filter(function(r){ return r.id && !fbNdlRcvIds[r.id]; });
           var mergedNdlRcv = fbNdlRcv.concat(pendingNdlRcv);
           localStorage.setItem('igl_ndl_rcv', JSON.stringify(mergedNdlRcv));
           if(pendingNdlRcv.length) toast('⚠️ '+pendingNdlRcv.length+'টি pending needle receive merge হয়েছে','warning');
@@ -1528,26 +1467,6 @@ if('serviceWorker' in navigator){
 
         if(typeof updateDashboard === 'function') updateDashboard();
         if(typeof renderStock === 'function') renderStock();
-        // Firebase load এর পর সব needle/issue/receive report refresh করো
-        // যাতে অন্য device এ restore/entry করলে এই device এও সাথে সাথে দেখা যায়
-        try { if(typeof nmiRenderLog         ==='function') nmiRenderLog(); }         catch(e){}
-        try { if(typeof renderNdlRcvLog      ==='function') renderNdlRcvLog(); }      catch(e){}
-        try { if(typeof renderTodayNeedle    ==='function') renderTodayNeedle(); }    catch(e){}
-        try { if(typeof renderNeedleStock    ==='function') renderNeedleStock(); }    catch(e){}
-        try { if(typeof renderUsedNeedleStock==='function') renderUsedNeedleStock(); }catch(e){}
-        try { if(typeof renderNeedleLedger   ==='function') renderNeedleLedger(); }   catch(e){}
-        try { if(typeof renderNeedleMonthly  ==='function') renderNeedleMonthly(); }  catch(e){}
-        try { if(typeof renderUsedNeedleMonthly==='function') renderUsedNeedleMonthly(); } catch(e){}
-        try { if(typeof renderNeedleDaily    ==='function') renderNeedleDaily(); }    catch(e){}
-        try { if(typeof renderNewSetLog      ==='function') renderNewSetLog(); }      catch(e){}
-        try { if(typeof renderNeedleUseReport==='function') renderNeedleUseReport(); }catch(e){}
-        try { if(typeof renderNdlStockRegister==='function') renderNdlStockRegister(); } catch(e){}
-        try { if(typeof renderReceiveLog     ==='function') renderReceiveLog(); }     catch(e){}
-        try { if(typeof renderIssueLog       ==='function') renderIssueLog(); }       catch(e){}
-        // Firebase load এর পর rnaSection init করো — load এর আগে initRNADefaults চলেছিল তাই data ছিল না
-        try { if(typeof initRNADefaults      ==='function') initRNADefaults(); }      catch(e){}
-        try { if(typeof renderRetailNeedleAccount==='function') renderRetailNeedleAccount(); } catch(e){}
-        try { if(typeof ndlPopulateRemarkDropdowns==='function') ndlPopulateRemarkDropdowns(); } catch(e){}
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
 
@@ -1578,36 +1497,11 @@ if('serviceWorker' in navigator){
     }
   });
 
-  // Firebase auth ready হলেই load করো — fixed timeout এর উপর নির্ভর নয়
-  var _fbAutoLoaded = false;
-  function _fbAutoLoad() {
-    if (_fbAutoLoaded) return;
-    _fbAutoLoaded = true;
+  // Page load এ connect
+  document.addEventListener('DOMContentLoaded', function(){
     fbStatus('saving', 'Connecting...');
-    window.fbLoadAll();
-  }
-
-  try {
-    firebase.auth().onAuthStateChanged(function(user) {
-      if (user) {
-        // Auth confirmed — সাথে সাথে load করো
-        _fbAutoLoad();
-      } else {
-        // Auth নেই — anonymous sign-in করো, onAuthStateChanged আবার fire করবে
-        firebase.auth().signInAnonymously().catch(function(e) {
-          console.warn('Firebase auth:', e.message);
-          // Auth fail হলেও 3s পর try করো (fallback)
-          setTimeout(_fbAutoLoad, 3000);
-        });
-      }
-    });
-  } catch(e) {
-    // Firebase unavailable হলে fallback
-    document.addEventListener('DOMContentLoaded', function(){
-      fbStatus('saving', 'Connecting...');
-      setTimeout(_fbAutoLoad, 2000);
-    });
-  }
+    setTimeout(function(){ window.fbLoadAll(); }, 2000);
+  });
 </script>
 </head>
 <body>
@@ -3187,7 +3081,6 @@ window.iglSaveUsers = function(){
         <p>সব Stationery Item এর Unit, Rate ও Rate History এখান থেকে Manage করুন</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-        <button onclick="stnImMergeDuplicates()" id="sim-merge-btn" style="display:none;background:linear-gradient(135deg,#922b21,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Duplicate মার্জ করুন</button>
         <button onclick="stnImPageAdd()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">➕ নতুন Item</button>
       </div>
     </div>
@@ -3285,9 +3178,8 @@ window.iglSaveUsers = function(){
         <div id="req-print-area-1">
           <div style="text-align:center;padding:14px 10px 6px;">
             <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
-            <div style="font-size:13px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>
-            <div style="font-size:12px;color:#555;margin-top:1px;">Unit: Knitting</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="req-print-title-disp"></div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>
+            <div style="font-size:13px;font-weight:700;margin-top:5px;" id="req-print-title-disp"></div>
           </div>
           <div class="table-wrap">
             <table style="width:100%;">
@@ -3306,9 +3198,9 @@ window.iglSaveUsers = function(){
               <tfoot id="req-preview-tfoot"></tfoot>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:120px 40px 40px;font-size:12px;color:#555;">
-            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store / Admin</div></div>
-            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Manager</div></div>
+          <div style="display:flex;justify-content:space-between;padding:100px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Authority</div></div>
           </div>
         </div>
       </div>
@@ -3329,9 +3221,8 @@ window.iglSaveUsers = function(){
         <div id="req-print-area-2">
           <div style="text-align:center;padding:14px 10px 6px;">
             <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
-            <div style="font-size:13px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>
-            <div style="font-size:12px;color:#555;margin-top:1px;">Unit: Knitting</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="reg-print-title-disp"></div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>
+            <div style="font-size:13px;font-weight:700;margin-top:5px;" id="reg-print-title-disp"></div>
           </div>
           <div class="table-wrap">
             <table style="width:100%;font-size:13px;">
@@ -3350,9 +3241,9 @@ window.iglSaveUsers = function(){
               </tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:120px 40px 40px;font-size:12px;color:#555;">
-            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store / Admin</div></div>
-            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Manager</div></div>
+          <div style="display:flex;justify-content:space-between;padding:100px 40px 16px;font-size:12px;color:#555;">
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Store/Admin</div></div>
+            <div style="text-align:center;min-width:160px;"><div style="border-top:1px solid #999;padding-top:6px;">Authority</div></div>
           </div>
         </div>
       </div>
@@ -3931,6 +3822,15 @@ function ok(msg) {
             <div class="form-group"><label>Remarks</label>
               <select class="form-control" id="nmi-remarks-drop" style="width:100%;margin-bottom:4px;" onchange="nmiRemarksDropChange()">
                 <option value="">-- Select Remarks --</option>
+                <option value="newset">🆕 New Set</option>
+                <option value="accident">⚠️ Machine Accident</option>
+                <option value="r3">Due to entry of loose cotton.</option>
+                <option value="r4">Due to loose yarn entry.</option>
+                <option value="r6">Needle breakage occurs during take-down after program change.</option>
+                <option value="r7">Needle breakage during design work.</option>
+                <option value="r8">Needle breakage during take-down setup.</option>
+                <option value="r9">Due to needle marks on fabric.</option>
+                <option value="others">✏️ Others (Custom)</option>
               </select>
               <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
                 style="background:#f0f3f7;color:#1a5276;font-weight:600;">
@@ -4394,6 +4294,15 @@ function ok(msg) {
           <!-- Remarks filter -->
           <select class="form-control" id="nrr-remarks" style="width:220px;" onchange="renderNeedleRemarksReport()">
             <option value="">— Remarks সিলেক্ট করুন —</option>
+            <option value="newset">🆕 New Set</option>
+            <option value="accident">⚠️ Machine Accident</option>
+            <option value="r3">Due to entry of loose cotton.</option>
+            <option value="r4">Due to loose yarn entry.</option>
+            <option value="r6">Needle breakage occurs during take-down after program change.</option>
+            <option value="r7">Needle breakage during design work.</option>
+            <option value="r8">Needle breakage during take-down setup.</option>
+            <option value="r9">Due to needle marks on fabric.</option>
+            <option value="others">Others (Custom)</option>
           </select>
           <select class="form-control" id="nrr-supervisor" style="width:160px;" onchange="renderNeedleRemarksReport()">
             <option value="">— Supervisor (All) —</option>
@@ -4779,24 +4688,6 @@ function ok(msg) {
       </div>
       </div>
     </div>
-    <!-- Remarks Manager — Admin Only -->
-    <div class="card admin-only-action" style="margin-top:15px;border-top:4px solid #8e44ad;">
-      <div class="card-header" style="background:#f5eef8;cursor:pointer;" onclick="var b=document.getElementById('ndlm-remarks-body');b.style.display=b.style.display==='none'?'block':'none';">
-        📝 Needle Issue Remarks পরিচালনা
-        <span style="margin-left:auto;font-size:12px;color:#8e44ad;">▼ Toggle</span>
-      </div>
-      <div id="ndlm-remarks-body" style="display:none;">
-      <div class="card-body">
-        <p style="font-size:12px;color:#666;margin:0 0 10px;">এখান থেকে Needle Issue এর Remarks অপশন যোগ বা মুছতে পারবেন। এগুলো Issue Form ও Remarks Report উভয়তেই দেখাবে।</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-          <input type="text" id="ndlm-new-remark" class="form-control" placeholder="নতুন Remarks লিখুন..." style="flex:1;min-width:220px;">
-          <button class="btn btn-success btn-sm" onclick="ndlAddRemark()" style="white-space:nowrap;">➕ Add Remarks</button>
-        </div>
-        <div id="ndlm-remarks-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
-      </div>
-      </div>
-    </div>
-
     <!-- Master Table -->
     <div class="card" style="margin-top:15px;">
       <div class="card-header" style="background:#f0f3f7;">
@@ -5728,15 +5619,7 @@ const DB = {
     if (missing.length > 0) {
       const merged = stored.concat(missing);
       try { localStorage.setItem('igl_stn_items', JSON.stringify(merged)); } catch(e) {}
-      stored = merged;
-    }
-    // ── Auto-fix: Moglar → Moylar ──
-    var _fixNeeded = stored.some(function(it){ return (it.name||'').indexOf('Moglar')>=0; });
-    if(_fixNeeded){
-      stored.forEach(function(it){ if((it.name||'').indexOf('Moglar')>=0) it.name=it.name.replace(/Moglar/g,'Moylar'); });
-      (DB.issues||[]).forEach(function(r){ if((r.item||'').indexOf('Moglar')>=0) r.item=r.item.replace(/Moglar/g,'Moylar'); });
-      (DB.receives||[]).forEach(function(r){ if((r.item||'').indexOf('Moglar')>=0) r.item=r.item.replace(/Moglar/g,'Moylar'); });
-      try { localStorage.setItem('igl_stn_items', JSON.stringify(stored)); } catch(e) {}
+      return merged;
     }
     return stored;
   },
@@ -7304,7 +7187,6 @@ function showPage(name, el) {
       var d=new Date(); document.getElementById('nr-date').value=d.toISOString().split('T')[0];
     }
     else if (name === 'needle_issue') {
-      ndlPopulateRemarkDropdowns();
       nmiInit();
     }
     else if (name === 'needle_monthly') {
@@ -7324,8 +7206,6 @@ function showPage(name, el) {
       renderNeedleMasterTable();
       renderMasterWorkers();
       renderRetailMachineTable();
-      ndlPopulateRemarkDropdowns();
-      ndlRenderRemarksList();
     }
     else if (name === 'retail_needle_account') {
       // Set default date range (current month)
@@ -8590,36 +8470,6 @@ function binSet(arr) {
   localStorage.setItem('igl_bin', JSON.stringify(arr));
 }
 
-// ── Deleted IDs tracker — Firebase এ save হয়, সব device share করে ──
-// Format: { "rcv:123": true, "iss:456": true, "ndl:789": true, "ndlrcv:101": true }
-// ── Deleted IDs — সরাসরি Firebase এ, localStorage নেই ──
-// In-memory cache — Firebase থেকে load এর পর এখানে থাকে
-var _fbDelIdsCache = {};
-
-function iglDelIdsAdd(prefix, id) {
-  var key = prefix + ':' + String(id);
-  _fbDelIdsCache[key] = true;
-  // সরাসরি Firebase এ লেখো
-  try {
-    var _upd = {};
-    _upd['igl_erp/deletedIds/' + key.replace(':', '__')] = true;
-    _fbDb.ref().update(_upd);
-  } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
-}
-
-function iglDelIdsRemove(prefix, id) {
-  var key = prefix + ':' + String(id);
-  delete _fbDelIdsCache[key];
-  // সরাসরি Firebase থেকে মুছো
-  try {
-    _fbDb.ref('igl_erp/deletedIds/' + key.replace(':', '__')).remove();
-  } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
-}
-
-function iglIsDeleted(prefix, id) {
-  return !!_fbDelIdsCache[prefix + ':' + String(id)];
-}
-
 // Item bin এ পাঠাও
 function binAdd(type, item, label) {
   var bin = binGet();
@@ -8633,16 +8483,6 @@ function binAdd(type, item, label) {
   });
   if (bin.length > 200) bin = bin.slice(0, 200);
   binSet(bin);
-  // Deleted ID track করো — type অনুযায়ী prefix
-  var _id = item && (item.id !== undefined) ? item.id : null;
-  if (_id !== null) {
-    var _prefix = type === 'stn_receive'    ? 'rcv'
-                : type === 'stn_issue'      ? 'iss'
-                : type === 'needle_issue'   ? 'ndl'
-                : type === 'needle_receive' ? 'ndlrcv'
-                : null;
-    if (_prefix) iglDelIdsAdd(_prefix, _id);
-  }
   if (typeof triggerAutoSave === 'function') triggerAutoSave();
 }
 
@@ -8697,102 +8537,27 @@ function binRestore(binId) {
 
   var d = item.data;
   try {
-    // ── Step 1: Deleted ID list থেকে আগে সরাও ──
-    var _rid = d && (d.id !== undefined) ? d.id : null;
-    if (_rid !== null) {
-      var _rprefix = item.type === 'stn_receive'    ? 'rcv'
-                   : item.type === 'stn_issue'      ? 'iss'
-                   : item.type === 'needle_issue'   ? 'ndl'
-                   : item.type === 'needle_receive' ? 'ndlrcv'
-                   : null;
-      if (_rprefix) iglDelIdsRemove(_rprefix, _rid);
-    }
-    // পুরনো legacy needle deleted ID list cleanup (obsolete)
-    try { localStorage.removeItem('igl_deleted_needle_ids'); } catch(e){}
-
-    // ── Step 2: Data memory তে যোগ করো ──
     if (item.type === 'needle_issue') {
-      // Duplicate check — আগে থেকে আছে কিনা দেখো
-      if (_rid !== null && NDB.needles.some(function(r){ return String(r.id)===String(_rid); })) {
-        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
-      }
-      NDB.needles = (NDB.needles||[]).concat([d]);
+      var arr = NDB.needles;
+      arr.push(d);
+      NDB.needles = arr;
     } else if (item.type === 'needle_receive') {
       var rcv = ndlGetRcv();
-      if (_rid !== null && rcv.some(function(r){ return String(r.id)===String(_rid); })) {
-        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
-      }
       rcv.push(d);
       ndlSetRcv(rcv);
     } else if (item.type === 'stn_issue') {
-      if (_rid !== null && (DB.issues||[]).some(function(r){ return String(r.id)===String(_rid); })) {
-        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
-      }
       DB.issues = (DB.issues||[]).concat([d]);
     } else if (item.type === 'stn_receive') {
-      if (_rid !== null && (DB.receives||[]).some(function(r){ return String(r.id)===String(_rid); })) {
-        toast('⚠️ এই entry আগে থেকেই আছে!', 'warning'); return;
-      }
       DB.receives = (DB.receives||[]).concat([d]);
     }
-
-    // ── Step 4: Bin থেকে সরাও ──
+    // Bin থেকে সরাও
     binSet(bin.filter(function(b){ return b.binId !== binId; }));
-
-    // ── Step 5: Firebase এ সাথে সাথে save করো (deletedIds সহ — restore তথ্য persist করো) ──
-    // _fbIgnoreLoad = true থাকবে fbSaveAll এর .then() পর্যন্ত — যাতে Firebase reload restored data মুছে না দেয়
-    if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
-
-    // Restore সফল — কোন date এ গেছে সেটা দেখাও
-    var _rdate = d.date ? (' — তারিখ: ' + fmtDate(d.date)) : '';
-    toast('✅ Restore হয়েছে' + _rdate + ' (সেই তারিখে ফিল্টার করে দেখুন)', 'success');
+    triggerAutoSave();
+    toast('✅ Restore হয়েছে!', 'success');
     binRender();
-
-    // ── Step 6: সব সংশ্লিষ্ট UI refresh ──
-    // Restore হওয়া item এর date এ filter সেট করো — যাতে সাথে সাথে দেখা যায়
-    var _restoreDate = d.date || '';
-    if (_restoreDate) {
-      if (item.type === 'needle_issue') {
-        var _nmiFrom = document.getElementById('nmi-log-from');
-        var _nmiTo   = document.getElementById('nmi-log-to');
-        if (_nmiFrom) _nmiFrom.value = _restoreDate;
-        if (_nmiTo)   _nmiTo.value   = _restoreDate;
-      } else if (item.type === 'needle_receive') {
-        var _ndlRcvFrom = document.getElementById('ndl-rcv-from');
-        var _ndlRcvTo   = document.getElementById('ndl-rcv-to');
-        if (_ndlRcvFrom) _ndlRcvFrom.value = _restoreDate;
-        if (_ndlRcvTo)   _ndlRcvTo.value   = _restoreDate;
-      } else if (item.type === 'stn_receive') {
-        var _rlogFrom = document.getElementById('rlog-from');
-        var _rlogTo   = document.getElementById('rlog-to');
-        if (_rlogFrom) _rlogFrom.value = _restoreDate;
-        if (_rlogTo)   _rlogTo.value   = _restoreDate;
-      } else if (item.type === 'stn_issue') {
-        var _ilogFrom = document.getElementById('ilog-from');
-        var _ilogTo   = document.getElementById('ilog-to');
-        if (_ilogFrom) _ilogFrom.value = _restoreDate;
-        if (_ilogTo)   _ilogTo.value   = _restoreDate;
-      }
-    }
-    try { nmiRenderLog(); }              catch(e){}
-    try { renderNdlRcvLog(); }           catch(e){}
-    try { renderReceiveLog(); }          catch(e){}
-    try { renderIssueLog(); }            catch(e){}
-    try { renderTodayNeedle(); }         catch(e){}
-    try { renderNeedleStock(); }         catch(e){}
-    try { renderUsedNeedleStock(); }     catch(e){}
-    try { renderNeedleLedger(); }        catch(e){}
-    try { renderNeedleMonthly(); }       catch(e){}
-    try { renderUsedNeedleMonthly(); }   catch(e){}
-    try { renderNeedleDaily(); }         catch(e){}
-    try { renderNewSetLog(); }           catch(e){}
-    try { renderNeedleUseReport(); }     catch(e){}
-    try { renderNeedleRemarksReport(); } catch(e){}
-    try { renderNdlStockRegister(); }    catch(e){}
-    try { renderRetailNeedleAccount(); } catch(e){}
-    try { renderUsedNeedleAccount(); }   catch(e){}
-    try { renderDashboard(); }           catch(e){}
-    try { updateDashboard && updateDashboard(); } catch(e){}
+    // Relevant list refresh
+    try { nmiRenderLog(); } catch(e){}
+    try { renderNdlRcvLog(); } catch(e){}
   } catch(e) {
     toast('❌ Restore failed: ' + e.message, 'error');
   }
@@ -9095,7 +8860,7 @@ function stnReqUpdatePreview() {
   var year      = (document.getElementById('req-year')||{}).value  || '';
   var title     = (document.getElementById('req-title')||{}).value || '';
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][Number(month)] || '';
-  var titleText = (title || 'Stationery Item Requisition') + ' ' + monthName + '-' + String(year).slice(2);
+  var titleText = (title || 'Stationery Item List') + ' ' + monthName + '-' + String(year).slice(2);
   var td = document.getElementById('req-print-title-disp');
   if (td) td.textContent = titleText;
   var html = '';
@@ -9137,7 +8902,7 @@ function stnReqSyncRegister(items) {
   var year      = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
   var balDate   = (document.getElementById('reg-bal-date')||{}).value || todayStr();
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month] || '';
-  var titleText = 'Stationery Item Requisition ' + monthName + '-' + String(year).slice(2);
+  var titleText = 'Stationery Item List ' + monthName + '-' + String(year).slice(2);
 
   // Header ও title সেট করো
   var titleEl = document.getElementById('reg-print-title-disp');
@@ -9308,12 +9073,11 @@ function stnReqPrintWithRate() {
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<style>@page{size:A4 portrait;margin:14mm 12mm;}body{font-family:Arial,sans-serif;font-size:12px;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}th{background:#7d3c98!important;color:#fff!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
-    + '.footer{display:flex;justify-content:space-around;padding:80px 0 20px;}.sig{text-align:center;min-width:130px;}'
+    + '.footer{display:flex;justify-content:space-around;padding:70px 0 10px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;margin-top:0;}</style></head><body>'
     + '<div style="text-align:center;padding:10px 0 6px;">'
     + '<div style="font-size:18px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>'
-    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
-    + '<div style="font-size:11px;color:#555;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:11px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>'
     + '<div style="font-size:14px;font-weight:700;margin-top:6px;color:#7d3c98;">'+titleText+'</div>'
     + '<div style="font-size:11px;color:#777;margin-top:2px;">Rate সহ Requisition</div></div>'
     + '<table><thead><tr>'
@@ -9330,9 +9094,9 @@ function stnReqPrintWithRate() {
     + '<td style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;font-weight:800;font-size:14px;color:#7d3c98;">'+Number(totalAmt).toLocaleString()+'</td>'
     + '<td style="border:0.5px solid #bbb;"></td></tr></tfoot></table>'
     + '<div class="footer">'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Accounts</div></div>'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
+    + '<div class="sig"><div style="height:50px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:50px;"></div><div class="sig-line">Accounts</div></div>'
+    + '<div class="sig"><div style="height:50px;"></div><div class="sig-line">Authority</div></div>'
     + '</div></body></html>';
 
   var w = window.open('','_blank','width=900,height=700');
@@ -9391,8 +9155,7 @@ function stnReqPrintComparison() {
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
     + '<div style="text-align:center;padding:10px 0 6px;">'
     + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
-    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
-    + '<div style="font-size:11px;color:#555;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:11px;color:#555;margin-top:2px;">Jarun, Konabari, Gazipur</div>'
     + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div>'
     + '<div style="font-size:11px;color:#777;margin-top:2px;">Requisition vs Receive তুলনা</div></div>'
     + '<table><thead>'
@@ -9421,9 +9184,9 @@ function stnReqPrintComparison() {
     + '<td style="border:0.5px solid #bbb;"></td>'
     + '</tr></tfoot></table>'
     + '<div class="footer">'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Accounts</div></div>'
-    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
+    + '<div class="sig"><div style="height:45px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:45px;"></div><div class="sig-line">Accounts</div></div>'
+    + '<div class="sig"><div style="height:45px;"></div><div class="sig-line">Authority</div></div>'
     + '</div></body></html>';
 
   var w = window.open('','_blank','width=1050,height=750');
@@ -9573,12 +9336,11 @@ function stnReqSimplePrint(areaId, thColor) {
 
   // ── Header HTML ──
   var hdrPad = slotCount >= 35 ? '4px 10px 3px' : '6px 10px 4px';
-  var hdrTitleSize = '18pt';
+  var hdrTitleSize = slotCount >= 35 ? '14pt' : '15pt';
   var headerHtml =
     '<div style="text-align:center;padding:'+hdrPad+';border-bottom:2px solid #333;margin-bottom:4px;">'
     + '<div style="font-size:'+hdrTitleSize+';font-weight:800;letter-spacing:0.5px;line-height:1.2;">Islam Garments Limited</div>'
-    + '<div style="font-size:9pt;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
-    + '<div style="font-size:8pt;color:#444;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:8pt;color:#444;margin-top:1px;">Jarun, Konabari, Gazipur</div>'
     + (titleTxt ? '<div style="font-size:9.5pt;font-weight:700;margin-top:2px;">'+titleTxt+'</div>' : '')
     + '</div>';
 
@@ -9595,7 +9357,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:52px;">'
       + '<col style="width:110px;">'
       + '</colgroup>';
-    var thS = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+    var thS = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
@@ -9655,7 +9417,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:65px;">'
       + '<col style="width:80px;">'
       + '</colgroup>';
-    var thS2 = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
+    var thS2 = 'border:0.5px solid #666;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
              + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
@@ -9707,11 +9469,11 @@ function stnReqSimplePrint(areaId, thColor) {
 
   // ── Signature ──
   // ৩৫+ items হলে signature padding কমাও যাতে এক পাতায় আসে
-  var sigTopPad = slotCount >= 35 ? '50px' : slotCount >= 30 ? '60px' : '80px';
+  var sigTopPad = slotCount >= 35 ? '14px' : slotCount >= 30 ? '24px' : '38px';
   var sigHtml =
     '<div style="display:flex;justify-content:space-between;padding:'+sigTopPad+' 50px 8px;font-size:10pt;color:#333;">'
-    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Store / Admin</div></div>'
-    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Manager</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Store/Admin</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1.5px solid #444;padding-top:5px;font-weight:600;">Authority</div></div>'
     + '</div>';
 
   // ── Overlay তৈরি ──
@@ -9730,7 +9492,7 @@ function stnReqSimplePrint(areaId, thColor) {
     + '@media print {\n'
     + '  body > *:not(#stn-req-print-overlay) { display: none !important; }\n'
     + '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; color: #000; }\n'
-    + '  #stn-req-print-overlay thead th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; border: 1.5px solid #333 !important; font-weight: 700 !important; }\n'
+    + '  #stn-req-print-overlay thead th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; forced-color-adjust: none !important; }\n'
     + '  #stn-req-print-overlay tr:nth-child(even) td { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n'
     + '}\n';
   document.head.appendChild(style);
@@ -9837,8 +9599,8 @@ function stnReqSimplePrint__OLD_UNUSED(areaId, thColor) {
     // signature
     var sigHtml =
       '<div style="display:flex;justify-content:space-between;padding:28px 40px 10px;font-size:10pt;color:#333;">'
-      + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Manager</div></div>'
-      + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Manager</div></div>'
+      + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Store/Admin</div></div>'
+      + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Authority</div></div>'
       + '</div>';
 
     overlay.innerHTML = headerHtml + tableHtml + sigHtml;
@@ -9989,8 +9751,8 @@ function stnReqSimplePrint__OLD_UNUSED(areaId, thColor) {
 
   var sigHtml2 =
     '<div style="display:flex;justify-content:space-between;padding:28px 40px 10px;font-size:10pt;color:#333;">'
-    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Manager</div></div>'
-    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Manager</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Store/Admin</div></div>'
+    + '<div style="text-align:center;min-width:150px;"><div style="border-top:1px solid #666;padding-top:5px;">Authority</div></div>'
     + '</div>';
 
   var overlay = document.createElement('div');
@@ -10069,7 +9831,7 @@ function stnReqExcelDownload() {
   rows.push([]);
   rows.push(['', '', '', '', '', 'Total: ৳'+totalAmt.toLocaleString(), '']);
   rows.push([]);
-  rows.push(['', '', '', 'Manager', '', '', 'Manager']);
+  rows.push(['', '', '', 'Store/Admin', '', '', 'Authority']);
 
   _stnDownloadCsv(rows, 'Requisition_'+titleText.replace(/\s+/g,'_')+'.csv');
 }
@@ -10106,7 +9868,7 @@ function stnRegExcelDownload() {
   }
 
   rows.push([]);
-  rows.push(['', '', '', 'Manager', '', 'Manager']);
+  rows.push(['', '', '', 'Store/Admin', '', 'Authority']);
 
   _stnDownloadCsv(rows, 'StockRegister_'+titleText.replace(/\s+/g,'_')+'.csv');
 }
@@ -10691,7 +10453,7 @@ function stnPrintItemDept() {
   var tdZS = tdNS + 'color:#ccc;';
   var tdTS = tdNS + 'font-weight:700;background:#fce4e4;color:#7b241c;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
   var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
-  var tfGS = tfS.replace(thColor,'#4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
+  var tfGS = tfS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
 
   var colHtml = '<colgroup><col style="width:'+itemColMm+'mm;">';
   depts.forEach(function(){ colHtml += '<col style="width:'+deptColMm+'mm;">'; });
@@ -10699,7 +10461,7 @@ function stnPrintItemDept() {
 
   var theadHtml = '<thead><tr><th style="'+thIS+'">আইটেম নাম</th>';
   depts.forEach(function(dp){ theadHtml += '<th style="'+thS+'">'+dp+'</th>'; });
-  theadHtml += '<th style="'+thS.replace(thColor,'#4a1010')+'">মোট</th></tr></thead>';
+  theadHtml += '<th style="'+thS.replace(thColor,'#4a1010').replace('box-shadow:inset 0 0 0 1000px '+thColor,'box-shadow:inset 0 0 0 1000px #4a1010')+'">মোট</th></tr></thead>';
 
   var deptTotals = {};
   depts.forEach(function(dp){ deptTotals[dp] = 0; });
@@ -11969,7 +11731,6 @@ async function deleteReceive(id) {
   if (!ok) return;
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
   DB.receives = DB.receives.filter(r => r.id !== id);
-  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderReceiveLog();
   updateDashboard && updateDashboard();
   triggerAutoSave();
@@ -12100,7 +11861,6 @@ async function deleteIssue(id) {
   if (!ok) return;
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
   DB.issues = DB.issues.filter(r => r.id !== id);
-  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderIssueLog();
   updateDashboard && updateDashboard();
   triggerAutoSave();
@@ -13379,7 +13139,6 @@ async function deleteNeedle(id) {
   if (!ok) return;
   if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
   NDB.needles = NDB.needles.filter(function(r){return r.id!==id;});
-  _fbIgnoreLoad = true;
   // সব সংশ্লিষ্ট জায়গা refresh
   try { renderTodayNeedle(); } catch(e) {}
   try { nmiRenderLog(); } catch(e) {}
@@ -13704,7 +13463,7 @@ function renderNeedleMonthly() {
   }
 
   // Page 3: Circular sum + gap + Flat Knit আলাদা
-  function buildPage3Table(pageTitle, circMachines, fkMachines, pageBreak, injectSumHtml) {
+  function buildPage3Table(pageTitle, circMachines, fkMachines, pageBreak) {
     var pbStyle = pageBreak ? 'page-break-before:always;break-before:page;' : '';
     var t = '<div style="padding:10px 15px 0;'+pbStyle+'">';
     t += '<div style="text-align:center;margin-bottom:3px;">';
@@ -13774,14 +13533,7 @@ function renderNeedleMonthly() {
       buildRows(fkMachines, 'Flat Knit');
     }
 
-    t += '</tbody></table>';
-    // Flat Knit Total এর পরে Grand Summary — page break যাতে না হয় তার জন্য একই block এ রাখা হলো
-    if (injectSumHtml) {
-      t += '<div style="page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;">';
-      t += injectSumHtml;
-      t += '</div>';
-    }
-    t += '</div></div>';
+    t += '</tbody></table></div></div>';
     return t;
   }
 
@@ -13833,7 +13585,8 @@ function renderNeedleMonthly() {
 
   var _page3Html = '';
   if (page3Machines.length > 0 || flatKnitMachines.length > 0) {
-    // Summary totals আগে calculate করি
+    _page3Html = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true);
+    // Summary: combined map দিয়ে — double count হবে না
     var _p3fkAllM = page3Machines.concat(flatKnitMachines);
     var _p3fkMap = buildNeedleToMachineMap(_p3fkAllM);
     var _p3fkIdSet = {}; page3Machines.forEach(function(m){ _p3fkIdSet[m.id]=true; });
@@ -13842,49 +13595,44 @@ function renderNeedleMonthly() {
     var _p4total = allNeedles.filter(function(n){ return !!_p3fkMap[n.id] && !!_fkIdSet2[_p3fkMap[n.id]]; }).reduce(function(s,n){return s+n.qty;},0);
     if(_p3total>0) pageSummaries.push({label:'Page 3 — Circular (ERP 130–140)', total:_p3total});
     if(_p4total>0) pageSummaries.push({label:'Page 3 — Flat Knit', total:_p4total});
-
-    // Grand Summary HTML — Flat Knit এর নিচে একই পেজে থাকবে
-    var sumHtml = '';
-    var allSummaries = pageSummaries; // page1 + page2 + page3 + flatknit সব
-    if (allSummaries.length > 0) {
-      var grandTotal = allSummaries.reduce(function(s,p){return s+p.total;},0);
-      sumHtml = '<div style="padding:8px 15px 0;margin-top:6px;">';
-      sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
-      sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
-      sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
-      sumHtml += '<th style="padding:7px 12px;text-align:center;">মোট (pcs)</th>';
-      sumHtml += '</tr></thead><tbody>';
-      allSummaries.forEach(function(p){
-        sumHtml += '<tr style="border-bottom:1px solid #eee;">';
-        sumHtml += '<td style="padding:6px 12px;">'+p.label+'</td>';
-        sumHtml += '<td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td>';
-        sumHtml += '</tr>';
-      });
-      sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;">';
-      sumHtml += '<td style="padding:8px 12px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
-      sumHtml += '<td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
-      sumHtml += '</tr></tbody></table></div>';
-    }
-
-    // sumHtml কে buildPage3Table এর ভেতরে Flat Knit total এর পরে inject করা হবে
-    _page3Html = buildPage3Table('Circular (ERP 130–140) + Flat Knit — Page 3', page3Machines, flatKnitMachines, true, sumHtml);
   }
 
-  // sumHtml এখন buildPage3Table এর ভেতরে handle হচ্ছে
-  var sumHtml = ''; // fallback empty — নিচের পুরনো logic এর জন্য
-  if (!_page3Html) {
-    // page 3 নেই কিন্তু summary দরকার হলে fallback
-    if (pageSummaries.length > 0) {
-      var grandTotal2 = pageSummaries.reduce(function(s,p){return s+p.total;},0);
-      sumHtml = '<div style="padding:0 15px;margin-top:10px;">';
-      sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;"><thead><tr style="background:#1a5276;color:#fff;"><th style="padding:7px 12px;text-align:left;">বিভাগ</th><th style="padding:7px 12px;text-align:center;">মোট (pcs)</th></tr></thead><tbody>';
-      pageSummaries.forEach(function(p){ sumHtml += '<tr><td style="padding:6px 12px;">'+p.label+'</td><td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td></tr>'; });
-      sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;"><td style="padding:8px 12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td><td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal2+' pcs</td></tr></tbody></table></div>';
-      html += sumHtml;
+  // Grand Summary — Page 3 (Flat Knit এর পর ৩/৪ সেন্টিমিটার গ্যাপ সহ)
+  var sumHtml = '';
+  if (pageSummaries.length > 0) {
+    var grandTotal = pageSummaries.reduce(function(s,p){return s+p.total;},0);
+    sumHtml = '<div style="padding:0 15px;margin-top:35px;page-break-before:avoid;break-before:avoid;">';
+    sumHtml += '<table style="font-size:11px;border-collapse:collapse;width:340px;">';
+    sumHtml += '<thead><tr style="background:#1a5276;color:#fff;">';
+    sumHtml += '<th style="padding:7px 12px;text-align:left;">বিভাগ</th>';
+    sumHtml += '<th style="padding:7px 12px;text-align:center;">মোট (pcs)</th>';
+    sumHtml += '</tr></thead><tbody>';
+    pageSummaries.forEach(function(p){
+      sumHtml += '<tr style="border-bottom:1px solid #eee;">';
+      sumHtml += '<td style="padding:6px 12px;">'+p.label+'</td>';
+      sumHtml += '<td style="padding:6px 12px;text-align:center;font-weight:700;color:#1a5276;">'+p.total+'</td>';
+      sumHtml += '</tr>';
+    });
+    sumHtml += '<tr style="background:#117a65;color:#fff;font-weight:700;">';
+    sumHtml += '<td style="padding:8px 12px;font-size:12px;">&#128197; Grand Total — '+monthNames[month-1]+' '+year+'</td>';
+    sumHtml += '<td style="padding:8px 12px;text-align:center;font-size:14px;">'+grandTotal+' pcs</td>';
+    sumHtml += '</tr></tbody></table></div>';
+  }
+
+  // Page 3 html এর closing </div> এর আগে Grand Total inject করো
+  if (_page3Html && sumHtml) {
+    // _page3Html শেষ হয় '</tbody></table></div></div>' দিয়ে
+    // ২য় </div> এর আগে sumHtml ঢোকাও
+    var insertPoint = _page3Html.lastIndexOf('</div>');
+    if (insertPoint !== -1) {
+      _page3Html = _page3Html.slice(0, insertPoint) + sumHtml + _page3Html.slice(insertPoint);
+    } else {
+      _page3Html += sumHtml;
     }
+  } else if (sumHtml) {
+    html += sumHtml; // fallback: page 3 নেই কিন্তু summary আছে
   }
   if (_page3Html) html += _page3Html;
-
 
   if (!html) html = '<div class="no-data" style="padding:40px;">No needle issue data for this period.</div>';
   document.getElementById('needleMonthlyGrid').innerHTML = html;
@@ -14516,28 +14264,25 @@ function renderNeedleRemarksReport(){
   var info    = document.getElementById('nrr-info');
   if(!tbody) return;
 
-  // Remarks key → match function (dynamic from ndlGetRemarks)
-  var _remarksList = ndlGetRemarks();
-  var _fixedTexts = _remarksList
-    .filter(function(r){return r.id!=='others';})
-    .map(function(r){return r.text.toLowerCase();});
-  var REMARKS_MAP = {};
-  _remarksList.forEach(function(r){
-    if(r.id==='others'){
-      REMARKS_MAP['others'] = function(rec){
-        var rm=(rec.remarks||'').trim();
-        if(!rm) return false;
-        return !_fixedTexts.some(function(f){ return rm.toLowerCase()===f || rm.toLowerCase().indexOf(f)===0; });
-      };
-    } else {
-      (function(rr){
-        REMARKS_MAP[rr.id] = function(rec){
-          if(rr.text==='__others__') return false;
-          return (rec.remarks||'').trim().toLowerCase().indexOf(rr.text.toLowerCase())===0;
-        };
-      })(r);
+  // Remarks key → match function
+  var REMARKS_MAP = {
+    'newset':   function(r){ return (r.remarks||'').trim().toLowerCase().indexOf('new set') === 0; },
+    'accident': function(r){ return (r.remarks||'').trim().toLowerCase().indexOf('machine accident') === 0; },
+    'r3': function(r){ return (r.remarks||'').trim() === 'Due to entry of loose cotton.'; },
+    'r4': function(r){ return (r.remarks||'').trim() === 'Due to loose yarn entry.'; },
+    'r6': function(r){ return (r.remarks||'').trim() === 'Needle breakage occurs during take-down after program change.'; },
+    'r7': function(r){ return (r.remarks||'').trim() === 'Needle breakage during design work.'; },
+    'r8': function(r){ return (r.remarks||'').trim() === 'Needle breakage during take-down setup.'; },
+    'r9': function(r){ return (r.remarks||'').trim() === 'Due to needle marks on fabric.'; },
+    'others': function(r){
+      var rm = (r.remarks||'').trim();
+      var fixed = ['new set','machine accident','due to entry of loose cotton.','due to loose yarn entry.',
+        'needle breakage occurs during take-down after program change.',
+        'needle breakage during design work.','needle breakage during take-down setup.'];
+      if(!rm) return false;
+      return !fixed.some(function(f){ return rm.toLowerCase().indexOf(f)===0 || rm.toLowerCase()===f; });
     }
-  });
+  };
 
   var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
   var nm  = ndlGetMaster();
@@ -14920,13 +14665,6 @@ function stnItemMasterRender() {
   var MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var isAdmin  = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
 
-  // Duplicate check — show merge button if duplicates found
-  var nameCount = {};
-  items.forEach(function(it){ var n=(it.name||'').trim().toLowerCase(); nameCount[n]=(nameCount[n]||0)+1; });
-  var hasDups = Object.values(nameCount).some(function(c){return c>1;});
-  var mergeBtn = document.getElementById('sim-merge-btn');
-  if(mergeBtn) mergeBtn.style.display = hasDups ? '' : 'none';
-
   tbody.innerHTML = filtered.map(function(obj, i) {
     var it = obj.it; var idx = obj.idx;
     var totRcv = receives.filter(function(r){ return r.item===it.name && r.group==='Stationery'; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
@@ -14948,137 +14686,11 @@ function stnItemMasterRender() {
       + '<td style="text-align:center;padding:8px 6px;font-size:12px;color:#7d3c98;font-weight:600;">'+(effMonth||'—')+'</td>'
       + '<td style="text-align:center;padding:8px 6px;font-weight:700;color:'+sClr+';">'+stock+'</td>'
       + '<td style="text-align:center;padding:6px 4px;" class="no-print">'
-      + (isAdmin ? '<button onclick="stnImEdit('+idx+')" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">📝 Edit</button>' : '')
       + '<button onclick="stnImSetRate('+idx+')" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">✏️ Rate</button>'
       + '<button onclick="stnImHistory('+idx+')" style="background:#f0f0f0;color:#555;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;margin:2px;">📋</button>'
       + (isAdmin ? '<button onclick="stnImDel('+idx+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
       + '</td></tr>';
   }).join('');
-}
-
-function stnImMergeDuplicates() {
-  var items = DB.stnItems || [];
-  // Group by lowercase name
-  var groups = {};
-  items.forEach(function(it, idx){
-    var key = (it.name||'').trim().toLowerCase();
-    if(!groups[key]) groups[key] = [];
-    groups[key].push({it:it, idx:idx});
-  });
-
-  var dups = Object.keys(groups).filter(function(k){ return groups[k].length > 1; });
-  if(!dups.length){ toast('কোনো Duplicate নেই!','info'); return; }
-
-  var merged = 0;
-  var toRemove = [];
-
-  dups.forEach(function(key){
-    var arr = groups[key];
-    // Keep the first one (master), merge data from others into it
-    var master = arr[0].it;
-    for(var i=1; i<arr.length; i++){
-      var dup = arr[i].it;
-      // Merge rateHistory
-      if(dup.rateHistory && dup.rateHistory.length){
-        if(!master.rateHistory) master.rateHistory = [];
-        dup.rateHistory.forEach(function(rh){ master.rateHistory.push(rh); });
-      }
-      // Keep the better rate
-      if(dup.rate && (!master.rate || Number(dup.rate) > Number(master.rate))){
-        master.rate = dup.rate; master.rateEffDate = dup.rateEffDate;
-      }
-      // Keep category/unit if master missing
-      if(!master.category && dup.category) master.category = dup.category;
-      if(!master.unit && dup.unit) master.unit = dup.unit;
-      // Rename all issue/receive records pointing to dup → master name
-      var dupName = dup.name;
-      var masterName = master.name;
-      (DB.issues||[]).forEach(function(r){ if(r.item===dupName && r.group==='Stationery') r.item=masterName; });
-      (DB.receives||[]).forEach(function(r){ if(r.item===dupName && r.group==='Stationery') r.item=masterName; });
-      var reqs = DB.stnRequisitions||{};
-      Object.keys(reqs).forEach(function(k){
-        var m=reqs[k]; if(!m||!m.items) return;
-        m.items.forEach(function(ri){ if(ri.name===dupName) ri.name=masterName; });
-      });
-      toRemove.push(arr[i].idx);
-      merged++;
-    }
-    items[arr[0].idx] = master;
-  });
-
-  // Remove duplicates (reverse order to keep indices stable)
-  toRemove.sort(function(a,b){return b-a;}).forEach(function(i){ items.splice(i,1); });
-  DB.stnItems = items;
-  localStorage.setItem('igl_stn_items', JSON.stringify(items));
-  localStorage.setItem('igl_stn_requisitions', JSON.stringify(DB.stnRequisitions||{}));
-  _triggerAutoSave();
-  stnItemMasterRender();
-  toast('✅ '+merged+' টি Duplicate মার্জ হয়েছে!','success');
-}
-
-function stnImEdit(idx) {
-  var items = DB.stnItems || [];
-  var it = items[idx];
-  if (!it) return;
-
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
-  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:26px 28px;width:360px;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
-    + '<div style="font-size:16px;font-weight:700;color:#333;margin-bottom:18px;">📝 Item Edit</div>'
-    + '<div style="margin-bottom:12px;">'
-    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Item Name *</label>'
-    +   '<input id="sim-edit-name" type="text" value="'+_esc(it.name||'')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;">'
-    + '</div>'
-    + '<div style="margin-bottom:12px;">'
-    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Category</label>'
-    +   '<input id="sim-edit-cat" type="text" value="'+_esc(it.category||'')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;" placeholder="e.g. Office, Cleaning...">'
-    + '</div>'
-    + '<div style="margin-bottom:18px;">'
-    +   '<label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Unit</label>'
-    +   '<input id="sim-edit-unit" type="text" value="'+_esc(it.unit||'Pcs')+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;" placeholder="Pcs, Kg, Liter...">'
-    + '</div>'
-    + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
-    +   '<button id="sim-edit-cancel" style="padding:9px 20px;border:1px solid #ddd;background:#f5f5f5;border-radius:7px;cursor:pointer;font-size:13px;">বাতিল</button>'
-    +   '<button id="sim-edit-save" style="padding:9px 22px;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;">✅ Save</button>'
-    + '</div>'
-    + '</div>';
-
-  document.body.appendChild(overlay);
-  document.getElementById('sim-edit-name').focus();
-
-  document.getElementById('sim-edit-cancel').onclick = function(){ document.body.removeChild(overlay); };
-  overlay.onclick = function(e){ if(e.target===overlay) document.body.removeChild(overlay); };
-
-  document.getElementById('sim-edit-save').onclick = function(){
-    var newName = (document.getElementById('sim-edit-name').value||'').trim();
-    var newCat  = (document.getElementById('sim-edit-cat').value||'').trim();
-    var newUnit = (document.getElementById('sim-edit-unit').value||'Pcs').trim();
-    if (!newName) { toast('Item Name দিন!','error'); return; }
-
-    var oldName = it.name;
-    items[idx].name     = newName;
-    items[idx].category = newCat;
-    items[idx].unit     = newUnit || 'Pcs';
-
-    // Issue ও Receive রেকর্ডে নাম আপডেট করো
-    if (oldName !== newName) {
-      (DB.issues||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
-      (DB.receives||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
-      // Requisition এও আপডেট করো
-      var reqs = DB.stnRequisitions || {};
-      Object.keys(reqs).forEach(function(k){
-        var m = reqs[k]; if(!m||!m.items) return;
-        m.items.forEach(function(ri){ if(ri.name===oldName) ri.name=newName; });
-      });
-      localStorage.setItem('igl_stn_requisitions', JSON.stringify(reqs));
-    }
-
-    localStorage.setItem('igl_stn_items', JSON.stringify(items));
-    _triggerAutoSave();
-    document.body.removeChild(overlay);
-    stnItemMasterRender();
-    toast('✅ Item আপডেট হয়েছে','success');
-  };
 }
 
 function stnImPageAdd() {
@@ -16435,18 +16047,18 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var machineCells = '';
       allMachines.forEach(function(m){
         var ms = row.machineShifts[m];
-        var hasIssue = ms && ms.shifts.some(function(v){return v>0;});
-        if(!ms || (!ms.mapped && !hasIssue)) return;
+        if(!ms || !ms.mapped) return;
         var s = ms.shifts;
         var parts=[]; s.forEach(function(v){if(v)parts.push(v);});
         var qty = parts.join('+');
         var nmx = getNeedleMachines().find(function(x){return x.id===m;});
         // Jacquard: id থেকে short label বানাও — "Jacquard S/J 34"(2)" → "Jaq S/J(2)"
         var mlabel;
-        {
-          var _r = nmx ? (nmx.retail||m) : m;
-          var _e = nmx && nmx.erp ? nmx.erp : '';
-          mlabel = (_e && _r.indexOf(_e)<0) ? _r+' ('+_e+')' : _r;
+        if(m.indexOf('Jacquard')===0){
+          var jShort = m.replace('Jacquard','Jaq').replace(/\s*\d+"\s*/,' ');
+          mlabel = jShort;
+        } else {
+          mlabel = nmx ? ((nmx.retail||m) + (nmx.erp ? ' ('+nmx.erp+')' : '')) : m;
         }
         if(qty) {
           machineCells += '<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 1px;background:#fff;width:'+cellW+'px;text-align:center;overflow:hidden;vertical-align:top;">'
@@ -17896,7 +17508,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     inp.style.color = '#1a5276';
     inp.style.fontWeight = '600';
 
-    if(!val){ inp.value = ''; inp.placeholder = 'Auto filled...'; return; }
+    if(!val){
+      inp.value = '';
+      inp.placeholder = 'Auto filled...';
+      return;
+    }
 
     var machineErp = '';
     var machInp = document.getElementById('nmi-machine-input');
@@ -17904,20 +17520,22 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       machineErp = machInp.options[machInp.selectedIndex].text.trim();
     }
 
-    // Dynamic: find remark text from list
-    var list = ndlGetRemarks();
-    var found = list.find(function(r){return r.id===val;});
-    if(found && found.text && found.text!=='__others__'){
-      // newset/accident এর জন্য machine name যোগ করো
-      if(val==='newset'){
-        inp.value = 'New Set (' + (machineErp||'?') + ')';
-      } else if(val==='accident'){
-        inp.value = 'Machine Accident (' + (machineErp||'?') + ')';
-      } else {
-        inp.value = found.text;
-      }
-    } else {
-      inp.value = '';
+    if(val === 'newset'){
+      inp.value = 'New Set (' + (machineErp || '?') + ')';
+    } else if(val === 'accident'){
+      inp.value = 'Machine Accident (' + (machineErp || '?') + ')';
+    } else if(val === 'r3'){
+      inp.value = 'Due to entry of loose cotton.';
+    } else if(val === 'r4'){
+      inp.value = 'Due to loose yarn entry.';
+    } else if(val === 'r6'){
+      inp.value = 'Needle breakage occurs during take-down after program change.';
+    } else if(val === 'r7'){
+      inp.value = 'Needle breakage during design work.';
+    } else if(val === 'r8'){
+      inp.value = 'Needle breakage during take-down setup.';
+    } else if(val === 'r9'){
+      inp.value = 'Due to needle marks on fabric.';
     }
   }
 
@@ -18210,7 +17828,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
-      // Firebase load block করো যাতে delete হওয়া item ফিরে না আসে
+    // Firebase load block করো যাতে delete হওয়া item ফিরে না আসে
     _fbIgnoreLoad = true;
     // সব সংশ্লিষ্ট জায়গা refresh
     try { nmiRenderLog(); } catch(e) {}
@@ -18232,7 +17850,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_receive', entry, 'Needle Receive — ' + (entry.needleCode||entry.needleId||''));
     ndlSetRcv(ndlGetRcv().filter(function(r){return String(r.id)!==String(id);}));
-    _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
     renderNdlRcvLog();triggerAutoSave();toast('Deleted','warning');
   }
 
@@ -19110,7 +18727,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> <span style="font-size:7.5px;color:#888;">(Flat Knit বাদে)</span> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
-    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="font-size:8px;font-weight:700;min-width:40px;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="display:none;font-size:8px;font-weight:700;min-width:40px;display:inline-block;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
@@ -19796,95 +19413,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     triggerAutoSave();
     toast('✅ '+updated+' টি Needle এর B/F আপডেট হয়েছে! ('+dateLabel+' পর্যন্ত)', 'success');
   }
-
-  // ── Needle Remarks Manager ──────────────────────────────────────────────
-  var _NDL_REMARKS_DEFAULT = [
-    {id:'newset',   label:'🆕 New Set',        text:'New Set'},
-    {id:'accident', label:'⚠️ Machine Accident', text:'Machine Accident'},
-    {id:'r3', label:'Due to entry of loose cotton.',         text:'Due to entry of loose cotton.'},
-    {id:'r4', label:'Due to loose yarn entry.',              text:'Due to loose yarn entry.'},
-    {id:'r6', label:'Needle breakage occurs during take-down after program change.', text:'Needle breakage occurs during take-down after program change.'},
-    {id:'r7', label:'Needle breakage during design work.',   text:'Needle breakage during design work.'},
-    {id:'r8', label:'Needle breakage during take-down setup.', text:'Needle breakage during take-down setup.'},
-    {id:'r9', label:'Due to needle marks on fabric.',        text:'Due to needle marks on fabric.'},
-    {id:'others', label:'✏️ Others (Custom)', text:'__others__'}
-  ];
-
-  function ndlGetRemarks(){
-    try{
-      var stored = localStorage.getItem('igl_needle_remarks');
-      if(stored){ var arr=JSON.parse(stored); if(Array.isArray(arr)&&arr.length) return arr; }
-    }catch(e){}
-    return JSON.parse(JSON.stringify(_NDL_REMARKS_DEFAULT));
-  }
-
-  function ndlSaveRemarks(arr){
-    localStorage.setItem('igl_needle_remarks', JSON.stringify(arr));
-  }
-
-  function ndlPopulateRemarkDropdowns(){
-    var list = ndlGetRemarks();
-    ['nmi-remarks-drop','nrr-remarks'].forEach(function(id){
-      var el = document.getElementById(id);
-      if(!el) return;
-      var isIssue = id==='nmi-remarks-drop';
-      var placeholder = isIssue ? '-- Select Remarks --' : '— Remarks সিলেক্ট করুন —';
-      var cur = el.value;
-      el.innerHTML = '<option value="">'+placeholder+'</option>';
-      list.forEach(function(r){
-        var opt = document.createElement('option');
-        opt.value = r.id;
-        opt.textContent = r.label;
-        el.appendChild(opt);
-      });
-      if(cur) el.value = cur;
-    });
-  }
-
-  function ndlRenderRemarksList(){
-    var box = document.getElementById('ndlm-remarks-list');
-    if(!box) return;
-    var list = ndlGetRemarks();
-    if(!list.length){ box.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px;">কোনো remarks নেই।</div>'; return; }
-    box.innerHTML = list.map(function(r,i){
-      var isDefault = _NDL_REMARKS_DEFAULT.some(function(d){return d.id===r.id;});
-      var delBtn = isDefault ? '<span style="font-size:10px;color:#bbb;padding:3px 8px;">Built-in</span>'
-        : '<button onclick="ndlDeleteRemark(this.getAttribute(\'data-id\'))" data-id=\''+r.id+'\' style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:12px;">✕ মুছুন</button>';
-      return '<div style="display:flex;align-items:center;gap:8px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:5px;padding:6px 10px;">'
-        +'<span style="flex:1;font-size:12px;color:#333;">'+r.label+'</span>'
-        +delBtn
-        +'</div>';
-    }).join('');
-  }
-
-  function ndlAddRemark(){
-    var inp = document.getElementById('ndlm-new-remark');
-    if(!inp) return;
-    var txt = inp.value.trim();
-    if(!txt){ toast('Remarks টেক্সট লিখুন','error'); return; }
-    var list = ndlGetRemarks();
-    // Others এর আগে insert করি
-    var id = 'cr_'+Date.now();
-    var othIdx = list.findIndex(function(r){return r.id==='others';});
-    var newItem = {id:id, label:txt, text:txt};
-    if(othIdx>=0) list.splice(othIdx,0,newItem);
-    else list.push(newItem);
-    ndlSaveRemarks(list);
-    inp.value='';
-    ndlRenderRemarksList();
-    ndlPopulateRemarkDropdowns();
-    toast('✅ Remarks যোগ হয়েছে','success');
-  }
-
-  function ndlDeleteRemark(id){
-    var list = ndlGetRemarks();
-    list = list.filter(function(r){return r.id!==id;});
-    ndlSaveRemarks(list);
-    ndlRenderRemarksList();
-    ndlPopulateRemarkDropdowns();
-    toast('🗑️ Remarks মুছে গেছে','info');
-  }
-  // ────────────────────────────────────────────────────────────────────────
 
   function ndlMasterAdd(){
     var typ=document.getElementById('ndlm-type').value;
