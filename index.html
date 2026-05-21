@@ -7802,6 +7802,7 @@ function stnSaveReceive() {
   document.getElementById('stn-r-qty').value  = '';
   document.getElementById('stn-r-stock-badge').innerHTML = '';
   renderStationeryDashboard();
+  triggerAutoSave();
 }
 
 function stnClearReceiveForm() {
@@ -20849,8 +20850,8 @@ function confirmRestoreFromJson() {
             master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
           },
           stn: {
-            issues:   JSON.parse(localStorage.getItem('igl_stn_issues')  || '[]'),
-            receives: JSON.parse(localStorage.getItem('igl_stn_receives') || '[]'),
+            issues:   (typeof DB!=='undefined') ? (DB.issues||[]).filter(function(r){return r.group==='Stationery';}) : [],
+            receives: (typeof DB!=='undefined') ? (DB.receives||[]).filter(function(r){return r.group==='Stationery';}) : [],
             items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
             requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
           },
