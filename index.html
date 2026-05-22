@@ -10198,6 +10198,127 @@ async function stnDeleteTx(type, id) {
   toast('✅ এন্ট্রি ডিলিট হয়েছে!', 'success');
 }
 
+// ─── Stationery Edit Modal ────────────────────────────────────────────────────
+function stnInjectEditModal() {
+  if (document.getElementById('stn-edit-overlay')) return;
+  var div = document.createElement('div');
+  div.innerHTML = `
+  <div id="stn-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:999998;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:14px;padding:28px 24px 22px;min-width:320px;max-width:440px;width:94%;box-shadow:0 16px 60px rgba(0,0,0,0.35);font-family:'Segoe UI',Arial,sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div style="font-size:17px;font-weight:700;color:#1a5276;" id="stn-edit-title">✏️ এন্ট্রি সংশোধন</div>
+        <button onclick="document.getElementById('stn-edit-overlay').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1;">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#555;">তারিখ</label>
+          <input type="date" id="stn-edit-date" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+        </div>
+        <div id="stn-edit-slip-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">স্লিপ নং</label>
+          <input type="text" id="stn-edit-slip" placeholder="স্লিপ নং" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+        </div>
+        <div id="stn-edit-dept-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">ডিপার্টমেন্ট</label>
+          <input type="text" id="stn-edit-dept" placeholder="ডিপার্টমেন্ট" list="stn-edit-dept-list" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+          <datalist id="stn-edit-dept-list"></datalist>
+        </div>
+        <div id="stn-edit-chalan-wrap" style="display:none;">
+          <label style="font-size:12px;font-weight:600;color:#555;">চালান নং</label>
+          <input type="text" id="stn-edit-chalan" placeholder="চালান নং" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+        </div>
+        <div id="stn-edit-remarks-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">মন্তব্য</label>
+          <input type="text" id="stn-edit-remarks" placeholder="মন্তব্য (ঐচ্ছিক)" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+        </div>
+        <div style="background:#eaf4fb;border-radius:7px;padding:9px 12px;font-size:12px;color:#1a5276;">
+          <b id="stn-edit-item-info"></b>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+        <button onclick="document.getElementById('stn-edit-overlay').style.display='none'" style="padding:10px 22px;border-radius:8px;border:1.5px solid #bdc3c7;background:#f4f6f7;color:#5d6d7e;font-size:14px;font-weight:600;cursor:pointer;">বাতিল</button>
+        <button id="stn-edit-save-btn" style="padding:10px 26px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(26,82,118,0.3);">✅ সেভ করুন</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+function stnEditTx(type, id) {
+  if (!IGL_CURRENT_USER || IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধু Admin এই কাজ করতে পারবে।', 'error');
+    return;
+  }
+  var entry = type === 'RECEIVE'
+    ? DB.receives.find(function(r){ return r.id === id; })
+    : DB.issues.find(function(r){ return r.id === id; });
+  if (!entry) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+
+  stnInjectEditModal();
+
+  // Title & info
+  document.getElementById('stn-edit-title').textContent = (type === 'RECEIVE' ? '✏️ Receive সংশোধন' : '✏️ Issue সংশোধন');
+  document.getElementById('stn-edit-item-info').textContent = 'আইটেম: ' + entry.item + ' | পরিমাণ: ' + entry.qty;
+
+  // Fill fields
+  document.getElementById('stn-edit-date').value    = entry.date    || '';
+  document.getElementById('stn-edit-remarks').value = entry.remarks || '';
+
+  if (type === 'ISSUE') {
+    document.getElementById('stn-edit-slip').value  = entry.slip    || '';
+    document.getElementById('stn-edit-dept').value  = entry.machineId || '';
+    document.getElementById('stn-edit-slip-wrap').style.display    = '';
+    document.getElementById('stn-edit-dept-wrap').style.display    = '';
+    document.getElementById('stn-edit-chalan-wrap').style.display  = 'none';
+    // Department datalist
+    var depts = [...new Set(DB.issues.filter(function(r){ return r.machineId; }).map(function(r){ return r.machineId; }))];
+    document.getElementById('stn-edit-dept-list').innerHTML = depts.map(function(d){ return '<option value="'+d+'">'; }).join('');
+  } else {
+    document.getElementById('stn-edit-chalan').value = entry.chalan || '';
+    document.getElementById('stn-edit-slip-wrap').style.display    = 'none';
+    document.getElementById('stn-edit-dept-wrap').style.display    = 'none';
+    document.getElementById('stn-edit-chalan-wrap').style.display  = '';
+  }
+
+  // Save button
+  var saveBtn = document.getElementById('stn-edit-save-btn');
+  var newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  newBtn.onclick = function() {
+    var newDate = document.getElementById('stn-edit-date').value.trim();
+    if (!newDate) { toast('❌ তারিখ দিন।', 'error'); return; }
+
+    if (type === 'ISSUE') {
+      DB.issues = DB.issues.map(function(r) {
+        if (r.id !== id) return r;
+        return Object.assign({}, r, {
+          date:      newDate,
+          slip:      document.getElementById('stn-edit-slip').value.trim()  || r.slip,
+          machineId: document.getElementById('stn-edit-dept').value.trim()  || r.machineId,
+          remarks:   document.getElementById('stn-edit-remarks').value.trim()
+        });
+      });
+    } else {
+      DB.receives = DB.receives.map(function(r) {
+        if (r.id !== id) return r;
+        return Object.assign({}, r, {
+          date:    newDate,
+          chalan:  document.getElementById('stn-edit-chalan').value.trim() || r.chalan,
+          remarks: document.getElementById('stn-edit-remarks').value.trim()
+        });
+      });
+    }
+
+    document.getElementById('stn-edit-overlay').style.display = 'none';
+    triggerAutoSave();
+    renderStationeryDashboard();
+    toast('✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+  };
+
+  document.getElementById('stn-edit-overlay').style.display = 'flex';
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 function stnGetHiddenItems() {
   try { return JSON.parse(localStorage.getItem('igl_stn_hidden') || '[]'); } catch(e) { return []; }
 }
@@ -10259,7 +10380,7 @@ function renderStationeryDashboard() {
     ? '<tr><td colspan="5" class="no-data">No stationery transactions found</td></tr>'
     : allTx.map(function(tx){
         return '<tr><td>'+fmtDate(tx.date)+'</td><td><span class="badge '+(tx.type==='RECEIVE'?'badge-receive':'badge-issue')+'">'+tx.type+'</span></td><td>'+tx.item+'</td><td><b>'+tx.qty+'</b></td>'
-          +'<td><button onclick="stnDeleteTx(\''+tx.type+'\','+tx.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\''+tx.type+'\',' +tx.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\''+tx.type+'\',' +tx.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
 
   // Search Result Area
@@ -10315,7 +10436,7 @@ function renderStationeryDashboard() {
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
-          +'<td><button onclick="stnDeleteTx(\'RECEIVE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'RECEIVE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'RECEIVE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#1a5276;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+cTot+'</td><td></td></tr>';
       html += '</tbody></table>';
@@ -10341,7 +10462,7 @@ function renderStationeryDashboard() {
       html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
-          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#922b21;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="2"></td></tr>';
       html += '</tbody></table>';
@@ -10384,7 +10505,7 @@ function renderStationeryDashboard() {
       html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += deptIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
-          +'<td><button onclick="stnDeleteTx(\'ISSUE\','+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
+          +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="2"></td></tr>';
       html += '</tbody></table>';
