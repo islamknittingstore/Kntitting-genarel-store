@@ -1270,7 +1270,8 @@ if('serviceWorker' in navigator){
           usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
           printBold:       localStorage.getItem('igl_print_bold') || '0',
           retailMachines:  JSON.parse(localStorage.getItem('igl_retail_machines')  || '[]'),
-          ndlVer:          localStorage.getItem('igl_ndl_ver') || ''
+          ndlVer:          localStorage.getItem('igl_ndl_ver') || '',
+          navHidden:       JSON.parse(localStorage.getItem('igl_nav_hidden') || '{}')
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -1533,6 +1534,7 @@ if('serviceWorker' in navigator){
           if(data.settings.printBold !== undefined) localStorage.setItem('igl_print_bold', data.settings.printBold);
           if(data.settings.retailMachines && data.settings.retailMachines.length) localStorage.setItem('igl_retail_machines', JSON.stringify(data.settings.retailMachines));
           if(data.settings.ndlVer) localStorage.setItem('igl_ndl_ver', data.settings.ndlVer);
+          if(data.settings.navHidden) { localStorage.setItem('igl_nav_hidden', JSON.stringify(data.settings.navHidden)); if(typeof iglApplyNavHide==='function') iglApplyNavHide(); }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
             try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
@@ -2133,6 +2135,8 @@ function iglApplyPermissions() {
   if (imNav) {
     imNav.style.display = (isAdmin || iglHasPermission('stn_item_master')) ? '' : 'none';
   }
+  // Nav Visibility (hide/show menu items per admin config)
+  if (typeof iglApplyNavHide === 'function') iglApplyNavHide();
 }
 
 // ── Admin: User Password Edit ──
@@ -2164,13 +2168,17 @@ window.iglShowUserMgmt = function(){
         html += '</label>';
       });
       html += '</div>';
+      // Per-user Nav Visibility
+      html += iglRenderNavVisibilityForUser(u);
     }
     html += '</div>';
   });
   html += '<div style="display:flex;gap:10px;margin-top:14px;">';
-  html += '<button onclick="iglSaveUsers()" style="flex:1;padding:10px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">✅ Save</button>';
-  html += '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="flex:1;padding:10px;background:#eee;color:#333;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Cancel</button>';
-  html += '</div></div></div>';
+  html += '<button onclick="iglSaveUsers()" style="flex:1;padding:10px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">✅ Save Users</button>';
+  html += '<button onclick="iglSaveNavVisibility()" style="flex:1;padding:10px;background:#117a65;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">👁️ Save Visibility</button>';
+  html += '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:10px 16px;background:#eee;color:#333;border:none;border-radius:8px;font-weight:700;cursor:pointer;">✖</button>';
+  html += '</div>';
+  html += '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
 };
 
@@ -2208,12 +2216,120 @@ window.iglSaveUsers = function(){
   try {
     var ov = JSON.parse(localStorage.getItem('igl_users_override') || 'null');
     if(ov) {
-      // পুরো IGL_USERS ov দিয়ে রিপ্লেস করো
       Object.keys(IGL_USERS).forEach(function(k){ delete IGL_USERS[k]; });
       Object.keys(ov).forEach(function(u){ IGL_USERS[u] = ov[u]; });
     }
   } catch(e){}
 })();
+
+// ─── Nav Visibility System ────────────────────────────────────────────────────
+var IGL_NAV_ITEMS = {
+  // Knitting Store
+  'nav-receive':           { label: '📥 Receive Goods',           section: '🏭 Knitting Store' },
+  'nav-issue':             { label: '📤 Issue Goods',             section: '🏭 Knitting Store' },
+  'nav-stock':             { label: '📦 Stock Report',            section: '🏭 Knitting Store' },
+  'nav-receive-log':       { label: '📋 Receive Log',             section: '🏭 Knitting Store' },
+  'nav-issue-log':         { label: '📄 Issue Log',               section: '🏭 Knitting Store' },
+  'nav-monthly':           { label: '📅 Monthly Report',          section: '🏭 Knitting Store' },
+  // Needle
+  'nav-needle-issue':      { label: '✏️ Needle Issue Entry',      section: '🪡 Needle Section' },
+  'nav-needle-receive':    { label: '📥 Needle Receive',          section: '🪡 Needle Section' },
+  'nav-needle-monthly':    { label: '📊 Monthly Machine Wise',    section: '🪡 Needle Section' },
+  'nav-needle-daily':      { label: '📆 Daily Summary',           section: '🪡 Needle Section' },
+  'nav-needle-use-report': { label: '📋 Shift Needle Use Report', section: '🪡 Needle Section' },
+  'nav-needle-newset-record':{ label: '📝 New Set Record',        section: '🪡 Needle Section' },
+  'nav-needle-newset':     { label: '🆕 New Set Log',             section: '🪡 Needle Section' },
+  'nav-needle-remarks':    { label: '📝 Remarks Report',          section: '🪡 Needle Section' },
+  'nav-retail-needle':     { label: '🧾 Retail Needle Account',   section: '🪡 Needle Section' },
+  'nav-needle-stock-new':  { label: '📦 Needle Stock New',        section: '🪡 Needle Section' },
+  'nav-needle-stock-used': { label: '♻️ Needle Stock Used',       section: '🪡 Needle Section' },
+  'nav-needle-ledger':     { label: '📒 Needle Ledger',           section: '🪡 Needle Section' },
+  'nav-needle-mapping':    { label: '🔗 Needle-Machine Map',      section: '🪡 Needle Section' },
+  // Stationery
+  'nav-stn-dashboard':     { label: '📊 Stationery Dashboard',    section: '🖊️ Stationery' }
+};
+
+function iglGetNavHidden() {
+  try { return JSON.parse(localStorage.getItem('igl_nav_hidden') || '{}'); } catch(e){ return {}; }
+}
+function iglSaveNavHidden(obj) {
+  localStorage.setItem('igl_nav_hidden', JSON.stringify(obj));
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+function iglGetNavHiddenForUser(username) {
+  var all = iglGetNavHidden();
+  return all[username] || [];
+}
+function iglApplyNavHide() {
+  var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+  if (isAdmin) {
+    // Admin সব দেখবে, কোনো dim নেই
+    Object.keys(IGL_NAV_ITEMS).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = '';
+      el.style.opacity = '';
+    });
+    return;
+  }
+  var username = window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.username : null;
+  var hidden = username ? iglGetNavHiddenForUser(username) : [];
+  Object.keys(IGL_NAV_ITEMS).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = hidden.indexOf(id) >= 0 ? 'none' : '';
+    el.style.opacity = '';
+  });
+}
+
+// প্রতিটি user card-এর ভেতরে Nav Visibility render করো
+function iglRenderNavVisibilityForUser(username) {
+  var hidden = iglGetNavHiddenForUser(username);
+  var sections = {};
+  Object.keys(IGL_NAV_ITEMS).forEach(function(id) {
+    var sec = IGL_NAV_ITEMS[id].section;
+    if (!sections[sec]) sections[sec] = [];
+    sections[sec].push(id);
+  });
+  var html = '<div style="background:#f0f7ff;border-radius:6px;padding:8px 10px;border:1px solid #d0e8f8;margin-top:8px;">';
+  html += '<div style="font-size:11px;font-weight:700;color:#1a5276;margin-bottom:7px;">👁️ Menu Visibility</div>';
+  Object.keys(sections).forEach(function(sec) {
+    html += '<div style="margin-bottom:7px;">';
+    html += '<div style="font-size:10px;font-weight:700;color:#555;margin-bottom:3px;padding:2px 6px;background:#dde8f5;border-radius:3px;">'+sec+'</div>';
+    sections[sec].forEach(function(id) {
+      var isHidden = hidden.indexOf(id) >= 0;
+      html += '<label style="display:flex;align-items:center;gap:7px;font-size:11px;cursor:pointer;margin-bottom:3px;padding:1px 3px;">';
+      html += '<input type="checkbox" class="nav-vis-chk-u" data-navid="'+id+'" data-username="'+username+'" '+(isHidden?'':'checked')+' style="width:14px;height:14px;accent-color:#1a5276;cursor:pointer;">';
+      html += '<span style="color:'+(isHidden?'#aaa':'#333')+'">'+IGL_NAV_ITEMS[id].label+'</span>';
+      html += '</label>';
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+window.iglSaveNavVisibility = function() {
+  var all = iglGetNavHidden();
+  // প্রতিটি user-এর checkbox পড়ো
+  var userMap = {};
+  document.querySelectorAll('.nav-vis-chk-u').forEach(function(chk) {
+    var uid = chk.getAttribute('data-username');
+    var nid = chk.getAttribute('data-navid');
+    if (!userMap[uid]) userMap[uid] = [];
+    if (!chk.checked) userMap[uid].push(nid);
+  });
+  // merge করো
+  Object.keys(userMap).forEach(function(uid){ all[uid] = userMap[uid]; });
+  iglSaveNavHidden(all);
+  iglApplyNavHide();
+  toast('✅ Menu Visibility আপডেট হয়েছে!', 'success');
+  document.querySelectorAll('.nav-vis-chk-u').forEach(function(chk) {
+    var span = chk.nextElementSibling;
+    if (span) span.style.color = chk.checked ? '#333' : '#aaa';
+  });
+};
+// ──────────────────────────────────────────────────────────────────────────────
 </script>
 
 
@@ -2420,12 +2536,12 @@ window.iglSaveUsers = function(){
       <span class="grp-arrow" id="arr-store">▶</span>
     </div>
     <ul class="sidebar-submenu" id="sub-store" style="display:none;">
-      <li><a href="#" onclick="showPage('receive', this); return false;"><span class="icon">📥</span> Receive Goods</a></li>
-      <li><a href="#" onclick="showPage('issue', this); return false;"><span class="icon">📤</span> Issue Goods</a></li>
-      <li><a href="#" onclick="showPage('stock', this); return false;"><span class="icon">📦</span> Stock Report</a></li>
-      <li><a href="#" onclick="showPage('receive_log', this); return false;"><span class="icon">📋</span> Receive Log</a></li>
-      <li><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
-      <li><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
+      <li id="nav-receive"><a href="#" onclick="showPage('receive', this); return false;"><span class="icon">📥</span> Receive Goods</a></li>
+      <li id="nav-issue"><a href="#" onclick="showPage('issue', this); return false;"><span class="icon">📤</span> Issue Goods</a></li>
+      <li id="nav-stock"><a href="#" onclick="showPage('stock', this); return false;"><span class="icon">📦</span> Stock Report</a></li>
+      <li id="nav-receive-log"><a href="#" onclick="showPage('receive_log', this); return false;"><span class="icon">📋</span> Receive Log</a></li>
+      <li id="nav-issue-log"><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
+      <li id="nav-monthly"><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
     </ul>
   </div>
 
@@ -2437,20 +2553,20 @@ window.iglSaveUsers = function(){
       <span class="grp-arrow" id="arr-needle">▶</span>
     </div>
     <ul class="sidebar-submenu" id="sub-needle" style="display:none;">
-      <li><a href="#" onclick="showPage('needle_issue', this); return false;"><span class="icon">✏️</span> Needle Issue Entry</a></li>
-      <li><a href="#" onclick="showPage('needle_receive', this); return false;"><span class="icon">📥</span> Needle Receive</a></li>
-      <li><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
-      <li><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
-      <li><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
-      <li><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
-      <li><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
-      <li><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
-      <li><a href="#" onclick="showPage('retail_needle_account', this); return false;"><span class="icon">🧾</span> Retail Needle Account</a></li>
-      <li><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
-      <li><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
-      <li><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
-      <li class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
-      <li><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
+      <li id="nav-needle-issue"><a href="#" onclick="showPage('needle_issue', this); return false;"><span class="icon">✏️</span> Needle Issue Entry</a></li>
+      <li id="nav-needle-receive"><a href="#" onclick="showPage('needle_receive', this); return false;"><span class="icon">📥</span> Needle Receive</a></li>
+      <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
+      <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
+      <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
+      <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
+      <li id="nav-needle-newset"><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
+      <li id="nav-needle-remarks"><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
+      <li id="nav-retail-needle"><a href="#" onclick="showPage('retail_needle_account', this); return false;"><span class="icon">🧾</span> Retail Needle Account</a></li>
+      <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
+      <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
+      <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
+      <li id="nav-needle-master" class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
+      <li id="nav-needle-mapping"><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
     </ul>
   </div>
 
@@ -2462,7 +2578,7 @@ window.iglSaveUsers = function(){
       <span class="grp-arrow" id="arr-stn">▶</span>
     </div>
     <ul class="sidebar-submenu" id="sub-stn" style="display:none;">
-      <li><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
+      <li id="nav-stn-dashboard"><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
       <li id="nav-stn-item-master" style="display:none;"><a href="#" onclick="showPage('stn_item_master', this); return false;"><span class="icon">📦</span> Item Master</a></li>
       <li id="nav-stn-requisition" style="display:none;"><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
     </ul>
