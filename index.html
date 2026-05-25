@@ -4092,6 +4092,10 @@ function ok(msg) {
                 📦 এই Machine এর Needle Stock
               </div>
               <div id="nmi-machine-stock-body" style="padding:6px 8px;background:#fff9f0;"></div>
+              <div style="padding:8px 10px;background:#fff9f0;border-top:1px solid #f0dcc8;display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:160px;font-size:14px;">✅ Save All Issues</button>
+                <span id="nmi-count-top" style="color:#e67e22;font-size:13px;font-weight:600;"></span>
+              </div>
             </div>
         </div>
         <!-- Needle list for selected machine -->
@@ -17928,18 +17932,32 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       var bal = runBf + rcv - iss;
       var color = bal <= 0 ? '#e74c3c' : bal <= 10 ? '#e67e22' : '#117a65';
-      var badge = bal <= 0
-        ? '<span style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">OUT</span>'
-        : bal <= 10
-          ? '<span style="background:#e67e22;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">LOW</span>'
-          : '<span style="background:#117a65;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">OK</span>';
-      return '<tr>'
+      // Issue input — qty দিলে টিক + নিচের list এ auto fill + auto check
+      var issInput = '<div style="display:flex;align-items:center;gap:3px;">'
+        +'<button type="button" '
+        +'onmousedown="nmiHoldStart(\''+n.id+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
+        +'ontouchstart="nmiHoldStart(\''+n.id+'\',1)" ontouchend="nmiHoldStop()" '
+        +'onclick="nmiStockIssStep(\''+n.id+'\',1)" '
+        +'style="width:30px;height:30px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
+        +'<input type="number" id="nmi-stock-iss-'+n.id+'" min="0" placeholder="0" '
+        +'style="width:48px;padding:3px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:13px;font-weight:700;" '
+        +'oninput="nmiStockIssInput(this,\''+n.id+'\')" value="">'
+        +'<button type="button" '
+        +'onmousedown="nmiHoldStart(\''+n.id+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
+        +'ontouchstart="nmiHoldStart(\''+n.id+'\',-1)" ontouchend="nmiHoldStop()" '
+        +'onclick="nmiStockIssStep(\''+n.id+'\',-1)" '
+        +'style="width:30px;height:30px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
+        +'</div>';
+      var chkStyle = 'width:18px;height:18px;accent-color:#27ae60;cursor:pointer;';
+      return '<tr id="nmi-stock-row-'+n.id+'">'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+(n.name||n.code)+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#6c3483;">'+runBf+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#117a65;">'+rcv+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-size:11px;color:#e74c3c;">'+iss+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;">'+badge+'</td>'
+        + '<td style="padding:5px 4px;border-bottom:1px solid #f0e0d0;">'
+        +   '<div style="display:flex;align-items:center;gap:5px;">'
+        +     issInput
+        +     '<input type="checkbox" id="nmi-stock-chk-'+n.id+'" style="'+chkStyle+'" onchange="nmiStockChkChange(this,\''+n.id+'\')"> '
+        +   '</div>'
+        + '</td>'
         + '</tr>';
     }).join('');
 
@@ -17948,13 +17966,59 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + '<table style="width:100%;border-collapse:collapse;">'
       + '<thead><tr style="background:'+headerBg+';">'
       + '<th style="padding:4px 8px;font-size:11px;color:#7d6608;text-align:left;">Needle</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#6c3483;text-align:center;" title="মাসের ১ তারিখের আগের Balance">B/F</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#117a65;text-align:center;" title="'+curMonthLabel+' Receive">Rcv</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;" title="'+curMonthLabel+' Issue">Iss</th>'
-      + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Bal</th>'
-      + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Status</th>'
+      + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Balance</th>'
+      + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;">Issue Qty</th>'
       + '</tr></thead><tbody>'+rows+'</tbody></table>';
     panel.style.display = '';
+  }
+
+  // Stock panel issue step button
+  function nmiStockIssStep(nid, delta){
+    var inp = document.getElementById('nmi-stock-iss-'+nid);
+    if(!inp) return;
+    var cur = parseInt(inp.value)||0;
+    var next = Math.max(0, cur + delta);
+    inp.value = next || '';
+    nmiStockIssInput(inp, nid);
+  }
+
+  // Stock panel এ qty দিলে উপরের checkbox + নিচের list এ auto fill + auto check
+  function nmiStockIssInput(inp, nid){
+    var qty = parseInt(inp.value)||0;
+    // উপরের stock panel checkbox
+    var topChk = document.getElementById('nmi-stock-chk-'+nid);
+    if(topChk) topChk.checked = qty > 0;
+    // নিচের needle list
+    var listQty = document.querySelector('.nmi-qty[data-nid="'+nid+'"]');
+    var listChk = document.querySelector('.nmi-chk[data-nid="'+nid+'"]');
+    if(listQty){ listQty.value = qty > 0 ? qty : ''; }
+    if(listChk){ listChk.checked = qty > 0; }
+    nmiUpdateCount();
+  }
+
+  // উপরের checkbox manually change হলে qty ও সেট করি
+  function nmiStockChkChange(cb, nid){
+    if(!cb.checked){
+      var inp = document.getElementById('nmi-stock-iss-'+nid);
+      if(inp){ inp.value = ''; nmiStockIssInput(inp, nid); }
+    }
+  }
+
+  // Hold-to-count: মাউস/touch ধরে রাখলে ১,২,৩ করে count হবে
+  var _nmiHoldTimer = null;
+  var _nmiHoldInterval = null;
+  function nmiHoldStart(nid, delta){
+    nmiHoldStop();
+    // প্রথম ৪০০ms পর শুরু, তারপর প্রতি ১৫০ms এ বাড়বে
+    _nmiHoldTimer = setTimeout(function(){
+      _nmiHoldInterval = setInterval(function(){
+        nmiStockIssStep(nid, delta);
+      }, 150);
+    }, 400);
+  }
+  function nmiHoldStop(){
+    if(_nmiHoldTimer){ clearTimeout(_nmiHoldTimer); _nmiHoldTimer=null; }
+    if(_nmiHoldInterval){ clearInterval(_nmiHoldInterval); _nmiHoldInterval=null; }
   }
 
   // Machine change হলে newset/accident auto refresh
@@ -18125,7 +18189,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nmiUpdateCount(){
     var checked=document.querySelectorAll('.nmi-chk:checked').length;
     var total=document.querySelectorAll('.nmi-chk').length;
-    document.getElementById('nmi-count').textContent=checked+' / '+total+' selected';
+    var txt = checked+' / '+total+' selected';
+    document.getElementById('nmi-count').textContent=txt;
+    var top=document.getElementById('nmi-count-top');
+    if(top) top.textContent=txt;
   }
 
   function nmiRemarksDropChange(){
