@@ -1265,8 +1265,7 @@ if('serviceWorker' in navigator){
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
-          issues:       _safeIss.filter(function(r){return r.group==='Stationery';}),
-          receives:     _safeRcv.filter(function(r){return r.group==='Stationery';}),
+          // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
           items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [],
           requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {}
         },
@@ -1559,6 +1558,14 @@ if('serviceWorker' in navigator){
         try { if(typeof ndlPopulateRemarkDropdowns==='function') ndlPopulateRemarkDropdowns(); } catch(e){}
         fbStatus('connected', '✅ Cloud Connected');
         toast('✅ Cloud থেকে data load হয়েছে!', 'success');
+        // Firebase এর stn/issues ও stn/receives node মুছো — এখন db node এ আছে, duplicate এড়াতে
+        try {
+          if(!localStorage.getItem('igl_stn_node_cleaned')) {
+            _fbDb.ref('igl_erp/stn/issues').remove();
+            _fbDb.ref('igl_erp/stn/receives').remove();
+            localStorage.setItem('igl_stn_node_cleaned', '1');
+          }
+        } catch(e) {}
 
         // Firebase load সফল হলে pending save থাকলে এখন করো (race condition safe)
         setTimeout(function(){ if(typeof window._fbDoPendingRetry==='function') window._fbDoPendingRetry(); }, 500);
