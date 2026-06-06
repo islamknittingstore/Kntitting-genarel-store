@@ -1432,7 +1432,8 @@ if('serviceWorker' in navigator){
           }
           if(data.db.receives){
             var localRcv = DB.receives || [];
-            var fbRcv = data.db.receives;
+            // Firebase থেকে আসা data এও deletedIds দিয়ে filter
+            var fbRcv = data.db.receives.filter(function(r){ return !_allDelIds['rcv:'+String(r.id)]; });
             var fbRcvIds = {}; fbRcv.forEach(function(r){ fbRcvIds[r.id]=true; });
             // Deleted receive গুলো pending হিসেবে যোগ হবে না
             var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
@@ -1441,7 +1442,8 @@ if('serviceWorker' in navigator){
           }
           if(data.db.issues){
             var localIss = DB.issues || [];
-            var fbIss = data.db.issues;
+            // Firebase থেকে আসা data এও deletedIds দিয়ে filter
+            var fbIss = data.db.issues.filter(function(r){ return !_allDelIds['iss:'+String(r.id)]; });
             var fbIssIds = {}; fbIss.forEach(function(r){ fbIssIds[r.id]=true; });
             // Deleted issue গুলো pending হিসেবে যোগ হবে না
             var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
@@ -1500,7 +1502,8 @@ if('serviceWorker' in navigator){
           // Stationery receives → DB.receives (Stationery group merge)
           if(data.stn.receives && data.stn.receives.length > 0){
             var localAllRcv = DB.receives || [];
-            var fbStnRcv = data.stn.receives;
+            // Firebase থেকে আসা data এও deletedIds দিয়ে filter — PC তে delete হলে mobile এও সরবে
+            var fbStnRcv = data.stn.receives.filter(function(r){ return !_allDelIds['rcv:'+String(r.id)]; });
             var fbStnRcvIds = {}; fbStnRcv.forEach(function(r){ fbStnRcvIds[r.id]=true; });
             var nonStnRcv = localAllRcv.filter(function(r){ return r.group !== 'Stationery'; });
             // local এ pending stn receives থাকলে merge করো (Firebase এ নেই এমন)
@@ -1511,7 +1514,8 @@ if('serviceWorker' in navigator){
           // Stationery issues → DB.issues (Stationery group merge)
           if(data.stn.issues && data.stn.issues.length > 0){
             var localAllIss = DB.issues || [];
-            var fbStnIss = data.stn.issues;
+            // Firebase থেকে আসা data এও deletedIds দিয়ে filter — PC তে delete হলে mobile এও সরবে
+            var fbStnIss = data.stn.issues.filter(function(r){ return !_allDelIds['iss:'+String(r.id)]; });
             var fbStnIssIds = {}; fbStnIss.forEach(function(r){ fbStnIssIds[r.id]=true; });
             var nonStnIss = localAllIss.filter(function(r){ return r.group !== 'Stationery'; });
             // local এ pending stn issues থাকলে merge করো (Firebase এ নেই এমন)
