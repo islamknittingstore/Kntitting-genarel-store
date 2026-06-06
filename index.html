@@ -1552,6 +1552,11 @@ if('serviceWorker' in navigator){
         try { if(typeof renderNdlStockRegister==='function') renderNdlStockRegister(); } catch(e){}
         try { if(typeof renderReceiveLog     ==='function') renderReceiveLog(); }     catch(e){}
         try { if(typeof renderIssueLog       ==='function') renderIssueLog(); }       catch(e){}
+        // Stationery UI refresh — item ডিলিট/যোগ হলে সব device এ আপডেট হবে
+        try { if(typeof stnItemMasterRender       ==='function') stnItemMasterRender(); }       catch(e){}
+        try { if(typeof renderStationeryDashboard ==='function') renderStationeryDashboard(); } catch(e){}
+        try { if(typeof stnPopulateItems          ==='function') { stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item'); } } catch(e){}
+        try { if(typeof renderStnManagerReport    ==='function') renderStnManagerReport(); }    catch(e){}
         // Firebase load এর পর rnaSection init করো — load এর আগে initRNADefaults চলেছিল তাই data ছিল না
         try { if(typeof initRNADefaults      ==='function') initRNADefaults(); }      catch(e){}
         try { if(typeof renderRetailNeedleAccount==='function') renderRetailNeedleAccount(); } catch(e){}
