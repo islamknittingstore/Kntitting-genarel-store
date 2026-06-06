@@ -1501,25 +1501,36 @@ if('serviceWorker' in navigator){
           }
           // Stationery receives → DB.receives (Stationery group merge)
           if(data.stn.receives && data.stn.receives.length > 0){
-            var localAllRcv = DB.receives || [];
-            // Firebase থেকে আসা data এও deletedIds দিয়ে filter — PC তে delete হলে mobile এও সরবে
+            // db.receives এ Stationery already আছে — stn section এ শুধু non-Stationery রেখে replace করো
+            // নইলে db.receives + stn.receives = duplicate হয়
+            var nonStnRcv = (DB.receives || []).filter(function(r){ return r.group !== 'Stationery'; });
+            // Firebase থেকে আসা data deletedIds দিয়ে filter
             var fbStnRcv = data.stn.receives.filter(function(r){ return !_allDelIds['rcv:'+String(r.id)]; });
             var fbStnRcvIds = {}; fbStnRcv.forEach(function(r){ fbStnRcvIds[r.id]=true; });
-            var nonStnRcv = localAllRcv.filter(function(r){ return r.group !== 'Stationery'; });
-            // local এ pending stn receives থাকলে merge করো (Firebase এ নেই এমন)
-            var pendingStnRcv = localAllRcv.filter(function(r){ return r.group === 'Stationery' && !fbStnRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
+            // local এ pending stn receives — firebase এ নেই এবং delete হয়নি এমন
+            var pendingStnRcv = nonStnRcv.length > 0 ? [] : []; // non-stn already separated
+            // local localStorage থেকে pending stn receives — firebase এ নেই এবং delete হয়নি
+            try {
+              var _lsRcv = JSON.parse(localStorage.getItem('igl_receives') || '[]');
+              pendingStnRcv = (_lsRcv||[]).filter(function(r){ return r.group === 'Stationery' && !fbStnRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
+            } catch(e){ pendingStnRcv = []; }
             DB.receives = nonStnRcv.concat(fbStnRcv).concat(pendingStnRcv);
             if(pendingStnRcv.length) toast('⚠️ '+pendingStnRcv.length+'টি pending stn receive merge হয়েছে','warning');
           }
           // Stationery issues → DB.issues (Stationery group merge)
           if(data.stn.issues && data.stn.issues.length > 0){
-            var localAllIss = DB.issues || [];
-            // Firebase থেকে আসা data এও deletedIds দিয়ে filter — PC তে delete হলে mobile এও সরবে
+            // db.issues এ Stationery already আছে — stn section এ শুধু non-Stationery রেখে replace করো
+            // নইলে db.issues + stn.issues = duplicate হয়
+            var nonStnIss = (DB.issues || []).filter(function(r){ return r.group !== 'Stationery'; });
+            // Firebase থেকে আসা data deletedIds দিয়ে filter
             var fbStnIss = data.stn.issues.filter(function(r){ return !_allDelIds['iss:'+String(r.id)]; });
             var fbStnIssIds = {}; fbStnIss.forEach(function(r){ fbStnIssIds[r.id]=true; });
-            var nonStnIss = localAllIss.filter(function(r){ return r.group !== 'Stationery'; });
-            // local এ pending stn issues থাকলে merge করো (Firebase এ নেই এমন)
-            var pendingStnIss = localAllIss.filter(function(r){ return r.group === 'Stationery' && !fbStnIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
+            // local localStorage থেকে pending stn issues — firebase এ নেই এবং delete হয়নি
+            var pendingStnIss = [];
+            try {
+              var _lsIss = JSON.parse(localStorage.getItem('igl_issues') || '[]');
+              pendingStnIss = (_lsIss||[]).filter(function(r){ return r.group === 'Stationery' && !fbStnIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
+            } catch(e){ pendingStnIss = []; }
             DB.issues = nonStnIss.concat(fbStnIss).concat(pendingStnIss);
             if(pendingStnIss.length) toast('⚠️ '+pendingStnIss.length+'টি pending stn issue merge হয়েছে','warning');
           }
