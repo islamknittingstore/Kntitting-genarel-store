@@ -15493,6 +15493,8 @@ async function stnImDel(idx) {
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
   items.splice(idx,1);
+  window._stnItemsFromFb = true; // preStnItems merge বন্ধ রাখো
+  _fbIgnoreLoad = true; // Firebase save এর পর ts change দেখে নিজেই reload করবে না
   DB.stnItems = items; // setter trigger → localStorage এ সেভ
   triggerAutoSave();
   stnItemMasterRender();
