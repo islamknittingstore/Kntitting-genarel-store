@@ -1492,6 +1492,7 @@ if('serviceWorker' in navigator){
         if(data.stn){
           // Stationery items → DB.stnItems
           if(data.stn.items && data.stn.items.length > 0){
+            window._stnItemsFromFb = true; // Firebase থেকে এসেছে — preStnItems merge করবে না
             DB.stnItems = data.stn.items;
           }
           // Stationery requisitions → DB.stnRequisitions
@@ -1504,6 +1505,7 @@ if('serviceWorker' in navigator){
         }
         // stnItems root level এ থাকলে লোড করো (legacy format)
         if(data.stnItems && data.stnItems.length > 0){
+          window._stnItemsFromFb = true;
           DB.stnItems = data.stnItems;
         }
         if(data.ndlRcv){
@@ -5859,6 +5861,9 @@ const DB = {
       return pre;
     }
     if (pre.length === 0) return stored;
+    // Firebase থেকে data load হলে preStnItems merge করবে না —
+    // তাহলে deleted items আবার ফিরে আসবে না
+    if (window._stnItemsFromFb) return stored;
     // Merge: add any preStnItems missing from stored
     const storedMap = {};
     stored.forEach(function(it){ storedMap[it.name] = true; });
