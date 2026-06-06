@@ -1490,10 +1490,8 @@ if('serviceWorker' in navigator){
           }
         }
         if(data.stn){
-          // Stationery items → DB.stnItems
-          // NOTE: length > 0 check নেই — সব ডিলিট হলেও [] load হবে
-          if(data.stn.items !== undefined && data.stn.items !== null){
-            window._stnItemsFromFb = true; // Firebase থেকে এসেছে — preStnItems merge করবে না
+          // Stationery items → DB.stnItems (Firebase-only, in-memory)
+          if(Array.isArray(data.stn.items)){
             DB.stnItems = data.stn.items;
           }
           // Stationery requisitions → DB.stnRequisitions
@@ -1505,8 +1503,7 @@ if('serviceWorker' in navigator){
           // stn node শুধু backup হিসেবে Firebase এ থাকে
         }
         // stnItems root level এ থাকলে লোড করো (legacy format)
-        if(data.stnItems !== undefined && data.stnItems !== null){
-          window._stnItemsFromFb = true;
+        if(Array.isArray(data.stnItems) && data.stnItems.length > 0 && (window._stnItemsArr||[]).length === 0){
           DB.stnItems = data.stnItems;
         }
         if(data.ndlRcv){
@@ -5305,7 +5302,6 @@ async function _loadFromFile() {
     // ── সরাসরি localStorage এ লিখি ──
     try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(e) {}
     try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(e) {}
-    try { localStorage.setItem('igl_stn_items',JSON.stringify(stnItems)); } catch(e) {}
 
     // ── Stationery Issues/Receives কে DB.issues/DB.receives এ merge করো ──
     // stnIssues/stnReceives পুরনো আলাদা format — DB এর সাথে merge করতে হবে
@@ -5853,37 +5849,12 @@ const DB = {
     _set('igl_items', v.concat(missing));
   },
   get stnItems() {
-    const pre = window.preStnItems || [];
-    let stored = [];
-    try { stored = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
-    // Firebase থেকে data এসে থাকলে preStnItems কখনো merge/replace করবে না
-    if (window._stnItemsFromFb) return stored;
-    // If stored empty, use preStnItems (built-in list - never lost)
-    if (stored.length === 0 && pre.length > 0) {
-      try { localStorage.setItem('igl_stn_items', JSON.stringify(pre)); } catch(e) {}
-      return pre;
-    }
-    if (pre.length === 0) return stored;
-    // Merge: add any preStnItems missing from stored
-    const storedMap = {};
-    stored.forEach(function(it){ storedMap[it.name] = true; });
-    const missing = pre.filter(function(it){ return !storedMap[it.name]; });
-    if (missing.length > 0) {
-      const merged = stored.concat(missing);
-      try { localStorage.setItem('igl_stn_items', JSON.stringify(merged)); } catch(e) {}
-      stored = merged;
-    }
-    // ── Auto-fix: Moglar → Moylar ──
-    var _fixNeeded = stored.some(function(it){ return (it.name||'').indexOf('Moglar')>=0; });
-    if(_fixNeeded){
-      stored.forEach(function(it){ if((it.name||'').indexOf('Moglar')>=0) it.name=it.name.replace(/Moglar/g,'Moylar'); });
-      (DB.issues||[]).forEach(function(r){ if((r.item||'').indexOf('Moglar')>=0) r.item=r.item.replace(/Moglar/g,'Moylar'); });
-      (DB.receives||[]).forEach(function(r){ if((r.item||'').indexOf('Moglar')>=0) r.item=r.item.replace(/Moglar/g,'Moylar'); });
-      try { localStorage.setItem('igl_stn_items', JSON.stringify(stored)); } catch(e) {}
-    }
-    return stored;
+    // সম্পূর্ণ Firebase-only — localStorage নেই
+    return window._stnItemsArr || [];
   },
-  set stnItems(v) { _set('igl_stn_items', v); },
+  set stnItems(v) {
+    window._stnItemsArr = v || [];
+  },
   get machines() { return _get('igl_machines') || []; },
   set machines(v) { _set('igl_machines', v); },
   get receives() { return _get('igl_receives') || []; },
@@ -13308,7 +13279,6 @@ function doImport(event) {
         try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIss)); } catch(er) {}
         try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(er) {}
         try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(er) {}
-        try { localStorage.setItem('igl_stn_items',JSON.stringify(stnItems)); } catch(er) {}
 
         // Items — preItems এর সাথে merge করো যাতে built-in items না হারায়
         try {
@@ -15295,7 +15265,6 @@ function stnImMergeDuplicates() {
   // Remove duplicates (reverse order to keep indices stable)
   toRemove.sort(function(a,b){return b-a;}).forEach(function(i){ items.splice(i,1); });
   DB.stnItems = items;
-  localStorage.setItem('igl_stn_items', JSON.stringify(items));
   localStorage.setItem('igl_stn_requisitions', JSON.stringify(DB.stnRequisitions||{}));
   _triggerAutoSave();
   stnItemMasterRender();
@@ -15358,8 +15327,6 @@ function stnImEdit(idx) {
       });
       localStorage.setItem('igl_stn_requisitions', JSON.stringify(reqs));
     }
-
-    localStorage.setItem('igl_stn_items', JSON.stringify(items));
     _triggerAutoSave();
     document.body.removeChild(overlay);
     stnItemMasterRender();
@@ -15393,7 +15360,7 @@ function stnImPageAdd() {
     var rh = rate>0?[{rate:rate, month:new Date().toISOString().slice(0,7), setAt:new Date().toISOString()}]:[];
     var arr = DB.stnItems||[];
     arr.push({id:'stn_item_'+Date.now(), name:name, category:cat, group:'Stationery', unit:unit, rate:rate, rateEffDate:new Date().toISOString().slice(0,7), rateHistory:rh});
-    DB.stnItems = arr; // setter trigger → localStorage এ সেভ
+    DB.stnItems = arr;
     triggerAutoSave();
     stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
     document.body.removeChild(overlay);
@@ -15447,7 +15414,7 @@ function stnImSetRate(idx) {
     if(!it2.rateHistory) it2.rateHistory=[];
     if(it2.rate && it2.rate!==newRate) it2.rateHistory.push({rate:it2.rate,month:it2.rateEffDate||effMonth,setAt:new Date().toISOString()});
     it2.rate=newRate; it2.rateEffDate=effMonth;
-    DB.stnItems = _stnArr; // setter trigger → localStorage সেভ
+    DB.stnItems = _stnArr;
     triggerAutoSave();
     document.body.removeChild(overlay);
     stnItemMasterRender();
@@ -15493,9 +15460,8 @@ async function stnImDel(idx) {
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
   items.splice(idx,1);
-  window._stnItemsFromFb = true; // preStnItems merge বন্ধ রাখো
   _fbIgnoreLoad = true; // Firebase save এর পর ts change দেখে নিজেই reload করবে না
-  DB.stnItems = items; // setter trigger → localStorage এ সেভ
+  DB.stnItems = items;
   triggerAutoSave();
   stnItemMasterRender();
   stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
@@ -21186,7 +21152,7 @@ function confirmRestoreFromJson() {
           stn: {
             issues:   (typeof DB!=='undefined') ? (DB.issues||[]).filter(function(r){return r.group==='Stationery';}) : [],
             receives: (typeof DB!=='undefined') ? (DB.receives||[]).filter(function(r){return r.group==='Stationery';}) : [],
-            items:    JSON.parse(localStorage.getItem('igl_stn_items')    || '[]'),
+            items:    (window._stnItemsArr||[]),
             requisitions: JSON.parse(localStorage.getItem('igl_stn_requisitions') || '{}')
           },
           ndlRcv:    JSON.parse(localStorage.getItem('igl_ndl_rcv')    || '[]'),
@@ -21595,7 +21561,6 @@ async function stnSaveManualBF() {
   if(!ok) return;
 
   var items = [];
-  try { items = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
   if(!items.length){ items = DB.stnItems; }
 
   var updated = 0;
@@ -21605,8 +21570,6 @@ async function stnSaveManualBF() {
     var it = items.find(function(x){return x.name===itemName;});
     if(it && it.bf !== newVal){ it.bf = newVal; updated++; }
   });
-
-  try { localStorage.setItem('igl_stn_items', JSON.stringify(items)); } catch(e) {}
   triggerAutoSave();
   document.getElementById('stnBFModal').style.display = 'none';
   if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
@@ -21630,7 +21593,6 @@ async function stnSaveAllBF() {
   if(!ok) return;
 
   var items = [];
-  try { items = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
   if(!items.length){ items = DB.stnItems; }
 
   var updated = 0;
@@ -21640,8 +21602,6 @@ async function stnSaveAllBF() {
     var it = items.find(function(x){return x.name===itemName;});
     if(it){ it.bf = newBF; updated++; }
   });
-
-  try { localStorage.setItem('igl_stn_items', JSON.stringify(items)); } catch(e) {}
   triggerAutoSave();
 
   document.getElementById('stnBFModal').style.display = 'none';
