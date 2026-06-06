@@ -1288,6 +1288,8 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
+          // ts একটু bump করো — যাতে অন্য সব device নিশ্চিতভাবে fbLoadAll trigger করে
+          _fbDb.ref('igl_erp/ts').set(data.ts + 1);
           _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
