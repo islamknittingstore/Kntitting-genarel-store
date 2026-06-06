@@ -1288,9 +1288,14 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
-          // ts একটু bump করো — যাতে অন্য সব device নিশ্চিতভাবে fbLoadAll trigger করে
-          _fbDb.ref('igl_erp/ts').set(data.ts + 1);
           _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
+          // অন্য device কে notify করো — নিজের deviceId পাঠাই যাতে নিজে ignore করতে পারে
+          try {
+            _fbDb.ref('igl_erp/syncSignal').set({
+              ts: data.ts,
+              by: window._iglDeviceId || 'unknown'
+            });
+          } catch(e){}
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
           localStorage.removeItem('igl_deleted_ids');
@@ -1591,16 +1596,40 @@ if('serviceWorker' in navigator){
 
   // Real-time listener
   var _fbLastTs = 0;
-  var _fbPaused = false; // Firebase manually paused flag
-  var _fbIgnoreLoad = false; // Delete এর পর load ignore করো
+  var _fbPaused = false;
+  var _fbIgnoreLoad = false;
+  // এই device এর unique ID — যাতে নিজের signal নিজে ignore করতে পারে
+  if (!window._iglDeviceId) {
+    window._iglDeviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // syncSignal listener — অন্য device save করলে এই device load করবে
+  _fbDb.ref('igl_erp/syncSignal').on('value', function(snap){
+    if(_fbPaused || !snap.exists()) return;
+    var sig = snap.val();
+    if(!sig || !sig.ts) return;
+    // নিজের signal নিজে ignore করো
+    if(sig.by === window._iglDeviceId) return;
+    // নতুন signal — load করো
+    if(sig.ts > (_fbLastSyncTs || 0)){
+      _fbLastSyncTs = sig.ts;
+      window.fbLoadAll();
+    }
+  });
+  var _fbLastSyncTs = 0;
+
   _fbDb.ref('igl_erp/ts').on('value', function(snapshot){
-    if(_fbPaused) return; // Firebase paused — ignore
+    if(_fbPaused) return;
     if(!snapshot.exists()) return;
     var ts = snapshot.val();
     if(_fbLastTs === 0){ _fbLastTs = ts; fbStatus('connected', '🔗 Cloud Connected'); return; }
     if(ts > _fbLastTs){
       _fbLastTs = ts;
-      window.fbLoadAll();
+      // _fbIgnoreLoad=true মানে এই device এই save করছে — reload দরকার নেই
+      // কিন্তু _fbLastTs আপডেট করতে হবে, নইলে save শেষে আর ts change detect হবে না
+      if(!_fbIgnoreLoad){
+        window.fbLoadAll();
+      }
     }
   });
 
