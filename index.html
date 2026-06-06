@@ -1491,7 +1491,8 @@ if('serviceWorker' in navigator){
         }
         if(data.stn){
           // Stationery items → DB.stnItems
-          if(data.stn.items && data.stn.items.length > 0){
+          // NOTE: length > 0 check নেই — সব ডিলিট হলেও [] load হবে
+          if(data.stn.items !== undefined && data.stn.items !== null){
             window._stnItemsFromFb = true; // Firebase থেকে এসেছে — preStnItems merge করবে না
             DB.stnItems = data.stn.items;
           }
@@ -1504,7 +1505,7 @@ if('serviceWorker' in navigator){
           // stn node শুধু backup হিসেবে Firebase এ থাকে
         }
         // stnItems root level এ থাকলে লোড করো (legacy format)
-        if(data.stnItems && data.stnItems.length > 0){
+        if(data.stnItems !== undefined && data.stnItems !== null){
           window._stnItemsFromFb = true;
           DB.stnItems = data.stnItems;
         }
@@ -5855,15 +5856,14 @@ const DB = {
     const pre = window.preStnItems || [];
     let stored = [];
     try { stored = JSON.parse(localStorage.getItem('igl_stn_items') || '[]'); } catch(e) {}
+    // Firebase থেকে data এসে থাকলে preStnItems কখনো merge/replace করবে না
+    if (window._stnItemsFromFb) return stored;
     // If stored empty, use preStnItems (built-in list - never lost)
     if (stored.length === 0 && pre.length > 0) {
       try { localStorage.setItem('igl_stn_items', JSON.stringify(pre)); } catch(e) {}
       return pre;
     }
     if (pre.length === 0) return stored;
-    // Firebase থেকে data load হলে preStnItems merge করবে না —
-    // তাহলে deleted items আবার ফিরে আসবে না
-    if (window._stnItemsFromFb) return stored;
     // Merge: add any preStnItems missing from stored
     const storedMap = {};
     stored.forEach(function(it){ storedMap[it.name] = true; });
