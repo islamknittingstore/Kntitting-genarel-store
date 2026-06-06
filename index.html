@@ -1202,15 +1202,20 @@ if('serviceWorker' in navigator){
     localStorage.removeItem('igl_fb_pending');
   }
 
-  // নেট আসলে automatically retry করো
+  // নেট আসলে — আগে Firebase থেকে load (deletedIds সহ), তারপর pending save
+  // এতে offline থাকাকালীন অন্য device এ delete হওয়া item আর ফিরে আসবে না
   window.addEventListener('online', function() {
     var hasPending = localStorage.getItem('igl_fb_pending') === '1';
-    if (hasPending && typeof window.fbSaveAll === 'function') {
-      setTimeout(function() {
-        toast('📶 নেট এসেছে — Firebase এ sync হচ্ছে...', 'success');
+    if (!hasPending) return;
+    setTimeout(function() {
+      toast('📶 নেট এসেছে — Firebase sync হচ্ছে...', 'success');
+      if (typeof window.fbLoadAll === 'function') {
+        // Load আগে — fbLoadAll এর শেষে _fbDoPendingRetry নিজেই pending save করবে
+        window.fbLoadAll();
+      } else if (typeof window.fbSaveAll === 'function') {
         window.fbSaveAll();
-      }, 1500);
-    }
+      }
+    }, 1500);
   });
 
   // Page load এ pending check করো
@@ -1240,26 +1245,32 @@ if('serviceWorker' in navigator){
 
     fbStatus('saving', 'Syncing...');
     try {
+      // Save করার আগে deletedIds দিয়ে filter — offline device এর পুরনো deleted item Firebase এ যাবে না
+      var _delCache = (typeof _fbDelIdsCache !== 'undefined') ? _fbDelIdsCache : {};
+      var _safeRcv = (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){ return !_delCache['rcv:'+String(r.id)]; }) : [];
+      var _safeIss = (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){ return !_delCache['iss:'+String(r.id)]; }) : [];
+      var _safeNdl = (typeof NDB !== 'undefined') ? (NDB.needles||[]).filter(function(r){ return !_delCache['ndl:'+String(r.id)]; }) : [];
+      var _safeNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]').filter(function(r){ return !_delCache['ndlrcv:'+String(r.id)]; });
       var data = {
         ts: Date.now(),
         db: {
           groups:   (typeof DB !== 'undefined') ? DB.groups   : [],
           items:    (typeof DB !== 'undefined') ? DB.items    : [],
           machines: (typeof DB !== 'undefined') ? DB.machines : [],
-          receives: (typeof DB !== 'undefined') ? DB.receives : [],
-          issues:   (typeof DB !== 'undefined') ? DB.issues   : []
+          receives: _safeRcv,
+          issues:   _safeIss
         },
         ndb: {
-          needles: (typeof NDB !== 'undefined') ? NDB.needles : [],
+          needles: _safeNdl,
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
-          issues:       (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){return r.group==='Stationery';}) : [],
-          receives:     (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){return r.group==='Stationery';}) : [],
+          issues:       _safeIss.filter(function(r){return r.group==='Stationery';}),
+          receives:     _safeRcv.filter(function(r){return r.group==='Stationery';}),
           items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [],
           requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {}
         },
-        ndlRcv: JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'),
+        ndlRcv: _safeNdlRcv,
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
         // Deleted IDs — সব device এ share হয়, যাতে কোনো device থেকেই deleted item ফিরে না আসে
@@ -12226,6 +12237,9 @@ async function deleteReceive(id) {
   const ok = await igl_confirm('এই Receive রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে স্টক থেকে বাদ যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
+  iglDelIdsAdd('rcv', id); // Firebase deletedIds এ mark করো — অন্য device এও ডিলিট থাকবে
+  // ts update — সব online device এর real-time listener trigger হবে, deletedIds সহ reload হবে
+  try { _fbDb.ref('igl_erp/ts').set(Date.now()); } catch(e) {}
   DB.receives = DB.receives.filter(r => r.id !== id);
   _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderReceiveLog();
@@ -12357,6 +12371,9 @@ async function deleteIssue(id) {
   const ok = await igl_confirm('এই Issue রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে Issue লগ থেকে সরে যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
+  iglDelIdsAdd('iss', id); // Firebase deletedIds এ mark করো — অন্য device এও ডিলিট থাকবে
+  // ts update — সব online device এর real-time listener trigger হবে, deletedIds সহ reload হবে
+  try { _fbDb.ref('igl_erp/ts').set(Date.now()); } catch(e) {}
   DB.issues = DB.issues.filter(r => r.id !== id);
   _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
   renderIssueLog();
