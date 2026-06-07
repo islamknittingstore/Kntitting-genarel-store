@@ -1266,7 +1266,7 @@ if('serviceWorker' in navigator){
         },
         stn: {
           // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
-          items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [],
+          items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]).filter(function(it){ return !(_fbDelIdsCache||{})['stn_item:'+String(it.id)]; }) : [],
           requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {}
         },
         ndlRcv: _safeNdlRcv,
@@ -1499,7 +1499,10 @@ if('serviceWorker' in navigator){
         if(data.stn){
           // Stationery items → DB.stnItems (Firebase-only, in-memory)
           if(Array.isArray(data.stn.items)){
-            DB.stnItems = data.stn.items;
+            // deletedIds দিয়ে filter — deleted item কখনো ফিরে আসবে না
+            DB.stnItems = data.stn.items.filter(function(it){
+              return !_allDelIds['stn_item:'+String(it.id)];
+            });
           }
           // Stationery requisitions → DB.stnRequisitions
           if(data.stn.requisitions){
@@ -1511,7 +1514,9 @@ if('serviceWorker' in navigator){
         }
         // stnItems root level এ থাকলে লোড করো (legacy format)
         if(Array.isArray(data.stnItems) && data.stnItems.length > 0 && (window._stnItemsArr||[]).length === 0){
-          DB.stnItems = data.stnItems;
+          DB.stnItems = data.stnItems.filter(function(it){
+            return !_allDelIds['stn_item:'+String(it.id)];
+          });
         }
         if(data.ndlRcv){
           // Needle receive এও pending merge করো
@@ -5698,18 +5703,8 @@ async function gdriveLoadNow() {
       }
       // stnItems — Firebase already load হয়ে থাকলে GDrive দিয়ে overwrite করবে না
       // Firebase = primary source, GDrive = backup only
-      if ((window._stnItemsArr || []).length === 0) {
-        if (data.stnItems) {
-          DB.stnItems = data.stnItems;
-        } else if (data.items) {
-          var stnFromOld = data.items.filter(function(i){ return i.group==='Stationery'; });
-          if (stnFromOld.length > 0) {
-            DB.stnItems = stnFromOld;
-            DB.items = data.items.filter(function(i){ return i.group!=='Stationery'; });
-            toast('✅ '+stnFromOld.length+' টি Stationery item auto-migrate হয়েছে!', 'success');
-          }
-        }
-      }
+      // stnItems — GDrive থেকে কখনো load করবে না, Firebase ই একমাত্র source
+      // (GDrive এ পুরনো deleted item থাকতে পারে)
       renderDashboard();
       _gdSetStatus('✅ Loaded from Drive');
       toast('✅ Data loaded from Drive!', 'success');
@@ -5724,20 +5719,16 @@ async function gdriveLoadNow() {
   }
 }
 
-// Auto-load on page load
+// GDrive auto-load বন্ধ — শুধু last backup info দেখায়
+// Admin চাইলে manually "Load Now" চেপে restore করবে
 window.addEventListener('load', () => {
-  if (SCRIPT_URL && SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
-    _gdSetStatus('⏳ Checking Drive...');
-    setTimeout(gdriveLoadNow, 1000);
-  }
-  // Show last verified info in status
   try {
     var v = localStorage.getItem('igl_drive_verified');
     if (v) {
       var vd = JSON.parse(v);
       var ago = Math.round((Date.now() - new Date(vd.time).getTime()) / 60000);
       var agoStr = ago < 60 ? ago + ' min আগে' : Math.round(ago/60) + ' ঘন্টা আগে';
-      _gdSetStatus('✅ Last: ' + agoStr);
+      _gdSetStatus('✅ Last Backup: ' + agoStr);
     }
   } catch(e) {}
 });
@@ -7914,6 +7905,29 @@ function stnUpdateIssueStock() {
   else document.getElementById('stn-i-stock-badge').innerHTML = '';
 }
 
+// ── Stationery Duplicate Entry Check ────────────────────────────────
+function stnCheckDuplicateReceive(date, item, supplier, qty) {
+  var existing = (DB.receives || []).filter(function(r) {
+    return r.group === 'Stationery'
+      && r.date  === date
+      && r.item  === item
+      && String(r.qty) === String(qty)
+      && (r.supplier || '').trim().toLowerCase() === (supplier || '').trim().toLowerCase();
+  });
+  return existing.length > 0;
+}
+
+function stnCheckDuplicateIssue(date, item, dept, qty) {
+  var existing = (DB.issues || []).filter(function(r) {
+    return r.group     === 'Stationery'
+      && r.date      === date
+      && r.item      === item
+      && String(r.qty) === String(qty)
+      && (r.machineId || '') === (dept || '');
+  });
+  return existing.length > 0;
+}
+
 function stnSaveReceive() {
   var date     = document.getElementById('stn-r-date').value;
   var item     = document.getElementById('stn-r-item').value;
@@ -7926,6 +7940,12 @@ function stnSaveReceive() {
   if(_bdErr3){ toast(_bdErr3,'error'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
+
+  // Duplicate check
+  if (stnCheckDuplicateReceive(date, item, supplier, qty)) {
+    toast('⚠️ একই তারিখে এই আইটেম, সাপ্লায়ার ও পরিমাণে আগেই Receive করা হয়েছে!', 'error');
+    return;
+  }
 
   var rec = { id: Date.now(), date: date, group: 'Stationery', category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   var arr = DB.receives;
@@ -8016,6 +8036,12 @@ async function stnSaveIssue() {
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
   if (!dept)  { toast('Please select a Department!', 'warning'); return; }
+
+  // Duplicate check
+  if (stnCheckDuplicateIssue(date, item, dept, qty)) {
+    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ ও পরিমাণে আগেই Issue করা হয়েছে!', 'error');
+    return;
+  }
 
   var stock = getStock(item);
   if (stock <= 0) {
@@ -15507,7 +15533,9 @@ async function stnImDel(idx) {
   var ok=await igl_confirm('"'+item.name+'" ডিলিট করবেন?','Item Master থেকে সরে যাবে।','🗑️');
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
-  var newItems = items.filter(function(_,i){ return i !== idx; }); // splice নয়, নতুন array
+  var newItems = items.filter(function(_,i){ return i !== idx; });
+  // Firebase deletedIds এ mark করো — offline device online হলেও ফিরে আসবে না
+  iglDelIdsAdd('stn_item', item.id);
   _fbIgnoreLoad = true;
   DB.stnItems = newItems;
   // delay ছাড়া সাথে সাথে Firebase এ save করো
