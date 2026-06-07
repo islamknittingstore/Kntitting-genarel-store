@@ -1632,11 +1632,9 @@ if('serviceWorker' in navigator){
     if(_fbLastTs === 0){ _fbLastTs = ts; fbStatus('connected', '🔗 Cloud Connected'); return; }
     if(ts > _fbLastTs){
       _fbLastTs = ts;
-      // _fbIgnoreLoad=true মানে এই device এই save করছে — reload দরকার নেই
-      // কিন্তু _fbLastTs আপডেট করতে হবে, নইলে save শেষে আর ts change detect হবে না
-      if(!_fbIgnoreLoad){
-        window.fbLoadAll();
-      }
+      // নিজে save করলে _fbIgnoreLoad=true — reload করবে না
+      if(_fbIgnoreLoad) return;
+      window.fbLoadAll();
     }
   });
 
@@ -12286,14 +12284,14 @@ async function deleteReceive(id) {
   const ok = await igl_confirm('এই Receive রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে স্টক থেকে বাদ যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
-  iglDelIdsAdd('rcv', id); // Firebase deletedIds এ mark করো — অন্য device এও ডিলিট থাকবে
-  // ts update — সব online device এর real-time listener trigger হবে, deletedIds সহ reload হবে
-  try { _fbDb.ref('igl_erp/ts').set(Date.now()); } catch(e) {}
+  iglDelIdsAdd('rcv', id);
   DB.receives = DB.receives.filter(r => r.id !== id);
-  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
+  _fbIgnoreLoad = true;
   renderReceiveLog();
   updateDashboard && updateDashboard();
-  triggerAutoSave();
+  // সাথে সাথে save — delay নেই, তাই ts change অন্য device ধরতে পারবে
+  clearTimeout(window._fbSaveTimer);
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   toast('রেকর্ড ডিলিট হয়েছে', 'warning');
 }
 
@@ -12420,14 +12418,14 @@ async function deleteIssue(id) {
   const ok = await igl_confirm('এই Issue রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে Issue লগ থেকে সরে যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
-  iglDelIdsAdd('iss', id); // Firebase deletedIds এ mark করো — অন্য device এও ডিলিট থাকবে
-  // ts update — সব online device এর real-time listener trigger হবে, deletedIds সহ reload হবে
-  try { _fbDb.ref('igl_erp/ts').set(Date.now()); } catch(e) {}
+  iglDelIdsAdd('iss', id);
   DB.issues = DB.issues.filter(r => r.id !== id);
-  _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
+  _fbIgnoreLoad = true;
   renderIssueLog();
   updateDashboard && updateDashboard();
-  triggerAutoSave();
+  // সাথে সাথে save — delay নেই, তাই ts change অন্য device ধরতে পারবে
+  clearTimeout(window._fbSaveTimer);
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   toast('রেকর্ড ডিলিট হয়েছে', 'warning');
 }
 
