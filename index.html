@@ -1604,19 +1604,21 @@ if('serviceWorker' in navigator){
   }
 
   // syncSignal listener — অন্য device save করলে এই device load করবে
+  var _fbLastSyncTs = 0;
   _fbDb.ref('igl_erp/syncSignal').on('value', function(snap){
     if(_fbPaused || !snap.exists()) return;
     var sig = snap.val();
     if(!sig || !sig.ts) return;
     // নিজের signal নিজে ignore করো
     if(sig.by === window._iglDeviceId) return;
+    // নিজে save করছে — ignore
+    if(_fbIgnoreLoad) return;
     // নতুন signal — load করো
-    if(sig.ts > (_fbLastSyncTs || 0)){
+    if(sig.ts > _fbLastSyncTs){
       _fbLastSyncTs = sig.ts;
       window.fbLoadAll();
     }
   });
-  var _fbLastSyncTs = 0;
 
   _fbDb.ref('igl_erp/ts').on('value', function(snapshot){
     if(_fbPaused) return;
@@ -5892,7 +5894,7 @@ const DB = {
     return window._stnItemsArr || [];
   },
   set stnItems(v) {
-    window._stnItemsArr = v || [];
+    window._stnItemsArr = (v || []).slice(); // copy — reference problem এড়াতে
   },
   get machines() { return _get('igl_machines') || []; },
   set machines(v) { _set('igl_machines', v); },
@@ -15246,7 +15248,7 @@ function stnItemMasterRender() {
       + (isAdmin ? '<button onclick="stnImEdit('+idx+')" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">📝 Edit</button>' : '')
       + '<button onclick="stnImSetRate('+idx+')" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px;">✏️ Rate</button>'
       + '<button onclick="stnImHistory('+idx+')" style="background:#f0f0f0;color:#555;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;margin:2px;">📋</button>'
-      + (isAdmin ? '<button onclick="stnImDel('+idx+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
+      + (isAdmin ? '<button onclick="stnImDelById(\''+it.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
       + '</td></tr>';
   }).join('');
 }
@@ -15493,15 +15495,27 @@ function stnImHistory(idx) {
   overlay.querySelector('#sim-hist-close').addEventListener('click',function(){document.body.removeChild(overlay);});
 }
 
+async function stnImDelById(itemId) {
+  var items = DB.stnItems;
+  var idx = items.findIndex(function(it){ return it.id === itemId; });
+  if(idx === -1){ toast('আইটেম পাওয়া যায়নি', 'error'); return; }
+  return stnImDel(idx);
+}
+
 async function stnImDel(idx) {
   var items=DB.stnItems; var item=items[idx]; if(!item) return;
   var ok=await igl_confirm('"'+item.name+'" ডিলিট করবেন?','Item Master থেকে সরে যাবে।','🗑️');
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
-  items.splice(idx,1);
-  _fbIgnoreLoad = true; // Firebase save এর পর ts change দেখে নিজেই reload করবে না
-  DB.stnItems = items;
-  triggerAutoSave();
+  var newItems = items.filter(function(_,i){ return i !== idx; }); // splice নয়, নতুন array
+  _fbIgnoreLoad = true;
+  DB.stnItems = newItems;
+  // delay ছাড়া সাথে সাথে Firebase এ save করো
+  if(typeof window.fbSaveAll === 'function') {
+    clearTimeout(window._fbSaveTimer);
+    window.fbSaveAll();
+  }
+  if(typeof gdriveAutoSave === 'function') gdriveAutoSave();
   stnItemMasterRender();
   stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
   toast('🗑️ "'+item.name+'" ডিলিট হয়েছে।','warning');
