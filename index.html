@@ -1288,7 +1288,6 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
-          _fbIgnoreLoad = false;
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
           localStorage.removeItem('igl_deleted_ids');
@@ -1405,7 +1404,6 @@ if('serviceWorker' in navigator){
   // Firebase থেকে data load করো
   window.fbLoadAll = function(){
     if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
-    if(_fbIgnoreLoad){ return; } // Delete এর পর load ignore
     fbStatus('saving', 'Loading...');
     _fbDb.ref('igl_erp').once('value').then(function(snapshot){
       if(!snapshot.exists()){ fbStatus('connected', '🔗 Connected (No data)'); return; }
@@ -1595,7 +1593,7 @@ if('serviceWorker' in navigator){
   // Real-time listener
   var _fbLastTs = 0;
   var _fbPaused = false;
-  var _fbIgnoreLoad = false;
+  var
   // এই device এর unique ID — যাতে নিজের signal নিজে ignore করতে পারে
   if (!window._iglDeviceId) {
     window._iglDeviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
@@ -13672,7 +13670,6 @@ async function deleteNeedle(id) {
   if (!ok) return;
   if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
   NDB.needles = NDB.needles.filter(function(r){return r.id!==id;});
-  _fbIgnoreLoad = true;
   // সব সংশ্লিষ্ট জায়গা refresh
   try { renderTodayNeedle(); } catch(e) {}
   try { nmiRenderLog(); } catch(e) {}
@@ -18575,7 +18572,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
       // Firebase load block করো যাতে delete হওয়া item ফিরে না আসে
-    _fbIgnoreLoad = true;
     // সব সংশ্লিষ্ট জায়গা refresh
     try { nmiRenderLog(); } catch(e) {}
     try { renderTodayNeedle(); } catch(e) {}
@@ -18596,7 +18592,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_receive', entry, 'Needle Receive — ' + (entry.needleCode||entry.needleId||''));
     ndlSetRcv(ndlGetRcv().filter(function(r){return String(r.id)!==String(id);}));
-    _fbIgnoreLoad = true; // Delete এর পর Firebase reload যাতে ডিলিট item ফিরে না আসে
     renderNdlRcvLog();triggerAutoSave();toast('Deleted','warning');
   }
 
