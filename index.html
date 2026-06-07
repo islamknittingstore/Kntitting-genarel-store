@@ -1420,7 +1420,7 @@ if('serviceWorker' in navigator){
             // Firebase এর deletedIds সরাসরি in-memory cache এ রাখো
             // key format Firebase এ: "rcv__123" → cache এ: "rcv:123"
             Object.keys(data.deletedIds).forEach(function(k) {
-              var cacheKey = k.replace('__', ':');
+              var cacheKey = k.replace(/__/g, ':');
               _allDelIds[cacheKey] = true;
             });
             _fbDelIdsCache = _allDelIds; // cache update
@@ -8771,7 +8771,7 @@ function iglDelIdsAdd(prefix, id) {
   // সরাসরি Firebase এ লেখো
   try {
     var _upd = {};
-    _upd['igl_erp/deletedIds/' + key.replace(':', '__')] = true;
+    _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
     _fbDb.ref().update(_upd);
   } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
 }
@@ -8781,7 +8781,7 @@ function iglDelIdsRemove(prefix, id) {
   delete _fbDelIdsCache[key];
   // সরাসরি Firebase থেকে মুছো
   try {
-    _fbDb.ref('igl_erp/deletedIds/' + key.replace(':', '__')).remove();
+    _fbDb.ref('igl_erp/deletedIds/' + key.replace(/:/g, '__')).remove();
   } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
 }
 
@@ -10315,6 +10315,62 @@ Object.defineProperty(DB, 'stnRequisitions', {
 // ── END STATIONERY REQUISITION MODULE ──────────────────────────────
 
 
+// ─── Stationery Bulk Delete Functions ────────────────────────────────────────
+function stnBulkSelectAll(type, checked) {
+  var cls = type === 'rcv' ? '.stn-chk-rcv' : '.stn-chk-iss';
+  var allChk = type === 'rcv' ? document.getElementById('stn-chk-all-rcv') : document.getElementById('stn-chk-all-iss');
+  var isChecked = (checked !== undefined) ? checked : true;
+  document.querySelectorAll(cls).forEach(function(c){ c.checked = isChecked; });
+  if (allChk) allChk.checked = isChecked;
+}
+
+function stnBulkSelectNone(type) {
+  stnBulkSelectAll(type, false);
+}
+
+async function stnBulkDelete(type) {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধু Admin এই কাজ করতে পারবে।', 'error');
+    return;
+  }
+  var cls = type === 'RECEIVE' ? '.stn-chk-rcv' : '.stn-chk-iss';
+  var checked = document.querySelectorAll(cls + ':checked');
+  if (checked.length === 0) {
+    toast('⚠️ কোনো রেকর্ড সিলেক্ট করা হয়নি!', 'warning');
+    return;
+  }
+  var ids = [];
+  checked.forEach(function(c){ ids.push(Number(c.getAttribute('data-id'))); });
+
+  var confirmed = await igl_confirm(
+    '🗑️ ' + ids.length + ' টি ' + (type === 'RECEIVE' ? 'Receive' : 'Issue') + ' রেকর্ড ডিলিট করবেন?',
+    'ডিলিট করলে পূর্বাবস্থায় ফেরানো যাবে না।', '🗑️'
+  );
+  if (!confirmed) return;
+
+  ids.forEach(function(id) {
+    var entry = type === 'RECEIVE'
+      ? DB.receives.find(function(r){ return r.id === id; })
+      : DB.issues.find(function(r){ return r.id === id; });
+    if (!entry) return;
+    if (type === 'RECEIVE') {
+      binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item || ''));
+      iglDelIdsAdd('rcv', id);
+      DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
+    } else {
+      binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item || ''));
+      iglDelIdsAdd('iss', id);
+      DB.issues = DB.issues.filter(function(r){ return r.id !== id; });
+    }
+  });
+
+  clearTimeout(window._fbSaveTimer);
+  if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  renderStationeryDashboard();
+  updateDashboard && updateDashboard();
+  toast('✅ ' + ids.length + ' টি রেকর্ড ডিলিট হয়েছে!', 'success');
+}
+
 async function stnDeleteTx(type, id) {
   if (!IGL_CURRENT_USER) { toast('❌ লগইন করুন।', 'error'); return; }
 
@@ -10339,13 +10395,16 @@ async function stnDeleteTx(type, id) {
 
   if (type === 'RECEIVE') {
     binAdd('stn_receive', entry, 'Stn Receive — '+(entry?entry.item:''));
+    iglDelIdsAdd('rcv', id);
     DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
   } else {
     binAdd('stn_issue', entry, 'Stn Issue — '+(entry?entry.item:''));
+    iglDelIdsAdd('iss', id);
     DB.issues = DB.issues.filter(function(r){ return r.id !== id; });
   }
 
-  triggerAutoSave();
+  clearTimeout(window._fbSaveTimer);
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   renderStationeryDashboard();
   toast('✅ এন্ট্রি ডিলিট হয়েছে!', 'success');
 }
@@ -10584,13 +10643,23 @@ function renderStationeryDashboard() {
       html = '<p style="padding:14px;color:#888;">No chalan records found</p>';
     } else {
       var cTot = chalanRecs.reduce(function(s,r){return s+r.qty;},0);
-      html = '<div style="padding:8px 4px;font-size:12px;color:#1a5276;font-weight:600;">Total '+chalanRecs.length+' records | Total Qty: <b>'+cTot+'</b></div>';
-      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
+      var _isAdminRcv = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+      html = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:8px 4px;">'
+        +'<div style="font-size:12px;color:#1a5276;font-weight:600;">Total '+chalanRecs.length+' records | Total Qty: <b>'+cTot+'</b></div>'
+        +(_isAdminRcv ? '<div style="display:flex;gap:6px;align-items:center;">'
+        +'<button onclick="stnBulkSelectAll(\'rcv\')" style="padding:4px 10px;background:#1a5276;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">☑ সব</button>'
+        +'<button onclick="stnBulkSelectNone(\'rcv\')" style="padding:4px 10px;background:#7f8c8d;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">☐ বাদ</button>'
+        +'<button onclick="stnBulkDelete(\'RECEIVE\')" style="padding:4px 12px;background:#e74c3c;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ চেক করা ডিলিট</button>'
+        +'</div>' : '')
+        +'</div>';
+      html += '<table><thead><tr>'
+        +(_isAdminRcv ? '<th style="width:34px;"><input type="checkbox" id="stn-chk-all-rcv" onchange="stnBulkSelectAll(\'rcv\',this.checked)" title="সব সিলেক্ট"></th>' : '')
+        +'<th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
+        return '<tr>'+(_isAdminRcv ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-rcv" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'RECEIVE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'RECEIVE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
-      html += '<tr style="background:#1a5276;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+cTot+'</td><td></td></tr>';
+      html += '<tr style="background:#1a5276;color:#fff;font-weight:700;">'+(_isAdminRcv?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+cTot+'</td><td></td><td></td></tr>';
       html += '</tbody></table>';
     }
   }
@@ -10610,13 +10679,23 @@ function renderStationeryDashboard() {
       html = '<p style="padding:14px;color:#888;">No slip records found</p>';
     } else {
       var sTot = slipIss.reduce(function(s,r){return s+r.qty;},0);
-      html = '<div style="padding:8px 4px;font-size:12px;color:#922b21;font-weight:600;">Total '+slipIss.length+' records | Total Qty: <b>'+sTot+'</b></div>';
-      html += '<table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
+      var _isAdminIss = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+      html = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:8px 4px;">'
+        +'<div style="font-size:12px;color:#922b21;font-weight:600;">Total '+slipIss.length+' records | Total Qty: <b>'+sTot+'</b></div>'
+        +(_isAdminIss ? '<div style="display:flex;gap:6px;align-items:center;">'
+        +'<button onclick="stnBulkSelectAll(\'iss\')" style="padding:4px 10px;background:#7d3c98;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">☑ সব</button>'
+        +'<button onclick="stnBulkSelectNone(\'iss\')" style="padding:4px 10px;background:#7f8c8d;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">☐ বাদ</button>'
+        +'<button onclick="stnBulkDelete(\'ISSUE\')" style="padding:4px 12px;background:#e74c3c;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ চেক করা ডিলিট</button>'
+        +'</div>' : '')
+        +'</div>';
+      html += '<table><thead><tr>'
+        +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="stn-chk-all-iss" onchange="stnBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
+        +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
-      html += '<tr style="background:#922b21;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="2"></td></tr>';
+      html += '<tr style="background:#922b21;color:#fff;font-weight:700;">'+(_isAdminIss?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="3"></td></tr>';
       html += '</tbody></table>';
     }
   }
