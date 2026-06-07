@@ -1288,14 +1288,7 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
-          _fbIgnoreLoad = false; // Save সফল — এখন load চলতে পারবে
-          // অন্য device কে notify করো — নিজের deviceId পাঠাই যাতে নিজে ignore করতে পারে
-          try {
-            _fbDb.ref('igl_erp/syncSignal').set({
-              ts: data.ts,
-              by: window._iglDeviceId || 'unknown'
-            });
-          } catch(e){}
+          _fbIgnoreLoad = false;
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
           localStorage.removeItem('igl_deleted_ids');
@@ -1608,22 +1601,7 @@ if('serviceWorker' in navigator){
     window._iglDeviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
   }
 
-  // syncSignal listener — অন্য device save করলে এই device load করবে
-  var _fbLastSyncTs = 0;
-  _fbDb.ref('igl_erp/syncSignal').on('value', function(snap){
-    if(_fbPaused || !snap.exists()) return;
-    var sig = snap.val();
-    if(!sig || !sig.ts) return;
-    // নিজের signal নিজে ignore করো
-    if(sig.by === window._iglDeviceId) return;
-    // নিজে save করছে — ignore
-    if(_fbIgnoreLoad) return;
-    // নতুন signal — load করো
-    if(sig.ts > _fbLastSyncTs){
-      _fbLastSyncTs = sig.ts;
-      window.fbLoadAll();
-    }
-  });
+
 
   _fbDb.ref('igl_erp/ts').on('value', function(snapshot){
     if(_fbPaused) return;
@@ -1632,8 +1610,6 @@ if('serviceWorker' in navigator){
     if(_fbLastTs === 0){ _fbLastTs = ts; fbStatus('connected', '🔗 Cloud Connected'); return; }
     if(ts > _fbLastTs){
       _fbLastTs = ts;
-      // নিজে save করলে _fbIgnoreLoad=true — reload করবে না
-      if(_fbIgnoreLoad) return;
       window.fbLoadAll();
     }
   });
@@ -12286,10 +12262,8 @@ async function deleteReceive(id) {
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
   iglDelIdsAdd('rcv', id);
   DB.receives = DB.receives.filter(r => r.id !== id);
-  _fbIgnoreLoad = true;
   renderReceiveLog();
   updateDashboard && updateDashboard();
-  // সাথে সাথে save — delay নেই, তাই ts change অন্য device ধরতে পারবে
   clearTimeout(window._fbSaveTimer);
   if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   toast('রেকর্ড ডিলিট হয়েছে', 'warning');
@@ -12420,10 +12394,8 @@ async function deleteIssue(id) {
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
   iglDelIdsAdd('iss', id);
   DB.issues = DB.issues.filter(r => r.id !== id);
-  _fbIgnoreLoad = true;
   renderIssueLog();
   updateDashboard && updateDashboard();
-  // সাথে সাথে save — delay নেই, তাই ts change অন্য device ধরতে পারবে
   clearTimeout(window._fbSaveTimer);
   if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   toast('রেকর্ড ডিলিট হয়েছে', 'warning');
@@ -15534,13 +15506,9 @@ async function stnImDel(idx) {
   var newItems = items.filter(function(_,i){ return i !== idx; });
   // Firebase deletedIds এ mark করো — offline device online হলেও ফিরে আসবে না
   iglDelIdsAdd('stn_item', item.id);
-  _fbIgnoreLoad = true;
   DB.stnItems = newItems;
-  // delay ছাড়া সাথে সাথে Firebase এ save করো
-  if(typeof window.fbSaveAll === 'function') {
-    clearTimeout(window._fbSaveTimer);
-    window.fbSaveAll();
-  }
+  clearTimeout(window._fbSaveTimer);
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   if(typeof gdriveAutoSave === 'function') gdriveAutoSave();
   stnItemMasterRender();
   stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
