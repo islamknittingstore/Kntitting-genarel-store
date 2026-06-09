@@ -7888,13 +7888,14 @@ function stnCheckDuplicateReceive(date, item, supplier, qty) {
   return existing.length > 0;
 }
 
-function stnCheckDuplicateIssue(date, item, dept, qty) {
+function stnCheckDuplicateIssue(date, item, dept, qty, remarks) {
   var existing = (DB.issues || []).filter(function(r) {
     return r.group     === 'Stationery'
       && r.date      === date
       && r.item      === item
       && String(r.qty) === String(qty)
-      && (r.machineId || '') === (dept || '');
+      && (r.machineId || '') === (dept || '')
+      && (r.remarks || '').trim().toLowerCase() === (remarks || '').trim().toLowerCase();
   });
   return existing.length > 0;
 }
@@ -8009,8 +8010,8 @@ async function stnSaveIssue() {
   if (!dept)  { toast('Please select a Department!', 'warning'); return; }
 
   // Duplicate check
-  if (stnCheckDuplicateIssue(date, item, dept, qty)) {
-    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ ও পরিমাণে আগেই Issue করা হয়েছে!', 'error');
+  if (stnCheckDuplicateIssue(date, item, dept, qty, remarks)) {
+    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ, পরিমাণ ও remarks-এ আগেই Issue করা হয়েছে!', 'error');
     return;
   }
 
@@ -8767,10 +8768,11 @@ async function iglCleanStnNode() {
 function iglDelIdsAdd(prefix, id) {
   var key = prefix + ':' + String(id);
   _fbDelIdsCache[key] = true;
-  // সরাসরি Firebase এ লেখো
+  // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
   try {
     var _upd = {};
     _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
+    _upd['igl_erp/ts'] = Date.now(); // অন্য ডিভাইসকে জানাও
     _fbDb.ref().update(_upd);
   } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
 }
@@ -10428,6 +10430,15 @@ function stnInjectEditModal() {
           <label style="font-size:12px;font-weight:600;color:#555;">স্লিপ নং</label>
           <input type="text" id="stn-edit-slip" placeholder="স্লিপ নং" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
         </div>
+        <div id="stn-edit-item-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">আইটেম</label>
+          <input type="text" id="stn-edit-item" placeholder="আইটেম নাম" list="stn-edit-item-list" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+          <datalist id="stn-edit-item-list"></datalist>
+        </div>
+        <div id="stn-edit-qty-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">পরিমাণ</label>
+          <input type="number" id="stn-edit-qty" placeholder="পরিমাণ" min="1" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+        </div>
         <div id="stn-edit-dept-wrap">
           <label style="font-size:12px;font-weight:600;color:#555;">ডিপার্টমেন্ট</label>
           <input type="text" id="stn-edit-dept" placeholder="ডিপার্টমেন্ট" list="stn-edit-dept-list" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
@@ -10439,10 +10450,8 @@ function stnInjectEditModal() {
         </div>
         <div id="stn-edit-remarks-wrap">
           <label style="font-size:12px;font-weight:600;color:#555;">মন্তব্য</label>
-          <input type="text" id="stn-edit-remarks" placeholder="মন্তব্য (ঐচ্ছিক)" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
-        </div>
-        <div style="background:#eaf4fb;border-radius:7px;padding:9px 12px;font-size:12px;color:#1a5276;">
-          <b id="stn-edit-item-info"></b>
+          <input type="text" id="stn-edit-remarks" placeholder="মন্তব্য (ঐচ্ছিক)" list="stn-edit-remarks-list" autocomplete="off" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
+          <datalist id="stn-edit-remarks-list"></datalist>
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
@@ -10466,26 +10475,41 @@ function stnEditTx(type, id) {
 
   stnInjectEditModal();
 
-  // Title & info
+  // Title
   document.getElementById('stn-edit-title').textContent = (type === 'RECEIVE' ? '✏️ Receive সংশোধন' : '✏️ Issue সংশোধন');
-  document.getElementById('stn-edit-item-info').textContent = 'আইটেম: ' + entry.item + ' | পরিমাণ: ' + entry.qty;
 
   // Fill fields
   document.getElementById('stn-edit-date').value    = entry.date    || '';
   document.getElementById('stn-edit-remarks').value = entry.remarks || '';
+  document.getElementById('stn-edit-item').value    = entry.item    || '';
+  document.getElementById('stn-edit-qty').value     = entry.qty     || '';
+
+  // Item datalist — DB.stnItems মাস্টার লিস্ট থেকে
+  var stnItemNames = (DB.stnItems||[]).map(function(it){ return it.name||it; }).filter(Boolean);
+  if (!stnItemNames.length) stnItemNames = [...new Set((DB.issues||[]).filter(function(r){ return r.group==='Stationery'; }).map(function(r){ return r.item; }))];
+  document.getElementById('stn-edit-item-list').innerHTML = stnItemNames.map(function(n){ return '<option value="'+n+'">'; }).join('');
+
+  // Remarks datalist — saved names থেকে
+  var rmkNames = (typeof stnGetRemarkNames === 'function') ? stnGetRemarkNames() : [];
+  document.getElementById('stn-edit-remarks-list').innerHTML = rmkNames.map(function(n){ return '<option value="'+n+'">'; }).join('');
+
+  // Dept datalist — stnGetDepts() থেকে
+  var deptList = (typeof stnGetDepts === 'function') ? stnGetDepts() : [];
+  document.getElementById('stn-edit-dept-list').innerHTML = deptList.map(function(d){ return '<option value="'+d+'">'; }).join('');
 
   if (type === 'ISSUE') {
     document.getElementById('stn-edit-slip').value  = entry.slip    || '';
     document.getElementById('stn-edit-dept').value  = entry.machineId || '';
     document.getElementById('stn-edit-slip-wrap').style.display    = '';
+    document.getElementById('stn-edit-item-wrap').style.display    = '';
+    document.getElementById('stn-edit-qty-wrap').style.display     = '';
     document.getElementById('stn-edit-dept-wrap').style.display    = '';
     document.getElementById('stn-edit-chalan-wrap').style.display  = 'none';
-    // Department datalist
-    var depts = [...new Set(DB.issues.filter(function(r){ return r.machineId; }).map(function(r){ return r.machineId; }))];
-    document.getElementById('stn-edit-dept-list').innerHTML = depts.map(function(d){ return '<option value="'+d+'">'; }).join('');
   } else {
     document.getElementById('stn-edit-chalan').value = entry.chalan || '';
     document.getElementById('stn-edit-slip-wrap').style.display    = 'none';
+    document.getElementById('stn-edit-item-wrap').style.display    = '';
+    document.getElementById('stn-edit-qty-wrap').style.display     = '';
     document.getElementById('stn-edit-dept-wrap').style.display    = 'none';
     document.getElementById('stn-edit-chalan-wrap').style.display  = '';
   }
@@ -10496,13 +10520,19 @@ function stnEditTx(type, id) {
   saveBtn.parentNode.replaceChild(newBtn, saveBtn);
   newBtn.onclick = function() {
     var newDate = document.getElementById('stn-edit-date').value.trim();
+    var newItem = document.getElementById('stn-edit-item').value.trim();
+    var newQty  = Number(document.getElementById('stn-edit-qty').value);
     if (!newDate) { toast('❌ তারিখ দিন।', 'error'); return; }
+    if (!newItem) { toast('❌ আইটেম নাম দিন।', 'error'); return; }
+    if (!newQty || newQty <= 0) { toast('❌ সঠিক পরিমাণ দিন।', 'error'); return; }
 
     if (type === 'ISSUE') {
       DB.issues = DB.issues.map(function(r) {
         if (r.id !== id) return r;
         return Object.assign({}, r, {
           date:      newDate,
+          item:      newItem,
+          qty:       newQty,
           slip:      document.getElementById('stn-edit-slip').value.trim()  || r.slip,
           machineId: document.getElementById('stn-edit-dept').value.trim()  || r.machineId,
           remarks:   document.getElementById('stn-edit-remarks').value.trim()
@@ -10513,6 +10543,8 @@ function stnEditTx(type, id) {
         if (r.id !== id) return r;
         return Object.assign({}, r, {
           date:    newDate,
+          item:    newItem,
+          qty:     newQty,
           chalan:  document.getElementById('stn-edit-chalan').value.trim() || r.chalan,
           remarks: document.getElementById('stn-edit-remarks').value.trim()
         });
