@@ -10432,8 +10432,9 @@ function stnInjectEditModal() {
         </div>
         <div id="stn-edit-item-wrap">
           <label style="font-size:12px;font-weight:600;color:#555;">আইটেম</label>
-          <input type="text" id="stn-edit-item" placeholder="আইটেম নাম" list="stn-edit-item-list" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
-          <datalist id="stn-edit-item-list"></datalist>
+          <select id="stn-edit-item" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;background:#fff;">
+            <option value="">-- আইটেম সিলেক্ট করুন --</option>
+          </select>
         </div>
         <div id="stn-edit-qty-wrap">
           <label style="font-size:12px;font-weight:600;color:#555;">পরিমাণ</label>
@@ -10441,8 +10442,9 @@ function stnInjectEditModal() {
         </div>
         <div id="stn-edit-dept-wrap">
           <label style="font-size:12px;font-weight:600;color:#555;">ডিপার্টমেন্ট</label>
-          <input type="text" id="stn-edit-dept" placeholder="ডিপার্টমেন্ট" list="stn-edit-dept-list" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
-          <datalist id="stn-edit-dept-list"></datalist>
+          <select id="stn-edit-dept" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;background:#fff;">
+            <option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>
+          </select>
         </div>
         <div id="stn-edit-chalan-wrap" style="display:none;">
           <label style="font-size:12px;font-weight:600;color:#555;">চালান নং</label>
@@ -10484,22 +10486,23 @@ function stnEditTx(type, id) {
   document.getElementById('stn-edit-item').value    = entry.item    || '';
   document.getElementById('stn-edit-qty').value     = entry.qty     || '';
 
-  // Item datalist — DB.stnItems মাস্টার লিস্ট থেকে
+  // Item select — DB.stnItems মাস্টার লিস্ট থেকে
   var stnItemNames = (DB.stnItems||[]).map(function(it){ return it.name||it; }).filter(Boolean);
   if (!stnItemNames.length) stnItemNames = [...new Set((DB.issues||[]).filter(function(r){ return r.group==='Stationery'; }).map(function(r){ return r.item; }))];
-  document.getElementById('stn-edit-item-list').innerHTML = stnItemNames.map(function(n){ return '<option value="'+n+'">'; }).join('');
+  var itemSel = document.getElementById('stn-edit-item');
+  itemSel.innerHTML = '<option value="">-- আইটেম সিলেক্ট করুন --</option>' + stnItemNames.map(function(n){ return '<option value="'+n+'"'+(n===entry.item?' selected':'')+'>'+n+'</option>'; }).join('');
 
   // Remarks datalist — saved names থেকে
   var rmkNames = (typeof stnGetRemarkNames === 'function') ? stnGetRemarkNames() : [];
   document.getElementById('stn-edit-remarks-list').innerHTML = rmkNames.map(function(n){ return '<option value="'+n+'">'; }).join('');
 
-  // Dept datalist — stnGetDepts() থেকে
+  // Dept select — stnGetDepts() থেকে
   var deptList = (typeof stnGetDepts === 'function') ? stnGetDepts() : [];
-  document.getElementById('stn-edit-dept-list').innerHTML = deptList.map(function(d){ return '<option value="'+d+'">'; }).join('');
+  var deptSel = document.getElementById('stn-edit-dept');
+  deptSel.innerHTML = '<option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>' + deptList.map(function(d){ return '<option value="'+d+'"'+(d===(entry.machineId||'')?' selected':'')+'>'+d+'</option>'; }).join('');
 
   if (type === 'ISSUE') {
     document.getElementById('stn-edit-slip').value  = entry.slip    || '';
-    document.getElementById('stn-edit-dept').value  = entry.machineId || '';
     document.getElementById('stn-edit-slip-wrap').style.display    = '';
     document.getElementById('stn-edit-item-wrap').style.display    = '';
     document.getElementById('stn-edit-qty-wrap').style.display     = '';
