@@ -1251,6 +1251,13 @@ if('serviceWorker' in navigator){
       var _safeIss = (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){ return !_delCache['iss:'+String(r.id)]; }) : [];
       var _safeNdl = (typeof NDB !== 'undefined') ? (NDB.needles||[]).filter(function(r){ return !_delCache['ndl:'+String(r.id)]; }) : [];
       var _safeNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]').filter(function(r){ return !_delCache['ndlrcv:'+String(r.id)]; });
+      // deletedIds — in-memory cache থেকে নিয়ে data এ include করো
+      // যাতে fbSaveAll overwrite করলেও deletedIds না হারায়
+      var _delIdsForSave = {};
+      Object.keys(_delCache).forEach(function(k){
+        _delIdsForSave[k.replace(/:/g, '__')] = true;
+      });
+
       var data = {
         ts: Date.now(),
         db: {
@@ -1272,9 +1279,8 @@ if('serviceWorker' in navigator){
         ndlRcv: _safeNdlRcv,
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
-        // Deleted IDs — সব device এ share হয়, যাতে কোনো device থেকেই deleted item ফিরে না আসে
-        // deletedIds আলাদাভাবে Firebase এ iglDelIdsAdd/Remove দিয়ে manage হয়
-        // fbSaveAll এ include করার দরকার নেই
+        // deletedIds — fbSaveAll এ include করো যাতে overwrite এ না হারায়
+        deletedIds: _delIdsForSave,
         settings: {
           userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
           usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
