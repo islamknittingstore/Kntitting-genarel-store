@@ -18282,7 +18282,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!div||!tbody)return;
     if(!mId){div.style.display='none';return;}
     var nm=ndlGetMaster();
-    var allSinkers=nm.filter(function(n){return n.type==='Sinker';});
+    var allSinkers    = nm.filter(function(n){ return n.type === 'Sinker'; });
+    var allNeedlesOnly = nm.filter(function(n){ return n.type === 'Needle'; });
     // mapping অনুযায়ী needle দেখাও
     var assigned=nm.filter(function(n){return (n.machines||[]).indexOf(mId)>=0;});
     if(!assigned.length){
@@ -18293,18 +18294,28 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
     tbody.innerHTML=assigned.map(function(n,i){
       var isSinker = n.type === 'Sinker';
+      var isNeedle = n.type === 'Needle';
       var isNewset = issueType === 'newset';
-      var rowBg = (isSinker && isNewset) ? 'background:#f5eef8;' : '';
+      var rowBg = isNewset ? (isSinker ? 'background:#f5eef8;' : 'background:#eaf4fb;') : '';
 
-      // Sinker + newset → dropdown; অন্যথায় সাধারণ নাম
-      var nameCell = (isSinker && isNewset)
-        ? '<select class="nmi-sinker-sel" data-nid="'+n.id+'" onchange="nmiSinkerChange(this)" '
+      var nameCell;
+      if (isSinker && isNewset) {
+        nameCell = '<select class="nmi-sinker-sel" data-nid="'+n.id+'" onchange="nmiSinkerChange(this)" '
             +'style="width:100%;border:1px solid #8e44ad;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:600;color:#6c3483;background:#f9f0ff;cursor:pointer;">'
             +allSinkers.map(function(s){
               return '<option value="'+s.id+'"'+(s.id===n.id?' selected':'')+'>'+s.name+'</option>';
             }).join('')
-            +'</select>'
-        : '<b>'+(n.name||n.code||'')+'</b>';
+            +'</select>';
+      } else if (isNeedle && isNewset) {
+        nameCell = '<select class="nmi-needle-sel" data-nid="'+n.id+'" onchange="nmiNeedleChange(this)" '
+            +'style="width:100%;border:1px solid #2980b9;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:600;color:#1a5276;background:#eaf4fb;cursor:pointer;">'
+            +allNeedlesOnly.map(function(nd){
+              return '<option value="'+nd.id+'"'+(nd.id===n.id?' selected':'')+'>'+nd.name+'</option>';
+            }).join('')
+            +'</select>';
+      } else {
+        nameCell = '<b>'+(n.name||n.code||'')+'</b>';
+      }
 
       return '<tr id="nmi-row-'+n.id+'" style="'+rowBg+'">'
         +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'
@@ -18329,6 +18340,41 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     div.style.display='block';
     document.getElementById('nmi-check-all').checked=false;
     nmiUpdateCount();
+  }
+
+  function nmiNeedleChange(sel){
+    var oldNid = sel.dataset.nid;
+    var newNid = sel.value;
+    if (oldNid === newNid) return;
+
+    var row = sel.closest('tr');
+    if (!row) return;
+
+    // qty input data-nid → নতুন needle ID
+    var qtyInp = row.querySelector('.nmi-qty');
+    if (qtyInp) {
+      qtyInp.dataset.nid = newNid;
+      qtyInp.value = '';
+    }
+
+    // +/- button onclick আপডেট
+    var btns = row.querySelectorAll('button[onclick*="nmiQtyStep"]');
+    btns.forEach(function(btn){
+      btn.setAttribute('onclick', btn.getAttribute('onclick').replace("'"+oldNid+"'", "'"+newNid+"'"));
+    });
+
+    // checkbox data-nid → নতুন needle ID
+    var chk = row.querySelector('.nmi-chk');
+    if (chk) chk.dataset.nid = newNid;
+
+    // নতুন needle-এর stock placeholder এ দেখাও
+    if (typeof _ndlCurrentStock === 'function' && qtyInp) {
+      var stock = _ndlCurrentStock(newNid);
+      qtyInp.placeholder = 'স্টক: ' + Math.max(0, stock);
+    }
+
+    // needle dropdown-এর data-nid পুরনোই রাখো
+    // যাতে save loop-এ .nmi-needle-sel[data-nid="oldNid"] দিয়ে নতুন value পাওয়া যায়
   }
 
   function nmiSinkerChange(sel){
@@ -18503,11 +18549,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         ? (usedTypeEl ? usedTypeEl.value : 'broken')
         : type;
 
-      // newset + Sinker হলে dropdown থেকে selected sinker নাও
-      // data-original-nid দিয়ে খুঁজো — sinker change হলেও dropdown এর data-nid পুরনোই থাকে
+      // newset + Sinker/Needle হলে dropdown থেকে selected ID নাও
+      // data-original-nid দিয়ে খুঁজো — change হলেও dropdown এর data-nid পুরনোই থাকে
       var origNid = cb.dataset.originalNid || nId;
       var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+origNid+'"]');
-      var actualNId   = (sinkerSel && needle.type === 'Sinker') ? sinkerSel.value : nId;
+      var needleSel  = document.querySelector('.nmi-needle-sel[data-nid="'+origNid+'"]');
+      var actualNId;
+      if (sinkerSel && needle.type === 'Sinker') {
+        actualNId = sinkerSel.value;
+      } else if (needleSel && needle.type === 'Needle') {
+        actualNId = needleSel.value;
+      } else {
+        actualNId = nId;
+      }
       var actualNeedle = nm.find(function(n){return n.id===actualNId;}) || needle;
 
       var rec={
