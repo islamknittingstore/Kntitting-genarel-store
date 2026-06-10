@@ -10365,24 +10365,37 @@ async function stnBulkDelete(type) {
   );
   if (!confirmed) return;
 
+  // সব ID একসাথে batch করো — প্রতিটার জন্য আলাদা Firebase write নয়
+  var batchUpdate = {};
   ids.forEach(function(id) {
     var entry = type === 'RECEIVE'
       ? DB.receives.find(function(r){ return r.id === id; })
       : DB.issues.find(function(r){ return r.id === id; });
     if (!entry) return;
+    var prefix = type === 'RECEIVE' ? 'rcv' : 'iss';
+    var cacheKey = prefix + ':' + String(id);
+    // memory cache আপডেট
+    _fbDelIdsCache[cacheKey] = true;
+    // batch update object এ যোগ করো
+    batchUpdate['igl_erp/deletedIds/' + cacheKey.replace(/:/g, '__')] = true;
     if (type === 'RECEIVE') {
       binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item || ''));
-      iglDelIdsAdd('rcv', id);
       DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
     } else {
       binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item || ''));
-      iglDelIdsAdd('iss', id);
       DB.issues = DB.issues.filter(function(r){ return r.id !== id; });
     }
   });
 
+  // একবারেই Firebase-এ সব deletedIds + timestamp পাঠাও
+  batchUpdate['igl_erp/ts'] = Date.now();
+  try { _fbDb.ref().update(batchUpdate); } catch(e) { console.warn('batch delete error:', e); }
+
+  // fbSaveAll একবারই — delay দিয়ে যাতে browser freeze না করে
   clearTimeout(window._fbSaveTimer);
-  if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  window._fbSaveTimer = setTimeout(function(){
+    if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  }, 500);
   renderStationeryDashboard();
   updateDashboard && updateDashboard();
   toast('✅ ' + ids.length + ' টি রেকর্ড ডিলিট হয়েছে!', 'success');
