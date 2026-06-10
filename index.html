@@ -1431,25 +1431,35 @@ if('serviceWorker' in navigator){
             });
             _fbDelIdsCache = _allDelIds; // cache update
           } else {
-            _fbDelIdsCache = {};
+            // deletedIds node না থাকলে cache খালি করবো না — memory-তে যা আছে রাখো
+            // এতে delete করা item ফিরে আসবে না
+            _allDelIds = _fbDelIdsCache || {};
           }
           if(data.db.receives){
             var localRcv = DB.receives || [];
-            // Firebase থেকে আসা data এও deletedIds দিয়ে filter
             var fbRcv = data.db.receives.filter(function(r){ return !_allDelIds['rcv:'+String(r.id)]; });
             var fbRcvIds = {}; fbRcv.forEach(function(r){ fbRcvIds[r.id]=true; });
-            // Deleted receive গুলো pending হিসেবে যোগ হবে না
-            var pendingRcv = localRcv.filter(function(r){ return !fbRcvIds[r.id] && !_allDelIds['rcv:'+String(r.id)]; });
+            // Stationery group-এর জন্য pending merge বন্ধ — Firebase-ই master
+            // শুধু non-stationery pending merge করো
+            var pendingRcv = localRcv.filter(function(r){
+              return !fbRcvIds[r.id]
+                && !_allDelIds['rcv:'+String(r.id)]
+                && r.group !== 'Stationery';
+            });
             DB.receives = fbRcv.concat(pendingRcv);
             if(pendingRcv.length) toast('⚠️ '+pendingRcv.length+'টি pending receive entry merge হয়েছে','warning');
           }
           if(data.db.issues){
             var localIss = DB.issues || [];
-            // Firebase থেকে আসা data এও deletedIds দিয়ে filter
             var fbIss = data.db.issues.filter(function(r){ return !_allDelIds['iss:'+String(r.id)]; });
             var fbIssIds = {}; fbIss.forEach(function(r){ fbIssIds[r.id]=true; });
-            // Deleted issue গুলো pending হিসেবে যোগ হবে না
-            var pendingIss = localIss.filter(function(r){ return !fbIssIds[r.id] && !_allDelIds['iss:'+String(r.id)]; });
+            // Stationery group-এর জন্য pending merge বন্ধ — Firebase-ই master
+            // শুধু non-stationery pending merge করো
+            var pendingIss = localIss.filter(function(r){
+              return !fbIssIds[r.id]
+                && !_allDelIds['iss:'+String(r.id)]
+                && r.group !== 'Stationery';
+            });
             DB.issues = fbIss.concat(pendingIss);
             if(pendingIss.length) toast('⚠️ '+pendingIss.length+'টি pending issue entry merge হয়েছে','warning');
           }
