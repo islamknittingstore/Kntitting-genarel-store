@@ -18298,7 +18298,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       // Sinker + newset → dropdown; অন্যথায় সাধারণ নাম
       var nameCell = (isSinker && isNewset)
-        ? '<select class="nmi-sinker-sel" data-nid="'+n.id+'" '
+        ? '<select class="nmi-sinker-sel" data-nid="'+n.id+'" onchange="nmiSinkerChange(this)" '
             +'style="width:100%;border:1px solid #8e44ad;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:600;color:#6c3483;background:#f9f0ff;cursor:pointer;">'
             +allSinkers.map(function(s){
               return '<option value="'+s.id+'"'+(s.id===n.id?' selected':'')+'>'+s.name+'</option>';
@@ -18308,7 +18308,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       return '<tr id="nmi-row-'+n.id+'" style="'+rowBg+'">'
         +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'
-          +'<input type="checkbox" class="nmi-chk" data-nid="'+n.id+'" onchange="nmiUpdateCount()">'
+          +'<input type="checkbox" class="nmi-chk" data-nid="'+n.id+'" data-original-nid="'+n.id+'" onchange="nmiUpdateCount()">'
         +'</td>'
         +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'+(i+1)+'</td>'
         +'<td style="padding:6px;border:1px solid #ddd;">'+nameCell+'</td>'
@@ -18329,6 +18329,42 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     div.style.display='block';
     document.getElementById('nmi-check-all').checked=false;
     nmiUpdateCount();
+  }
+
+  function nmiSinkerChange(sel){
+    var oldNid = sel.dataset.nid;  // data-nid পরিবর্তন করবো না — save loop এর জন্য দরকার
+    var newNid = sel.value;
+    if (oldNid === newNid) return;
+
+    var row = sel.closest('tr');
+    if (!row) return;
+
+    // qty input-এর data-nid নতুন sinker ID-তে আপডেট করো
+    // (save loop .nmi-qty[data-nid] দিয়ে qty পড়ে)
+    var qtyInp = row.querySelector('.nmi-qty');
+    if (qtyInp) {
+      qtyInp.dataset.nid = newNid;
+      qtyInp.value = '';
+    }
+
+    // +/- button onclick আপডেট
+    var btns = row.querySelectorAll('button[onclick*="nmiQtyStep"]');
+    btns.forEach(function(btn){
+      btn.setAttribute('onclick', btn.getAttribute('onclick').replace("'"+oldNid+"'", "'"+newNid+"'"));
+    });
+
+    // checkbox data-nid আপডেট — save loop checked.forEach এ nId হিসেবে ব্যবহার হয়
+    var chk = row.querySelector('.nmi-chk');
+    if (chk) chk.dataset.nid = newNid;
+
+    // নতুন sinker-এর current stock placeholder এ দেখাও
+    if (typeof _ndlCurrentStock === 'function' && qtyInp) {
+      var stock = _ndlCurrentStock(newNid);
+      qtyInp.placeholder = 'স্টক: ' + Math.max(0, stock);
+    }
+
+    // sinker dropdown-এর data-nid পুরনোই রাখো
+    // যাতে save loop-এ .nmi-sinker-sel[data-nid="oldNid"] দিয়ে নতুন value পাওয়া যায়
   }
 
   function nmiQtyStep(nid, delta){
@@ -18468,9 +18504,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         : type;
 
       // newset + Sinker হলে dropdown থেকে selected sinker নাও
-      var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+nId+'"]');
+      // data-original-nid দিয়ে খুঁজো — sinker change হলেও dropdown এর data-nid পুরনোই থাকে
+      var origNid = cb.dataset.originalNid || nId;
+      var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+origNid+'"]');
       var actualNId   = (sinkerSel && needle.type === 'Sinker') ? sinkerSel.value : nId;
-      var actualNeedle = (actualNId !== nId) ? (nm.find(function(n){return n.id===actualNId;})||needle) : needle;
+      var actualNeedle = nm.find(function(n){return n.id===actualNId;}) || needle;
 
       var rec={
         id:Date.now()+saved,
@@ -18498,7 +18536,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var nId = cb.dataset.nid;
         var needle = nm.find(function(n){ return n.id === nId; });
         if (!needle || needle.type !== 'Sinker') return;
-        var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+nId+'"]');
+        var origNid2 = cb.dataset.originalNid || nId;
+        var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+origNid2+'"]');
         var actualId = sinkerSel ? sinkerSel.value : nId;
         if (sinkerIds.indexOf(actualId) < 0) sinkerIds.push(actualId);
       });
