@@ -5868,8 +5868,10 @@ const DB = {
     _set('igl_items', v.concat(missing));
   },
   get stnItems() {
-    // সম্পূর্ণ Firebase-only — localStorage নেই
-    return window._stnItemsArr || [];
+    // Firebase থেকে লোড হলে সেটা দাও, না হলে built-in default
+    if (window._stnItemsArr && window._stnItemsArr.length > 0)
+      return window._stnItemsArr;
+    return window.preStnItems || [];
   },
   set stnItems(v) {
     window._stnItemsArr = (v || []).slice(); // copy — reference problem এড়াতে
@@ -21999,7 +22001,8 @@ function stnVisShowAll() {
   toast('✅ সব Item দৃশ্যমান করা হয়েছে!', 'success');
 }
 
-document.getElementById('stnVisModal').addEventListener('click', function(e){
+var _stnVisModalEl = document.getElementById('stnVisModal');
+if(_stnVisModalEl) _stnVisModalEl.addEventListener('click', function(e){
   if(e.target===this) this.style.display='none';
 });
 </script>
