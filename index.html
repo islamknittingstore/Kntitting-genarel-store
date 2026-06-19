@@ -5366,8 +5366,16 @@ async function _loadFromFile() {
       try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(e2) {}
     }
 
-    // ── Needle Module ──
-    try { localStorage.setItem('igl_needles',         JSON.stringify(needles));        } catch(e) {}
+    // ── Needle Module ── (localStorage এ শুধু লাস্ট ৬০ দিনের needle entries রাখা হয় — পুরনো ডাটা Firebase এ নিরাপদে থাকে, প্রয়োজনে রিপোর্টের সময় সেখান থেকেই লোড হয়)
+    try {
+      var _ndlCutoff = new Date();
+      _ndlCutoff.setDate(_ndlCutoff.getDate() - 60);
+      var _ndlCutoffStr = _ndlCutoff.toISOString().split('T')[0];
+      var _needlesForCache = needles.filter(function(n){
+        return !n.date || n.date >= _ndlCutoffStr;
+      });
+      localStorage.setItem('igl_needles', JSON.stringify(_needlesForCache));
+    } catch(e) {}
     try { localStorage.setItem('igl_ndl_rcv',         JSON.stringify(needleReceives)); } catch(e) {}
     try { localStorage.setItem('igl_ndl_master',      JSON.stringify(needleMaster));   } catch(e) {}
     try { localStorage.setItem('igl_retail_machines', JSON.stringify(retailMachines)); } catch(e) {}
@@ -13471,8 +13479,16 @@ function doImport(event) {
           try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(er2) {}
         }
 
-        // ── Needle Module ──
-        try { localStorage.setItem('igl_needles',        JSON.stringify(needles));        } catch(er) {}
+        // ── Needle Module ── (লাস্ট ৬০ দিনের বাইরের data local cache এ রাখা হয় না, Firebase এ সুরক্ষিত থাকে)
+        try {
+          var _ndlCutoff2 = new Date();
+          _ndlCutoff2.setDate(_ndlCutoff2.getDate() - 60);
+          var _ndlCutoffStr2 = _ndlCutoff2.toISOString().split('T')[0];
+          var _needlesForCache2 = needles.filter(function(n){
+            return !n.date || n.date >= _ndlCutoffStr2;
+          });
+          localStorage.setItem('igl_needles', JSON.stringify(_needlesForCache2));
+        } catch(er) {}
         try { localStorage.setItem('igl_ndl_rcv',        JSON.stringify(needleReceives)); } catch(er) {}
         try { localStorage.setItem('igl_ndl_master',     JSON.stringify(needleMaster));   } catch(er) {}
         try { localStorage.setItem('igl_retail_machines',JSON.stringify(retailMachines)); } catch(er) {}
@@ -21699,13 +21715,37 @@ function renderNdlConsolidated(){
   var month=parseInt((document.getElementById('ndl-con-month')||{}).value||(new Date().getMonth()+1));
   var year=parseInt((document.getElementById('ndl-con-year')||{}).value||new Date().getFullYear());
   var body=document.getElementById('ndl-con-body');
+
+  // ── পুরনো মাস (লাস্ট ৬০ দিনের বাইরে) হলে Firebase থেকে সরাসরি ফুল ডাটা আনো ──
+  var mmChk=(month<10?'0':'')+month;
+  var reqMonthStart=year+'-'+mmChk+'-01';
+  var cutoffChk=new Date(); cutoffChk.setDate(cutoffChk.getDate()-60);
+  var cutoffChkStr=cutoffChk.toISOString().split('T')[0];
+  if(reqMonthStart < cutoffChkStr){
+    if(body) body.innerHTML='<div style="padding:30px;text-align:center;color:#888;">⏳ পুরনো মাসের ডাটা Firebase থেকে লোড হচ্ছে...</div>';
+    try{
+      firebase.database().ref('igl_erp/ndb/needles').once('value').then(function(snap){
+        window._ndlFullHistoryCache = snap.val() || [];
+        renderNdlConsolidatedInner(mode, month, year, body, window._ndlFullHistoryCache);
+      }).catch(function(err){
+        if(body) body.innerHTML='<div style="padding:30px;text-align:center;color:#e74c3c;">❌ ডাটা লোড করতে সমস্যা হয়েছে: '+err.message+'</div>';
+      });
+    }catch(e){
+      if(body) body.innerHTML='<div style="padding:30px;text-align:center;color:#e74c3c;">❌ Firebase সংযোগ সমস্যা</div>';
+    }
+    return;
+  }
+  renderNdlConsolidatedInner(mode, month, year, body, null);
+}
+function renderNdlConsolidatedInner(mode, month, year, body, fullHistory){
   var allRcvs,allIss;
+  var needleSource = fullHistory || ((typeof NDB!=='undefined')?NDB.needles:[]);
   if(mode==='used'){
     allRcvs=ndlGetRcv?ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='used';}):[];
-    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'').toLowerCase()==='used';}):[];
+    allIss=needleSource.filter(function(r){return (r.needleType||'').toLowerCase()==='used';});
   } else {
     allRcvs=ndlGetRcv?ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';}):[];
-    allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}):[];
+    allIss=needleSource.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';});
   }
   var mm=(month<10?'0':'')+month;
   var daysInMonth=new Date(year,month,0).getDate();
