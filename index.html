@@ -5833,8 +5833,9 @@ async function _loadFromFile() {
       try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(e2) {}
     }
 
-    // ── Needle Module ── (localStorage এ শুধু লাস্ট ৩০ দিনের needle entries রাখা হয় — পুরনো ডাটা Firebase এ নিরাপদে থাকে, প্রয়োজনে রিপোর্টের সময় সেখান থেকেই লোড হয়)
+    // ── Needle Module ── (localStorage এ শুধু লাস্ট ৩০ দিনের needle entries রাখা হয় — পুরনো ডাটা Firebase এ নিরাপদে থাকে, full history in-memory cache এ থাকে রিপোর্টের জন্য)
     try {
+      window._ndlFullCache = needles; // ── পুরো history memory তে রাখা (রিপোর্ট সঠিক রাখার জন্য) ──
       var _ndlCutoff = new Date();
       _ndlCutoff.setDate(_ndlCutoff.getDate() - 30);
       var _ndlCutoffStr = _ndlCutoff.toISOString().split('T')[0];
@@ -17996,8 +17997,9 @@ function doImport(event) {
           try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(er2) {}
         }
 
-        // ── Needle Module ── (লাস্ট ৩০ দিনের বাইরের data local cache এ রাখা হয় না, Firebase এ সুরক্ষিত থাকে)
+        // ── Needle Module ── (লাস্ট ৩০ দিনের বাইরের data local cache এ রাখা হয় না, Firebase এ সুরক্ষিত থাকে; full history in-memory cache এ থাকে রিপোর্টের জন্য)
         try {
+          window._ndlFullCache = needles; // ── পুরো history memory তে রাখা (রিপোর্ট সঠিক রাখার জন্য) ──
           var _ndlCutoff2 = new Date();
           _ndlCutoff2.setDate(_ndlCutoff2.getDate() - 30);
           var _ndlCutoffStr2 = _ndlCutoff2.toISOString().split('T')[0];
@@ -18287,9 +18289,31 @@ function getNeedleMachines(){
 function setNeedleMachines(v){ try{localStorage.setItem('igl_retail_machines', JSON.stringify(v)); if(typeof triggerAutoSave === 'function') triggerAutoSave();}catch(e){} }
 
 // DB accessor for needle issues
+// ── localStorage এ শুধু লাস্ট ৩০ দিনের needle entries রাখা হয় (স্টোরেজ বাঁচাতে) ──
+// পুরোপুরি ডেটা সেশনের সময় in-memory cache (_ndlFullCache) এ থাকে, তাই রিপোর্ট/পুরনো তারিখের হিসাব ঠিক থাকে।
+// পুরনো ডেটা Firebase এ সবসময় নিরাপদে থাকে এবং fbLoadAll() রিফ্রেশ/রিকানেক্টে পুরো history ফিরিয়ে আনে।
+window._ndlFullCache = null; // lazy-init — প্রথমবার getter কল হলে localStorage থেকে seed হবে
+function _ndlTrimForStorage(arr) {
+  try {
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    var cutoffStr = cutoff.toISOString().split('T')[0];
+    return (arr || []).filter(function(n){ return !n.date || n.date >= cutoffStr; });
+  } catch(e) { return arr || []; }
+}
 const NDB = {
-  get needles() { return _get('igl_needles') || []; },
-  set needles(v) { _set('igl_needles', v); }
+  get needles() {
+    if (window._ndlFullCache === null) {
+      // প্রথম access — localStorage এর (সম্ভবত trimmed) কপি দিয়ে seed করো;
+      // fbLoadAll() লোড হওয়ার পর পুরো history দিয়ে এটা replace হয়ে যাবে।
+      window._ndlFullCache = _get('igl_needles') || [];
+    }
+    return window._ndlFullCache;
+  },
+  set needles(v) {
+    window._ndlFullCache = v || [];          // ── পুরো ডেটা memory তে রাখা (সেশনের জন্য, রিপোর্টের জন্য নিরাপদ) ──
+    _set('igl_needles', _ndlTrimForStorage(window._ndlFullCache)); // ── localStorage এ শুধু লাস্ট ৩০ দিন (স্পেস বাঁচাতে) ──
+  }
 };
 
 // Workers (for needle use report)
