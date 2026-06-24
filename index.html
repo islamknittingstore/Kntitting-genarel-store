@@ -1287,7 +1287,9 @@ if('serviceWorker' in navigator){
           printBold:       localStorage.getItem('igl_print_bold') || '0',
           retailMachines:  JSON.parse(localStorage.getItem('igl_retail_machines')  || '[]'),
           ndlVer:          localStorage.getItem('igl_ndl_ver') || '',
-          navHidden:       JSON.parse(localStorage.getItem('igl_nav_hidden') || '{}')
+          navHidden:       JSON.parse(localStorage.getItem('igl_nav_hidden') || '{}'),
+          stnDepts:        JSON.parse(localStorage.getItem('igl_stn_depts') || 'null'),
+          stnSuppliers:    JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]')
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -1547,6 +1549,8 @@ if('serviceWorker' in navigator){
           if(data.settings.retailMachines && data.settings.retailMachines.length) localStorage.setItem('igl_retail_machines', JSON.stringify(data.settings.retailMachines));
           if(data.settings.ndlVer) localStorage.setItem('igl_ndl_ver', data.settings.ndlVer);
           if(data.settings.navHidden) { localStorage.setItem('igl_nav_hidden', JSON.stringify(data.settings.navHidden)); if(typeof iglApplyNavHide==='function') iglApplyNavHide(); }
+          if(data.settings.stnDepts && data.settings.stnDepts.length) { localStorage.setItem('igl_stn_depts', JSON.stringify(data.settings.stnDepts)); if(typeof stnPopulateDeptDropdown==='function') stnPopulateDeptDropdown(); }
+          if(data.settings.stnSuppliers && data.settings.stnSuppliers.length) { localStorage.setItem('igl_stn_suppliers', JSON.stringify(data.settings.stnSuppliers)); if(typeof stnPopulateSupplierDatalist==='function') stnPopulateSupplierDatalist(); }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
             try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
@@ -5366,10 +5370,10 @@ async function _loadFromFile() {
       try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(e2) {}
     }
 
-    // ── Needle Module ── (localStorage এ শুধু লাস্ট ৬০ দিনের needle entries রাখা হয় — পুরনো ডাটা Firebase এ নিরাপদে থাকে, প্রয়োজনে রিপোর্টের সময় সেখান থেকেই লোড হয়)
+    // ── Needle Module ── (localStorage এ শুধু লাস্ট ৩০ দিনের needle entries রাখা হয় — পুরনো ডাটা Firebase এ নিরাপদে থাকে, প্রয়োজনে রিপোর্টের সময় সেখান থেকেই লোড হয়)
     try {
       var _ndlCutoff = new Date();
-      _ndlCutoff.setDate(_ndlCutoff.getDate() - 60);
+      _ndlCutoff.setDate(_ndlCutoff.getDate() - 30);
       var _ndlCutoffStr = _ndlCutoff.toISOString().split('T')[0];
       var _needlesForCache = needles.filter(function(n){
         return !n.date || n.date >= _ndlCutoffStr;
@@ -13479,10 +13483,10 @@ function doImport(event) {
           try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(er2) {}
         }
 
-        // ── Needle Module ── (লাস্ট ৬০ দিনের বাইরের data local cache এ রাখা হয় না, Firebase এ সুরক্ষিত থাকে)
+        // ── Needle Module ── (লাস্ট ৩০ দিনের বাইরের data local cache এ রাখা হয় না, Firebase এ সুরক্ষিত থাকে)
         try {
           var _ndlCutoff2 = new Date();
-          _ndlCutoff2.setDate(_ndlCutoff2.getDate() - 60);
+          _ndlCutoff2.setDate(_ndlCutoff2.getDate() - 30);
           var _ndlCutoffStr2 = _ndlCutoff2.toISOString().split('T')[0];
           var _needlesForCache2 = needles.filter(function(n){
             return !n.date || n.date >= _ndlCutoffStr2;
@@ -15176,7 +15180,7 @@ function stnGetDepts(){
   try{ var d=JSON.parse(localStorage.getItem(STN_DEPT_KEY)||'null'); if(d) return d; }catch(e){}
   return ['Knitting Store','Knitting Floor','Yarn Store','Fabric Store','Flat Knit','Quality','Others'];
 }
-function stnSaveDepts(arr){ localStorage.setItem(STN_DEPT_KEY, JSON.stringify(arr)); stnPopulateDeptDropdown(); }
+function stnSaveDepts(arr){ localStorage.setItem(STN_DEPT_KEY, JSON.stringify(arr)); stnPopulateDeptDropdown(); if(typeof triggerAutoSave==='function') triggerAutoSave(); }
 function stnPopulateDeptDropdown(){
   var sel=document.getElementById('stn-i-dept'); if(!sel) return;
   var depts=stnGetDepts(); var prev=sel.value;
@@ -15334,7 +15338,82 @@ function stnMtRender(){
 // STN ITEM MASTER PAGE JS
 // ════════════════════════════════════════════════════
 
-function stnItemMasterRender() {
+// ── এককালীন Rate Restore (১,৩,২৬ তারিখের আগে যে rate ছিল, সেটা ফিরিয়ে আনা) ──
+// Admin login করে Console এ লিখুন: stnRestoreOldRates()
+window.stnRestoreOldRates = function(){
+  if(!IGL_CURRENT_USER || IGL_CURRENT_USER.role !== 'admin'){
+    toast('❌ শুধু Admin এই কাজ করতে পারবে','error'); return;
+  }
+  var rateMap = {
+    "stn_item_2":{"rate":5,"unit":"Pcs","rateEffDate":"2026-03"},
+    "stn_item_3":{"rate":8,"unit":"Pcs","rateEffDate":"2026-01"},
+    "stn_item_4":{"rate":10,"unit":"Pcs","rateEffDate":"2026-01"},
+    "stn_item_13":{"rate":35,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_14":{"rate":79,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_15":{"rate":50,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_16":{"rate":26,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_20":{"rate":220,"unit":"Packet","rateEffDate":"2026-01"},
+    "stn_item_21":{"rate":120,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_22":{"rate":585,"unit":"Packet","rateEffDate":"2026-01"},
+    "stn_item_24":{"rate":58,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_25":{"rate":180,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_26":{"rate":285,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_27":{"rate":430,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_28":{"rate":464,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_29":{"rate":17,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_30":{"rate":128,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_31":{"rate":140,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_33":{"rate":10,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_35":{"rate":25,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_36":{"rate":24,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_37":{"rate":535,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_38":{"rate":41,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_39":{"rate":21,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_40":{"rate":131,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_41":{"rate":450,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_42":{"rate":350,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_43":{"rate":105,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_44":{"rate":650,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_45":{"rate":10,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_46":{"rate":24,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_48":{"rate":96,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_49":{"rate":506,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_50":{"rate":200,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_51":{"rate":400,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_52":{"rate":31,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_53":{"rate":60,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_54":{"rate":65,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_55":{"rate":150,"unit":"Kg","rateEffDate":"2026-03"},
+    "stn_item_56":{"rate":211,"unit":"Liter","rateEffDate":"2026-03"},
+    "stn_item_57":{"rate":110,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_58":{"rate":33,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_59":{"rate":80,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_61":{"rate":320,"unit":"Pcs","rateEffDate":"2026-01"},
+    "stn_item_62":{"rate":100,"unit":"","rateEffDate":"2026-01"},
+    "stn_item_63":{"rate":81,"unit":"","rateEffDate":"2026-03"},
+    "stn_item_64":{"rate":87,"unit":"Pair","rateEffDate":"2026-01"},
+    "stn_item_65":{"rate":99,"unit":"Kg","rateEffDate":"2026-03"}
+  };
+  var items = DB.stnItems || [];
+  var updated = 0, log = [];
+  items.forEach(function(it){
+    if(rateMap.hasOwnProperty(it.id)){
+      var r = rateMap[it.id];
+      it.rate = r.rate;
+      if(r.unit) it.unit = r.unit;
+      if(r.rateEffDate) it.rateEffDate = r.rateEffDate;
+      updated++;
+      log.push(it.name+': ৳'+r.rate+(r.unit?(' / '+r.unit):''));
+    }
+  });
+  DB.stnItems = items;
+  triggerAutoSave();
+  try{ stnItemMasterRender(); }catch(e){}
+  toast('✅ '+updated+' টি item এর Rate ফিরিয়ে আনা হয়েছে!','success', 5000);
+  console.log('Rate restored:\\n'+log.join('\\n'));
+};
+
+
   var q    = ((document.getElementById('sim-search')||{}).value||'').toLowerCase();
   var catF = ((document.getElementById('sim-cat-filter')||{}).value||'');
   var items = DB.stnItems || [];
@@ -21716,10 +21795,10 @@ function renderNdlConsolidated(){
   var year=parseInt((document.getElementById('ndl-con-year')||{}).value||new Date().getFullYear());
   var body=document.getElementById('ndl-con-body');
 
-  // ── পুরনো মাস (লাস্ট ৬০ দিনের বাইরে) হলে Firebase থেকে সরাসরি ফুল ডাটা আনো ──
+  // ── পুরনো মাস (লাস্ট ৩০ দিনের বাইরে) হলে Firebase থেকে সরাসরি ফুল ডাটা আনো ──
   var mmChk=(month<10?'0':'')+month;
   var reqMonthStart=year+'-'+mmChk+'-01';
-  var cutoffChk=new Date(); cutoffChk.setDate(cutoffChk.getDate()-60);
+  var cutoffChk=new Date(); cutoffChk.setDate(cutoffChk.getDate()-30);
   var cutoffChkStr=cutoffChk.toISOString().split('T')[0];
   if(reqMonthStart < cutoffChkStr){
     if(body) body.innerHTML='<div style="padding:30px;text-align:center;color:#888;">⏳ পুরনো মাসের ডাটা Firebase থেকে লোড হচ্ছে...</div>';
@@ -21949,6 +22028,7 @@ function stnSaveSupplierName(name) {
     if (list.length > 50) list = list.slice(0, 50); // max 50
     localStorage.setItem('igl_stn_suppliers', JSON.stringify(list));
     stnPopulateSupplierDatalist();
+    if(typeof triggerAutoSave==='function') triggerAutoSave();
   }
 }
 function stnPopulateSupplierDatalist() {
