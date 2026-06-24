@@ -15418,7 +15418,7 @@ window.stnRestoreOldRates = function(){
   console.log('Rate restored:\\n'+log.join('\\n'));
 };
 
-
+function stnItemMasterRender() {
   var q    = ((document.getElementById('sim-search')||{}).value||'').toLowerCase();
   var catF = ((document.getElementById('sim-cat-filter')||{}).value||'');
   var items = DB.stnItems || [];
