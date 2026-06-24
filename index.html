@@ -18201,45 +18201,65 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var curMonthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
 
+    var nmAllNeedlesOnly = nm.filter(function(n){ return n.type !== 'Sinker'; });
+
     var rows = assigned.map(function(n){
+      // ── Sticky override: এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
+      var stickyKey = 'nmi_sticky_' + machineId + '_' + n.id;
+      var stickyNid = null;
+      try { stickyNid = localStorage.getItem(stickyKey); } catch(e) {}
+      var effectiveNeedle = n;
+      if (stickyNid && stickyNid !== n.id) {
+        var found = nm.find(function(x){ return x.id === stickyNid; });
+        if (found) effectiveNeedle = found;
+      }
+      var nObj = effectiveNeedle; // স্টক/ব্যালেন্স হিসাব এই needle অনুযায়ী হবে
       // Master B/F (needle master এ save করা)
-      var masterBf = isUsed ? Number(n.usedBf||n.usedBalance||0) : Number(n.bf||0);
+      var masterBf = isUsed ? Number(nObj.usedBf||nObj.usedBalance||0) : Number(nObj.bf||0);
 
       // Running B/F = master B/F + মাস শুরুর আগের সব Receive − মাস শুরুর আগের সব Issue
-      var bfRcvQty = bfRcvs.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var bfIssQty = bfIsss.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var bfRcvQty = bfRcvs.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var bfIssQty = bfIsss.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
       var runBf = masterBf + bfRcvQty - bfIssQty;
 
       // চলতি মাসের Receive ও Issue
-      var rcv = curRcvs.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var iss = curIsss.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var rcv = curRcvs.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+      var iss = curIsss.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
 
       var bal = runBf + rcv - iss;
       var color = bal <= 0 ? '#e74c3c' : bal <= 10 ? '#e67e22' : '#117a65';
       // Issue input — qty দিলে টিক + নিচের list এ auto fill + auto check
       var issInput = '<div style="display:flex;align-items:center;gap:3px;">'
         +'<button type="button" '
-        +'onmousedown="nmiHoldStart(\''+n.id+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
-        +'ontouchstart="nmiHoldStart(\''+n.id+'\',1)" ontouchend="nmiHoldStop()" '
-        +'onclick="nmiStockIssStep(\''+n.id+'\',1)" '
+        +'onmousedown="nmiHoldStart(\''+nObj.id+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
+        +'ontouchstart="nmiHoldStart(\''+nObj.id+'\',1)" ontouchend="nmiHoldStop()" '
+        +'onclick="nmiStockIssStep(\''+nObj.id+'\',1)" '
         +'style="width:30px;height:30px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
-        +'<input type="number" id="nmi-stock-iss-'+n.id+'" min="0" placeholder="0" '
+        +'<input type="number" id="nmi-stock-iss-'+nObj.id+'" min="0" placeholder="0" '
         +'style="width:48px;padding:3px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:13px;font-weight:700;" '
-        +'oninput="nmiStockIssInput(this,\''+n.id+'\')" value="">'
+        +'oninput="nmiStockIssInput(this,\''+nObj.id+'\')" value="">'
         +'<button type="button" '
-        +'onmousedown="nmiHoldStart(\''+n.id+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
-        +'ontouchstart="nmiHoldStart(\''+n.id+'\',-1)" ontouchend="nmiHoldStop()" '
-        +'onclick="nmiStockIssStep(\''+n.id+'\',-1)" '
+        +'onmousedown="nmiHoldStart(\''+nObj.id+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
+        +'ontouchstart="nmiHoldStart(\''+nObj.id+'\',-1)" ontouchend="nmiHoldStop()" '
+        +'onclick="nmiStockIssStep(\''+nObj.id+'\',-1)" '
         +'style="width:30px;height:30px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
         +'</div>';
       var chkStyle = 'width:18px;height:18px;accent-color:#27ae60;cursor:pointer;';
-      return '<tr id="nmi-stock-row-'+n.id+'">'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+(n.name||n.code)+'</td>'
+      // ── Needle নাম dropdown — mapping এর বাইরের needle ও select করা যাবে ──
+      var nameCell = '<select class="nmi-stock-needle-sel" data-machine="'+machineId+'" data-slot="'+n.id+'" '
+        +'onchange="nmiStockNeedleChange(this,\''+needleType+'\')" '
+        +'style="width:100%;border:1px solid #d35400;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;color:#7d3c98;background:#fdf6f0;cursor:pointer;">'
+        +nmAllNeedlesOnly.map(function(nd){
+          return '<option value="'+nd.id+'"'+(nd.id===nObj.id?' selected':'')+'>'+(nd.name||nd.code)+'</option>';
+        }).join('')
+        +'</select>';
+      return '<tr id="nmi-stock-row-'+nObj.id+'">'
+        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+nameCell+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
         + '<td style="padding:5px 4px;border-bottom:1px solid #f0e0d0;">'
         +   '<div style="display:flex;align-items:center;gap:5px;">'
         +     issInput
-        +     '<input type="checkbox" id="nmi-stock-chk-'+n.id+'" style="'+chkStyle+'" onchange="nmiStockChkChange(this,\''+n.id+'\')"> '
+        +     '<input type="checkbox" id="nmi-stock-chk-'+nObj.id+'" style="'+chkStyle+'" onchange="nmiStockChkChange(this,\''+nObj.id+'\')"> '
         +   '</div>'
         + '</td>'
         + '</tr>';
@@ -18281,6 +18301,23 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // উপরের checkbox manually change হলে qty ও সেট করি
+  // ── Used/New Needle Stock Panel এ needle dropdown change হলে ──
+  // mapping এর বাইরের যেকোনো needle select করা যায়, এবং পরের বার এই machine+slot এর জন্য সেটাই default থাকবে
+  function nmiStockNeedleChange(sel, needleType){
+    var machineId = sel.dataset.machine;
+    var slotId    = sel.dataset.slot;
+    var newNid    = sel.value;
+    if(!machineId || !slotId) return;
+    // ── Sticky save — এই machine+slot এর জন্য পছন্দ মনে রাখো ──
+    var stickyKey = 'nmi_sticky_' + machineId + '_' + slotId;
+    try {
+      if (newNid === slotId) localStorage.removeItem(stickyKey); // আসল needle এ ফিরে গেলে override clear
+      else localStorage.setItem(stickyKey, newNid);
+    } catch(e) {}
+    // পুরো panel আবার render করো নতুন needle এর balance/stock দিয়ে
+    nmiRenderMachineStock(machineId, needleType);
+  }
+
   function nmiStockChkChange(cb, nid){
     if(!cb.checked){
       var inp = document.getElementById('nmi-stock-iss-'+nid);
