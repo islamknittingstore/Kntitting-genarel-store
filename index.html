@@ -18204,10 +18204,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var nmAllNeedlesOnly = nm.filter(function(n){ return n.type !== 'Sinker'; });
 
     var rows = assigned.map(function(n){
-      // ── Sticky override: এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
+      // ── Sticky override: শুধু Used Needle এ — এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
       var stickyKey = 'nmi_sticky_' + machineId + '_' + n.id;
       var stickyNid = null;
-      try { stickyNid = localStorage.getItem(stickyKey); } catch(e) {}
+      if (isUsed) {
+        try { stickyNid = localStorage.getItem(stickyKey); } catch(e) {}
+      }
       var effectiveNeedle = n;
       if (stickyNid && stickyNid !== n.id) {
         var found = nm.find(function(x){ return x.id === stickyNid; });
@@ -18245,14 +18247,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'style="width:30px;height:30px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
         +'</div>';
       var chkStyle = 'width:18px;height:18px;accent-color:#27ae60;cursor:pointer;';
-      // ── Needle নাম dropdown — mapping এর বাইরের needle ও select করা যাবে ──
-      var nameCell = '<select class="nmi-stock-needle-sel" data-machine="'+machineId+'" data-slot="'+n.id+'" '
-        +'onchange="nmiStockNeedleChange(this,\''+needleType+'\')" '
-        +'style="width:100%;border:1px solid #d35400;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;color:#7d3c98;background:#fdf6f0;cursor:pointer;">'
-        +nmAllNeedlesOnly.map(function(nd){
-          return '<option value="'+nd.id+'"'+(nd.id===nObj.id?' selected':'')+'>'+(nd.name||nd.code)+'</option>';
-        }).join('')
-        +'</select>';
+      // ── Needle নাম cell — শুধু Used Needle এ dropdown (mapping এর বাইরের needle ও select করা যাবে), New Needle এ আগের মতো fixed mapping name ──
+      var nameCell;
+      if (isUsed) {
+        nameCell = '<select class="nmi-stock-needle-sel" data-machine="'+machineId+'" data-slot="'+n.id+'" '
+          +'onchange="nmiStockNeedleChange(this,\''+needleType+'\')" '
+          +'style="width:100%;border:1px solid #d35400;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;color:#7d3c98;background:#fdf6f0;cursor:pointer;">'
+          +nmAllNeedlesOnly.map(function(nd){
+            return '<option value="'+nd.id+'"'+(nd.id===nObj.id?' selected':'')+'>'+(nd.name||nd.code)+'</option>';
+          }).join('')
+          +'</select>';
+      } else {
+        nameCell = '<b>'+(nObj.name||nObj.code||'')+'</b>';
+      }
       return '<tr id="nmi-stock-row-'+nObj.id+'">'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+nameCell+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
@@ -18304,6 +18311,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // ── Used/New Needle Stock Panel এ needle dropdown change হলে ──
   // mapping এর বাইরের যেকোনো needle select করা যায়, এবং পরের বার এই machine+slot এর জন্য সেটাই default থাকবে
   function nmiStockNeedleChange(sel, needleType){
+    // ── Safety: এই override শুধু Used Needle এর জন্য, New Needle এ mapping ই থাকবে ──
+    if (needleType !== 'used') return;
     var machineId = sel.dataset.machine;
     var slotId    = sel.dataset.slot;
     var newNid    = sel.value;
