@@ -2324,6 +2324,7 @@ var IGL_NAV_ITEMS = {
   'nav-needle-stock-new':  { label: '📦 Needle Stock New',        section: '🪡 Needle Section' },
   'nav-needle-stock-used': { label: '♻️ Needle Stock Used',       section: '🪡 Needle Section' },
   'nav-needle-ledger':     { label: '📒 Needle Ledger',           section: '🪡 Needle Section' },
+  'nav-needle-daily-mgr-report': { label: '📨 Daily Needle & Production Report', section: '🪡 Needle Section' },
   'nav-needle-mapping':    { label: '🔗 Needle-Machine Map',      section: '🪡 Needle Section' },
   // Stationery
   'nav-stn-dashboard':     { label: '📊 Stationery Dashboard',    section: '🖊️ Stationery' },
@@ -2647,6 +2648,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
       <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
       <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
+      <li id="nav-needle-daily-mgr-report" class="admin-only-action"><a href="#" onclick="showPage('needle_daily_mgr_report', this); return false;"><span class="icon">📨</span> Daily Needle &amp; Production Report</a></li>
       <li id="nav-needle-master" class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
       <li id="nav-needle-mapping"><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
     </ul>
@@ -5361,11 +5363,29 @@ function ok(msg) {
         </div>
       </div>
 
-      <div class="card-body" style="padding:0;overflow-x:auto;">
-        <div id="needleUseReportGrid"></div>
+  <!-- DAILY NEEDLE & PRODUCTION REPORT (ADMIN ONLY) -->
+  <div class="page admin-only-action" id="page-needle_daily_mgr_report">
+    <div class="page-header">
+      <h2>📨 Daily Needle &amp; Production Report</h2>
+      <p>প্রতিদিনের Needle Broken/New/Servicing + Production — ম্যানেজারকে পাঠানোর জন্য রেডি টেক্সট (Admin Only)</p>
+    </div>
+    <div class="card">
+      <div class="card-header" style="background:#f0f3f7;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="font-size:13px;font-weight:600;color:#444;">তারিখ:</label>
+          <input type="date" class="form-control" id="ndmr-date" style="width:160px;" onchange="renderDailyMgrReport()">
+          <label style="font-size:13px;font-weight:600;color:#444;margin-left:10px;">Production (kg):</label>
+          <input type="number" class="form-control" id="ndmr-prod-kg" placeholder="যেমন: 10266" style="width:130px;" oninput="ndmrSaveProdKg(this.value)">
+          <button class="btn btn-primary btn-sm" onclick="renderDailyMgrReport()">🔄 Refresh</button>
+          <button class="btn btn-success btn-sm" id="ndmr-copy-btn" onclick="ndmrCopyReport()">📋 Copy Report</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <pre id="ndmr-output" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:13.5px;line-height:1.55;background:#fbfbfb;border:1px solid #ddd;border-radius:6px;padding:16px;margin:0;color:#1a1a1a;"></pre>
       </div>
     </div>
   </div>
+
 
   <!-- NEEDLE MASTER PAGE -->
   <div class="page" id="page-needle_master_page">
@@ -7883,6 +7903,14 @@ function showPage(name, el) {
     }
   }
 
+  // ── Daily Needle & Production Report — শুধুমাত্র Admin দেখতে পারবে ──
+  if (name === 'needle_daily_mgr_report') {
+    if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+      if (typeof toast === 'function') toast('❌ শুধুমাত্র Admin এই রিপোর্ট দেখতে পারবেন!', 'error');
+      return;
+    }
+  }
+
   // Step 1: Hide all pages
   document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
   document.querySelectorAll('.sidebar-menu a, .sidebar-submenu a').forEach(function(a) { a.classList.remove('active'); });
@@ -7988,6 +8016,11 @@ function showPage(name, el) {
     else if (name === 'needle_daily') {
       document.getElementById('nd-date').value = todayStr();
       renderNeedleDaily();
+    }
+    else if (name === 'needle_daily_mgr_report') {
+      var ndmr_dateEl = document.getElementById('ndmr-date');
+      if (ndmr_dateEl && !ndmr_dateEl.value) ndmr_dateEl.value = todayStr();
+      renderDailyMgrReport();
     }
     else if (name === 'needle_newset_record') {
       nsrInit();
@@ -25058,6 +25091,207 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var span3 = inputEl.nextElementSibling;
         if (span3) span3.textContent = saved;
       }
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  DAILY NEEDLE & PRODUCTION REPORT (Admin Only)
+  //  — প্রতিদিন ম্যানেজারকে পাঠানোর রিপোর্ট অটো জেনারেট করে, ডেটা থেকেই
+  // ══════════════════════════════════════════════════════════════════════
+
+  // দৈনিক production (kg) Firebase + localStorage এ সেভ করা (date-wise)
+  function ndmrSaveProdKg(value) {
+    var dateEl = document.getElementById('ndmr-date');
+    var date = dateEl ? dateEl.value : todayStr();
+    if (!date) return;
+    var key = 'ndmr_prod/' + date;
+    if (typeof _fbDb !== 'undefined') {
+      try { _fbDb.ref(key).set(value); } catch(e) {}
+    }
+    try { localStorage.setItem('igl_ndmr_prod_'+date, value); } catch(e) {}
+  }
+
+  // দৈনিক production (kg) লোড করা — Firebase প্রথমে, না পেলে localStorage
+  function ndmrLoadProdKg(date, cb) {
+    var key = 'ndmr_prod/' + date;
+    var localVal = '';
+    try { localVal = localStorage.getItem('igl_ndmr_prod_'+date) || ''; } catch(e) {}
+    if (typeof _fbDb !== 'undefined') {
+      try {
+        _fbDb.ref(key).once('value').then(function(snap){
+          var val = snap.val();
+          if (val !== null && val !== undefined && val !== '') {
+            cb(val);
+          } else if (localVal) {
+            cb(localVal);
+            try { _fbDb.ref(key).set(localVal); } catch(e) {}
+          } else {
+            cb('');
+          }
+        }).catch(function(){ cb(localVal); });
+        return;
+      } catch(e) {}
+    }
+    cb(localVal);
+  }
+
+  function _ndmrDMY(d) {
+    if (!d) return '';
+    var p = d.split('-');
+    return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : d;
+  }
+
+  function _ndmrSum(arr) { return arr.reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0); }
+
+  // মূল রিপোর্ট জেনারেটর — এই date এর সব needle entry থেকে রিপোর্ট টেক্সট বানায়
+  function renderDailyMgrReport() {
+    // Admin guard (defense-in-depth — সরাসরি কল হলেও যেন কাজ না করে)
+    if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+      var outEl0 = document.getElementById('ndmr-output');
+      if (outEl0) outEl0.textContent = '❌ শুধুমাত্র Admin এই রিপোর্ট দেখতে পারবেন।';
+      return;
+    }
+
+    var dateEl = document.getElementById('ndmr-date');
+    var date = dateEl ? dateEl.value : todayStr();
+    if (!date) { date = todayStr(); if (dateEl) dateEl.value = date; }
+
+    var all = (typeof NDB !== 'undefined') ? (NDB.needles || []) : [];
+    var today = all.filter(function(r){ return r.date === date; });
+
+    var shifts = ['A','B','C'];
+
+    // ── Regular needle (Broken + AfterWash + Designing) — Shift অনুযায়ী New/Old ──
+    // flatknit ও newset আলাদাভাবে নিচে দেখানো হবে, তাই এখানে বাদ
+    var regularTypes = ['broken','afterwash','designing','retail'];
+    function shiftQty(shift, ndlType) {
+      return _ndmrSum(today.filter(function(r){
+        if ((r.shift||'A') !== shift) return false;
+        if ((r.needleType||'new') !== ndlType) return false;
+        return regularTypes.indexOf((r.type||'').toLowerCase()) > -1;
+      }));
+    }
+
+    var shiftLines = shifts.map(function(s){
+      return { shift:s, nw: shiftQty(s,'new'), old: shiftQty(s,'used') };
+    });
+    var totalShiftNew = shiftLines.reduce(function(s,r){ return s+r.nw; },0);
+    var totalShiftOld = shiftLines.reduce(function(s,r){ return s+r.old; },0);
+
+    // ── Machine Servicing (After Wash) — machine/ERP ভিত্তিক ──
+    var washEntries = today.filter(function(r){ return (r.type||'').toLowerCase()==='afterwash'; });
+    var washByMachine = {};
+    washEntries.forEach(function(r){
+      var key = r.erp || r.machine || '—';
+      if (!washByMachine[key]) washByMachine[key] = { nw:0, old:0 };
+      if ((r.needleType||'new')==='used') washByMachine[key].old += Number(r.qty)||0;
+      else washByMachine[key].nw += Number(r.qty)||0;
+    });
+    var washMachineKeys = Object.keys(washByMachine);
+    var washTotalNew = washMachineKeys.reduce(function(s,k){ return s+washByMachine[k].nw; },0);
+    var washTotalOld = washMachineKeys.reduce(function(s,k){ return s+washByMachine[k].old; },0);
+
+    // ── New Set Setting — machine/ERP ভিত্তিক ──
+    var newsetEntries = today.filter(function(r){ return (r.type||'').toLowerCase()==='newset'; });
+    var newsetByMachine = {};
+    newsetEntries.forEach(function(r){
+      var key = r.erp || r.machine || '—';
+      if (!newsetByMachine[key]) newsetByMachine[key] = 0;
+      newsetByMachine[key] += Number(r.qty)||0;
+    });
+    var newsetMachineKeys = Object.keys(newsetByMachine);
+
+    // ── Flat Knit — Shift অনুযায়ী ──
+    var flatEntries = today.filter(function(r){ return (r.type||'').toLowerCase()==='flatknit'; });
+    var flatByShift = {};
+    shifts.forEach(function(s){ flatByShift[s] = _ndmrSum(flatEntries.filter(function(r){ return (r.shift||'A')===s; })); });
+    var flatTotal = shifts.reduce(function(s,sh){ return s+flatByShift[sh]; },0);
+
+    // ── Grand Total — সব ধরনের New / Old needle (servicing/newset/flatknit সহ) ──
+    var grandNew = totalShiftNew + washTotalNew + newsetMachineKeys.reduce(function(s,k){ return s+newsetByMachine[k]; },0) + flatTotal;
+    var grandOld = totalShiftOld + washTotalOld;
+
+    // ── Production (kg) লোড করে টেক্সট রেন্ডার করো ──
+    ndmrLoadProdKg(date, function(prodKg){
+      var prodInput = document.getElementById('ndmr-prod-kg');
+      if (prodInput && document.activeElement !== prodInput) prodInput.value = prodKg || '';
+
+      var L = [];
+      L.push('*Assalamualaikum everyone*');
+      L.push('***DAILY NEEDLE BROKEN & PRODUCTION***');
+      L.push('');
+      L.push('Date : ' + _ndmrDMY(date));
+      L.push('');
+      shiftLines.forEach(function(r){
+        L.push('Shift :- (' + r.shift + ')= ' + r.nw + ', pcs (New)+' + r.old + ', Pcs (Old)');
+      });
+      L.push('');
+      L.push('Total :- ' + totalShiftNew + ', pcs (New Needle)');
+      L.push('Total :- ' + totalShiftOld + ', pcs (Old Needle)');
+      L.push('');
+      L.push('');
+      L.push('***Machine Servicing***');
+      L.push('---------------------------------');
+      if (washMachineKeys.length) {
+        washMachineKeys.forEach(function(k){
+          var w = washByMachine[k];
+          if (w.nw) L.push('*(ERP- ' + k + ' )= ' + w.nw + ', pcs (New Needle)');
+          if (w.old) L.push('*(ERP- ' + k + ')= ' + w.old + ', Pcs (Old Needle)');
+        });
+      } else {
+        L.push('— আজকে কোনো সার্ভিসিং এন্ট্রি নেই —');
+      }
+      L.push('');
+      L.push('Total m/c= ' + washMachineKeys.length);
+      L.push('Total wash= ' + washTotalNew + ', pcs (New)+ ' + washTotalOld + ',Pcs (Old)');
+      L.push('');
+      if (newsetMachineKeys.length) {
+        newsetMachineKeys.forEach(function(k){
+          L.push('**ERP No- ( ' + k + ' ) New Set Setting');
+          L.push('Total Needle: ' + newsetByMachine[k] + ', Pcs (New)');
+        });
+        L.push('');
+      }
+      L.push('');
+      L.push('******Flat knit****');
+      shifts.forEach(function(s){ L.push('Shift :- (' + s + ')= ' + flatByShift[s] + ', pcs'); });
+      L.push('Total :-      = ' + flatTotal + ', pcs');
+      L.push('');
+      L.push('__________________________');
+      L.push('production :' + (prodKg ? Number(prodKg).toLocaleString('en-IN') : '___') + '  kg');
+      L.push('');
+      L.push('');
+      L.push('Total  needle  : ' + grandNew + ',  pcs (New)');
+      L.push('Total  needle  : ' + grandOld + ', pcs (Old)');
+
+      var outEl = document.getElementById('ndmr-output');
+      if (outEl) outEl.textContent = L.join('\n');
+    });
+  }
+
+  // ক্লিপবোর্ডে রিপোর্ট কপি করা — সরাসরি WhatsApp এ পেস্ট করার জন্য
+  function ndmrCopyReport() {
+    var outEl = document.getElementById('ndmr-output');
+    if (!outEl) return;
+    var text = outEl.textContent || '';
+    function done(ok){
+      var btn = document.getElementById('ndmr-copy-btn');
+      if (ok && typeof toast === 'function') toast('✅ রিপোর্ট কপি হয়েছে — এখন WhatsApp এ পেস্ট করুন', 'success');
+      else if (!ok && typeof toast === 'function') toast('❌ কপি করতে সমস্যা হয়েছে', 'error');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ done(true); }).catch(function(){ done(false); });
+    } else {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+      } catch(e) { done(false); }
     }
   }
 
