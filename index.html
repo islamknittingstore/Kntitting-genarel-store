@@ -778,29 +778,34 @@ if('serviceWorker' in navigator){
     .nur-page1 { page-break-after: always; overflow: visible !important; width: 100% !important; }
     .nur-page1 table { width: 100% !important; border-collapse: collapse !important; }
     .nur-page2 { page-break-before: always; overflow: visible !important; width: 100% !important; }
-    .nur-page1 table, .nur-page2 table { width: 100% !important; font-size: 8pt !important; table-layout: fixed !important; }
+    .nur-page3 { page-break-after: always; overflow: visible !important; width: 100% !important; }
+    .nur-page3 table { width: 100% !important; border-collapse: collapse !important; }
+    .nur-page1 table, .nur-page2 table, .nur-page3 table { width: 100% !important; font-size: 8pt !important; table-layout: fixed !important; }
     /* সব cell — base style */
     .nur-page1 th, .nur-page1 td,
-    .nur-page2 th, .nur-page2 td { padding: 1px 3px !important; border: 0.7px solid #000 !important; background: #fff !important; color: #000 !important; font-weight: normal !important; overflow: hidden !important; }
+    .nur-page2 th, .nur-page2 td,
+    .nur-page3 th, .nur-page3 td { padding: 1px 3px !important; border: 0.7px solid #000 !important; background: #fff !important; color: #000 !important; font-weight: normal !important; overflow: hidden !important; }
     /* Header (th) — wrap হবে, কাটবে না */
-    .nur-page1 th, .nur-page2 th { font-weight: bold !important; background: #fff !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
+    .nur-page1 th, .nur-page2 th, .nur-page3 th { font-weight: bold !important; background: #fff !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
     /* Date column — চওড়া, nowrap, উপর-নিচে যাবে না */
     .nur-page1 td:first-child, .nur-page1 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
     .nur-page2 td:first-child, .nur-page2 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
+    .nur-page3 td:first-child, .nur-page3 th:first-child { min-width: 68px !important; width: 68px !important; white-space: nowrap !important; overflow: visible !important; }
     /* Total column (last td per group) — wrap হবে */
-    .nur-page1 td.nur-total, .nur-page2 td.nur-total,
-    .nur-page1 th.nur-total, .nur-page2 th.nur-total { white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
+    .nur-page1 td.nur-total, .nur-page2 td.nur-total, .nur-page3 td.nur-total,
+    .nur-page1 th.nur-total, .nur-page2 th.nur-total, .nur-page3 th.nur-total { white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
     /* Data cells — nowrap, font বড় হবে */
     .nur-page1 td:not(:first-child):not(.nur-total),
-    .nur-page2 td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }
+    .nur-page2 td:not(:first-child):not(.nur-total),
+    .nur-page3 td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }
     /* সব রঙ বাদ — Excel style */
-    .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
-    .nur-page1 tr[style], .nur-page2 tr[style] { background: #fff !important; color: #000 !important; }
+    .nur-page1 tr, .nur-page2 tr, .nur-page3 tr { background: #fff !important; }
+    .nur-page1 tr[style], .nur-page2 tr[style], .nur-page3 tr[style] { background: #fff !important; color: #000 !important; }
     /* Off day/Holiday row — হালকা gray (Excel style) */
-    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td, .nur-page3 tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Total column ও worker name header — হালকা gray (Excel style) */
-    .nur-page1 td.nur-total, .nur-page2 td.nur-total,
-    .nur-page1 th.nur-total, .nur-page2 th.nur-total { background: #d8d8d8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 td.nur-total, .nur-page2 td.nur-total, .nur-page3 td.nur-total,
+    .nur-page1 th.nur-total, .nur-page2 th.nur-total, .nur-page3 th.nur-total { background: #d8d8d8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row (TOTAL row) — একটু গাঢ় gray */
     .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a0a0a0 !important; color: #000 !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
@@ -2322,6 +2327,7 @@ var IGL_NAV_ITEMS = {
   'nav-needle-monthly':    { label: '📊 Monthly Machine Wise',    section: '🪡 Needle Section' },
   'nav-needle-daily':      { label: '📆 Daily Summary',           section: '🪡 Needle Section' },
   'nav-needle-use-report': { label: '📋 Shift Needle Use Report', section: '🪡 Needle Section' },
+  'nav-needle-jaq-report': { label: '🔷 Jacquard Needle Use Report', section: '🪡 Needle Section' },
   'nav-needle-newset-record':{ label: '📝 New Set Record',        section: '🪡 Needle Section' },
   'nav-needle-newset':     { label: '🆕 New Set Log',             section: '🪡 Needle Section' },
   'nav-needle-remarks':    { label: '📝 Remarks Report',          section: '🪡 Needle Section' },
@@ -2646,6 +2652,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
       <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
       <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
+      <li id="nav-needle-jaq-report" class="admin-only-action"><a href="#" onclick="showPage('needle_jaq_report', this); return false;"><span class="icon">🔷</span> Jacquard Needle Use Report</a></li>
       <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
       <li id="nav-needle-newset"><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
       <li id="nav-needle-remarks"><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
@@ -5230,6 +5237,7 @@ function ok(msg) {
           <button class="btn btn-primary btn-sm" onclick="renderNeedleUseReport()">View</button>
           <button class="btn btn-outline btn-sm no-print" onclick="nurShowPrintSettings()">🖨️ Print (Both)</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(1)">🖨️ Page 1</button>
+          <button class="btn btn-sm no-print" style="background:#154360;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(3)">🖨️ Jacquard</button>
           <button class="btn btn-sm no-print" style="background:#6e2f1a;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurPrintPage(2)">🖨️ Page 2</button>
           <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
@@ -5370,6 +5378,32 @@ function ok(msg) {
 
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="needleUseReportGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JACQUARD NEEDLE USE REPORT PAGE -->
+  <div class="page" id="page-needle_jaq_report">
+    <div class="page-header">
+      <h2>🔷 Jacquard Needle Use Report</h2>
+      <p>Jacquard Machine (ERP 136–140) — Designing Needle Shift-wise, New Set column-এ</p>
+    </div>
+    <div class="card">
+      <div class="card-header" style="background:#f0f3f7;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select class="form-control" id="jnr-month" style="width:130px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="jnr-year" value="2026" min="2020" max="2050" style="width:90px;">
+          <button class="btn btn-primary btn-sm" onclick="renderJaqNeedleReport()">View</button>
+          <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="window.print()">🖨️ Print</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="jaqNeedleReportGrid"></div>
       </div>
     </div>
   </div>
@@ -5669,6 +5703,218 @@ function ok(msg) {
 
 <script>
 // ══════════════════════════════════════════════
+//  JACQUARD NEEDLE USE REPORT — renderJaqNeedleReport()
+// ══════════════════════════════════════════════
+(function(){
+  // Jacquard machine ERP numbers
+  var JAQ_ERPS = ['136','137','138','139','140'];
+
+  // month names
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Set default month/year on page show
+  var _origShowPage2 = window.showPage;
+  window.showPage = function(name, el) {
+    if (typeof _origShowPage2 === 'function') _origShowPage2.apply(this, arguments);
+    if (name === 'needle_jaq_report') {
+      var _isAdminJaq = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+      if (!_isAdminJaq) {
+        if(typeof toast === 'function') toast('❌ এই page দেখার permission নেই!', 'error');
+        return;
+      }
+    }
+      setTimeout(function(){
+        var d = new Date();
+        var mEl = document.getElementById('jnr-month');
+        var yEl = document.getElementById('jnr-year');
+        if (mEl && !mEl._jnrInit) { mEl.value = d.getMonth()+1; mEl._jnrInit=true; }
+        if (yEl && !yEl._jnrInit) { yEl.value = d.getFullYear(); yEl._jnrInit=true; }
+      }, 50);
+    }
+  };
+
+  window.renderJaqNeedleReport = function() {
+    var month = parseInt(document.getElementById('jnr-month').value);
+    var year  = parseInt(document.getElementById('jnr-year').value);
+    var grid  = document.getElementById('jaqNeedleReportGrid');
+    if (!grid) return;
+
+    var allNeedles = (typeof NDB !== 'undefined' ? NDB.needles : []) || [];
+
+    // Filter: this month+year, Jacquard ERP (136-140), new needle only
+    var filtered = allNeedles.filter(function(r){
+      if (!r.date) return false;
+      var parts = r.date.split('-');
+      if (parseInt(parts[1]) !== month || parseInt(parts[0]) !== year) return false;
+      if ((r.needleType||'new').toLowerCase() === 'used') return false;
+      var erp = String(r.erp || r.machine || '').trim();
+      return JAQ_ERPS.indexOf(erp) >= 0;
+    });
+
+    // Build days list for the month
+    var daysInMonth = new Date(year, month, 0).getDate();
+    var days = [];
+    for (var d=1; d<=daysInMonth; d++) {
+      days.push(year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0'));
+    }
+
+    // Workers (same as NUR)
+    var workers = (typeof NDB !== 'undefined' && NDB.workers) ? NDB.workers.filter(function(w){ return w.active !== false && w.section !== 'Flat Knit'; }) : [];
+
+    function getQ(day, type, workerId, erp) {
+      return filtered.filter(function(r){
+        return r.date===day && r.type===type
+          && (r.shift===workerId||r.workerId===workerId||r.worker===workerId)
+          && (!erp || String(r.erp||r.machine||'').trim()===erp);
+      }).reduce(function(s,r){return s+r.qty;},0);
+    }
+
+    // For qty regardless of worker (shift-based), group by shift
+    function getShiftQ(day, type, shift, erp) {
+      return filtered.filter(function(r){
+        return r.date===day && r.type===type
+          && (r.shift||'').toUpperCase()===shift.toUpperCase()
+          && (!erp || String(r.erp||r.machine||'').trim()===erp);
+      }).reduce(function(s,r){return s+r.qty;},0);
+    }
+
+    // Columns: same as original but "Designing" replaced by per-Jacquard-machine columns in New Set area
+    // Table structure:
+    //   Date | Broken(A,B,C,T) | After Wash(A,B,C,T) | Flat Knit(A,B,C,T) |
+    //   New Set — per Jacquard machine (136 A,B,C,T | 137 A,B,C,T | ...) | Remarks | Total
+    // Workers col replaced by Shift A/B/C cols
+
+    var shifts = ['A','B','C'];
+    var types1 = [
+      {key:'broken',   label:'Broken'},
+      {key:'afterwash',label:'After Wash'},
+      {key:'flatknit', label:'Flat Knit'}
+    ];
+
+    // Grand totals
+    var gt = {};
+    types1.forEach(function(t){ gt[t.key]={A:0,B:0,C:0,total:0}; });
+    var gtJaq = {};
+    JAQ_ERPS.forEach(function(erp){ gtJaq[erp]={A:0,B:0,C:0,total:0}; });
+    var gtTotal = {A:0,B:0,C:0,total:0};
+
+    var title = '<h3 style="text-align:center;margin-bottom:2px;">Islam Garments Limited</h3>'
+      + '<h4 style="text-align:center;margin-bottom:10px;">Jacquard Needle Use Report — '+MONTHS[month]+' '+year+'</h4>';
+
+    var html = '<div style="overflow-x:auto;">' + title;
+    html += '<table style="border-collapse:collapse;font-size:11px;width:100%;table-layout:fixed;">';
+    html += '<thead>';
+
+    // Header row 1: group labels
+    html += '<tr style="background:#1c2833;color:#fff;">';
+    html += '<th rowspan="2" style="padding:2px 3px;border:1px solid #555;width:68px;text-align:center;font-size:8px;">Date</th>';
+    types1.forEach(function(t){
+      html += '<th colspan="4" style="padding:3px;border:1px solid #555;text-align:center;">'+t.label+'</th>';
+    });
+    // New Set — one group per Jacquard machine
+    JAQ_ERPS.forEach(function(erp){
+      html += '<th colspan="4" style="padding:3px;border:1px solid #555;text-align:center;background:#154360;">New Set<br><span style="font-size:9px;">ERP-'+erp+'</span></th>';
+    });
+    html += '<th rowspan="2" style="padding:3px;border:2px solid #555;border-left:3px solid #555;border-right:3px solid #555;text-align:center;width:70px;">Remarks</th>';
+    html += '</tr>';
+
+    // Header row 2: A / B / C / Total
+    html += '<tr style="background:#2c3e50;color:#fff;">';
+    var shiftHeaders = shifts.map(function(s){ return '<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:30px;font-size:9px;">'+s+'</th>'; }).join('') + '<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:30px;background:#117a65;font-size:9px;">T</th>';
+    var totalCols = types1.length * 4 + JAQ_ERPS.length * 4;
+    for (var ci=0; ci < types1.length + JAQ_ERPS.length; ci++) {
+      html += shiftHeaders;
+    }
+    html += '</tr></thead><tbody>';
+
+    // Data rows
+    days.forEach(function(day){
+      var d2 = new Date(day);
+      var dd = String(d2.getDate()).padStart(2,'0');
+      var mm = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d2.getMonth()];
+      var yy = String(d2.getFullYear()).slice(2);
+      var dayLabel = dd+' '+mm+' '+yy;
+      var isFri = d2.getDay()===5;
+      var hasData = filtered.some(function(r){ return r.date===day; });
+
+      html += '<tr style="height:22px;'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#ccc;')+'">';
+      html += '<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
+
+      // Broken / AfterWash / FlatKnit — shift-wise
+      types1.forEach(function(t){
+        var rowT=0;
+        shifts.forEach(function(sh){
+          var q = getShiftQ(day, t.key, sh, null);
+          // For broken & afterwash: all machines, for flatknit: all
+          // But we filter to Jacquard machines only
+          // Broken & afterwash for non-Jacquard machines still appear on original NUR
+          // Here we want ONLY Jacquard machine entries
+          var qj = filtered.filter(function(r){
+            return r.date===day && r.type===t.key && (r.shift||'').toUpperCase()===sh;
+          }).reduce(function(s,r){return s+r.qty;},0);
+          gt[t.key][sh] += qj; rowT += qj;
+          html += '<td style="padding:2px;border:1px solid #ddd;text-align:center;">'+(qj||'')+'</td>';
+        });
+        gt[t.key].total += rowT;
+        html += '<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;">'+(rowT||'')+'</td>';
+      });
+
+      // New Set — per Jacquard machine, shift-wise (type='designing' for jacquard = new set)
+      var rowRemarks = [];
+      JAQ_ERPS.forEach(function(erp){
+        var mRowT = 0;
+        shifts.forEach(function(sh){
+          var qj = filtered.filter(function(r){
+            return r.date===day && r.type==='designing'
+              && (r.shift||'').toUpperCase()===sh
+              && String(r.erp||r.machine||'').trim()===erp;
+          }).reduce(function(s,r){return s+r.qty;},0);
+          gtJaq[erp][sh] += qj; mRowT += qj;
+          html += '<td style="padding:2px;border:1px solid #ddd;text-align:center;background:#eaf4fb;">'+(qj||'')+'</td>';
+        });
+        gtJaq[erp].total += mRowT;
+        html += '<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#d6eaf8;">'+(mRowT||'')+'</td>';
+        if (mRowT>0) rowRemarks.push('New Set ERP-'+erp+' ('+mRowT+'pcs)');
+      });
+
+      html += '<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:2px 4px;font-size:7.5px;color:#555;word-break:break-word;">'+rowRemarks.join(', ')+'</td>';
+      html += '</tr>';
+    });
+
+    // Total row
+    html += '<tr style="background:#1c2833;color:#fff;font-weight:700;">';
+    html += '<td style="padding:4px 2px;border:1px solid #555;text-align:center;font-size:8px;">TOTAL</td>';
+    types1.forEach(function(t){
+      var rowT=0;
+      shifts.forEach(function(sh){
+        html += '<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gt[t.key][sh]||'')+'</td>';
+        rowT+=gt[t.key][sh];
+      });
+      html += '<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;">'+(gt[t.key].total||'')+'</td>';
+    });
+    JAQ_ERPS.forEach(function(erp){
+      shifts.forEach(function(sh){
+        html += '<td style="padding:2px;border:1px solid #555;text-align:center;background:#1a5276;">'+(gtJaq[erp][sh]||'')+'</td>';
+      });
+      html += '<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;">'+(gtJaq[erp].total||'')+'</td>';
+    });
+    html += '<td style="border:2px solid #555;"></td>';
+    html += '</tr>';
+
+    // Grand summary
+    var grandNewSet = JAQ_ERPS.reduce(function(s,erp){return s+gtJaq[erp].total;},0);
+    var grandBroken = gt['broken'].total;
+    html += '<tr style="background:#f8f9fa;">';
+    html += '<td colspan="'+(1+types1.length*4+JAQ_ERPS.length*4+1)+'" style="padding:4px 8px;border:1px solid #ddd;font-size:9px;">';
+    html += '<b>Broken: '+grandBroken+'</b> | <b>New Set (Jacquard Total): '+grandNewSet+' pcs</b>';
+    html += '</td></tr>';
+
+    html += '</tbody></table></div>';
+    grid.innerHTML = html;
+  };
+})();
+
+// ══════════════════════════════════════════════
 //  DAILY REPORT GENERATOR  —  generateDailyReport()
 // ══════════════════════════════════════════════
 (function(){
@@ -5783,7 +6029,7 @@ function generateDailyReport() {
   var flat_total = fA + fB + fC;
 
   // ── Grand totals ──
-  var grand_new = circ_total_new + flat_total + serv_total_new + newset_total;
+  var grand_new = circ_total_new + serv_total_new; // flat knit ও new set বাদ
   var grand_old = circ_total_old + serv_total_old;
 
   // ── Format date dd/mm/yyyy ──
@@ -18595,7 +18841,7 @@ const NDB = {
 // Workers (for needle use report)
 function getWorkers(){
   var w=_get('igl_ndl_workers');
-  if(!w||!w.length) w=[{id:'w1',name:'Aminul'},{id:'w2',name:'Nazrul'},{id:'w3',name:'Alom'}];
+  if(!w||!w.length) w=[{id:'w1',name:'Shawkat'},{id:'w2',name:'Nazrul'},{id:'w3',name:'Alom'}];
   return w;
 }
 function setWorkers(arr){ _set('igl_ndl_workers',arr); }
@@ -20766,7 +21012,12 @@ function pkgModalAdd(){
   var msg=document.getElementById('pkg-mm');
   if(!name){msg.innerHTML='<span style="color:#e74c3c">⚠️ Item Name দিন!</span>';return;}
   if(DB.pkgItems.find(function(i){return i.name===name;})){msg.innerHTML='<span style="color:#e67e22">⚠️ এই আইটেম আগেই আছে!</span>';return;}
-  var arr=DB.pkgItems;arr.push({group:'Packaging',category:cat,name:name});DB.pkgItems=arr;
+  var arr=DB.pkgItems;arr.push({group:'Packaging',category:cat,name:name,id:Date.now()});DB.pkgItems=arr;
+  // Firebase ও Google Drive এ save করো
+  clearTimeout(window._fbSaveTimer);
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  if(typeof gdriveAutoSave === 'function') gdriveAutoSave();
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
   document.getElementById('pkg-mc').value='';document.getElementById('pkg-mn').value='';
   msg.innerHTML='<span style="color:#27ae60">✅ "'+name+'" যোগ হয়েছে!</span>';
   setTimeout(function(){msg.innerHTML='';},2500);
@@ -25086,6 +25337,129 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var oldTable=buildOldTable(allTypes5);
 
+    // ── Jacquard version: সেম buildOldTable কিন্তু:
+    //    - 'designing' column → 'Jacquard' (শুধু ERP 136-140 এর broken entries)
+    //    - 'newset' column → Design entries + original newset entries
+    var JAQ_ERPS_NUR = ['136','137','138','139','140'];
+
+    var allTypesJaq=[
+      {key:'broken',   label:'Broken'},
+      {key:'afterwash',label:'After Wash'},
+      {key:'jacquard', label:'Jacquard'},   // ERP 136-140 broken entries
+      {key:'flatknit', label:'Flat Knit'},
+      {key:'newset_jaq',label:'New Set+Design'}    // design + original newset
+    ];
+
+    function buildJaqTable(types){
+      var wCols=workers.length;
+      var html='<table style="border-collapse:collapse;font-size:11px;width:100%;height:100%;table-layout:fixed;">';
+      html+='<thead>';
+      html+='<tr style="background:#1c2833;color:#fff;">';
+      html+='<th rowspan="2" style="padding:2px 3px;border:1px solid #555;width:68px;max-width:68px;min-width:68px;text-align:center;font-size:8px;">Date</th>';
+      types.forEach(function(t){
+        html+='<th colspan="'+(wCols+1)+'" style="padding:5px 8px;border:1px solid #555;text-align:center;">'+t.label+'</th>';
+      });
+      html+='<th rowspan="2" style="padding:5px 8px;border:2px solid #555;border-left:3px solid #555;border-right:3px solid #555;text-align:center;width:55px;max-width:55px;">Remarks</th>';
+      html+='</tr>';
+      html+='<tr style="background:#2c3e50;color:#fff;">';
+      types.forEach(function(){
+        workers.forEach(function(w){
+          html+='<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:38px;white-space:nowrap;font-size:11px;" class="nur-total">'+w.name+'</th>';
+        });
+        html+='<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:38px;background:#117a65;font-size:11px;" class="nur-total">Total</th>';
+      });
+      html+='</tr></thead><tbody>';
+
+      var gt={};
+      types.forEach(function(t){ gt[t.key]={total:0}; workers.forEach(function(w){ gt[t.key][w.id]=0; }); });
+
+      function getQjaq(day, typeKey, wId) {
+        return filtered.filter(function(r){
+          if (r.date!==day) return false;
+          if ((r.needleType||'new').toLowerCase()==='used') return false;
+          var w = r.worker || r.workerId || r.shift || '';
+          if (wId && w && w!==wId) return false;
+          var erp = String(r.erp||r.machine||'').trim();
+          var isJaq = JAQ_ERPS_NUR.indexOf(erp) >= 0;
+          var rType = (r.type||'').toLowerCase();
+
+          if (typeKey==='jacquard') {
+            // ERP 136-140 এর broken entries
+            return isJaq && rType==='broken';
+          } else if (typeKey==='newset_jaq') {
+            // Design entries (সব machine) + original newset (non-Jacquard) entries
+            return rType==='designing' || rType==='retail' || rType==='newset';
+          } else if (typeKey==='broken') {
+            // Non-Jacquard broken entries
+            return !isJaq && rType==='broken';
+          } else {
+            return rType===typeKey;
+          }
+        }).reduce(function(s,r){ return s+r.qty; },0);
+      }
+
+      days.forEach(function(day){
+        var dayLabel=(function(){ var d=new Date(day); var dd=String(d.getDate()).padStart(2,'0'); var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; var yy=String(d.getFullYear()).slice(2); return dd+' '+mm+' '+yy; })();
+        var isFri=new Date(day).getDay()===5;
+        var hasData=filtered.some(function(r){ return r.date===day && (r.needleType||'new')==='new'; });
+        var isOff=isFri;
+        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';
+        html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
+        types.forEach(function(t){
+          var rowT=0;
+          workers.forEach(function(w){
+            var q=getQjaq(day,t.key,w.id);
+            gt[t.key][w.id]+=q; rowT+=q;
+            html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
+          });
+          gt[t.key].total+=rowT;
+          html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
+        });
+        // Remarks — New Set, Accident + Design machine numbers
+        var dayRemarks=filtered.filter(function(r){
+          if(r.date!==day) return false;
+          if(!r.remarks) return false;
+          var rm=r.remarks.trim().toLowerCase();
+          return rm.indexOf('new set')===0 || rm.indexOf('machine accident')===0;
+        }).map(function(r){
+          // "Machine Accident (90)" → "Accident (90)"
+          return r.remarks.replace(/^Machine Accident/i,'Accident');
+        });
+        // Design entries → "Design ERP-xxx" style (সব machine, ERP restriction নেই)
+        var designRemarks=filtered.filter(function(r){
+          if(r.date!==day) return false;
+          return (r.type||'')==='designing' || (r.type||'')==='retail';
+        }).map(function(r){ return 'Design ERP-'+(r.erp||r.machine||'?'); });
+        // Jacquard New Set entries → "New Set ERP-136" style
+        var jaqNewSetRemarks=filtered.filter(function(r){
+          if(r.date!==day) return false;
+          var erp=String(r.erp||r.machine||'').trim();
+          return JAQ_ERPS_NUR.indexOf(erp)>=0 && (r.type||'')==='newset';
+        }).map(function(r){ return 'New Set ERP-'+(r.erp||r.machine); });
+        var allRemarks=[...new Set(dayRemarks.concat(designRemarks).concat(jaqNewSetRemarks))].join(', ');
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:2px 4px;font-size:8px;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;">'+allRemarks+'</td>';
+        html+='</tr>';
+      });
+
+      // Total row
+      html+='<tr style="background:#1c2833;color:#fff;font-weight:700;" class="nur-grand-total">';
+      html+='<td style="padding:4px 2px;border:1px solid #555;text-align:center;width:68px;max-width:68px;min-width:68px;font-size:8px;" class="nur-total">TOTAL</td>';
+      types.forEach(function(t){
+        workers.forEach(function(w){
+          html+='<td style="padding:2px;border:1px solid #555;text-align:center;">'+(gt[t.key][w.id]||'')+'</td>';
+        });
+        html+='<td style="padding:2px;border:1px solid #555;text-align:center;background:#117a65;" class="nur-total">'+(gt[t.key].total||'')+'</td>';
+      });
+      html+='<td style="border:2px solid #555;border-left:3px solid #555;border-right:3px solid #555;background:#1c2833;" class="nur-total"></td>';
+      html+='</tr>';
+      html+='</tbody></table>';
+      return html;
+    }
+
+    var jaqTable=buildJaqTable(allTypesJaq);
+    var rowPxJaq=22;
+    jaqTable=jaqTable.replace(/<tr>/g,'<tr style="height:'+rowPxJaq+'px;">');
+
     // Inject row height so table fills A4 landscape page
     // A4 landscape @6mm margin → usable ~185mm ≈ 700px
     // Title ~40px + badge ~32px + thead ~28px + total row ~20px = ~120px used
@@ -25105,6 +25479,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html+=title;
     html+='<div class="no-print" style="background:#d6eaf8;border-left:4px solid #2980b9;padding:6px 12px;margin-bottom:8px;font-weight:700;color:#1a5276;">🆕 New Needle Only</div>';
     html+=oldTable;
+    html+='</div>';
+
+    // ── Jacquard Page ──
+    html+='<hr class="no-print" style="border:2px solid #2c3e50;margin:20px 0;">';
+    html+='<h4 class="no-print" style="margin-bottom:10px;color:#154360;">🔷 Jacquard Needle Use Report</h4>';
+    html+='<div class="nur-page3" style="overflow-x:auto;margin-bottom:20px;">';
+    var jaqTitle='<h3 style="text-align:center;margin-bottom:2px;">Islam Garments Limited</h3>'
+      +'<h4 style="text-align:center;margin-bottom:10px;">Jacquard Needle Use Report — '+monthNames[month-1]+' '+year+'</h4>';
+    html+=jaqTitle;
+    html+='<div class="no-print" style="background:#d5f5e3;border-left:4px solid #1e8449;padding:6px 12px;margin-bottom:8px;font-weight:700;color:#1e8449;">🔷 Jacquard — Broken আলাদা, Design → New Set</div>';
+    html+=jaqTable;
     html+='</div>';
 
     // Divider (screen only)
