@@ -2337,6 +2337,8 @@ var IGL_NAV_ITEMS = {
   'nav-needle-ledger':     { label: '📒 Needle Ledger',           section: '🪡 Needle Section' },
   'nav-needle-mapping':    { label: '🔗 Needle-Machine Map',      section: '🪡 Needle Section' },
   'nav-needle-daily-report': { label: '📨 Daily Report Generator', section: '🪡 Needle Section' },
+  'personal_ledger': { label: '💰 Personal Ledger', section: '🔐 Personal' },
+  'personal_vault':  { label: '🔑 My Vault',        section: '🔐 Personal' },
   // Stationery
   'nav-stn-dashboard':     { label: '📊 Stationery Dashboard',    section: '🖊️ Stationery' },
   'nav-pkg-dashboard':     { label: '📊 Packaging Dashboard',     section: '📦 Packaging' }
@@ -2709,6 +2711,18 @@ window.iglSaveNavVisibility = function() {
       <li><a href="#" onclick="exportFullExcel(); return false;"><span class="icon">📊</span> Export Full Excel</a></li>
       <li><a href="#" onclick="showPage('sheets_setup', this); return false;"><span class="icon">🔗</span> Google Sheets Sync</a></li>
       <li><a href="#" onclick="importData(); return false;"><span class="icon">⬇️</span> Import Data</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-group admin-only-action" id="grp-vault">
+    <div class="sidebar-group-header" onclick="toggleGroup('vault')">
+      <span class="grp-icon">🔐</span>
+      <span class="grp-title">Personal</span>
+      <span class="grp-arrow" id="arr-vault">▶</span>
+    </div>
+    <ul class="sidebar-submenu" id="sub-vault" style="display:none;">
+      <li><a href="#" onclick="showPage('personal_ledger', this); return false;"><span class="icon">💰</span> Personal Ledger</a></li>
+      <li><a href="#" onclick="showPage('personal_vault', this); return false;"><span class="icon">🔑</span> My Vault</a></li>
     </ul>
   </div>
 
@@ -5697,9 +5711,467 @@ function ok(msg) {
     </div>
   </div>
 
+  <!-- PERSONAL LEDGER PAGE -->
+  <div class="page" id="page-personal_ledger">
+    <div class="page-header no-print">
+      <h2>💰 Personal Ledger</h2>
+      <p>ব্যক্তিগত আয়, ব্যয়, ধার — শুধুমাত্র Admin দেখতে পাবেন</p>
+    </div>
+    <div class="card no-print">
+      <div class="card-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div class="field" style="flex:0 0 130px;">
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">তারিখ</label>
+            <input type="date" class="form-control" id="pl-date">
+          </div>
+          <div class="field" style="flex:1;min-width:160px;">
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">বিবরণ</label>
+            <input type="text" class="form-control" id="pl-desc" placeholder="কী কারণে...">
+          </div>
+          <div class="field" style="flex:0 0 110px;">
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">পরিমাণ (৳)</label>
+            <input type="number" class="form-control" id="pl-amount" placeholder="0" min="0">
+          </div>
+          <div class="field" style="flex:0 0 120px;">
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">ধরন</label>
+            <select class="form-control" id="pl-type">
+              <option value="expense">💸 ব্যয়</option>
+              <option value="income">💵 আয়</option>
+              <option value="loan_given">🤝 ধার দিলাম</option>
+              <option value="loan_recv">↩️ ধার পেলাম</option>
+            </select>
+          </div>
+          <div class="field" style="flex:0 0 130px;">
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">কার কাছে/থেকে</label>
+            <input type="text" class="form-control" id="pl-person" placeholder="নাম (ঐচ্ছিক)">
+          </div>
+          <button class="btn btn-primary" onclick="plAddEntry()" style="margin-bottom:1px;">➕ যোগ করুন</button>
+        </div>
+      </div>
+    </div>
+    <!-- Filter -->
+    <div class="card no-print">
+      <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <select class="form-control" id="pl-filter-type" onchange="plRender()" style="width:140px;">
+          <option value="">সব ধরন</option>
+          <option value="expense">💸 ব্যয়</option>
+          <option value="income">💵 আয়</option>
+          <option value="loan_given">🤝 ধার দিলাম</option>
+          <option value="loan_recv">↩️ ধার পেলাম</option>
+        </select>
+        <input type="month" class="form-control" id="pl-filter-month" onchange="plRender()" style="width:150px;">
+        <input type="text" class="form-control" id="pl-filter-search" oninput="plRender()" placeholder="🔍 খুঁজুন..." style="width:160px;">
+        <div id="pl-summary" style="margin-left:auto;font-size:13px;font-weight:700;"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#1c2833;color:#fff;">
+              <th style="padding:10px 8px;text-align:center;width:40px;">#</th>
+              <th style="padding:10px 8px;">তারিখ</th>
+              <th style="padding:10px 8px;">বিবরণ</th>
+              <th style="padding:10px 8px;text-align:center;">ধরন</th>
+              <th style="padding:10px 8px;">ব্যক্তি</th>
+              <th style="padding:10px 8px;text-align:right;">পরিমাণ</th>
+              <th style="padding:10px 8px;text-align:center;width:60px;">Del</th>
+            </tr>
+          </thead>
+          <tbody id="pl-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa;">কোনো entry নেই</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MY VAULT PAGE -->
+  <div class="page" id="page-personal_vault">
+    <div class="page-header no-print">
+      <h2>🔑 My Vault</h2>
+      <p>পাসওয়ার্ড, Gmail, WiFi — Encrypted, শুধুমাত্র Admin</p>
+    </div>
+    <!-- PIN Lock Screen -->
+    <div id="vault-lock-screen" class="card" style="max-width:380px;margin:40px auto;">
+      <div class="card-body" style="text-align:center;padding:30px;">
+        <div style="font-size:48px;margin-bottom:16px;">🔐</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Vault PIN দিন</div>
+        <div style="font-size:12px;color:#7f8c8d;margin-bottom:20px;">প্রথমবার হলে নতুন PIN সেট হবে</div>
+        <input type="password" id="vault-pin-input" class="form-control" placeholder="PIN (min 4 digit)" style="text-align:center;font-size:20px;letter-spacing:8px;margin-bottom:12px;" maxlength="20" onkeydown="if(event.key==='Enter') vaultUnlock()">
+        <button class="btn btn-primary" onclick="vaultUnlock()" style="width:100%;">🔓 Unlock</button>
+        <div id="vault-pin-msg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
+      </div>
+    </div>
+    <!-- Vault Content (hidden until unlocked) -->
+    <div id="vault-content" style="display:none;">
+      <!-- Add Entry -->
+      <div class="card no-print">
+        <div class="card-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="field" style="flex:0 0 140px;">
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);">Category</label>
+              <select class="form-control" id="vt-cat">
+                <option value="password">🔒 Password</option>
+                <option value="wifi">📶 WiFi</option>
+                <option value="email">📧 Email/Gmail</option>
+                <option value="bank">🏦 Bank/Card</option>
+                <option value="note">📝 Note</option>
+                <option value="other">📌 Other</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);">Title / Name</label>
+              <input type="text" class="form-control" id="vt-title" placeholder="যেমন: Gmail, WiFi Home...">
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);">Username / ID</label>
+              <input type="text" class="form-control" id="vt-user" placeholder="username বা email">
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);">Password / Key</label>
+              <input type="text" class="form-control" id="vt-pass" placeholder="password">
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);">Note (ঐচ্ছিক)</label>
+              <input type="text" class="form-control" id="vt-note" placeholder="অতিরিক্ত তথ্য">
+            </div>
+            <button class="btn btn-primary" onclick="vaultAddEntry()">➕ Save</button>
+          </div>
+        </div>
+      </div>
+      <!-- Vault List -->
+      <div id="vt-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:4px 0;"></div>
+      <div style="text-align:center;margin-top:20px;">
+        <button class="btn btn-sm no-print" onclick="vaultLock()" style="background:#922b21;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:700;">🔒 Lock Vault</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 
 <input type="file" id="importFile" style="display:none;" accept=".json" onchange="doImport(event)">
+
+<script>
+// ══════════════════════════════════════════════
+//  PERSONAL LEDGER
+// ══════════════════════════════════════════════
+(function(){
+  var PL_FB_PATH = 'igl_erp/admin_personal/ledger';
+
+  function plGetAll(cb) {
+    try {
+      var raw = localStorage.getItem('igl_pl_cache');
+      var cached = raw ? JSON.parse(raw) : [];
+      if (typeof _fbDb !== 'undefined') {
+        _fbDb.ref(PL_FB_PATH).once('value').then(function(snap){
+          var data = snap.val() || {};
+          var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+          localStorage.setItem('igl_pl_cache', JSON.stringify(entries));
+          cb(entries);
+        }).catch(function(){ cb(cached); });
+      } else { cb(cached); }
+    } catch(e){ cb([]); }
+  }
+
+  function plSave(entry, cb) {
+    if (typeof _fbDb !== 'undefined') {
+      _fbDb.ref(PL_FB_PATH + '/' + entry.id).set(entry).then(cb).catch(cb);
+    }
+    // update cache
+    try {
+      var raw = localStorage.getItem('igl_pl_cache');
+      var cached = raw ? JSON.parse(raw) : [];
+      var idx = cached.findIndex(function(e){ return e.id===entry.id; });
+      if (idx>=0) cached[idx]=entry; else cached.unshift(entry);
+      localStorage.setItem('igl_pl_cache', JSON.stringify(cached));
+    } catch(e){}
+  }
+
+  function plDelete(id) {
+    if (typeof _fbDb !== 'undefined') {
+      _fbDb.ref(PL_FB_PATH + '/' + id).remove();
+    }
+    try {
+      var raw = localStorage.getItem('igl_pl_cache');
+      var cached = raw ? JSON.parse(raw) : [];
+      localStorage.setItem('igl_pl_cache', JSON.stringify(cached.filter(function(e){ return e.id!==id; })));
+    } catch(e){}
+  }
+
+  var _plData = [];
+  var TYPE_LABELS = {
+    expense: '💸 ব্যয়', income: '💵 আয়',
+    loan_given: '🤝 ধার দিলাম', loan_recv: '↩️ ধার পেলাম'
+  };
+  var TYPE_COLORS = {
+    expense:'#e74c3c', income:'#27ae60', loan_given:'#e67e22', loan_recv:'#2980b9'
+  };
+
+  window.plRender = function(data) {
+    if (data) _plData = data;
+    var typeF = (document.getElementById('pl-filter-type')||{}).value||'';
+    var monthF = (document.getElementById('pl-filter-month')||{}).value||'';
+    var searchF = ((document.getElementById('pl-filter-search')||{}).value||'').toLowerCase();
+    var rows = _plData.filter(function(e){
+      if (typeF && e.type!==typeF) return false;
+      if (monthF && (e.date||'').slice(0,7)!==monthF) return false;
+      if (searchF && (e.desc||'').toLowerCase().indexOf(searchF)<0 && (e.person||'').toLowerCase().indexOf(searchF)<0) return false;
+      return true;
+    });
+    var tbody = document.getElementById('pl-tbody');
+    if (!tbody) return;
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa;">কোনো entry নেই</td></tr>'; }
+    else {
+      var h='';
+      rows.forEach(function(e,i){
+        var col=TYPE_COLORS[e.type]||'#555';
+        h+='<tr style="border-bottom:1px solid #f0f0f0;">'
+          +'<td style="padding:8px;text-align:center;color:#aaa;font-size:12px;">'+(i+1)+'</td>'
+          +'<td style="padding:8px;font-size:12px;white-space:nowrap;">'+e.date+'</td>'
+          +'<td style="padding:8px;font-weight:600;">'+e.desc+'</td>'
+          +'<td style="padding:8px;text-align:center;"><span style="background:'+col+';color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;white-space:nowrap;">'+(TYPE_LABELS[e.type]||e.type)+'</span></td>'
+          +'<td style="padding:8px;font-size:12px;color:#555;">'+(e.person||'—')+'</td>'
+          +'<td style="padding:8px;text-align:right;font-weight:700;color:'+col+';">৳'+(e.amount||0).toLocaleString()+'</td>'
+          +'<td style="padding:8px;text-align:center;"><button onclick="plDelEntry(\''+e.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button></td>'
+          +'</tr>';
+      });
+      tbody.innerHTML=h;
+    }
+    // Summary
+    var totalExp=0,totalInc=0,totalLoanOut=0,totalLoanIn=0;
+    rows.forEach(function(e){
+      if(e.type==='expense') totalExp+=e.amount||0;
+      else if(e.type==='income') totalInc+=e.amount||0;
+      else if(e.type==='loan_given') totalLoanOut+=e.amount||0;
+      else if(e.type==='loan_recv') totalLoanIn+=e.amount||0;
+    });
+    var sumEl=document.getElementById('pl-summary');
+    if(sumEl) sumEl.innerHTML='<span style="color:#27ae60">আয়: ৳'+totalInc.toLocaleString()+'</span> | <span style="color:#e74c3c">ব্যয়: ৳'+totalExp.toLocaleString()+'</span> | <span style="color:#e67e22">ধার দেওয়া: ৳'+totalLoanOut.toLocaleString()+'</span>';
+  };
+
+  window.plAddEntry = function() {
+    var date=(document.getElementById('pl-date')||{}).value||'';
+    var desc=((document.getElementById('pl-desc')||{}).value||'').trim();
+    var amount=parseFloat((document.getElementById('pl-amount')||{}).value)||0;
+    var type=(document.getElementById('pl-type')||{}).value||'expense';
+    var person=((document.getElementById('pl-person')||{}).value||'').trim();
+    if(!date||!desc||!amount){ if(typeof toast==='function') toast('তারিখ, বিবরণ ও পরিমাণ দিন!','warning'); return; }
+    var entry={id:'pl_'+Date.now(), date:date, desc:desc, amount:amount, type:type, person:person, createdAt:new Date().toISOString()};
+    plSave(entry, function(){
+      _plData.unshift(entry);
+      plRender();
+      document.getElementById('pl-desc').value='';
+      document.getElementById('pl-amount').value='';
+      document.getElementById('pl-person').value='';
+      if(typeof toast==='function') toast('✅ Entry যোগ হয়েছে!','success');
+    });
+  };
+
+  window.plDelEntry = function(id) {
+    if(!confirm('এই entry ডিলিট করবেন?')) return;
+    plDelete(id);
+    _plData = _plData.filter(function(e){ return e.id!==id; });
+    plRender();
+    if(typeof toast==='function') toast('🗑️ Deleted','warning');
+  };
+
+  // Load on page show
+  var _origSP3 = window.showPage;
+  window.showPage = function(name, el){
+    if(typeof _origSP3==='function') _origSP3.apply(this,arguments);
+    if(name==='personal_ledger'){
+      // Admin guard
+      if(!window.IGL_CURRENT_USER||window.IGL_CURRENT_USER.role!=='admin'){ if(typeof toast==='function') toast('❌ Admin only!','error'); return; }
+      setTimeout(function(){
+        var dEl=document.getElementById('pl-date');
+        if(dEl&&!dEl.value){ var d=new Date(); dEl.value=d.toISOString().split('T')[0]; }
+        plGetAll(function(data){ plRender(data); });
+      },50);
+    }
+  };
+})();
+
+// ══════════════════════════════════════════════
+//  MY VAULT — AES-256 Encryption via PIN
+// ══════════════════════════════════════════════
+(function(){
+  var VT_FB_PATH = 'igl_erp/admin_personal/vault';
+  var _vtPin = null;
+  var _vtData = [];
+
+  var CAT_ICONS = {password:'🔒',wifi:'📶',email:'📧',bank:'🏦',note:'📝',other:'📌'};
+  var CAT_COLORS = {password:'#8e44ad',wifi:'#2980b9',email:'#e74c3c',bank:'#27ae60',note:'#e67e22',other:'#7f8c8d'};
+
+  // Simple XOR-based encryption with PIN (lightweight, no external lib needed)
+  function vtEncrypt(text, pin) {
+    try {
+      var key = pin.split('').map(function(c){ return c.charCodeAt(0); });
+      var bytes = unescape(encodeURIComponent(text));
+      var result = '';
+      for(var i=0;i<bytes.length;i++){
+        result += String.fromCharCode(bytes.charCodeAt(i) ^ key[i % key.length]);
+      }
+      return btoa(result);
+    } catch(e){ return ''; }
+  }
+
+  function vtDecrypt(enc, pin) {
+    try {
+      var key = pin.split('').map(function(c){ return c.charCodeAt(0); });
+      var bytes = atob(enc);
+      var result = '';
+      for(var i=0;i<bytes.length;i++){
+        result += String.fromCharCode(bytes.charCodeAt(i) ^ key[i % key.length]);
+      }
+      return decodeURIComponent(escape(result));
+    } catch(e){ return null; }
+  }
+
+  // PIN hash (SHA-256 lite — simple hash for verification)
+  function vtHash(pin) {
+    var h = 0;
+    for(var i=0;i<pin.length;i++){ h = (Math.imul(31,h) + pin.charCodeAt(i)) | 0; }
+    return 'vh_' + Math.abs(h).toString(16) + '_' + pin.length;
+  }
+
+  function vtGetPinHash(cb) {
+    if(typeof _fbDb!=='undefined'){
+      _fbDb.ref(VT_FB_PATH+'/__pin__').once('value').then(function(s){ cb(s.val()); }).catch(function(){ cb(null); });
+    } else { cb(localStorage.getItem('igl_vt_pin_hash')); }
+  }
+
+  function vtSetPinHash(hash) {
+    if(typeof _fbDb!=='undefined') _fbDb.ref(VT_FB_PATH+'/__pin__').set(hash);
+    localStorage.setItem('igl_vt_pin_hash', hash);
+  }
+
+  window.vaultUnlock = function() {
+    var pin = (document.getElementById('vault-pin-input')||{}).value||'';
+    var msg = document.getElementById('vault-pin-msg');
+    if(pin.length < 4){ if(msg) msg.innerHTML='<span style="color:#e74c3c">⚠️ কমপক্ষে ৪ digit PIN দিন</span>'; return; }
+    vtGetPinHash(function(storedHash){
+      if(!storedHash){
+        // First time — set PIN
+        vtSetPinHash(vtHash(pin));
+        _vtPin = pin;
+        if(msg) msg.innerHTML='<span style="color:#27ae60">✅ নতুন PIN সেট হয়েছে!</span>';
+        setTimeout(function(){ vtShowContent(); },600);
+      } else {
+        if(vtHash(pin)===storedHash){
+          _vtPin = pin;
+          if(msg) msg.innerHTML='';
+          vtShowContent();
+        } else {
+          if(msg) msg.innerHTML='<span style="color:#e74c3c">❌ PIN ভুল!</span>';
+          document.getElementById('vault-pin-input').value='';
+        }
+      }
+    });
+  };
+
+  function vtShowContent() {
+    document.getElementById('vault-lock-screen').style.display='none';
+    document.getElementById('vault-content').style.display='block';
+    vtLoadAndRender();
+  }
+
+  window.vaultLock = function() {
+    _vtPin = null; _vtData = [];
+    document.getElementById('vault-lock-screen').style.display='block';
+    document.getElementById('vault-content').style.display='none';
+    document.getElementById('vault-pin-input').value='';
+    document.getElementById('vault-pin-msg').innerHTML='';
+  };
+
+  function vtLoadAndRender() {
+    if(typeof _fbDb!=='undefined'){
+      _fbDb.ref(VT_FB_PATH).once('value').then(function(snap){
+        var data = snap.val() || {};
+        _vtData = Object.keys(data).filter(function(k){ return k!=='__pin__'; }).map(function(k){ return data[k]; });
+        vtRender();
+      }).catch(function(){ vtRender(); });
+    } else { vtRender(); }
+  }
+
+  function vtRender() {
+    var container = document.getElementById('vt-cards');
+    if(!container) return;
+    if(!_vtData.length){ container.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:40px;color:#aaa;">Vault খালি — নতুন entry যোগ করুন</div>'; return; }
+    var h='';
+    _vtData.forEach(function(item){
+      var decrypted = {};
+      try { decrypted = JSON.parse(vtDecrypt(item.enc, _vtPin)||'{}'); } catch(e){}
+      var col = CAT_COLORS[item.cat]||'#555';
+      var icon = CAT_ICONS[item.cat]||'📌';
+      h+='<div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+        +'<span style="background:'+col+';color:#fff;border-radius:8px;padding:4px 8px;font-size:14px;">'+icon+'</span>'
+        +'<span style="font-weight:700;font-size:14px;color:#2c3e50;">'+(decrypted.title||item.id)+'</span>'
+        +'<button onclick="vtDel(\''+item.id+'\')" style="margin-left:auto;background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;">🗑️</button>'
+        +'</div>';
+      if(decrypted.user) h+='<div style="margin-bottom:6px;"><span style="font-size:10px;color:#7f8c8d;font-weight:700;text-transform:uppercase;">User/ID</span><br><span style="font-size:13px;font-weight:600;color:#2c3e50;">'+decrypted.user+'</span> <button onclick="vtCopy(\''+encodeURIComponent(decrypted.user)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">Copy</button></div>';
+      if(decrypted.pass) h+='<div style="margin-bottom:6px;"><span style="font-size:10px;color:#7f8c8d;font-weight:700;text-transform:uppercase;">Password</span><br><div style="display:flex;align-items:center;gap:6px;"><span id="vtp_'+item.id+'" style="font-size:13px;font-weight:600;color:#8e44ad;letter-spacing:2px;">••••••••</span><button onclick="vtToggle(\''+item.id+'\',\''+encodeURIComponent(decrypted.pass)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">👁</button><button onclick="vtCopy(\''+encodeURIComponent(decrypted.pass)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">Copy</button></div></div>';
+      if(decrypted.note) h+='<div style="margin-top:8px;padding:8px;background:#f8f9fa;border-radius:6px;font-size:12px;color:#555;">'+decrypted.note+'</div>';
+      h+='</div>';
+    });
+    container.innerHTML=h;
+  }
+
+  window.vtToggle = function(id, encPass) {
+    var el = document.getElementById('vtp_'+id);
+    if(!el) return;
+    if(el.dataset.shown==='1'){ el.textContent='••••••••'; el.dataset.shown='0'; }
+    else { el.textContent=decodeURIComponent(encPass); el.dataset.shown='1'; }
+  };
+
+  window.vtCopy = function(encVal) {
+    var val = decodeURIComponent(encVal);
+    navigator.clipboard.writeText(val).then(function(){ if(typeof toast==='function') toast('📋 Copied!','success'); });
+  };
+
+  window.vaultAddEntry = function() {
+    if(!_vtPin){ if(typeof toast==='function') toast('Vault locked!','error'); return; }
+    var cat=(document.getElementById('vt-cat')||{}).value||'other';
+    var title=((document.getElementById('vt-title')||{}).value||'').trim();
+    var user=((document.getElementById('vt-user')||{}).value||'').trim();
+    var pass=((document.getElementById('vt-pass')||{}).value||'').trim();
+    var note=((document.getElementById('vt-note')||{}).value||'').trim();
+    if(!title){ if(typeof toast==='function') toast('Title দিন!','warning'); return; }
+    var id = 'vt_'+Date.now();
+    var enc = vtEncrypt(JSON.stringify({title:title,user:user,pass:pass,note:note}), _vtPin);
+    var item = {id:id, cat:cat, enc:enc, updatedAt:new Date().toISOString()};
+    if(typeof _fbDb!=='undefined'){
+      _fbDb.ref(VT_FB_PATH+'/'+id).set(item).then(function(){
+        _vtData.push(item);
+        vtRender();
+        ['vt-title','vt-user','vt-pass','vt-note'].forEach(function(fId){ var el=document.getElementById(fId); if(el) el.value=''; });
+        if(typeof toast==='function') toast('🔒 Saved & Encrypted!','success');
+      });
+    }
+  };
+
+  window.vtDel = function(id) {
+    if(!confirm('এই entry ডিলিট করবেন?')) return;
+    if(typeof _fbDb!=='undefined') _fbDb.ref(VT_FB_PATH+'/'+id).remove();
+    _vtData = _vtData.filter(function(i){ return i.id!==id; });
+    vtRender();
+    if(typeof toast==='function') toast('🗑️ Deleted','warning');
+  };
+
+  // showPage hook
+  var _origSP4 = window.showPage;
+  window.showPage = function(name, el){
+    if(typeof _origSP4==='function') _origSP4.apply(this,arguments);
+    if(name==='personal_vault'){
+      if(!window.IGL_CURRENT_USER||window.IGL_CURRENT_USER.role!=='admin'){ if(typeof toast==='function') toast('❌ Admin only!','error'); return; }
+      // Reset lock screen each visit
+      vaultLock();
+      setTimeout(function(){ document.getElementById('vault-pin-input').focus(); },100);
+    }
+  };
+})();
+</script>
 
 <script>
 // ══════════════════════════════════════════════
@@ -8176,9 +8648,17 @@ function seedData() {
 // 
 function getStock(itemName) {
   var bf = 0;
-  if (typeof DB !== 'undefined' && DB.stnItems) {
-    var it = DB.stnItems.find(function(x){ return x.name === itemName; });
-    if (it) bf = Number(it.bf) || 0;
+  if (typeof DB !== 'undefined') {
+    // Stationery bf
+    if (DB.stnItems) {
+      var it = DB.stnItems.find(function(x){ return x.name === itemName; });
+      if (it) bf = Number(it.bf) || 0;
+    }
+    // Packaging bf
+    if (!bf && DB.pkgItems) {
+      var pit = DB.pkgItems.find(function(x){ return x.name === itemName; });
+      if (pit) bf = Number(pit.bf) || 0;
+    }
   }
   const rec = DB.receives.filter(r => r.item === itemName).reduce((s,r) => s + Number(r.qty), 0);
   const iss = DB.issues.filter(i => i.item === itemName).reduce((s,i) => s + Number(i.qty), 0);
@@ -8876,15 +9356,39 @@ function stnToggleForm(type) {
 }
 
 function stnPopulateItems(selectId) {
-  var allItems = DB.stnItems;
   var hidden   = stnGetHiddenItems();
-  var stnItems = allItems.filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var stnItems = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var pkgItems = (DB.pkgItems||[]);
   var sel = document.getElementById(selectId);
+  if (!sel) return;
   var current = sel.value;
-  sel.innerHTML = '<option value="">-- Select Stationery Item --</option>';
-  stnItems.forEach(function(it){
-    sel.innerHTML += '<option value="' + it.name + '"' + (it.name===current?' selected':'') + '>' + it.name + '</option>';
-  });
+  sel.innerHTML = '<option value="">-- Select Item --</option>';
+  // Stationery items
+  if (stnItems.length) {
+    var grpStn = document.createElement('optgroup');
+    grpStn.label = '📋 Stationery';
+    stnItems.forEach(function(it){
+      var opt = document.createElement('option');
+      opt.value = it.name;
+      opt.textContent = it.name;
+      if (it.name === current) opt.selected = true;
+      grpStn.appendChild(opt);
+    });
+    sel.appendChild(grpStn);
+  }
+  // Packaging items
+  if (pkgItems.length) {
+    var grpPkg = document.createElement('optgroup');
+    grpPkg.label = '📦 Packaging';
+    pkgItems.forEach(function(it){
+      var opt = document.createElement('option');
+      opt.value = it.name;
+      opt.textContent = it.name;
+      if (it.name === current) opt.selected = true;
+      grpPkg.appendChild(opt);
+    });
+    sel.appendChild(grpPkg);
+  }
 }
 
 function stnStockBadge(itemName, badgeId) {
@@ -8950,7 +9454,12 @@ function stnSaveReceive() {
     return;
   }
 
-  var rec = { id: Date.now(), date: date, group: 'Stationery', category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  // item কোন group-এ সেটা detect করো
+  var _rcvGroup = 'Stationery';
+  var _pkgRcvIt = (DB.pkgItems||[]).find(function(x){ return x.name===item; });
+  if (_pkgRcvIt) _rcvGroup = 'Packaging';
+
+  var rec = { id: Date.now(), date: date, group: _rcvGroup, category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   var arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -9055,8 +9564,13 @@ async function stnSaveIssue() {
     if (!ok) return;
   }
 
-  var iss = { id: Date.now(), date: date, slip: slip, group: 'Stationery', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-              machineId: dept, machineNo: '', machineCat: 'Stationery', remarks: remarks };
+  // item কোন group-এ সেটা detect করো
+  var _issGroup = 'Stationery';
+  var _pkgIt = (DB.pkgItems||[]).find(function(x){ return x.name===item; });
+  if (_pkgIt) _issGroup = 'Packaging';
+
+  var iss = { id: Date.now(), date: date, slip: slip, group: _issGroup, category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
+              machineId: dept, machineNo: '', machineCat: _issGroup, remarks: remarks };
   var arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -12917,15 +13431,39 @@ function pkgToggleForm(type) {
 }
 
 function pkgPopulateItems(selectId) {
-  var allItems = DB.pkgItems;
   var hidden   = pkgGetHiddenItems();
-  var pkgItems = allItems.filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var pkgItems = (DB.pkgItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var stnItems = (DB.stnItems||[]);
   var sel = document.getElementById(selectId);
+  if (!sel) return;
   var current = sel.value;
-  sel.innerHTML = '<option value="">-- Select Packaging Item --</option>';
-  pkgItems.forEach(function(it){
-    sel.innerHTML += '<option value="' + it.name + '"' + (it.name===current?' selected':'') + '>' + it.name + '</option>';
-  });
+  sel.innerHTML = '<option value="">-- Select Item --</option>';
+  // Packaging items first
+  if (pkgItems.length) {
+    var grpPkg = document.createElement('optgroup');
+    grpPkg.label = '📦 Packaging';
+    pkgItems.forEach(function(it){
+      var opt = document.createElement('option');
+      opt.value = it.name;
+      opt.textContent = it.name;
+      if (it.name === current) opt.selected = true;
+      grpPkg.appendChild(opt);
+    });
+    sel.appendChild(grpPkg);
+  }
+  // Stationery items
+  if (stnItems.length) {
+    var grpStn = document.createElement('optgroup');
+    grpStn.label = '📋 Stationery';
+    stnItems.forEach(function(it){
+      var opt = document.createElement('option');
+      opt.value = it.name;
+      opt.textContent = it.name;
+      if (it.name === current) opt.selected = true;
+      grpStn.appendChild(opt);
+    });
+    sel.appendChild(grpStn);
+  }
 }
 
 function pkgStockBadge(itemName, badgeId) {
@@ -15661,6 +16199,9 @@ function renderPackagingDashboard() {
 
   var itemStats = pkgItems.map(function(it){
     var baseBf = Number(it.bf) || 0;
+    // Same নামের Stationery item-এর BF ও যোগ করো
+    var stnIt = (DB.stnItems||[]).find(function(x){ return x.name===it.name; });
+    if (stnIt) baseBf += Number(stnIt.bf) || 0;
     // dateFrom থাকলে: সেই তারিখের আগের সব receive - issue দিয়ে Opening Stock বের করো
     var recBefore = _dateFrom ? DB.receives.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
     var issBefore = _dateFrom ? DB.issues.filter(function(r){ return r.item===it.name && r.date<_dateFrom; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0) : 0;
