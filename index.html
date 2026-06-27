@@ -1252,6 +1252,10 @@ if('serviceWorker' in navigator){
       var _safeRcv = (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){ return !_delCache['rcv:'+String(r.id)]; }) : [];
       var _safeIss = (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){ return !_delCache['iss:'+String(r.id)]; }) : [];
       var _safeNdl = (typeof NDB !== 'undefined') ? (NDB.needles||[]).filter(function(r){ return !_delCache['ndl:'+String(r.id)]; }) : [];
+
+      // ⚠️ Safety check: NDB.needles খালি হলে Firebase এ needle overwrite করবো না
+      // এতে accidental empty push থেকে data রক্ষা পাবে
+      var _skipNeedles = _safeNdl.length === 0;
       var _safeNdlRcv = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]').filter(function(r){ return !_delCache['ndlrcv:'+String(r.id)]; });
       // deletedIds — in-memory cache থেকে নিয়ে data এ include করো
       // যাতে fbSaveAll overwrite করলেও deletedIds না হারায়
@@ -1270,7 +1274,7 @@ if('serviceWorker' in navigator){
           issues:   _safeIss
         },
         ndb: {
-          needles: _safeNdl,
+          needles: _skipNeedles ? undefined : _safeNdl,
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
@@ -25065,8 +25069,34 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var month=Number(document.getElementById('nur-month').value);
     var year=Number(document.getElementById('nur-year').value);
     var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    // পুরনো মাস হলে Firebase থেকে load করো
+    var reqMonthStart = year+'-'+(month<10?'0':'')+month+'-01';
+    var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
+    var cutoffStr = cutoff.toISOString().split('T')[0];
+    if(reqMonthStart < cutoffStr){
+      var nurBody = document.getElementById('needleUseReportGrid');
+      if(nurBody) nurBody.innerHTML='<div style="padding:30px;text-align:center;color:#888;">⏳ পুরনো মাসের ডাটা Firebase থেকে লোড হচ্ছে...</div>';
+      try{
+        firebase.database().ref('igl_erp/ndb/needles').once('value').then(function(snap){
+          var fbData = snap.val() || [];
+          if(!Array.isArray(fbData)) fbData = Object.values(fbData);
+          _renderNURWithData(month, year, fbData);
+        }).catch(function(err){
+          if(nurBody) nurBody.innerHTML='<div style="padding:30px;text-align:center;color:#e74c3c;">❌ ডাটা লোড সমস্যা: '+err.message+'</div>';
+        });
+      }catch(e){
+        if(nurBody) nurBody.innerHTML='<div style="padding:30px;text-align:center;color:#e74c3c;">❌ Firebase সংযোগ সমস্যা</div>';
+      }
+      return;
+    }
+    _renderNURWithData(month, year, null);
+  }
+
+  function _renderNURWithData(month, year, fullHistory){
+    var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
     var daysInMonth=new Date(year,month,0).getDate();
-    var iss=(typeof NDB!=='undefined')?NDB.needles:[];
+    var iss = fullHistory || ((typeof NDB!=='undefined')?NDB.needles:[]);
     var filtered=iss.filter(function(r){
       var nd=new Date(r.date);
       return nd.getMonth()+1===month && nd.getFullYear()===year;
@@ -28957,24 +28987,52 @@ function pqbDoPrint() {
     });
     var tbody = document.getElementById('pl-tbody');
     if (!tbody) return;
-    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa;">কোনো entry নেই</td></tr>'; }
-    else {
-      var h='';
-      rows.forEach(function(e,i){
-        var col=TYPE_COLORS[e.type]||'#555';
-        h+='<tr style="border-bottom:1px solid #f0f0f0;">'
-          +'<td style="padding:8px;text-align:center;color:#aaa;font-size:12px;">'+(i+1)+'</td>'
-          +'<td style="padding:8px;font-size:12px;white-space:nowrap;">'+e.date+'</td>'
-          +'<td style="padding:8px;font-weight:600;">'+e.desc+'</td>'
-          +'<td style="padding:8px;text-align:center;"><span style="background:'+col+';color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;white-space:nowrap;">'+(TYPE_LABELS[e.type]||e.type)+'</span></td>'
-          +'<td style="padding:8px;font-size:12px;color:#555;">'+(e.person||'—')+'</td>'
-          +'<td style="padding:8px;text-align:right;font-weight:700;color:'+col+';">৳'+(e.amount||0).toLocaleString()+'</td>'
-          +'<td style="padding:8px;text-align:center;"><button onclick="plDelEntry(\''+e.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button></td>'
-          +'</tr>';
+    if (!rows.length) {
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa;">কোনো entry নেই</td></tr>';
+    } else {
+      // ব্যক্তির নাম অনুযায়ী group করো
+      var personMap = {};
+      rows.forEach(function(e){
+        var key = (e.person||'').trim() || '—';
+        if (!personMap[key]) personMap[key] = [];
+        personMap[key].push(e);
       });
-      tbody.innerHTML=h;
+      var h = '';
+      Object.keys(personMap).sort().forEach(function(person){
+        var entries = personMap[person];
+        var totalAmt = 0;
+        entries.forEach(function(e){
+          if(e.type==='loan_given'||e.type==='expense') totalAmt -= (e.amount||0);
+          else totalAmt += (e.amount||0);
+        });
+        var totalCol = totalAmt >= 0 ? '#27ae60' : '#e74c3c';
+        // Person header
+        h += '<tr><td colspan="7" style="padding:10px 12px;background:#1c2833;color:#fff;font-weight:700;font-size:13px;">'
+           + '👤 ' + person
+           + '<span style="float:right;color:'+(totalAmt>=0?'#a9dfbf':'#f1948a')+';">ব্যালেন্স: ৳'+Math.abs(totalAmt).toLocaleString()+(totalAmt>=0?' (পাওনা)':' (দেনা)')+'</span>'
+           + '</td></tr>';
+        entries.forEach(function(e,i){
+          var col = TYPE_COLORS[e.type]||'#555';
+          h += '<tr style="border-bottom:1px solid #f0f0f0;background:'+(i%2===0?'#fafafa':'#fff')+';">'
+            +'<td style="padding:8px;text-align:center;color:#aaa;font-size:12px;">'+(i+1)+'</td>'
+            +'<td style="padding:8px;font-size:12px;white-space:nowrap;">'+e.date+'</td>'
+            +'<td style="padding:8px;font-weight:600;">'+e.desc+'</td>'
+            +'<td style="padding:8px;text-align:center;"><span style="background:'+col+';color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;white-space:nowrap;">'+(TYPE_LABELS[e.type]||e.type)+'</span></td>'
+            +'<td style="padding:8px;font-size:12px;color:#555;">'+(e.person||'—')+'</td>'
+            +'<td style="padding:8px;text-align:right;font-weight:700;color:'+col+';">৳'+(e.amount||0).toLocaleString()+'</td>'
+            +'<td style="padding:8px;text-align:center;"><button onclick="plDelEntry(\''+e.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button></td>'
+            +'</tr>';
+        });
+        // Subtotal row
+        h += '<tr style="background:#eaf4fb;font-weight:700;">'
+           + '<td colspan="5" style="padding:8px 12px;font-size:12px;color:#555;">মোট: '+entries.length+' টি</td>'
+           + '<td style="padding:8px;text-align:right;color:'+totalCol+';">৳'+Math.abs(totalAmt).toLocaleString()+'</td>'
+           + '<td></td></tr>';
+        h += '<tr><td colspan="7" style="padding:5px;border:none;"></td></tr>';
+      });
+      tbody.innerHTML = h;
     }
-    // Summary
+    // Grand Summary
     var totalExp=0,totalInc=0,totalLoanOut=0,totalLoanIn=0;
     rows.forEach(function(e){
       if(e.type==='expense') totalExp+=e.amount||0;
@@ -28983,7 +29041,7 @@ function pqbDoPrint() {
       else if(e.type==='loan_recv') totalLoanIn+=e.amount||0;
     });
     var sumEl=document.getElementById('pl-summary');
-    if(sumEl) sumEl.innerHTML='<span style="color:#27ae60">আয়: ৳'+totalInc.toLocaleString()+'</span> | <span style="color:#e74c3c">ব্যয়: ৳'+totalExp.toLocaleString()+'</span> | <span style="color:#e67e22">ধার দেওয়া: ৳'+totalLoanOut.toLocaleString()+'</span>';
+    if(sumEl) sumEl.innerHTML='<span style="color:#27ae60">আয়: ৳'+totalInc.toLocaleString()+'</span> | <span style="color:#e74c3c">ব্যয়: ৳'+totalExp.toLocaleString()+'</span> | <span style="color:#e67e22">ধার দেওয়া: ৳'+totalLoanOut.toLocaleString()+'</span> | <span style="color:#2980b9">ধার পেলাম: ৳'+totalLoanIn.toLocaleString()+'</span>';
   };
 
   window.plAddEntry = function() {
