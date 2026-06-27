@@ -20381,27 +20381,56 @@ function stnModalAdd(){
   var msg=document.getElementById('stn-mm');
   if(!name){msg.innerHTML='<span style="color:#e74c3c">⚠️ Item Name দিন!</span>';return;}
   if(DB.stnItems.find(function(i){return i.name===name;})){msg.innerHTML='<span style="color:#e67e22">⚠️ এই আইটেম আগেই আছে!</span>';return;}
-  var arr=DB.stnItems;arr.push({group:'Stationery',category:cat,name:name});DB.stnItems=arr;
+
+  if (cat === 'Packaging') {
+    // Packaging category → pkgItems-এ যাবে
+    if (DB.pkgItems.find(function(i){ return i.name===name; })) {
+      msg.innerHTML='<span style="color:#e67e22">⚠️ এই আইটেম Packaging-এ আগেই আছে!</span>';return;
+    }
+    var pkgArr = DB.pkgItems;
+    pkgArr.push({group:'Packaging', category:cat, name:name, id:Date.now()});
+    DB.pkgItems = pkgArr;
+    clearTimeout(window._fbSaveTimer);
+    if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
+    if(typeof triggerAutoSave === 'function') triggerAutoSave();
+    msg.innerHTML='<span style="color:#27ae60">✅ "'+name+'" Packaging-এ যোগ হয়েছে!</span>';
+  } else {
+    // অন্য category → stnItems-এ যাবে
+    var arr=DB.stnItems;
+    arr.push({group:'Stationery',category:cat,name:name});
+    DB.stnItems=arr;
+    msg.innerHTML='<span style="color:#27ae60">✅ "'+name+'" Stationery-এ যোগ হয়েছে!</span>';
+  }
+
   document.getElementById('stn-mc').value='';document.getElementById('stn-mn').value='';
-  msg.innerHTML='<span style="color:#27ae60">✅ "'+name+'" যোগ হয়েছে!</span>';
   setTimeout(function(){msg.innerHTML='';},2500);
-  stnMtRender();stnPopulateItems('stn-r-item');stnPopulateItems('stn-i-item');
+  stnMtRender();stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:'');stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
   toast('✅ "'+name+'" লিস্টে যোগ হয়েছে!','success');
   document.getElementById('stn-mn').focus();
 }
 function stnMtRender(){
   var tb=document.getElementById('stn-mt');if(!tb)return;
-  var items=[];DB.stnItems.forEach(function(it,i){items.push({it:it,i:i});});
+  var items=[];
+  DB.stnItems.forEach(function(it,i){items.push({it:it,i:i,src:'stn'});});
+  DB.pkgItems.forEach(function(it,i){items.push({it:it,i:i,src:'pkg'});});
   if(!items.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:18px;color:#aaa;">কোনো আইটেম নেই</td></tr>';return;}
   var h='';
   items.forEach(function(x,sl){
     var stk=typeof getStock==='function'?getStock(x.it.name):0;
     var sc=stk<=0?'#e74c3c':stk<=10?'#e67e22':'#27ae60';
-    h+='<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:7px 6px;text-align:center;color:#aaa;font-size:12px;">'+(sl+1)+'</td>';
-    h+='<td style="padding:7px 6px;font-size:13px;">'+(x.it.category||'<span style="color:#ccc">&#8212;</span>')+'</td>';
-    h+='<td style="padding:7px 6px;font-size:13px;font-weight:600;">'+x.it.name+'</td>';
-    h+='<td style="padding:7px 6px;text-align:center;color:'+sc+';font-weight:700;font-size:13px;">'+stk+'</td>';
-    h+='<td style="padding:7px 6px;text-align:center;">'+(window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin'?'<button onclick="stnMtDel('+x.i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button>':'')+'</td></tr>';
+    var isPkg = x.src==='pkg';
+    var catLabel = isPkg
+      ? '<span style="background:#e67e22;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;">📦 Packaging</span>'
+      : (x.it.category||'<span style="color:#ccc">&#8212;</span>');
+    var delBtn = (window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin')
+      ? '<button onclick="'+(isPkg?'pkgMtDel('+x.i+')':'stnMtDel('+x.i+')')+'" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button>'
+      : '';
+    h+='<tr style="border-bottom:1px solid #f0f0f0;'+(isPkg?'background:#fff8f0;':'')+'">'
+      +'<td style="padding:7px 6px;text-align:center;color:#aaa;font-size:12px;">'+(sl+1)+'</td>'
+      +'<td style="padding:7px 6px;font-size:13px;">'+catLabel+'</td>'
+      +'<td style="padding:7px 6px;font-size:13px;font-weight:600;">'+x.it.name+'</td>'
+      +'<td style="padding:7px 6px;text-align:center;color:'+sc+';font-weight:700;font-size:13px;">'+stk+'</td>'
+      +'<td style="padding:7px 6px;text-align:center;">'+delBtn+'</td></tr>';
   });
   tb.innerHTML=h;
 }
