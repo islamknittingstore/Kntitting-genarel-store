@@ -3236,7 +3236,7 @@ window.iglSaveNavVisibility = function() {
     <div id="stn-form-receive" style="display:none;margin-bottom:20px;">
       <div class="card" style="border-top:4px solid #2980b9;">
         <div class="card-header" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
-          📥 Stationery — Receive Entry
+          📥 Stationery / Packaging — Receive Entry
           <button onclick="stnToggleForm('receive')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
         </div>
         <div class="card-body">
@@ -3247,9 +3247,16 @@ window.iglSaveNavVisibility = function() {
                 <input type="date" class="form-control" id="stn-r-date">
               </div>
               <div class="form-group">
+                <label>Section *</label>
+                <select class="form-control" id="stn-r-section" onchange="stnPopulateItems('stn-r-item', this.value); stnUpdateReceiveStock();">
+                  <option value="Stationery">📋 Stationery</option>
+                  <option value="Packaging">📦 Packaging</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label>Item Name *</label>
                 <select class="form-control" id="stn-r-item" onchange="stnUpdateReceiveStock()">
-                  <option value="">-- Select Stationery Item --</option>
+                  <option value="">-- Select Item --</option>
                 </select>
               </div>
               <div class="form-group">
@@ -3285,7 +3292,7 @@ window.iglSaveNavVisibility = function() {
     <div id="stn-form-issue" style="display:none;margin-bottom:20px;">
       <div class="card" style="border-top:4px solid #c0392b;">
         <div class="card-header" style="background:linear-gradient(135deg,#922b21,#c0392b);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
-          📤 Stationery — Issue Entry
+          📤 Stationery / Packaging — Issue Entry
           <button onclick="stnToggleForm('issue')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
         </div>
         <div class="card-body">
@@ -3300,9 +3307,16 @@ window.iglSaveNavVisibility = function() {
                 <input type="text" class="form-control" id="stn-i-slip" placeholder="e.g. SLP-2026-001">
               </div>
               <div class="form-group">
+                <label>Section *</label>
+                <select class="form-control" id="stn-i-section" onchange="stnPopulateItems('stn-i-item', this.value); stnUpdateIssueStock();">
+                  <option value="Stationery">📋 Stationery</option>
+                  <option value="Packaging">📦 Packaging</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label>Item Name *</label>
                 <select class="form-control" id="stn-i-item" onchange="stnUpdateIssueStock()">
-                  <option value="">-- Select Stationery Item --</option>
+                  <option value="">-- Select Item --</option>
                 </select>
               </div>
               <div class="form-group">
@@ -8846,16 +8860,42 @@ function stnToggleForm(type) {
   }
 }
 
-function stnPopulateItems(selectId) {
-  var allItems = DB.stnItems;
-  var hidden   = stnGetHiddenItems();
-  var stnItems = allItems.filter(function(it){ return hidden.indexOf(it.id) === -1; });
+function stnPopulateItems(selectId, section) {
+  var hidden = stnGetHiddenItems();
   var sel = document.getElementById(selectId);
+  if (!sel) return;
   var current = sel.value;
-  sel.innerHTML = '<option value="">-- Select Stationery Item --</option>';
-  stnItems.forEach(function(it){
-    sel.innerHTML += '<option value="' + it.name + '"' + (it.name===current?' selected':'') + '>' + it.name + '</option>';
-  });
+  sel.innerHTML = '<option value="">-- Select Item --</option>';
+
+  if (!section || section === 'Stationery') {
+    var stnItems = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+    if (stnItems.length) {
+      var grp = document.createElement('optgroup');
+      grp.label = '📋 Stationery';
+      stnItems.forEach(function(it){
+        var opt = document.createElement('option');
+        opt.value = it.name; opt.textContent = it.name;
+        if (it.name === current) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    }
+  }
+
+  if (!section || section === 'Packaging') {
+    var pkgItems = (DB.pkgItems||[]);
+    if (pkgItems.length) {
+      var grpP = document.createElement('optgroup');
+      grpP.label = '📦 Packaging';
+      pkgItems.forEach(function(it){
+        var opt = document.createElement('option');
+        opt.value = it.name; opt.textContent = it.name;
+        if (it.name === current) opt.selected = true;
+        grpP.appendChild(opt);
+      });
+      sel.appendChild(grpP);
+    }
+  }
 }
 
 function stnStockBadge(itemName, badgeId) {
@@ -8908,6 +8948,7 @@ function stnSaveReceive() {
   var chalan   = document.getElementById('stn-r-chalan').value;
   var supplier = document.getElementById('stn-r-supplier').value;
   var qty      = document.getElementById('stn-r-qty').value;
+  var section  = (document.getElementById('stn-r-section')||{}).value || 'Stationery';
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr3 = window.iglCheckBackdate(date);
@@ -8921,7 +8962,7 @@ function stnSaveReceive() {
     return;
   }
 
-  var rec = { id: Date.now(), date: date, group: 'Stationery', category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  var rec = { id: Date.now(), date: date, group: section, category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   var arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -9002,6 +9043,7 @@ async function stnSaveIssue() {
   var qty     = Number(document.getElementById('stn-i-qty').value);
   var dept    = document.getElementById('stn-i-dept').value;
   var remarks = document.getElementById('stn-i-remarks').value;
+  var section = (document.getElementById('stn-i-section')||{}).value || 'Stationery';
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
@@ -9026,8 +9068,8 @@ async function stnSaveIssue() {
     if (!ok) return;
   }
 
-  var iss = { id: Date.now(), date: date, slip: slip, group: 'Stationery', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-              machineId: dept, machineNo: '', machineCat: 'Stationery', remarks: remarks };
+  var iss = { id: Date.now(), date: date, slip: slip, group: section, category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
+              machineId: dept, machineNo: '', machineCat: section, remarks: remarks };
   var arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
