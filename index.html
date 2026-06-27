@@ -5952,6 +5952,17 @@ function ok(msg) {
         ✅ Copied! WhatsApp-এ পেস্ট করুন।
       </div>
     </div>
+
+    <!-- History section -->
+    <div class="card" style="margin-top:10px;">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:700;font-size:14px;">📅 Previous Reports</span>
+        <button onclick="drgLoadHistory()" style="background:#1a5276;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">🔄 Refresh</button>
+      </div>
+      <div id="drg-history" style="padding:10px;">
+        <div style="text-align:center;color:#aaa;padding:20px;">লোড হচ্ছে...</div>
+      </div>
+    </div>
   </div>
 
   <!-- PERSONAL LEDGER PAGE -->
@@ -29506,7 +29517,10 @@ function pqbDoPrint() {
         if(typeof toast === 'function') toast('❌ এই page দেখার permission নেই!', 'error');
         return;
       }
-      setTimeout(drgSetDate, 50);
+      setTimeout(function(){
+        drgSetDate();
+        drgLoadHistory();
+      }, 50);
     }
   };
   document.addEventListener('DOMContentLoaded', drgSetDate);
@@ -29522,13 +29536,39 @@ function generateDailyReport() {
   var data = allNeedles.filter(function(n){ return n.date === date; });
 
   if (data.length === 0) {
-    document.getElementById('drg-summary').style.display = 'none';
-    document.getElementById('drg-output-wrap').style.display = 'none';
-    if(typeof toast==='function') toast('এই তারিখে কোনো needle entry নেই!','warning');
+    // Firebase থেকে load করার চেষ্টা করো
+    if (typeof firebase !== 'undefined') {
+      if(typeof toast==='function') toast('⏳ Firebase থেকে data লোড হচ্ছে...','warning');
+      firebase.database().ref('igl_erp/ndb/needles').once('value').then(function(snap){
+        var fbData = snap.val() || [];
+        if(!Array.isArray(fbData)) fbData = Object.values(fbData);
+        var fbFiltered = fbData.filter(function(n){ return n.date === date; });
+        if(fbFiltered.length === 0){
+          if(typeof toast==='function') toast('এই তারিখে কোনো needle entry নেই!','warning');
+          return;
+        }
+        // NDB.needles এ merge করো
+        if(typeof NDB !== 'undefined'){
+          var existing = NDB.needles || [];
+          var existingIds = {};
+          existing.forEach(function(n){ existingIds[n.id]=true; });
+          fbFiltered.forEach(function(n){ if(!existingIds[n.id]) existing.push(n); });
+          NDB.needles = existing;
+        }
+        _drgBuild(date, prod, fbFiltered);
+      }).catch(function(){
+        if(typeof toast==='function') toast('এই তারিখে কোনো needle entry নেই!','warning');
+      });
+    } else {
+      if(typeof toast==='function') toast('এই তারিখে কোনো needle entry নেই!','warning');
+    }
     return;
   }
 
-  // ── Separate new vs used ──
+  _drgBuild(date, prod, data);
+}
+
+function _drgBuild(date, prod, data) {
   var newData  = data.filter(function(n){ return (n.needleType||'new').toLowerCase() !== 'used'; });
   var usedData = data.filter(function(n){ return (n.needleType||'').toLowerCase() === 'used'; });
 
@@ -29680,6 +29720,11 @@ function generateDailyReport() {
   document.getElementById('drg-output').textContent = r;
   document.getElementById('drg-output-wrap').style.display = 'block';
   document.getElementById('drg-copy-confirm').style.display = 'none';
+
+  // Firebase-এ save করো
+  drgSaveReport(date, r);
+  // History refresh
+  drgLoadHistory();
 }
 
 function drgCopy() {
@@ -29697,6 +29742,90 @@ function drgCopy() {
     document.body.removeChild(ta);
     confirm.style.display = 'block';
     setTimeout(function(){ confirm.style.display='none'; }, 3000);
+  });
+}
+
+// ── Daily Report History ──
+var DRG_FB_PATH = 'igl_erp/admin_personal/daily_reports';
+
+function drgSaveReport(date, reportText) {
+  if (typeof firebase === 'undefined') return;
+  var key = date.replace(/-/g,'');
+  firebase.database().ref(DRG_FB_PATH + '/' + key).set({
+    date: date,
+    report: reportText,
+    savedAt: new Date().toISOString()
+  });
+}
+
+function drgLoadHistory() {
+  var container = document.getElementById('drg-history');
+  if (!container) return;
+  if (typeof firebase === 'undefined') {
+    container.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;">Firebase সংযোগ নেই</div>';
+    return;
+  }
+  container.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;">লোড হচ্ছে...</div>';
+  firebase.database().ref(DRG_FB_PATH).once('value').then(function(snap){
+    var data = snap.val() || {};
+    var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    if (!entries.length) {
+      container.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;">কোনো saved report নেই</div>';
+      return;
+    }
+    var h = '';
+    entries.forEach(function(e){
+      var d = e.date || '';
+      var parts = d.split('-');
+      var displayDate = parts.length===3 ? parts[2]+'/'+parts[1]+'/'+parts[0] : d;
+      h += '<div style="border:1px solid #e0e0e0;border-radius:8px;margin-bottom:10px;overflow:hidden;">'
+         + '<div style="background:#1a5276;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">'
+         + '<span style="font-weight:700;">📅 '+displayDate+'</span>'
+         + '<div style="display:flex;gap:8px;">'
+         + '<button onclick="drgViewHistory(\''+e.date+'\')" style="background:#27ae60;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;">👁️ দেখুন</button>'
+         + '<button onclick="drgCopyHistory(\''+e.date+'\')" style="background:#2980b9;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;">📋 Copy</button>'
+         + '<button onclick="drgDeleteHistory(\''+e.date+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;">🗑️</button>'
+         + '</div></div>'
+         + '<div id="drg-hist-'+e.date+'" style="display:none;"><pre style="background:#0d1b2a;color:#c8e6ff;font-family:monospace;font-size:12px;line-height:1.7;padding:14px;margin:0;white-space:pre-wrap;">'+e.report+'</pre></div>'
+         + '</div>';
+    });
+    container.innerHTML = h;
+    // Cache entries for copy
+    window._drgHistoryCache = {};
+    entries.forEach(function(e){ window._drgHistoryCache[e.date] = e.report; });
+  }).catch(function(){
+    container.innerHTML = '<div style="text-align:center;color:#e74c3c;padding:20px;">লোড সমস্যা হয়েছে</div>';
+  });
+}
+
+function drgViewHistory(date) {
+  var el = document.getElementById('drg-hist-'+date);
+  if (el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+function drgCopyHistory(date) {
+  var text = (window._drgHistoryCache||{})[date] || '';
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(function(){
+    if(typeof toast==='function') toast('📋 Copied!','success');
+  }).catch(function(){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(typeof toast==='function') toast('📋 Copied!','success');
+  });
+}
+
+function drgDeleteHistory(date) {
+  if (!confirm(date+' এর report ডিলিট করবেন?')) return;
+  if (typeof firebase === 'undefined') return;
+  var key = date.replace(/-/g,'');
+  firebase.database().ref(DRG_FB_PATH+'/'+key).remove().then(function(){
+    if(typeof toast==='function') toast('🗑️ Deleted','warning');
+    drgLoadHistory();
   });
 }
 </script>
