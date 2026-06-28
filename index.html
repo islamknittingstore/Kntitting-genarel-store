@@ -3396,10 +3396,13 @@ window.iglSaveNavVisibility = function() {
         <div style="margin-left:auto;display:flex;gap:6px;" class="no-print">
           <div style="position:relative;display:inline-block;" id="stn-print-dropdown-wrap">
             <button class="btn btn-sm" onclick="stnTogglePrintMenu()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">🖨️ Print ▾</button>
-            <div id="stn-print-menu" style="display:none;position:absolute;right:0;top:110%;background:#1a2332;border:1px solid #2c3e50;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.5);z-index:9999;min-width:190px;overflow:hidden;">
+            <div id="stn-print-menu" style="display:none;position:absolute;right:0;top:110%;background:#1a2332;border:1px solid #2c3e50;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.5);z-index:9999;min-width:220px;overflow:hidden;">
               <div onclick="stnPrintWithOrient('all')"     style="padding:10px 16px;color:#fff;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">📋 সব আইটেম</div>
               <div onclick="stnPrintWithOrient('running')" style="padding:10px 16px;color:#2ecc71;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">✅ রানিং ব্যালেন্স</div>
-              <div onclick="stnPrintWithOrient('zero')"    style="padding:10px 16px;color:#e74c3c;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">⭕ শূন্য ব্যালেন্স</div>
+              <div onclick="stnPrintWithOrient('zero')"    style="padding:10px 16px;color:#e74c3c;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">⭕ শূন্য ব্যালেন্স</div>
+              <div style="padding:5px 16px;color:#aaa;font-size:10px;border-bottom:1px solid #2c3e50;font-weight:700;">── Issue / Receive / Req ──</div>
+              <div onclick="stnPrint(true)"  style="padding:10px 16px;color:#f39c12;cursor:pointer;font-size:13px;border-bottom:1px solid #2c3e50;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">🖨️ Print — Total সহ</div>
+              <div onclick="stnPrint(false)" style="padding:10px 16px;color:#85c1e9;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#2c3e50'" onmouseout="this.style.background='transparent'">🖨️ Print — Total বিহীন</div>
             </div>
           </div>
           <button class="btn btn-sm" onclick="stnExportExcel()" style="background:rgba(34,139,34,0.5);color:#fff;border:1px solid rgba(255,255,255,0.4);">📊 Excel</button>
@@ -9179,7 +9182,8 @@ function stnGetTableData() {
 }
 
 // ── PRINT ──
-function stnPrint() {
+function stnPrint(showTotal) {
+  if (showTotal === undefined) showTotal = true;
   var data = stnGetTableData();
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
@@ -9223,10 +9227,10 @@ function stnPrint() {
       html += '<div class="dept-hdr"><span>🏢 '+dept+'</span><span>Total: '+dTotal+' pcs</span></div>';
       html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
       dRows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
-      html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?dTotal:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
+      if(showTotal) html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?dTotal:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
       html += '</tbody></table>';
     });
-    html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Issue: '+grandTot+' pcs</div>';
+    if(showTotal) html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Issue: '+grandTot+' pcs</div>';
   } else if (_stnTab === 'chalan') {
     // Challan-wise grouped
     var chalMap = {};
@@ -9240,10 +9244,10 @@ function stnPrint() {
       html += '<div class="dept-hdr"><span>📄 Challan: '+g.chalan+' | Supplier: '+g.supplier+'</span><span>মোট: '+gT+' pcs</span></div>';
       html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
       g.rows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
-      html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?gT:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
+      if(showTotal) html += '<tr class="total-row">'+data.headers.map(function(h,i){return '<td>'+(i===5?gT:i===1?'Total':'')+'</td>';}).join('')+'</tr>';
       html += '</tbody></table>';
     });
-    html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Receive: '+gTot2+' pcs</div>';
+    if(showTotal) html += '<div style="text-align:right;font-weight:700;font-size:9pt;margin-top:8px;border-top:1.5px solid #000;padding-top:4px;">সর্বমোট Receive: '+gTot2+' pcs</div>';
   } else if (_stnTab === 'stock') {
     html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
     data.rows.forEach(function(r){
@@ -9255,12 +9259,12 @@ function stnPrint() {
         return '<td>'+c+'</td>';
       }).join('')+'</tr>';
     });
-    if (data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    if (showTotal && data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
     html += '</tbody></table>';
   } else {
     html += '<table><thead><tr>'+data.headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
     data.rows.forEach(function(r){ html += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; });
-    if (data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    if (showTotal && data.totals) html += '<tr class="total-row">'+data.totals.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
     html += '</tbody></table>';
   }
 
@@ -29069,12 +29073,15 @@ function pqbDoPrint() {
 (function(){
   var PL_FB_PATH = 'igl_erp/admin_personal/ledger';
 
+  function _plFB() { return (typeof firebase !== 'undefined') ? firebase.database() : null; }
+
   function plGetAll(cb) {
     try {
       var raw = localStorage.getItem('igl_pl_cache');
       var cached = raw ? JSON.parse(raw) : [];
-      if (typeof _fbDb !== 'undefined') {
-        _fbDb.ref(PL_FB_PATH).once('value').then(function(snap){
+      var fb = _plFB();
+      if (fb) {
+        fb.ref(PL_FB_PATH).once('value').then(function(snap){
           var data = snap.val() || {};
           var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
           localStorage.setItem('igl_pl_cache', JSON.stringify(entries));
@@ -29085,10 +29092,8 @@ function pqbDoPrint() {
   }
 
   function plSave(entry, cb) {
-    if (typeof _fbDb !== 'undefined') {
-      _fbDb.ref(PL_FB_PATH + '/' + entry.id).set(entry).then(cb).catch(cb);
-    }
-    // update cache
+    var fb = _plFB();
+    if (fb) fb.ref(PL_FB_PATH + '/' + entry.id).set(entry).then(cb).catch(cb);
     try {
       var raw = localStorage.getItem('igl_pl_cache');
       var cached = raw ? JSON.parse(raw) : [];
@@ -29096,12 +29101,12 @@ function pqbDoPrint() {
       if (idx>=0) cached[idx]=entry; else cached.unshift(entry);
       localStorage.setItem('igl_pl_cache', JSON.stringify(cached));
     } catch(e){}
+    if (typeof cb === 'function' && !_plFB()) cb();
   }
 
   function plDelete(id) {
-    if (typeof _fbDb !== 'undefined') {
-      _fbDb.ref(PL_FB_PATH + '/' + id).remove();
-    }
+    var fb = _plFB();
+    if (fb) fb.ref(PL_FB_PATH + '/' + id).remove();
     try {
       var raw = localStorage.getItem('igl_pl_cache');
       var cached = raw ? JSON.parse(raw) : [];
@@ -29274,13 +29279,13 @@ function pqbDoPrint() {
   }
 
   function vtGetPinHash(cb) {
-    if(typeof _fbDb!=='undefined'){
-      _fbDb.ref(VT_FB_PATH+'/__pin__').once('value').then(function(s){ cb(s.val()); }).catch(function(){ cb(null); });
+    if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined'){
+      (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH+'/__pin__').once('value').then(function(s){ cb(s.val()); }).catch(function(){ cb(null); });
     } else { cb(localStorage.getItem('igl_vt_pin_hash')); }
   }
 
   function vtSetPinHash(hash) {
-    if(typeof _fbDb!=='undefined') _fbDb.ref(VT_FB_PATH+'/__pin__').set(hash);
+    if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined') (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH+'/__pin__').set(hash);
     localStorage.setItem('igl_vt_pin_hash', hash);
   }
 
@@ -29323,8 +29328,8 @@ function pqbDoPrint() {
   };
 
   function vtLoadAndRender() {
-    if(typeof _fbDb!=='undefined'){
-      _fbDb.ref(VT_FB_PATH).once('value').then(function(snap){
+    if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined'){
+      (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH).once('value').then(function(snap){
         var data = snap.val() || {};
         _vtData = Object.keys(data).filter(function(k){ return k!=='__pin__'; }).map(function(k){ return data[k]; });
         vtRender();
@@ -29379,8 +29384,8 @@ function pqbDoPrint() {
     var id = 'vt_'+Date.now();
     var enc = vtEncrypt(JSON.stringify({title:title,user:user,pass:pass,note:note}), _vtPin);
     var item = {id:id, cat:cat, enc:enc, updatedAt:new Date().toISOString()};
-    if(typeof _fbDb!=='undefined'){
-      _fbDb.ref(VT_FB_PATH+'/'+id).set(item).then(function(){
+    if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined'){
+      (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH+'/'+id).set(item).then(function(){
         _vtData.push(item);
         vtRender();
         ['vt-title','vt-user','vt-pass','vt-note'].forEach(function(fId){ var el=document.getElementById(fId); if(el) el.value=''; });
@@ -29391,7 +29396,7 @@ function pqbDoPrint() {
 
   window.vtDel = function(id) {
     if(!confirm('এই entry ডিলিট করবেন?')) return;
-    if(typeof _fbDb!=='undefined') _fbDb.ref(VT_FB_PATH+'/'+id).remove();
+    if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined') (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH+'/'+id).remove();
     _vtData = _vtData.filter(function(i){ return i.id!==id; });
     vtRender();
     if(typeof toast==='function') toast('🗑️ Deleted','warning');
