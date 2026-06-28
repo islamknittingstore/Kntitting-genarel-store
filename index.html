@@ -3638,13 +3638,7 @@ window.iglSaveNavVisibility = function() {
         <p>Packaging items stock summary, low stock alert & item-wise details</p>
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" onclick="pkgToggleForm('receive')" id="pkg-btn-receive">
-          📥 Receive
-        </button>
-        <button class="btn btn-danger" onclick="pkgToggleForm('issue')" id="pkg-btn-issue">
-          📤 Issue
-        </button>
-        <button onclick="pkgItemAddAuth()" class="admin-only-action" style="background:linear-gradient(135deg,#00838f,#00acc1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">➕ Item Add</button
+        <button onclick="pkgItemAddAuth()" class="admin-only-action" style="background:linear-gradient(135deg,#00838f,#00acc1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">➕ Item Add</button>
         <button onclick="pkgShowBFModal()" class="admin-only-action" style="background:linear-gradient(135deg,#4a235a,#7d3c98);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="তারিখ পর্যন্তের Balance কে B/F হিসেবে Save করুন">📅 B/F Update</button>
         <button onclick="pkgShowVisibilityModal()" class="admin-only-action" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="কোন Item গুলো Show/Hide করবেন">👁️ Item Visibility</button>
       </div>
@@ -21031,8 +21025,9 @@ function pkgOpenModal(){
               <th style="padding:8px 6px;text-align:center;width:32px;">#</th>
               <th style="padding:8px 6px;text-align:left;">Category</th>
               <th style="padding:8px 6px;text-align:left;">Item Name</th>
+              <th style="padding:8px 6px;text-align:center;width:45px;">B/F</th>
               <th style="padding:8px 6px;text-align:center;width:55px;">Stock</th>
-              <th style="padding:8px 6px;text-align:center;width:46px;">Del</th>
+              <th style="padding:8px 6px;text-align:center;width:80px;">Action</th>
             </tr></thead>
             <tbody id="pkg-mt"></tbody>
           </table>
@@ -21078,18 +21073,43 @@ function pkgModalAdd(){
 function pkgMtRender(){
   var tb=document.getElementById('pkg-mt');if(!tb)return;
   var items=[];DB.pkgItems.forEach(function(it,i){items.push({it:it,i:i});});
-  if(!items.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:18px;color:#aaa;">কোনো আইটেম নেই</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:18px;color:#aaa;">কোনো আইটেম নেই</td></tr>';return;}
   var h='';
+  var isAdmin = window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin';
   items.forEach(function(x,sl){
     var stk=typeof getStock==='function'?getStock(x.it.name):0;
     var sc=stk<=0?'#e74c3c':stk<=10?'#e67e22':'#27ae60';
-    h+='<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:7px 6px;text-align:center;color:#aaa;font-size:12px;">'+(sl+1)+'</td>';
+    var bf = Number(x.it.bf)||0;
+    h+='<tr style="border-bottom:1px solid #f0f0f0;">';
+    h+='<td style="padding:7px 6px;text-align:center;color:#aaa;font-size:12px;">'+(sl+1)+'</td>';
     h+='<td style="padding:7px 6px;font-size:13px;">'+(x.it.category||'<span style="color:#ccc">&#8212;</span>')+'</td>';
     h+='<td style="padding:7px 6px;font-size:13px;font-weight:600;">'+x.it.name+'</td>';
+    h+='<td style="padding:7px 6px;text-align:center;color:#6c3483;font-weight:700;">'+bf+'</td>';
     h+='<td style="padding:7px 6px;text-align:center;color:'+sc+';font-weight:700;font-size:13px;">'+stk+'</td>';
-    h+='<td style="padding:7px 6px;text-align:center;">'+(window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin'?'<button onclick="pkgMtDel('+x.i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button>':'')+'</td></tr>';
+    h+='<td style="padding:7px 6px;text-align:center;">';
+    if(isAdmin){
+      h+='<button onclick="pkgMtEditBF('+x.i+')" style="background:#8e44ad;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;margin-right:3px;">BF</button>';
+      h+='<button onclick="pkgMtDel('+x.i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button>';
+    }
+    h+='</td></tr>';
   });
   tb.innerHTML=h;
+}
+
+function pkgMtEditBF(idx) {
+  var item = DB.pkgItems[idx];
+  if (!item) return;
+  var val = prompt('"'+item.name+'" এর B/F (Brought Forward) দিন:', Number(item.bf)||0);
+  if (val === null) return;
+  var num = parseInt(val);
+  if (isNaN(num) || num < 0) { if(typeof toast==='function') toast('সঠিক সংখ্যা দিন!','warning'); return; }
+  DB.pkgItems[idx].bf = num;
+  DB.pkgItems = DB.pkgItems.slice();
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
+  pkgMtRender();
+  if(typeof renderPackagingDashboard==='function') renderPackagingDashboard();
+  if(typeof toast==='function') toast('✅ B/F আপডেট হয়েছে: '+num+' pcs','success');
 }
 
 // ════════════════════════════════════════════════════
@@ -21457,7 +21477,7 @@ function stnMtMove(from, idx) {
     if (!confirm('"'+item.name+'" কে Packaging-এ নিয়ে যাবেন?')) return;
     var pkgArr = DB.pkgItems;
     if (!pkgArr.find(function(i){ return i.name===item.name; })) {
-      pkgArr.push({group:'Packaging', category:'Packaging', name:item.name, id:Date.now()});
+      pkgArr.push({group:'Packaging', category:'Packaging', name:item.name, id:Date.now(), bf: Number(item.bf)||0});
       DB.pkgItems = pkgArr;
     }
     var stnArr = DB.stnItems;
@@ -21479,6 +21499,7 @@ function stnMtMove(from, idx) {
   if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   if(typeof triggerAutoSave === 'function') triggerAutoSave();
   stnMtRender();
+  if(typeof renderPackagingDashboard === 'function') renderPackagingDashboard();
   if(typeof toast==='function') toast('✅ Item সরানো হয়েছে!','success');
 }
 
