@@ -10503,7 +10503,7 @@ function stnReqPrintWithRate() {
   var totalAmt = 0;
 
   var rows = items.map(function(it, i) {
-    var rate = it.rate || stnGetRateForDate(it.id, year+'-'+(month?String(month).padStart(2,'0'):'01')+'-01');
+    var rate = stnGetRateForDate(it.id, year+'-'+(month?String(month).padStart(2,'0'):'01')+'-01') || it.rate || 0;
     var amt  = (Number(it.qty)||0) * (Number(rate)||0);
     totalAmt += amt;
     return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
@@ -10571,7 +10571,7 @@ function stnReqPrintComparison() {
 
   var rows = items.map(function(it, i) {
     var _masterItem = (DB.stnItems||[]).find(function(x){ return x.id===it.id||x.name===it.name; });
-    var rate = it.rate || (_masterItem&&_masterItem.rate) || stnGetRateForDate(it.id, mFrom);
+    var rate = stnGetRateForDate(it.id, mFrom) || (_masterItem&&_masterItem.rate) || it.rate || 0;
     var reqQty = Number(it.qty)||0;
     var reqAmt = reqQty * (Number(rate)||0);
     var rcvQty = allRcv
@@ -20865,10 +20865,12 @@ function stnGetRateForDate(itemId, forDate) {
   if(!item) return 0;
   var forMonth=forDate?forDate.slice(0,7):new Date().toISOString().slice(0,7);
   var history=(item.rateHistory||[]).slice();
-  if(item.rate) history.push({rate:item.rate,month:item.rateEffDate||forMonth});
+  // Current rate কে history-তে যোগ করো (সবচেয়ে পুরনো effective date হিসেবে)
+  if(item.rate) history.push({rate:item.rate, month:item.rateEffDate||'2020-01'});
   history.sort(function(a,b){return (a.month||'').localeCompare(b.month||'');});
   var best=0;
-  history.forEach(function(h){if((h.month||'')<=forMonth) best=h.rate;});
+  // forMonth বা তার আগের সবচেয়ে কাছের rate নাও (carry forward)
+  history.forEach(function(h){ if((h.month||'')<=forMonth && h.rate) best=h.rate; });
   return best||item.rate||0;
 }
 
