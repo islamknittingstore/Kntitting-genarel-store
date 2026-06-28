@@ -20350,6 +20350,7 @@ function stnOpenModal(){
               <th style="padding:8px 6px;text-align:left;">Category</th>
               <th style="padding:8px 6px;text-align:left;">Item Name</th>
               <th style="padding:8px 6px;text-align:center;width:55px;">Stock</th>
+              <th style="padding:8px 6px;text-align:center;width:60px;">Move</th>
               <th style="padding:8px 6px;text-align:center;width:46px;">Del</th>
             </tr></thead>
             <tbody id="stn-mt"></tbody>
@@ -20413,7 +20414,7 @@ function stnMtRender(){
   var items=[];
   DB.stnItems.forEach(function(it,i){items.push({it:it,i:i,src:'stn'});});
   DB.pkgItems.forEach(function(it,i){items.push({it:it,i:i,src:'pkg'});});
-  if(!items.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:18px;color:#aaa;">কোনো আইটেম নেই</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:18px;color:#aaa;">কোনো আইটেম নেই</td></tr>';return;}
   var h='';
   items.forEach(function(x,sl){
     var stk=typeof getStock==='function'?getStock(x.it.name):0;
@@ -20422,7 +20423,13 @@ function stnMtRender(){
     var catLabel = isPkg
       ? '<span style="background:#e67e22;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;">📦 Packaging</span>'
       : (x.it.category||'<span style="color:#ccc">&#8212;</span>');
-    var delBtn = (window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin')
+    var isAdmin = window.IGL_CURRENT_USER&&window.IGL_CURRENT_USER.role==='admin';
+    var moveBtn = isAdmin
+      ? (isPkg
+          ? '<button onclick="stnMtMove(\'pkg\','+x.i+')" style="background:#2980b9;color:#fff;border:none;border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px;margin-right:3px;" title="Stationery-তে নিয়ে যান">→STN</button>'
+          : '<button onclick="stnMtMove(\'stn\','+x.i+')" style="background:#e67e22;color:#fff;border:none;border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px;margin-right:3px;" title="Packaging-এ নিয়ে যান">→PKG</button>')
+      : '';
+    var delBtn = isAdmin
       ? '<button onclick="'+(isPkg?'pkgMtDel('+x.i+')':'stnMtDel('+x.i+')')+'" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button>'
       : '';
     h+='<tr style="border-bottom:1px solid #f0f0f0;'+(isPkg?'background:#fff8f0;':'')+'">'
@@ -20430,6 +20437,7 @@ function stnMtRender(){
       +'<td style="padding:7px 6px;font-size:13px;">'+catLabel+'</td>'
       +'<td style="padding:7px 6px;font-size:13px;font-weight:600;">'+x.it.name+'</td>'
       +'<td style="padding:7px 6px;text-align:center;color:'+sc+';font-weight:700;font-size:13px;">'+stk+'</td>'
+      +'<td style="padding:7px 6px;text-align:center;">'+moveBtn+'</td>'
       +'<td style="padding:7px 6px;text-align:center;">'+delBtn+'</td></tr>';
   });
   tb.innerHTML=h;
@@ -21441,6 +21449,38 @@ function pkgGetRateForDate(itemId, forDate) {
 
 
 // END STN ITEM MASTER JS
+function stnMtMove(from, idx) {
+  if (from === 'stn') {
+    var item = DB.stnItems[idx];
+    if (!item) return;
+    if (!confirm('"'+item.name+'" কে Packaging-এ নিয়ে যাবেন?')) return;
+    var pkgArr = DB.pkgItems;
+    if (!pkgArr.find(function(i){ return i.name===item.name; })) {
+      pkgArr.push({group:'Packaging', category:'Packaging', name:item.name, id:Date.now()});
+      DB.pkgItems = pkgArr;
+    }
+    var stnArr = DB.stnItems;
+    stnArr.splice(idx, 1);
+    DB.stnItems = stnArr;
+  } else {
+    var item2 = DB.pkgItems[idx];
+    if (!item2) return;
+    if (!confirm('"'+item2.name+'" কে Stationery-তে নিয়ে যাবেন?')) return;
+    var stnArr2 = DB.stnItems;
+    if (!stnArr2.find(function(i){ return i.name===item2.name; })) {
+      stnArr2.push({group:'Stationery', category:'Office Supplies', name:item2.name});
+      DB.stnItems = stnArr2;
+    }
+    var pkgArr2 = DB.pkgItems;
+    pkgArr2.splice(idx, 1);
+    DB.pkgItems = pkgArr2;
+  }
+  if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  if(typeof triggerAutoSave === 'function') triggerAutoSave();
+  stnMtRender();
+  if(typeof toast==='function') toast('✅ Item সরানো হয়েছে!','success');
+}
+
 async function stnMtDel(idx){
   var allItems = DB.stnItems;
   var item = allItems[idx];
