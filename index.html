@@ -3864,15 +3864,15 @@ window.iglSaveNavVisibility = function() {
         <p>সব Packaging Item এর Unit, Rate ও Rate History এখান থেকে Manage করুন</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-        <button onclick="pkgImMergeDuplicates()" id="sim-merge-btn" style="display:none;background:linear-gradient(135deg,#922b21,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Duplicate মার্জ করুন</button>
+        <button onclick="pkgImMergeDuplicates()" id="pkgim-merge-btn" style="display:none;background:linear-gradient(135deg,#922b21,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Duplicate মার্জ করুন</button>
         <button onclick="pkgImPageAdd()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">➕ নতুন Item</button>
       </div>
     </div>
     <div class="card no-print" style="margin-bottom:14px;">
       <div class="card-body" style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <input type="text" id="sim-search" placeholder="🔍 Item খুঁজুন..." oninput="pkgItemMasterRender()" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
-        <select id="sim-cat-filter" onchange="pkgItemMasterRender()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:160px;"><option value="">সব Category</option></select>
-        <span id="sim-count" style="font-size:12px;color:#888;"></span>
+        <input type="text" id="pkgim-search" placeholder="🔍 Item খুঁজুন..." oninput="pkgItemMasterRender()" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+        <select id="pkgim-cat-filter" onchange="pkgItemMasterRender()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:160px;"><option value="">সব Category</option></select>
+        <span id="pkgim-count" style="font-size:12px;color:#888;"></span>
       </div>
     </div>
     <div class="card">
@@ -3890,7 +3890,7 @@ window.iglSaveNavVisibility = function() {
               <th style="padding:10px 8px;text-align:center;width:160px;" class="no-print">Action</th>
             </tr>
           </thead>
-          <tbody id="sim-tbody">
+          <tbody id="pkgim-tbody">
             <tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa;">Loading...</td></tr>
           </tbody>
         </table>
@@ -3905,7 +3905,7 @@ window.iglSaveNavVisibility = function() {
         <p>মাসিক Requisition তৈরি করুন এবং Stock Register দেখুন</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-        <button onclick="pkgReqSimplePrint('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
+        <button onclick="pkgReqSimplePrint('pkgreq-req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
         <button onclick="pkgReqPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💰 Print (Rate সহ)</button>
         <button onclick="pkgReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive</button>
         <button onclick="pkgReqExcelDownload()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📥 Excel Download</button>
@@ -3917,7 +3917,7 @@ window.iglSaveNavVisibility = function() {
       <div class="card-header" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border-bottom:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span>📂 Saved Requisition History</span>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <select id="req-history-select" onchange="pkgReqLoadHistory(this.value)" style="padding:5px 12px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:180px;">
+          <select id="pkgreq-req-history-select" onchange="pkgReqLoadHistory(this.value)" style="padding:5px 12px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:180px;">
             <option value="">-- মাস সিলেক্ট করুন --</option>
           </select>
           <button onclick="pkgReqDeleteHistory()" style="padding:5px 12px;border-radius:5px;border:1px solid rgba(255,255,255,0.5);background:rgba(231,76,60,0.7);color:#fff;font-size:12px;cursor:pointer;font-weight:700;">🗑️ Delete</button>
@@ -3931,40 +3931,40 @@ window.iglSaveNavVisibility = function() {
         <span>📝 Requisition — Item Select & Quantity</span>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <label style="font-size:12px;font-weight:400;">Month:</label>
-          <select id="req-month" onchange="pkgReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:110px;">
+          <select id="pkgreq-req-month" onchange="pkgReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:110px;">
             <option value="1">January</option><option value="2">February</option><option value="3">March</option>
             <option value="4">April</option><option value="5">May</option><option value="6">June</option>
             <option value="7">July</option><option value="8">August</option><option value="9">September</option>
             <option value="10">October</option><option value="11">November</option><option value="12">December</option>
           </select>
-          <select id="req-year" onchange="pkgReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;width:85px;"></select>
-          <input type="text" id="req-title" placeholder="Title (optional)" oninput="pkgReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;width:160px;">
+          <select id="pkgreq-req-year" onchange="pkgReqOnMonthChange()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;width:85px;"></select>
+          <input type="text" id="pkgreq-req-title" placeholder="Title (optional)" oninput="pkgReqUpdatePreview()" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;width:160px;">
         </div>
       </div>
       <div class="card-body" style="padding:14px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
-          <input type="text" id="req-item-search" placeholder="🔍 Item খুঁজুন..." oninput="pkgReqFilterItems()" style="padding:7px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;flex:1;min-width:180px;">
+          <input type="text" id="pkgreq-req-item-search" placeholder="🔍 Item খুঁজুন..." oninput="pkgReqFilterItems()" style="padding:7px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;flex:1;min-width:180px;">
           <button onclick="pkgReqSelectAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #00838f;background:#fff;color:#00838f;font-size:12px;cursor:pointer;font-weight:700;">✅ সব Select</button>
           <button onclick="pkgReqClearAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:12px;cursor:pointer;font-weight:700;">✕ সব Clear</button>
           <button onclick="pkgReqSaveRequisition()" style="padding:7px 18px;border-radius:6px;border:none;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">💾 Save Requisition</button>
         </div>
-        <div id="req-item-checklist" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;max-height:460px;overflow-y:auto;padding:4px;"></div>
+        <div id="pkgreq-req-item-checklist" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;max-height:460px;overflow-y:auto;padding:4px;"></div>
       </div>
     </div>
 
     <!-- ── Requisition Preview ── -->
-    <div class="card" id="req-preview-card" style="display:none;margin-bottom:16px;">
+    <div class="card" id="pkgreq-req-preview-card" style="display:none;margin-bottom:16px;">
       <div class="card-header no-print" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
         <span>📄 Requisition Preview</span>
-        <button onclick="pkgReqSimplePrint('req-print-area-1','#00838f')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+        <button onclick="pkgReqSimplePrint('pkgreq-req-print-area-1','#00838f')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
       </div>
       <div class="card-body" style="padding:0;">
-        <div id="req-print-area-1">
+        <div id="pkgreq-req-print-area-1">
           <div style="text-align:center;padding:14px 10px 6px;">
             <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
             <div style="font-size:13px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>
             <div style="font-size:12px;color:#555;margin-top:1px;">Unit: Knitting</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="req-print-title-disp"></div>
+            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="pkgreq-req-print-title-disp"></div>
           </div>
           <div class="table-wrap">
             <table style="width:100%;">
@@ -3979,8 +3979,8 @@ window.iglSaveNavVisibility = function() {
                   <th style="width:130px;text-align:center;">Remarks</th>
                 </tr>
               </thead>
-              <tbody id="req-preview-tbody"></tbody>
-              <tfoot id="req-preview-tfoot"></tfoot>
+              <tbody id="pkgreq-req-preview-tbody"></tbody>
+              <tfoot id="pkgreq-req-preview-tfoot"></tfoot>
             </table>
           </div>
           <div style="display:flex;justify-content:space-between;padding:120px 40px 40px;font-size:12px;color:#555;">
@@ -3992,23 +3992,23 @@ window.iglSaveNavVisibility = function() {
     </div>
 
     <!-- ── Stock Register (Requisition Preview এর নিচে) ── -->
-    <div class="card" id="reg-stock-card" style="display:none;margin-bottom:16px;">
+    <div class="card" id="pkgreq-reg-stock-card" style="display:none;margin-bottom:16px;">
       <div class="card-header no-print" style="background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;border-bottom:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span>📦 Stock Register</span>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:12px;font-weight:400;">Balance তারিখ:</label>
-          <input type="date" id="reg-bal-date" onchange="pkgReqSyncRegister(pkgReqGetSelected())" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;">
-          <button onclick="pkgReqSimplePrint('req-print-area-2','#7d3c98')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
+          <input type="date" id="pkgreq-reg-bal-date" onchange="pkgReqSyncRegister(pkgReqGetSelected())" style="padding:5px 10px;border-radius:5px;border:none;font-size:13px;font-weight:600;">
+          <button onclick="pkgReqSimplePrint('pkgreq-req-print-area-2','#7d3c98')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">🖨️ Print</button>
           <button onclick="pkgRegExcelDownload()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;padding:5px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;">📥 Excel</button>
         </div>
       </div>
       <div class="card-body" style="padding:0;">
-        <div id="req-print-area-2">
+        <div id="pkgreq-req-print-area-2">
           <div style="text-align:center;padding:14px 10px 6px;">
             <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">Islam Garments Limited</div>
             <div style="font-size:13px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>
             <div style="font-size:12px;color:#555;margin-top:1px;">Unit: Knitting</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="reg-print-title-disp"></div>
+            <div style="font-size:13px;font-weight:700;margin-top:4px;" id="pkgreq-reg-print-title-disp"></div>
           </div>
           <div class="table-wrap">
             <table style="width:100%;font-size:13px;">
@@ -4022,7 +4022,7 @@ window.iglSaveNavVisibility = function() {
                   <th style="width:80px;text-align:center;">Stock Balance</th>
                 </tr>
               </thead>
-              <tbody id="reg-tbody">
+              <tbody id="pkgreq-reg-tbody">
                 <tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">Item select করুন</td></tr>
               </tbody>
             </table>
@@ -14084,7 +14084,7 @@ function binEmptyAll() {
 
 function pkgReqInit() {
   var curYear = new Date().getFullYear();
-  ['req-year'].forEach(function(id){
+  ['pkgreq-req-year'].forEach(function(id){
     var sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -14093,8 +14093,8 @@ function pkgReqInit() {
     }
   });
   var cm = new Date().getMonth() + 1;
-  var reqM = document.getElementById('req-month');
-  var regBal = document.getElementById('reg-bal-date');
+  var reqM = document.getElementById('pkgreq-req-month');
+  var regBal = document.getElementById('pkgreq-reg-bal-date');
   if (reqM) reqM.value = cm;
   if (regBal) regBal.value = todayStr();
 
@@ -14107,8 +14107,8 @@ function pkgReqInit() {
 
 // মাস/বছর চেঞ্জ হলে → সেই মাসের saved data লোড অথবা চেকলিস্ট রিসেট
 function pkgReqOnMonthChange() {
-  var month = (document.getElementById('req-month')||{}).value || '';
-  var year  = (document.getElementById('req-year')||{}).value  || '';
+  var month = (document.getElementById('pkgreq-req-month')||{}).value || '';
+  var year  = (document.getElementById('pkgreq-req-year')||{}).value  || '';
   if (!month || !year) return;
   var key = 'req_' + year + '_' + String(month).padStart(2,'0');
   var reqs = {};
@@ -14116,7 +14116,7 @@ function pkgReqOnMonthChange() {
   if (reqs[key]) {
     // সেই মাসের saved data আছে → লোড করো
     var saved = reqs[key];
-    var titleEl = document.getElementById('req-title');
+    var titleEl = document.getElementById('pkgreq-req-title');
     if (titleEl && saved.title) titleEl.value = saved.title;
     pkgReqBuildChecklistFromSaved(saved.items);
     toast('📂 ' + year + '/' + String(month).padStart(2,'0') + ' এর Requisition লোড হয়েছে।', 'success');
@@ -14141,12 +14141,12 @@ function pkgReqOnMonthChange() {
     toast('🆕 নতুন মাস — চেকলিস্ট রিসেট হয়েছে।', 'info');
   }
   // History dropdown sync
-  var histSel = document.getElementById('req-history-select');
+  var histSel = document.getElementById('pkgreq-req-history-select');
   if (histSel) histSel.value = reqs[key] ? key : '';
 }
 
 function pkgReqPopulateHistory() {
-  var sel = document.getElementById('req-history-select');
+  var sel = document.getElementById('pkgreq-req-history-select');
   if (!sel) return;
   var reqs = {};
   try { reqs = JSON.parse(localStorage.getItem('igl_pkg_requisitions') || '{}'); } catch(e){}
@@ -14169,11 +14169,11 @@ function pkgReqLoadHistory(key) {
   var saved = reqs[key];
   if (!saved) return;
   // Month/Year set করো
-  var reqM = document.getElementById('req-month');
-  var reqY = document.getElementById('req-year');
+  var reqM = document.getElementById('pkgreq-req-month');
+  var reqY = document.getElementById('pkgreq-req-year');
   if (reqM) reqM.value = saved.month;
   if (reqY) reqY.value = saved.year;
-  var titleEl = document.getElementById('req-title');
+  var titleEl = document.getElementById('pkgreq-req-title');
   if (titleEl) titleEl.value = saved.title || '';
   // Checklist rebuild করো saved data দিয়ে
   pkgReqBuildChecklistFromSaved(saved.items);
@@ -14209,7 +14209,7 @@ function pkgReqBuildChecklistFromSaved(savedItems) {
 
 // History delete করো
 function pkgReqDeleteHistory() {
-  var sel = document.getElementById('req-history-select');
+  var sel = document.getElementById('pkgreq-req-history-select');
   var key = sel ? sel.value : '';
   if (!key) { toast('⚠️ আগে একটা মাস সিলেক্ট করুন।', 'warning'); return; }
   if (!confirm(key.replace('req_','').replace('_',' / ')+' এর Requisition delete করবেন?')) return;
@@ -14257,7 +14257,7 @@ function pkgReqBuildChecklist() {
 
   items.forEach(function(it){ addRow(it); });
 
-  var el = document.getElementById('req-item-checklist');
+  var el = document.getElementById('pkgreq-req-item-checklist');
   if (el) el.innerHTML = html || '<p style="color:#999;padding:10px;">কোনো Packaging Item নেই।</p>';
   pkgReqUpdatePreview();
 }
@@ -14297,7 +14297,7 @@ function pkgReqClearAll() {
 }
 
 function pkgReqFilterItems() {
-  var q = (document.getElementById('req-item-search').value||'').toLowerCase();
+  var q = (document.getElementById('pkgreq-req-item-search').value||'').toLowerCase();
   document.querySelectorAll('.req-item-row').forEach(function(row){
     var name = (row.getAttribute('data-name')||'').toLowerCase();
     row.style.display = name.includes(q) ? '' : 'none';
@@ -14346,9 +14346,9 @@ function pkgReqGetSelected() {
 
 function pkgReqUpdatePreview() {
   var items   = pkgReqGetSelected();
-  var card    = document.getElementById('req-preview-card');
-  var regCard = document.getElementById('reg-stock-card');
-  var tbody   = document.getElementById('req-preview-tbody');
+  var card    = document.getElementById('pkgreq-req-preview-card');
+  var regCard = document.getElementById('pkgreq-reg-stock-card');
+  var tbody   = document.getElementById('pkgreq-req-preview-tbody');
   if (!tbody) return;
   if (items.length === 0) {
     if (card)    card.style.display    = 'none';
@@ -14358,12 +14358,12 @@ function pkgReqUpdatePreview() {
   }
   if (card)    card.style.display    = '';
   if (regCard) regCard.style.display = '';
-  var month     = (document.getElementById('req-month')||{}).value || '';
-  var year      = (document.getElementById('req-year')||{}).value  || '';
-  var title     = (document.getElementById('req-title')||{}).value || '';
+  var month     = (document.getElementById('pkgreq-req-month')||{}).value || '';
+  var year      = (document.getElementById('pkgreq-req-year')||{}).value  || '';
+  var title     = (document.getElementById('pkgreq-req-title')||{}).value || '';
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][Number(month)] || '';
   var titleText = (title || 'Packaging Item Requisition') + ' ' + monthName + '-' + String(year).slice(2);
-  var td = document.getElementById('req-print-title-disp');
+  var td = document.getElementById('pkgreq-req-print-title-disp');
   if (td) td.textContent = titleText;
   var html = '';
   var totalAmt = 0;
@@ -14383,7 +14383,7 @@ function pkgReqUpdatePreview() {
   tbody.innerHTML = html;
 
   // Total row in tfoot
-  var tfoot = document.getElementById('req-preview-tfoot');
+  var tfoot = document.getElementById('pkgreq-req-preview-tfoot');
   if (tfoot) {
     tfoot.innerHTML = '<tr class="no-print" style="background:#e8f4f8;font-weight:700;">'
       + '<td colspan="5" style="text-align:right;padding:6px 8px;border:1px solid #ddd;color:#1a5276;">মোট মূল্য:</td>'
@@ -14396,18 +14396,18 @@ function pkgReqUpdatePreview() {
 
 // Stock Register কে Requisition Form এর selected items দিয়ে সরাসরি update করো
 function pkgReqSyncRegister(items) {
-  var regTbody = document.getElementById('reg-tbody');
-  var titleEl  = document.getElementById('reg-print-title-disp');
+  var regTbody = document.getElementById('pkgreq-reg-tbody');
+  var titleEl  = document.getElementById('pkgreq-reg-print-title-disp');
   if (!regTbody) return;
 
-  var month     = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
-  var year      = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
-  var balDate   = (document.getElementById('reg-bal-date')||{}).value || todayStr();
+  var month     = Number((document.getElementById('pkgreq-req-month')||{}).value) || (new Date().getMonth()+1);
+  var year      = Number((document.getElementById('pkgreq-req-year')||{}).value)  || new Date().getFullYear();
+  var balDate   = (document.getElementById('pkgreq-reg-bal-date')||{}).value || todayStr();
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month] || '';
   var titleText = 'Packaging Item Requisition ' + monthName + '-' + String(year).slice(2);
 
   // Header ও title সেট করো
-  var titleEl = document.getElementById('reg-print-title-disp');
+  var titleEl = document.getElementById('pkgreq-reg-print-title-disp');
   if (titleEl) titleEl.textContent = titleText;
   var regM = document.getElementById('reg-month');
   var regY = document.getElementById('reg-year');
@@ -14465,9 +14465,9 @@ function pkgReqUpdateRemark(itemId, val) {
 function pkgReqSaveRequisition() {
   var newItems = pkgReqGetSelected();
   if (newItems.length === 0) { toast('⚠️ কমপক্ষে একটি Item টিক দিন!', 'warning'); return; }
-  var month = (document.getElementById('req-month')||{}).value;
-  var year  = (document.getElementById('req-year')||{}).value;
-  var title = (document.getElementById('req-title')||{}).value || '';
+  var month = (document.getElementById('pkgreq-req-month')||{}).value;
+  var year  = (document.getElementById('pkgreq-req-year')||{}).value;
+  var title = (document.getElementById('pkgreq-req-title')||{}).value || '';
   var key   = 'req_'+year+'_'+month;
   var reqs  = DB.pkgRequisitions || {};
   // আগের saved items এর সাথে merge করো
@@ -14517,8 +14517,8 @@ function pkgReqSaveRequisition() {
 }
 
 function pkgReqGetSaved() {
-  var month = (document.getElementById('req-month')||{}).value;
-  var year  = (document.getElementById('req-year')||{}).value;
+  var month = (document.getElementById('pkgreq-req-month')||{}).value;
+  var year  = (document.getElementById('pkgreq-req-year')||{}).value;
   if (!month || !year) return null;
   var reqs = DB.pkgRequisitions || {};
   return reqs['req_'+year+'_'+month] || null;
@@ -14550,9 +14550,9 @@ function pkgReqSwitchTab(n) {
 function pkgReqPrintWithRate() {
   var items = pkgReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
-  var month  = (document.getElementById('req-month')||{}).value || '';
-  var year   = (document.getElementById('req-year')||{}).value  || '';
-  var title  = (document.getElementById('req-title')||{}).value || 'Packaging Requisition';
+  var month  = (document.getElementById('pkgreq-req-month')||{}).value || '';
+  var year   = (document.getElementById('pkgreq-req-year')||{}).value  || '';
+  var title  = (document.getElementById('pkgreq-req-title')||{}).value || 'Packaging Requisition';
   var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
   var titleText = title + ' — ' + (MONTHS[Number(month)]||'') + (year?' '+year:'');
   var totalAmt = 0;
@@ -14611,9 +14611,9 @@ function pkgReqPrintWithRate() {
 function pkgReqPrintComparison() {
   var items = pkgReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
-  var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
-  var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
-  var title  = (document.getElementById('req-title')||{}).value || 'Packaging Requisition';
+  var month  = Number((document.getElementById('pkgreq-req-month')||{}).value) || (new Date().getMonth()+1);
+  var year   = Number((document.getElementById('pkgreq-req-year')||{}).value)  || new Date().getFullYear();
+  var title  = (document.getElementById('pkgreq-req-title')||{}).value || 'Packaging Requisition';
   var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
   var titleText = title + ' — ' + (MONTHS[month]||'') + ' ' + year;
   var mStr  = year + '-' + String(month).padStart(2,'0');
@@ -14713,7 +14713,7 @@ function pkgReqPrintArea(areaId, thColor) {
 
   // Item count — row height নির্ধারণ
   var rowCount = overlay.querySelectorAll('tbody tr').length;
-  var isReq    = areaId === 'req-print-area-1';
+  var isReq    = areaId === 'pkgreq-req-print-area-1';
   var tdPad, thPad, fontSize, sigPad;
   if (!isReq) {
     tdPad = '4px 6px'; thPad = '4px 6px'; fontSize = '9pt'; sigPad = '40px 40px 10px';
@@ -14782,7 +14782,7 @@ function pkgReqPrintArea(areaId, thColor) {
 
 // উপরের Print বাটন থেকে call হয় (পুরানো compatibility এর জন্য রাখা)
 function pkgReqPrint() {
-  pkgReqSimplePrint('req-print-area-1', '#00838f');
+  pkgReqSimplePrint('pkgreq-req-print-area-1', '#00838f');
 }
 
 function pkgReqPrintAreaOriented(areaId, thColor, orientation) {
@@ -14805,10 +14805,10 @@ function pkgReqSimplePrint(areaId, thColor) {
   // Target: 30~40 rows এক পাতায় fit করো
   // ══════════════════════════════════════════════════
 
-  var isArea1 = (areaId === 'req-print-area-1');
+  var isArea1 = (areaId === 'pkgreq-req-print-area-1');
 
   // ── row count নির্ধারণ ──
-  var tbodyId  = isArea1 ? 'req-preview-tbody' : 'reg-tbody';
+  var tbodyId  = isArea1 ? 'pkgreq-req-preview-tbody' : 'pkgreq-reg-tbody';
   var tbodyEl  = document.getElementById(tbodyId);
   var realRows = 0;
   if (tbodyEl) {
@@ -14834,7 +14834,7 @@ function pkgReqSimplePrint(areaId, thColor) {
   var padH    = 5;
 
   // ── title text ──
-  var titleDispId = isArea1 ? 'req-print-title-disp' : 'reg-print-title-disp';
+  var titleDispId = isArea1 ? 'pkgreq-req-print-title-disp' : 'pkgreq-reg-print-title-disp';
   var titleEl2    = document.getElementById(titleDispId);
   var titleTxt    = titleEl2 ? titleEl2.textContent.trim() : '';
 
@@ -15027,9 +15027,9 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
   if (oldS) oldS.remove();
 
   // ── Requisition (area-1) এর জন্য auto-fit portrait logic ──
-  if (areaId === 'req-print-area-1') {
+  if (areaId === 'pkgreq-req-print-area-1') {
     // আইটেম সংখ্যা গণনা করো
-    var tbody  = document.getElementById('req-preview-tbody');
+    var tbody  = document.getElementById('pkgreq-req-preview-tbody');
     var rowCount = tbody ? tbody.querySelectorAll('tr').length : 0;
 
     // A4 Portrait usable height (mm): 297 - 15(top) - 15(bottom) = 267mm
@@ -15066,7 +15066,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
     overlay.id  = 'pkg-req-print-overlay';
 
     // header
-    var titleDisp = document.getElementById('req-print-title-disp');
+    var titleDisp = document.getElementById('pkgreq-req-print-title-disp');
     var titleTxt  = titleDisp ? titleDisp.textContent : '';
     var headerHtml =
       '<div style="text-align:center;padding:10px 10px 5px;">'
@@ -15076,7 +15076,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
       + '</div>';
 
     // table: no-print cols (Rate, Amount) বাদ দিয়ে
-    var tbodyEl  = document.getElementById('req-preview-tbody');
+    var tbodyEl  = document.getElementById('pkgreq-req-preview-tbody');
     var tbodyInner = tbodyEl ? tbodyEl.innerHTML : '';
     // remarks column এর input কে plain text এ পরিণত করো
     tbodyInner = tbodyInner.replace(/<input[^>]*value="([^"]*)"[^>]*>/g, '$1');
@@ -15174,7 +15174,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
   }
 
   // ── area-2 (Stock Register) — auto-fit portrait ──
-  var regTbody  = document.getElementById('reg-tbody');
+  var regTbody  = document.getElementById('pkgreq-reg-tbody');
   var regRows   = regTbody ? regTbody.querySelectorAll('tr') : [];
   // ফাঁকা "Item select করুন" placeholder row বাদ দিয়ে গণনা করো
   var regRowCount = 0;
@@ -15204,7 +15204,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
   }
 
   // Overlay তৈরি করো
-  var titleDisp2  = document.getElementById('reg-print-title-disp');
+  var titleDisp2  = document.getElementById('pkgreq-reg-print-title-disp');
   var titleTxt2   = titleDisp2 ? titleDisp2.textContent : '';
 
   var headerHtml2 =
@@ -15308,10 +15308,10 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
 
 // ── Requisition Excel Download ──────────────────────────────────────
 function pkgReqExcelDownload() {
-  var month     = Number((document.getElementById('req-month')||{}).value||0);
-  var year      = Number((document.getElementById('req-year')||{}).value||0);
+  var month     = Number((document.getElementById('pkgreq-req-month')||{}).value||0);
+  var year      = Number((document.getElementById('pkgreq-req-year')||{}).value||0);
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month]||'';
-  var titleEl   = document.getElementById('req-title');
+  var titleEl   = document.getElementById('pkgreq-req-title');
   var titleText = (titleEl ? (titleEl.value||'') : '') || ('Packaging Requisition '+monthName+'-'+String(year).slice(2));
 
   var items = pkgReqGetSelected();
@@ -15343,8 +15343,8 @@ function pkgReqExcelDownload() {
 
 // ── Stock Register Excel Download ──────────────────────────────────
 function pkgRegExcelDownload() {
-  var month     = Number((document.getElementById('req-month')||{}).value||0);
-  var year      = Number((document.getElementById('req-year')||{}).value||0);
+  var month     = Number((document.getElementById('pkgreq-req-month')||{}).value||0);
+  var year      = Number((document.getElementById('pkgreq-req-year')||{}).value||0);
   var monthName = ['','January','February','March','April','May','June','July','August','September','October','November','December'][month]||'';
   var titleText = 'Packaging Stock Register '+monthName+'-'+String(year).slice(2);
 
@@ -15355,7 +15355,7 @@ function pkgRegExcelDownload() {
   rows.push([]);
   rows.push(['SL', 'Item Name', 'Req Qty', 'Unit', 'Rcv Qty', 'Stock Balance']);
 
-  var tbody = document.getElementById('reg-tbody');
+  var tbody = document.getElementById('pkgreq-reg-tbody');
   if (tbody) {
     tbody.querySelectorAll('tr').forEach(function(tr){
       var cells = tr.querySelectorAll('td');
@@ -21152,12 +21152,12 @@ function pkgMtEditBF(idx) {
 
 
 function pkgItemMasterRender() {
-  var q    = ((document.getElementById('sim-search')||{}).value||'').toLowerCase();
-  var catF = ((document.getElementById('sim-cat-filter')||{}).value||'');
+  var q    = ((document.getElementById('pkgim-search')||{}).value||'').toLowerCase();
+  var catF = ((document.getElementById('pkgim-cat-filter')||{}).value||'');
   var items = DB.pkgItems || [];
 
   // Category dropdown
-  var catSel = document.getElementById('sim-cat-filter');
+  var catSel = document.getElementById('pkgim-cat-filter');
   if (catSel) {
     var cats = [...new Set(items.map(function(i){ return i.category||''; }).filter(Boolean))].sort();
     var curVal = catSel.value;
@@ -21172,10 +21172,10 @@ function pkgItemMasterRender() {
     return arr;
   }, []);
 
-  var countEl = document.getElementById('sim-count');
+  var countEl = document.getElementById('pkgim-count');
   if (countEl) countEl.textContent = filtered.length + ' টি আইটেম';
 
-  var tbody = document.getElementById('sim-tbody');
+  var tbody = document.getElementById('pkgim-tbody');
   if (!tbody) return;
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa;">কোনো Item পাওয়া যায়নি</td></tr>';
@@ -21191,7 +21191,7 @@ function pkgItemMasterRender() {
   var nameCount = {};
   items.forEach(function(it){ var n=(it.name||'').trim().toLowerCase(); nameCount[n]=(nameCount[n]||0)+1; });
   var hasDups = Object.values(nameCount).some(function(c){return c>1;});
-  var mergeBtn = document.getElementById('sim-merge-btn');
+  var mergeBtn = document.getElementById('pkgim-merge-btn');
   if(mergeBtn) mergeBtn.style.display = hasDups ? '' : 'none';
 
   tbody.innerHTML = filtered.map(function(obj, i) {
@@ -24493,7 +24493,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var sinkerSel = document.querySelector('.nmi-sinker-sel[data-nid="'+origNid+'"]');
       var needleSel  = document.querySelector('.nmi-needle-sel[data-nid="'+origNid+'"]');
       var actualNId;
-      if (sinkerSel && needle.type === 'Sinker') {
+      if (needleType === 'used') {
+        // Used Needle — stock panel এর dropdown থেকে নাও
+        var stockNdlSel = document.querySelector('.nmi-stock-needle-sel[data-slot="'+nId+'"]');
+        actualNId = (stockNdlSel && stockNdlSel.value) ? stockNdlSel.value : nId;
+      } else if (sinkerSel && needle.type === 'Sinker') {
         actualNId = sinkerSel.value;
       } else if (needleSel && needle.type === 'Needle') {
         actualNId = needleSel.value;
