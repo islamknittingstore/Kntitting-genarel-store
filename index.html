@@ -14208,43 +14208,43 @@ function pkgReqDeleteHistory() {
 }
 
 function pkgReqBuildChecklist() {
-  var allItems = DB.pkgItems || [];
+  var pkgItems = DB.pkgItems || [];
   var hidden   = pkgGetHiddenItems ? pkgGetHiddenItems() : [];
-  var items    = allItems.filter(function(it){ return hidden.indexOf(it.id) < 0; });
+  var items    = pkgItems.filter(function(it){ return hidden.indexOf(it.id) < 0; });
   var saved    = pkgReqGetSaved();
   var savedIds = saved ? saved.items.map(function(x){ return x.id; }) : [];
-
-  // Saved rates from localStorage
   var rates = {};
   try { rates = JSON.parse(localStorage.getItem('igl_pkg_rates') || '{}'); } catch(e){}
 
   var html = '';
-  items.forEach(function(it){
-    var checked     = savedIds.indexOf(it.id) >= 0;
-    var savedQty    = '', savedUnit = 'Pcs', savedRemarks = '';
+
+  function addRow(it) {
+    var checked = savedIds.indexOf(it.id) >= 0;
+    var savedQty = '', savedUnit = 'Pcs', savedRemarks = '';
     if (checked && saved) {
       var si = saved.items.find(function(x){ return x.id === it.id; });
-      if (si) { savedQty = si.qty; savedUnit = si.unit || 'Pcs'; savedRemarks = si.remarks || ''; }
+      if (si) { savedQty = si.qty; savedUnit = si.unit||'Pcs'; savedRemarks = si.remarks||''; }
     }
     var uOpts = ['Pcs','Kg','Liter','Pek','**'].map(function(u){
       return '<option value="'+u+'"'+(u===savedUnit?' selected':'')+'>'+u+'</option>';
     }).join('');
-    var savedRate = it.rate || rates[it.id] || ''; // Item Master থেকে auto-fill
-
-    html += '<div class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;background:'+(checked?'#e8f8f2':'#fff')+';">';
-    html += '<input type="checkbox" id="req-chk-'+it.id+'" onchange="pkgReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:16px;height:16px;accent-color:#00838f;cursor:pointer;">';
+    var savedRate = it.rate || rates[it.id] || '';
+    html += '<div class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;background:'+(checked?'#e8f8f2':'#fff')+'">';
+    html += '<input type="checkbox" id="req-chk-'+it.id+'" onchange="pkgReqCheckChange(\''+it.id+'\')  " '+(checked?'checked':'')+' style="width:16px;height:16px;accent-color:#00838f;cursor:pointer;">';
     html += '<label for="req-chk-'+it.id+'" style="flex:1;font-size:13px;cursor:pointer;font-weight:'+(checked?'600':'400')+';">'+it.name+'</label>';
-    html += '<input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" '+(checked?'':'disabled')+' oninput="pkgReqUpdatePreview()" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:center;" title="Quantity">';
-    html += '<select id="req-unit-'+it.id+'" '+(checked?'':'disabled')+' onchange="pkgReqUpdatePreview()" style="width:68px;padding:4px 5px;border:1px solid #ccc;border-radius:5px;font-size:12px;background:#fff;" title="Unit">'+uOpts+'</select>';
-    html += '<input type="number" id="req-rate-'+it.id+'" placeholder="Rate ৳" min="0" value="'+(savedRate||'')+'" oninput="pkgReqSaveRate(\''+it.id+'\',this.value);pkgReqUpdatePreview();" style="width:75px;padding:4px 6px;border:1px solid #e8c84a;border-radius:5px;font-size:12px;text-align:center;background:#fffde7;" title="Rate (৳)">';
-    html += '<input type="text" id="req-rmk-'+it.id+'" placeholder="Remarks" value="'+(savedRemarks||'')+'" '+(checked?'':'disabled')+' oninput="pkgReqUpdatePreview()" style="width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:12px;" title="Remarks">';
+    html += '<input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" '+(checked?'':'disabled')+' oninput="pkgReqUpdatePreview()" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:center;">';
+    html += '<select id="req-unit-'+it.id+'" '+(checked?'':'disabled')+' onchange="pkgReqUpdatePreview()" style="width:68px;padding:4px 5px;border:1px solid #ccc;border-radius:5px;font-size:12px;background:#fff;">'+uOpts+'</select>';
+    html += '<input type="number" id="req-rate-'+it.id+'" placeholder="Rate" min="0" value="'+(savedRate||'')+'" oninput="pkgReqSaveRate(this.dataset.id,this.value);pkgReqUpdatePreview();" data-id="'+it.id+'" style="width:75px;padding:4px 6px;border:1px solid #e8c84a;border-radius:5px;font-size:12px;text-align:center;background:#fffde7;">';
+    html += '<input type="text" id="req-rmk-'+it.id+'" placeholder="Remarks" value="'+(savedRemarks||'')+'" '+(checked?'':'disabled')+' oninput="pkgReqUpdatePreview()" style="width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:12px;">';
     html += '</div>';
-  });
+  }
+
+  items.forEach(function(it){ addRow(it); });
+
   var el = document.getElementById('req-item-checklist');
-  if (el) el.innerHTML = html || '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
+  if (el) el.innerHTML = html || '<p style="color:#999;padding:10px;">কোনো Packaging Item নেই।</p>';
   pkgReqUpdatePreview();
 }
-
 function pkgReqCheckChange(id) {
   var chk    = document.getElementById('req-chk-'+id);
   var qtyInp = document.getElementById('req-qty-'+id);
