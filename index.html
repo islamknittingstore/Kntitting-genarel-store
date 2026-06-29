@@ -24027,7 +24027,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       } else {
         nameCell = '<b>'+(nObj.name||nObj.code||'')+'</b>';
       }
-      return '<tr id="nmi-stock-row-'+nObj.id+'">'
+      return '<tr id="nmi-stock-row-'+nObj.id+'" data-slot="'+n.id+'">'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+nameCell+'</td>'
         + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
         + '<td style="padding:5px 4px;border-bottom:1px solid #f0e0d0;">'
@@ -24066,28 +24066,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // উপরের stock panel checkbox
     var topChk = document.getElementById('nmi-stock-chk-'+nid);
     if(topChk) topChk.checked = qty > 0;
-    // নিচের needle list — nid দিয়ে খোঁজো
-    var listQty = document.querySelector('.nmi-qty[data-nid="'+nid+'"]');
-    var listChk = document.querySelector('.nmi-chk[data-nid="'+nid+'"]');
-    // Used Needle: dropdown change হলে nid নতুন needle, কিন্তু নিচের list এ slot এর original nid থাকে
-    // তাই stock panel row এর data-slot থেকে original nid খুঁজি
-    if (!listChk) {
-      var stockRow = inp.closest ? inp.closest('tr') : null;
-      if (!stockRow) {
-        // inp এর parent tr খুঁজি
-        var ndlSel = document.querySelector('.nmi-stock-needle-sel[data-slot]');
-        // সব stock needle sel এ value === nid হলে slot নাও
-        var allSels = document.querySelectorAll('.nmi-stock-needle-sel');
-        for (var si = 0; si < allSels.length; si++) {
-          if (allSels[si].value === nid) {
-            var slotId = allSels[si].dataset.slot;
-            listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
-            listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
-            break;
-          }
-        }
+    // নিচের needle list sync — slot id ব্যবহার করো (original mapping id)
+    // stock panel row এর data-slot থেকে slot id নাও
+    var slotId = nid; // default
+    var stockRow = inp.closest ? inp.closest('tr') : null;
+    if (stockRow && stockRow.dataset && stockRow.dataset.slot) {
+      slotId = stockRow.dataset.slot;
+    } else {
+      // closest না পেলে nmi-stock-needle-sel থেকে slot খুঁজি
+      var allSels = document.querySelectorAll('.nmi-stock-needle-sel');
+      for (var si = 0; si < allSels.length; si++) {
+        if (allSels[si].value === nid) { slotId = allSels[si].dataset.slot || nid; break; }
       }
     }
+    var listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
+    var listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
     if(listQty){ listQty.value = qty > 0 ? qty : ''; }
     if(listChk){ listChk.checked = qty > 0; }
     nmiUpdateCount();
@@ -24097,26 +24090,40 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // ── Used/New Needle Stock Panel এ needle dropdown change হলে ──
   // mapping এর বাইরের যেকোনো needle select করা যায়, এবং পরের বার এই machine+slot এর জন্য সেটাই default থাকবে
   function nmiStockNeedleChange(sel, needleType){
-    // ── Safety: এই override শুধু Used Needle এর জন্য, New Needle এ mapping ই থাকবে ──
     if (needleType !== 'used') return;
     var machineId = sel.dataset.machine;
-    var slotId    = sel.dataset.slot;
-    var newNid    = sel.value;
+    var slotId    = sel.dataset.slot;  // original mapping needle id
+    var newNid    = sel.value;          // dropdown এ selected needle id
     if(!machineId || !slotId) return;
-    // ── Sticky save — এই machine+slot এর জন্য পছন্দ মনে রাখো ──
+    // Sticky save
     var stickyKey = 'nmi_sticky_' + machineId + '_' + slotId;
     try {
-      if (newNid === slotId) localStorage.removeItem(stickyKey); // আসল needle এ ফিরে গেলে override clear
+      if (newNid === slotId) localStorage.removeItem(stickyKey);
       else localStorage.setItem(stickyKey, newNid);
     } catch(e) {}
-    // পুরো panel আবার render করো নতুন needle এর balance/stock দিয়ে
+    // নিচের Needle List এর row এর data-nid আপডেট করো
+    // যাতে save করার সময় সঠিক needle এর balance minus হয়
+    var listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
+    var listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
+    if (listChk) {
+      listChk.dataset.nid = newNid;
+      // qty input এও nid update করো
+      if (listQty) listQty.dataset.nid = newNid;
+      // +/- button এর onclick এও nid update করো
+      var row = listChk.closest ? listChk.closest('tr') : null;
+      if (row) {
+        // row এ data-nid রাখো পরে reference এর জন্য
+        row.dataset.usedNid = newNid;
+        row.dataset.slotNid = slotId;
+      }
+    }
+    // panel re-render করো নতুন needle এর balance দিয়ে
     nmiRenderMachineStock(machineId, needleType);
   }
 
   function nmiStockChkChange(cb, nid){
     var inp = document.getElementById('nmi-stock-iss-'+nid);
     if(cb.checked){
-      // checkbox manually tick করলে qty কমপক্ষে 1 করো
       if(inp && (!inp.value || parseInt(inp.value)===0)){ inp.value = 1; }
       if(inp) nmiStockIssInput(inp, nid);
     } else {
@@ -24517,9 +24524,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var needleSel  = document.querySelector('.nmi-needle-sel[data-nid="'+origNid+'"]');
       var actualNId;
       if (needleType === 'used') {
-        // Used Needle — stock panel এর dropdown থেকে নাও
-        var stockNdlSel = document.querySelector('.nmi-stock-needle-sel[data-slot="'+nId+'"]');
-        actualNId = (stockNdlSel && stockNdlSel.value) ? stockNdlSel.value : nId;
+        // Used Needle — data-nid এখন nmiStockNeedleChange এ update হয়ে গেছে
+        // তাই nId ই সঠিক selected needle id
+        actualNId = nId;
       } else if (sinkerSel && needle.type === 'Sinker') {
         actualNId = sinkerSel.value;
       } else if (needleSel && needle.type === 'Needle') {
