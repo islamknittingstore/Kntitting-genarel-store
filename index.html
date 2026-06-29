@@ -8428,6 +8428,16 @@ function showPage(name, el) {
       document.getElementById('m-year').value = now.getFullYear();
       renderMonthly();
     }
+    else if (name === 'packaging_dashboard') {
+      renderPackagingDashboard();
+    }
+    else if (name === 'pkg_item_master') {
+      pkgMtRender();
+      pkgItemMasterRender();
+    }
+    else if (name === 'pkg_requisition') {
+      pkgReqInit();
+    }
     else if (name === 'needle_receive') {
       ndlPopulateDrop('nr-needle','');
       renderNdlRcvLog();
