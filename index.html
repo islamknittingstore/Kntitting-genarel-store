@@ -1612,6 +1612,12 @@ if('serviceWorker' in navigator){
         try { if(typeof renderStationeryDashboard ==='function') renderStationeryDashboard(); } catch(e){}
         try { if(typeof stnPopulateItems          ==='function') { stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item'); } } catch(e){}
         try { if(typeof renderStnManagerReport    ==='function') renderStnManagerReport(); }    catch(e){}
+        // Packaging UI refresh — Firebase load এর পর Item Master ও Requisition page এ item দেখা যাবে
+        try { if(typeof pkgMtRender           ==='function') pkgMtRender(); }           catch(e){}
+        try { if(typeof pkgItemMasterRender   ==='function') pkgItemMasterRender(); }   catch(e){}
+        try { if(typeof pkgReqBuildChecklist  ==='function') pkgReqBuildChecklist(); }  catch(e){}
+        try { if(typeof renderPackagingDashboard==='function') renderPackagingDashboard(); } catch(e){}
+        try { if(typeof pkgPopulateItems      ==='function') { pkgPopulateItems('pkg-r-item'); pkgPopulateItems('pkg-i-item'); } } catch(e){}
         // Firebase load এর পর rnaSection init করো — load এর আগে initRNADefaults চলেছিল তাই data ছিল না
         try { if(typeof initRNADefaults      ==='function') initRNADefaults(); }      catch(e){}
         try { if(typeof renderRetailNeedleAccount==='function') renderRetailNeedleAccount(); } catch(e){}
