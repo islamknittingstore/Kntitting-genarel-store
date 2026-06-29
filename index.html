@@ -28221,7 +28221,8 @@ async function pkgSaveAllBF() {
 }
 
 // Backdrop click
-document.getElementById('pkgBFModal').addEventListener('click', function(e){
+var _pkgBFModal = document.getElementById('pkgBFModal');
+if (_pkgBFModal) _pkgBFModal.addEventListener('click', function(e){
   if(e.target===this) this.style.display='none';
 });
 
