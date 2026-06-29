@@ -24066,9 +24066,28 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // উপরের stock panel checkbox
     var topChk = document.getElementById('nmi-stock-chk-'+nid);
     if(topChk) topChk.checked = qty > 0;
-    // নিচের needle list
+    // নিচের needle list — nid দিয়ে খোঁজো
     var listQty = document.querySelector('.nmi-qty[data-nid="'+nid+'"]');
     var listChk = document.querySelector('.nmi-chk[data-nid="'+nid+'"]');
+    // Used Needle: dropdown change হলে nid নতুন needle, কিন্তু নিচের list এ slot এর original nid থাকে
+    // তাই stock panel row এর data-slot থেকে original nid খুঁজি
+    if (!listChk) {
+      var stockRow = inp.closest ? inp.closest('tr') : null;
+      if (!stockRow) {
+        // inp এর parent tr খুঁজি
+        var ndlSel = document.querySelector('.nmi-stock-needle-sel[data-slot]');
+        // সব stock needle sel এ value === nid হলে slot নাও
+        var allSels = document.querySelectorAll('.nmi-stock-needle-sel');
+        for (var si = 0; si < allSels.length; si++) {
+          if (allSels[si].value === nid) {
+            var slotId = allSels[si].dataset.slot;
+            listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
+            listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
+            break;
+          }
+        }
+      }
+    }
     if(listQty){ listQty.value = qty > 0 ? qty : ''; }
     if(listChk){ listChk.checked = qty > 0; }
     nmiUpdateCount();
@@ -24095,8 +24114,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   function nmiStockChkChange(cb, nid){
-    if(!cb.checked){
-      var inp = document.getElementById('nmi-stock-iss-'+nid);
+    var inp = document.getElementById('nmi-stock-iss-'+nid);
+    if(cb.checked){
+      // checkbox manually tick করলে qty কমপক্ষে 1 করো
+      if(inp && (!inp.value || parseInt(inp.value)===0)){ inp.value = 1; }
+      if(inp) nmiStockIssInput(inp, nid);
+    } else {
       if(inp){ inp.value = ''; nmiStockIssInput(inp, nid); }
     }
   }
