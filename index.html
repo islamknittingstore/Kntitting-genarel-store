@@ -797,7 +797,7 @@ if('serviceWorker' in navigator){
     .nur-page2 td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }
     /* সব রঙ বাদ — Excel style */
     .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
-    .nur-page1 tr[style], .nur-page2 tr[style] { background: #fff !important; color: #000 !important; }
+    .nur-page1 tr[style]:not(.nur-offday):not(.nur-grand-total), .nur-page2 tr[style]:not(.nur-offday):not(.nur-grand-total) { background: #fff !important; color: #000 !important; }
     /* Off day/Holiday row — হালকা gray (Excel style) */
     .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #c8c8c8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Total column ও worker name header — হালকা gray (Excel style) */
@@ -2670,7 +2670,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
       <li id="nav-needle-master" class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
       <li id="nav-needle-mapping"><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
-      <li id="nav-needle-jaq-report" class="admin-only-action"><a href="#" onclick="showPage('needle_jaq_report', this); return false;"><span class="icon">🔷</span> Jacquard Needle Use Report</a></li>
+      <!-- <li id="nav-needle-jaq-report" class="admin-only-action"><a href="#" onclick="showPage('needle_jaq_report', this); return false;"><span class="icon">🔷</span> Jacquard Needle Use Report</a></li> -->
       <li id="nav-needle-daily-report"><a href="#" onclick="showPage('needle_daily_report', this); return false;"><span class="icon">📨</span> Daily Report Generator</a></li>
     </ul>
   </div>
@@ -23971,15 +23971,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var nmAllNeedlesOnly = nm.filter(function(n){ return n.type !== 'Sinker'; });
 
     var rows = assigned.map(function(n){
-      // ── Sticky override: শুধু Used Needle এ — এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
-      var stickyKey = 'nmi_sticky_' + machineId + '_' + n.id;
-      var stickyNid = null;
-      if (isUsed) {
-        try { stickyNid = localStorage.getItem(stickyKey); } catch(e) {}
-      }
+      // ── Override: শুধু Used Needle এ — এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
+      // এই override needle master object এ সেভ হয় (n.usedOverride[machineId]) — তাই Firebase দিয়ে সব ডিভাইসে sync হবে
+      var overrideNid = (isUsed && n.usedOverride && n.usedOverride[machineId]) ? n.usedOverride[machineId] : null;
       var effectiveNeedle = n;
-      if (stickyNid && stickyNid !== n.id) {
-        var found = nm.find(function(x){ return x.id === stickyNid; });
+      if (overrideNid && overrideNid !== n.id) {
+        var found = nm.find(function(x){ return x.id === overrideNid; });
         if (found) effectiveNeedle = found;
       }
       var nObj = effectiveNeedle; // স্টক/ব্যালেন্স হিসাব এই needle অনুযায়ী হবে
@@ -24048,6 +24045,18 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;">Issue Qty</th>'
       + '</tr></thead><tbody>'+rows+'</tbody></table>';
     panel.style.display = '';
+
+    // ── Used Needle: master এ সেভ করা override অনুযায়ী নিচের Needle List এর data-nid sync করো ──
+    // (Firebase override থাকলে initial render এই sync দরকার, শুধু onchange এ না)
+    if (isUsed) {
+      assigned.forEach(function(n){
+        var effectiveNid = (n.usedOverride && n.usedOverride[machineId]) ? n.usedOverride[machineId] : n.id;
+        var listChk = document.querySelector('.nmi-chk[data-nid="'+n.id+'"]');
+        var listQty = document.querySelector('.nmi-qty[data-nid="'+n.id+'"]');
+        if (listChk) listChk.dataset.nid = effectiveNid;
+        if (listQty) listQty.dataset.nid = effectiveNid;
+      });
+    }
   }
 
   // Stock panel issue step button
@@ -24092,31 +24101,31 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nmiStockNeedleChange(sel, needleType){
     if (needleType !== 'used') return;
     var machineId = sel.dataset.machine;
-    var slotId    = sel.dataset.slot;  // original mapping needle id
-    var newNid    = sel.value;          // dropdown এ selected needle id
+    var slotId    = sel.dataset.slot;  // original mapping needle id (যেই needle slot এ এই machine assign করা)
+    var newNid    = sel.value;          // dropdown এ নতুন selected needle id
     if(!machineId || !slotId) return;
-    // Sticky save
-    var stickyKey = 'nmi_sticky_' + machineId + '_' + slotId;
-    try {
-      if (newNid === slotId) localStorage.removeItem(stickyKey);
-      else localStorage.setItem(stickyKey, newNid);
-    } catch(e) {}
-    // নিচের Needle List এর row এর data-nid আপডেট করো
-    // যাতে save করার সময় সঠিক needle এর balance minus হয়
+
+    // ── Override needle master object এ সেভ করো — Firebase দিয়ে সব ডিভাইসে sync হবে ──
+    var nm = ndlGetMaster();
+    var slotNeedle = nm.find(function(x){ return x.id === slotId; });
+    if (slotNeedle) {
+      if (!slotNeedle.usedOverride) slotNeedle.usedOverride = {};
+      if (newNid === slotId) {
+        delete slotNeedle.usedOverride[machineId]; // আসল needle এ ফিরে গেলে override clear
+      } else {
+        slotNeedle.usedOverride[machineId] = newNid;
+      }
+      ndlSetMaster(nm);
+      // Firebase এ সব ডিভাইসে sync করো
+      try { if (typeof triggerAutoSave === 'function') triggerAutoSave(); } catch(e) {}
+    }
+
+    // নিচের Needle List এর row এর data-nid আপডেট করো — যাতে save করার সময় সঠিক needle এর balance minus হয়
     var listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
     var listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
-    if (listChk) {
-      listChk.dataset.nid = newNid;
-      // qty input এও nid update করো
-      if (listQty) listQty.dataset.nid = newNid;
-      // +/- button এর onclick এও nid update করো
-      var row = listChk.closest ? listChk.closest('tr') : null;
-      if (row) {
-        // row এ data-nid রাখো পরে reference এর জন্য
-        row.dataset.usedNid = newNid;
-        row.dataset.slotNid = slotId;
-      }
-    }
+    if (listChk) listChk.dataset.nid = newNid;
+    if (listQty) listQty.dataset.nid = newNid;
+
     // panel re-render করো নতুন needle এর balance দিয়ে
     nmiRenderMachineStock(machineId, needleType);
   }
@@ -25402,7 +25411,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             && (r.needleType||'new').toLowerCase()===ndlType
             && types.some(function(t){return t.key===r.type;});
         });
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isFri?'class="nur-offday"':'')+'>'; 
+        html+='<tr class="'+(isFri?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'; 
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -25495,7 +25504,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
         var isOff=isFri;
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
+        html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -25600,7 +25609,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){ return r.date===day && (r.needleType||'new')==='new'; });
         var isOff=isFri;
-        html+='<tr style="'+(isFri?'background:#fdf2f2;':'')+(hasData?'':'color:#bbb;')+'" '+(isOff?'class="nur-offday"':'')+'>';
+        html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';
         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -25682,7 +25691,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html+='<h4 class="no-print" style="margin-bottom:10px;color:#154360;">🔷 Jacquard Needle Use Report</h4>';
     html+='<div class="nur-page3" style="overflow-x:auto;margin-bottom:20px;">';
     var jaqTitle='<h3 style="text-align:center;margin-bottom:2px;">Islam Garments Limited</h3>'
-      +'<h4 style="text-align:center;margin-bottom:10px;">Jacquard Needle Use Report — '+monthNames[month-1]+' '+year+'</h4>';
+      +'<h4 style="text-align:center;margin-bottom:10px;">Shift Needle Use Report — '+monthNames[month-1]+' '+year+'</h4>';
     html+=jaqTitle;
     html+='<div class="no-print" style="background:#d5f5e3;border-left:4px solid #1e8449;padding:6px 12px;margin-bottom:8px;font-weight:700;color:#1e8449;">🔷 Jacquard — Broken আলাদা, Design → New Set</div>';
     html+=jaqTable;
@@ -25754,7 +25763,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var isFri = new Date(day).getDay()===5;
       var hasData2 = filtered.some(function(r){ return r.date===day; });
       var isOff2 = isFri;
-      p2 += '<tr style="'+(isFri?'background:#fdf2f2;':'')+'" '+(isOff2?'class="nur-offday"':'')+'>';
+      p2 += '<tr class="'+(isOff2?'nur-offday':'')+'">';
       p2 += '<td style="padding:2px 4px;border:1px solid #ddd;border-left:3px solid #000;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
       p2NewTypes.forEach(function(t){
@@ -26182,6 +26191,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var pageHTML = tmpDiv.innerHTML;
 
     var css = [
+      '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }',
       '@page { size: ' + pageSize + '; margin: 6mm; }',
       'body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: ' + fontSize + 'pt !important; color: #000; background: #fff; }',
       'table { border-collapse: collapse; width: 100%; font-size: ' + fontSize + 'pt !important; table-layout: fixed; }',
