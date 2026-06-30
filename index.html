@@ -29214,6 +29214,16 @@ function pqbDoPrint() {
         fb.ref(PL_FB_PATH).once('value').then(function(snap){
           var data = snap.val() || {};
           var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+          // ⚠️ Safety: Firebase খালি data দিলেও local cache এ data থাকলে — সেই data হারাতে দেওয়া যাবে না।
+          // (network glitch বা permission সমস্যায় Firebase ভুলভাবে খালি রেজাল্ট দিতে পারে)
+          if (entries.length === 0 && cached.length > 0) {
+            console.warn('Personal Ledger: Firebase খালি data দিয়েছে কিন্তু local cache এ '+cached.length+'টি entry আছে — cache সংরক্ষণ করা হলো');
+            if (typeof toast === 'function') {
+              toast('⚠️ Cloud থেকে data আসেনি — local cache দেখানো হচ্ছে। Internet চেক করুন।', 'warning', 6000);
+            }
+            cb(cached);
+            return;
+          }
           localStorage.setItem('igl_pl_cache', JSON.stringify(entries));
           cb(entries);
         }).catch(function(){ cb(cached); });
@@ -29223,7 +29233,7 @@ function pqbDoPrint() {
 
   function plSave(entry, cb) {
     var fb = _plFB();
-    if (fb) fb.ref(PL_FB_PATH + '/' + entry.id).set(entry).then(cb).catch(cb);
+    // ── localStorage cache প্রথমেই আপডেট করো — যাতে UI সাথে সাথে দেখায় ──
     try {
       var raw = localStorage.getItem('igl_pl_cache');
       var cached = raw ? JSON.parse(raw) : [];
@@ -29231,7 +29241,27 @@ function pqbDoPrint() {
       if (idx>=0) cached[idx]=entry; else cached.unshift(entry);
       localStorage.setItem('igl_pl_cache', JSON.stringify(cached));
     } catch(e){}
-    if (typeof cb === 'function' && !_plFB()) cb();
+
+    if (fb) {
+      fb.ref(PL_FB_PATH + '/' + entry.id).set(entry)
+        .then(function(){
+          if (typeof cb === 'function') cb(true); // সফল হলো — Firebase এ গেছে
+        })
+        .catch(function(err){
+          // ⚠️ Firebase save ব্যর্থ হলে স্পষ্টভাবে জানাও — silently হারিয়ে যেতে দেওয়া যাবে না
+          console.error('Personal Ledger Firebase save ব্যর্থ:', err);
+          if (typeof toast === 'function') {
+            toast('⚠️ এই Entry Firebase এ সেভ হয়নি! শুধু এই ডিভাইসে আছে — Internet চেক করে আবার চেষ্টা করুন।', 'error', 8000);
+          }
+          if (typeof cb === 'function') cb(false); // ব্যর্থ — caller কে জানাও
+        });
+    } else {
+      // Firebase connect না থাকলেও warn করো
+      if (typeof toast === 'function') {
+        toast('⚠️ Firebase connected নেই! Entry শুধু এই ডিভাইসে সেভ হলো।', 'warning', 6000);
+      }
+      if (typeof cb === 'function') cb(false);
+    }
   }
 
   function plDelete(id) {
@@ -29345,13 +29375,14 @@ function pqbDoPrint() {
     var person=((document.getElementById('pl-person')||{}).value||'').trim();
     if(!date||!desc||!amount){ if(typeof toast==='function') toast('তারিখ, বিবরণ ও পরিমাণ দিন!','warning'); return; }
     var entry={id:'pl_'+Date.now(), date:date, desc:desc, amount:amount, type:type, person:person, createdAt:new Date().toISOString()};
-    plSave(entry, function(){
+    plSave(entry, function(success){
       _plData.unshift(entry);
       plRender();
       document.getElementById('pl-desc').value='';
       document.getElementById('pl-amount').value='';
       document.getElementById('pl-person').value='';
-      if(typeof toast==='function') toast('✅ Entry যোগ হয়েছে!','success');
+      if (success && typeof toast==='function') toast('✅ Entry যোগ হয়েছে ও Cloud এ সেভ হয়েছে!','success');
+      // success===false হলে plSave নিজেই warning toast দেখিয়ে দিয়েছে
     });
   };
 
