@@ -1239,6 +1239,17 @@ if('serviceWorker' in navigator){
   window.fbSaveAll = function(){
     if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
 
+    // ⚠️⚠️ CRITICAL SAFETY GUARD ⚠️⚠️
+    // Firebase থেকে প্রথমবার data load সম্পূর্ণ না হলে কখনো save করবো না।
+    // এটা না থাকলে: page খোলার সময় DB.items/DB.groups/DB.stnItems ইত্যাদি memory তে খালি থাকা অবস্থায়
+    // যদি কোনোভাবে fbSaveAll ট্রিগার হয় (যেমন 10-second pending-retry fallback, slow network এ),
+    // তাহলে সেই খালি data Firebase এ গিয়ে আসল data মুছে দিতে পারে — যা আগে একবার ঘটেছিল।
+    if (!window._fbInitialLoadDone) {
+      console.warn('fbSaveAll স্কিপ করা হলো — Firebase initial load এখনো সম্পূর্ণ হয়নি (data loss protection)');
+      fbMarkPending(); // পরে আবার চেষ্টা হবে, load সম্পূর্ণ হওয়ার পরে
+      return;
+    }
+
     // নেট না থাকলে pending mark করো
     if (!navigator.onLine) {
       fbMarkPending();
@@ -1263,6 +1274,22 @@ if('serviceWorker' in navigator){
       Object.keys(_delCache).forEach(function(k){
         _delIdsForSave[k.replace(/:/g, '__')] = true;
       });
+
+      // ⚠️⚠️ Extra Safety: master data (items/groups/stnItems/pkgItems) খালি হলে
+      // আগের cached Firebase data দিয়ে রক্ষা করো — accidental wipe থেকে বাঁচাতে
+      var _itemsArr   = (typeof DB !== 'undefined') ? (DB.items||[])    : [];
+      var _groupsArr  = (typeof DB !== 'undefined') ? (DB.groups||[])   : [];
+      var _stnItemsArr= (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [];
+      var _pkgItemsArr= (typeof DB !== 'undefined') ? (DB.pkgItems||[]) : [];
+      var _skipItems    = _itemsArr.length === 0    && (window._fbLastKnownItemsCount||0)    > 0;
+      var _skipGroups   = _groupsArr.length === 0   && (window._fbLastKnownGroupsCount||0)   > 0;
+      var _skipStnItems = _stnItemsArr.length === 0 && (window._fbLastKnownStnItemsCount||0) > 0;
+      var _skipPkgItems = _pkgItemsArr.length === 0 && (window._fbLastKnownPkgItemsCount||0) > 0;
+      if (_skipItems || _skipGroups || _skipStnItems || _skipPkgItems) {
+        console.warn('fbSaveAll স্কিপ করা হলো — master data (items/groups) অপ্রত্যাশিতভাবে খালি (data loss protection)', {_skipItems,_skipGroups,_skipStnItems,_skipPkgItems});
+        fbMarkPending();
+        return;
+      }
 
       var data = {
         ts: Date.now(),
@@ -1308,6 +1335,11 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
+          // সফল save এর পর counts আপডেট করো — যাতে normal item add/delete এ false-positive না হয়
+          window._fbLastKnownItemsCount    = _itemsArr.length;
+          window._fbLastKnownGroupsCount   = _groupsArr.length;
+          window._fbLastKnownStnItemsCount = _stnItemsArr.length;
+          window._fbLastKnownPkgItemsCount = _pkgItemsArr.length;
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
           localStorage.removeItem('igl_deleted_ids');
@@ -1431,7 +1463,7 @@ if('serviceWorker' in navigator){
     if(_fbPaused){ fbStatus('idle','⏸️ Firebase বন্ধ'); return; }
     fbStatus('saving', 'Loading...');
     _fbDb.ref('igl_erp').once('value').then(function(snapshot){
-      if(!snapshot.exists()){ fbStatus('connected', '🔗 Connected (No data)'); return; }
+      if(!snapshot.exists()){ window._fbInitialLoadDone = true; fbStatus('connected', '🔗 Connected (No data)'); return; }
       var data = snapshot.val();
       try {
         if(data.db){
@@ -1610,7 +1642,7 @@ if('serviceWorker' in navigator){
         // Stationery UI refresh — item ডিলিট/যোগ হলে সব device এ আপডেট হবে
         try { if(typeof stnItemMasterRender       ==='function') stnItemMasterRender(); }       catch(e){}
         try { if(typeof renderStationeryDashboard ==='function') renderStationeryDashboard(); } catch(e){}
-        try { if(typeof stnPopulateItems          ==='function') { stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item'); } } catch(e){}
+        try { if(typeof stnPopulateItems          ==='function') { stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:''); stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:''); } } catch(e){}
         try { if(typeof renderStnManagerReport    ==='function') renderStnManagerReport(); }    catch(e){}
         // Packaging UI refresh — Firebase load এর পর Item Master ও Requisition page এ item দেখা যাবে
         try { if(typeof pkgMtRender           ==='function') pkgMtRender(); }           catch(e){}
@@ -1631,6 +1663,16 @@ if('serviceWorker' in navigator){
             _fbDb.ref('igl_erp/stn/receives').remove();
             localStorage.setItem('igl_stn_node_cleaned', '1');
           }
+        } catch(e) {}
+
+        // ✅ Firebase load সম্পূর্ণ হলো — এখন থেকে fbSaveAll নিরাপদে চলতে পারবে
+        window._fbInitialLoadDone = true;
+        // ── এই counts পরবর্তী fbSaveAll এ ব্যবহার হবে accidental empty-overwrite ঠেকাতে ──
+        try {
+          window._fbLastKnownItemsCount    = (DB.items||[]).length;
+          window._fbLastKnownGroupsCount   = (DB.groups||[]).length;
+          window._fbLastKnownStnItemsCount = (DB.stnItems||[]).length;
+          window._fbLastKnownPkgItemsCount = (DB.pkgItems||[]).length;
         } catch(e) {}
 
         // Firebase load সফল হলে pending save থাকলে এখন করো (race condition safe)
@@ -6014,7 +6056,8 @@ function ok(msg) {
           </div>
           <div class="field" style="flex:0 0 130px;">
             <label style="font-size:11px;font-weight:700;color:var(--text-light);">কার কাছে/থেকে</label>
-            <input type="text" class="form-control" id="pl-person" placeholder="নাম (ঐচ্ছিক)">
+            <input type="text" class="form-control" id="pl-person" list="pl-person-list" placeholder="নাম (ঐচ্ছিক)" autocomplete="off">
+            <datalist id="pl-person-list"></datalist>
           </div>
           <button class="btn btn-primary" onclick="plAddEntry()" style="margin-bottom:1px;">➕ যোগ করুন</button>
         </div>
@@ -8852,7 +8895,7 @@ function stnToggleForm(type) {
     rBtn.style.opacity = isOpen ? '1' : '0.7';
     iBtn.style.opacity = '1';
     if (!isOpen) {
-      stnPopulateItems('stn-r-item');
+      stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:'');
       stnPopulateSupplierDatalist();
       if (!document.getElementById('stn-r-date').value) document.getElementById('stn-r-date').value = todayStr();
       document.getElementById('stn-r-item').focus();
@@ -8864,7 +8907,7 @@ function stnToggleForm(type) {
     iBtn.style.opacity = isOpen2 ? '1' : '0.7';
     rBtn.style.opacity = '1';
     if (!isOpen2) {
-      stnPopulateItems('stn-i-item');
+      stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
       stnPopulateDeptDropdown();
       if (!document.getElementById('stn-i-date').value) document.getElementById('stn-i-date').value = todayStr();
       document.getElementById('stn-i-item').focus();
@@ -18430,6 +18473,18 @@ function exportFullExcel() {
 //  EXPORT / IMPORT
 // ================================================================
 function exportData() {
+  // ⚠️ Safety: Firebase থেকে এখনো পুরো history load না হলে warn করো
+  // (localStorage এ শুধু লাস্ট ৩০ দিনের needle data থাকে — পুরোটা Firebase load এর পরই memory তে আসে)
+  if (!window._fbInitialLoadDone) {
+    var proceed = confirm(
+      '⚠️ এখনো Firebase থেকে সম্পূর্ণ data load হয়নি।\n\n'
+      + 'এই মুহূর্তে Export করলে পুরোনো (৩০ দিনের বেশি আগের) Needle data বাদ পড়তে পারে।\n\n'
+      + 'কিছুক্ষণ অপেক্ষা করে (cloud connected হওয়া পর্যন্ত) আবার চেষ্টা করার পরামর্শ দেওয়া হচ্ছে।\n\n'
+      + 'এখনই Export করতে চান?'
+    );
+    if (!proceed) return;
+  }
+
   // ── Needle Receives from localStorage ──
   var needleReceives = [];
   try { needleReceives = JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'); } catch(e) {}
@@ -20771,7 +20826,7 @@ function stnImPageAdd() {
     arr.push({id:'stn_item_'+Date.now(), name:name, category:cat, group:'Stationery', unit:unit, rate:rate, rateEffDate:new Date().toISOString().slice(0,7), rateHistory:rh});
     DB.stnItems = arr;
     triggerAutoSave();
-    stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
+    stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:''); stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
     document.body.removeChild(overlay);
     stnItemMasterRender();
     toast('✅ "'+name+'" যোগ হয়েছে!','success');
@@ -20883,7 +20938,7 @@ async function stnImDel(idx) {
   if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
   if(typeof gdriveAutoSave === 'function') gdriveAutoSave();
   stnItemMasterRender();
-  stnPopulateItems('stn-r-item'); stnPopulateItems('stn-i-item');
+  stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:''); stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
   toast('🗑️ "'+item.name+'" ডিলিট হয়েছে।','warning');
 }
 
@@ -21548,8 +21603,8 @@ async function stnMtDel(idx){
   DB.stnItems = allItems;
   triggerAutoSave();
   stnMtRender();
-  stnPopulateItems('stn-r-item');
-  stnPopulateItems('stn-i-item');
+  stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:'');
+  stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
   toast('আইটেম ডিলিট হয়েছে','warning');
 }
 </script>
@@ -29200,6 +29255,20 @@ function pqbDoPrint() {
 
   window.plRender = function(data) {
     if (data) _plData = data;
+    // ── আগে লেখা সব unique নাম দিয়ে datalist আপডেট করো — পরে dropdown এ suggest হবে ──
+    try {
+      var dl = document.getElementById('pl-person-list');
+      if (dl) {
+        var names = [];
+        var seen = {};
+        _plData.forEach(function(e){
+          var p = (e.person||'').trim();
+          if (p && !seen[p]) { seen[p]=true; names.push(p); }
+        });
+        names.sort();
+        dl.innerHTML = names.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'; }).join('');
+      }
+    } catch(e) {}
     var typeF = (document.getElementById('pl-filter-type')||{}).value||'';
     var monthF = (document.getElementById('pl-filter-month')||{}).value||'';
     var searchF = ((document.getElementById('pl-filter-search')||{}).value||'').toLowerCase();
