@@ -3555,7 +3555,14 @@ window.iglSaveNavVisibility = function() {
         <h2>📋 Stationery Requisition</h2>
         <p>মাসিক Requisition তৈরি করুন এবং Stock Register দেখুন</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;" class="no-print">
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;">
+          <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+          <input type="number" id="req-print-font-size" value="9" min="5" max="16" step="0.5"
+            style="width:44px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;text-align:center;"
+            title="Print Font Size (pt) — সব Requisition প্রিন্টে apply হবে">
+          <span style="font-size:10px;color:#888;">pt</span>
+        </span>
         <button onclick="stnReqSimplePrint('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
         <button onclick="stnReqPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💰 Print (Rate সহ)</button>
         <button onclick="stnReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate সহ)</button>
@@ -10584,6 +10591,8 @@ function stnReqSwitchTab(n) {
 function stnReqPrintWithRate() {
   var items = stnReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var fsEl = document.getElementById('req-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
   var month  = (document.getElementById('req-month')||{}).value || '';
   var year   = (document.getElementById('req-year')||{}).value  || '';
   var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
@@ -10607,7 +10616,7 @@ function stnReqPrintWithRate() {
   }).join('');
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:14mm 12mm;}body{font-family:Arial,sans-serif;font-size:12px;margin:0;}'
+    + '<style>@page{size:A4 portrait;margin:14mm 12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}th{background:#7d3c98!important;color:#fff!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:80px 0 20px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;margin-top:0;}</style></head><body>'
@@ -10645,6 +10654,8 @@ function stnReqPrintWithRate() {
 function stnReqPrintComparison() {
   var items = stnReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var fsEl = document.getElementById('req-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
   var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
   var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
   var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
@@ -10685,7 +10696,7 @@ function stnReqPrintComparison() {
   }).join('');
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10px;margin:0;}'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}'
     + 'th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
@@ -10736,6 +10747,8 @@ function stnReqPrintComparison() {
 function stnReqPrintComparisonNoRate() {
   var items = stnReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var fsEl = document.getElementById('req-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
   var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
   var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
   var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
@@ -10765,7 +10778,7 @@ function stnReqPrintComparisonNoRate() {
   }).join('');
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10px;margin:0;}'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}'
     + 'th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
@@ -10926,8 +10939,11 @@ function stnReqSimplePrint(areaId, thColor) {
   var availMm = 237;
   var rowHmm  = availMm / slotCount;
 
-  // font: row height এর 58%, 7pt–9.5pt
+  // font: row height এর 58%, 7pt–9.5pt (auto)
   var fontPt  = Math.min(9.5, Math.max(7, parseFloat((rowHmm * 0.58 * 2.835).toFixed(1))));
+  // ম্যানুয়াল ফন্ট সাইজ ইনপুট থাকলে সেটা override করবে
+  var fsEl = document.getElementById('req-print-font-size');
+  if (fsEl && fsEl.value && parseFloat(fsEl.value) > 0) { fontPt = parseFloat(fsEl.value); }
   // vertical padding px (1mm = 3.7796px)
   var padV    = Math.max(1, parseFloat((((rowHmm - fontPt/2.835) / 2) * 3.7796).toFixed(1)));
   var padH    = 5;
@@ -12524,6 +12540,30 @@ function stnPrintItemWise(orientation) {
     var allE = sortedE.map(function(r){ return {type:'issue', date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-'}; })
       .concat(rcvE)
       .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
+
+    // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
+    // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
+    // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+    (function(){
+      var dateGroups = {}, dateKeys = [];
+      allE.forEach(function(r){
+        if (!dateGroups[r.date]) { dateGroups[r.date] = []; dateKeys.push(r.date); }
+        dateGroups[r.date].push(r);
+      });
+      dateKeys.sort();
+      var orderedE = [], simBal = runBal2;
+      dateKeys.forEach(function(dt){
+        var grp = dateGroups[dt];
+        var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
+        var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
+        var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
+        dayOrder.forEach(function(r){
+          orderedE.push(r);
+          if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
+        });
+      });
+      allE = orderedE;
+    })();
 
     var rowNum2 = 0;
     var totalRcv2 = 0;
@@ -16557,6 +16597,30 @@ function pkgPrintItemWise(orientation) {
     var allE = sortedE.map(function(r){ return {type:'issue', date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-'}; })
       .concat(rcvE)
       .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
+
+    // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
+    // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
+    // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+    (function(){
+      var dateGroups = {}, dateKeys = [];
+      allE.forEach(function(r){
+        if (!dateGroups[r.date]) { dateGroups[r.date] = []; dateKeys.push(r.date); }
+        dateGroups[r.date].push(r);
+      });
+      dateKeys.sort();
+      var orderedE = [], simBal = runBal2;
+      dateKeys.forEach(function(dt){
+        var grp = dateGroups[dt];
+        var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
+        var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
+        var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
+        dayOrder.forEach(function(r){
+          orderedE.push(r);
+          if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
+        });
+      });
+      allE = orderedE;
+    })();
 
     var rowNum2 = 0;
     var totalRcv2 = 0;
