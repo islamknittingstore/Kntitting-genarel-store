@@ -25285,11 +25285,43 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // ── Off Day / Holiday Manager (Admin Only) ──────────────
+  var NUR_OFFDAY_FB_PATH = 'igl_erp/ndb/offdays';
   function nurGetOffDays() {
     try { return JSON.parse(localStorage.getItem('igl_nur_offdays')||'[]'); } catch(e){ return []; }
   }
   function nurSaveOffDays(arr) {
     localStorage.setItem('igl_nur_offdays', JSON.stringify(arr));
+    // Firebase-এ persist করো, যাতে ফাইল আপডেট/ক্যাশ ক্লিয়ার/অন্য ডিভাইসেও ডাটা হারিয়ে না যায়
+    try{
+      if (typeof firebase !== 'undefined') {
+        firebase.database().ref(NUR_OFFDAY_FB_PATH).set(arr).catch(function(err){
+          console.error('Off Day Firebase sync failed:', err);
+        });
+      }
+    }catch(e){ console.error('Off Day Firebase sync error:', e); }
+  }
+  // Firebase থেকে off-day লোড করে localStorage-এর সাথে merge করে —
+  // অন্য ডিভাইসে যোগ করা বা আগে হারিয়ে যাওয়া (কিন্তু Firebase-এ থাকা) ডাটা ফিরিয়ে আনে
+  function nurSyncOffDaysFromFirebase(cb) {
+    try{
+      if (typeof firebase === 'undefined') { if (cb) cb(); return; }
+      firebase.database().ref(NUR_OFFDAY_FB_PATH).once('value').then(function(snap){
+        var fbArr = snap.val() || [];
+        if (!Array.isArray(fbArr)) fbArr = Object.values(fbArr);
+        var localArr = nurGetOffDays();
+        var merged = localArr.slice();
+        fbArr.forEach(function(d){ if (merged.indexOf(d) < 0) merged.push(d); });
+        merged.sort();
+        localStorage.setItem('igl_nur_offdays', JSON.stringify(merged));
+        if (merged.length !== fbArr.length) {
+          firebase.database().ref(NUR_OFFDAY_FB_PATH).set(merged).catch(function(){});
+        }
+        if (cb) cb();
+      }).catch(function(err){
+        console.error('Off Day Firebase load failed:', err);
+        if (cb) cb();
+      });
+    }catch(e){ if (cb) cb(); }
   }
   function nurOpenOffDayManager() {
     var modal = document.getElementById('nur-offday-modal');
@@ -25299,6 +25331,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var y = document.getElementById('nur-year').value;
     document.getElementById('nur-offday-input').value = y+'-'+m+'-01';
     nurRenderOffDayList();
+    nurSyncOffDaysFromFirebase(function(){ nurRenderOffDayList(); });
   }
   function nurCloseOffDayManager() {
     document.getElementById('nur-offday-modal').style.display = 'none';
@@ -25307,18 +25340,24 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nurAddOffDay() {
     var val = document.getElementById('nur-offday-input').value;
     if (!val) { toast('তারিখ দিন!','warning'); return; }
-    var arr = nurGetOffDays();
-    if (arr.indexOf(val) >= 0) { toast('এই তারিখ আগেই আছে!','warning'); return; }
-    arr.push(val);
-    arr.sort();
-    nurSaveOffDays(arr);
-    nurRenderOffDayList();
-    toast('✅ '+val+' যোগ হয়েছে','success');
+    // সেভ করার আগে Firebase থেকে সর্বশেষ ডাটা নিয়ে নাও, যাতে অন্য ডিভাইসের যোগ করা এন্ট্রি মিস না হয়
+    nurSyncOffDaysFromFirebase(function(){
+      var arr = nurGetOffDays();
+      if (arr.indexOf(val) >= 0) { toast('এই তারিখ আগেই আছে!','warning'); nurRenderOffDayList(); return; }
+      arr.push(val);
+      arr.sort();
+      nurSaveOffDays(arr);
+      nurRenderOffDayList();
+      toast('✅ '+val+' যোগ হয়েছে','success');
+    });
   }
   function nurRemoveOffDay(date) {
-    var arr = nurGetOffDays().filter(function(d){ return d !== date; });
-    nurSaveOffDays(arr);
-    nurRenderOffDayList();
+    // সেভ করার আগে Firebase থেকে সর্বশেষ ডাটা নিয়ে নাও, যাতে অন্য ডিভাইসের যোগ করা এন্ট্রি মিস না হয়
+    nurSyncOffDaysFromFirebase(function(){
+      var arr = nurGetOffDays().filter(function(d){ return d !== date; });
+      nurSaveOffDays(arr);
+      nurRenderOffDayList();
+    });
   }
   function nurRenderOffDayList() {
     var m = Number(document.getElementById('nur-month').value);
@@ -25345,6 +25384,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var month=Number(document.getElementById('nur-month').value);
     var year=Number(document.getElementById('nur-year').value);
     var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    // এই সেশনে একবার ব্যাকগ্রাউন্ডে Firebase থেকে off-day সিঙ্ক করে নাও (Working Days ঠিক রাখতে)
+    if (!window.__nurOffDaySynced) {
+      window.__nurOffDaySynced = true;
+      nurSyncOffDaysFromFirebase(function(){
+        // সিঙ্কের পর নতুন off-day পাওয়া গেলে রিপোর্ট রিফ্রেশ করো
+        try { renderNeedleUseReport(); } catch(e){}
+      });
+    }
 
     // পুরনো মাস হলে Firebase থেকে load করো
     var reqMonthStart = year+'-'+(month<10?'0':'')+month+'-01';
