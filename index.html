@@ -29209,25 +29209,49 @@ function pqbDoPrint() {
     try {
       var raw = localStorage.getItem('igl_pl_cache');
       var cached = raw ? JSON.parse(raw) : [];
+
+      // ── প্রথমেই local cache দেখাও — যাতে user কে অপেক্ষা না করতে হয় ──
+      cb(cached);
+
+      // ── background এ Firebase থেকে fresh data আনো ──
       var fb = _plFB();
-      if (fb) {
-        fb.ref(PL_FB_PATH).once('value').then(function(snap){
-          var data = snap.val() || {};
-          var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-          // ⚠️ Safety: Firebase খালি data দিলেও local cache এ data থাকলে — সেই data হারাতে দেওয়া যাবে না।
-          // (network glitch বা permission সমস্যায় Firebase ভুলভাবে খালি রেজাল্ট দিতে পারে)
-          if (entries.length === 0 && cached.length > 0) {
-            console.warn('Personal Ledger: Firebase খালি data দিয়েছে কিন্তু local cache এ '+cached.length+'টি entry আছে — cache সংরক্ষণ করা হলো');
-            if (typeof toast === 'function') {
-              toast('⚠️ Cloud থেকে data আসেনি — local cache দেখানো হচ্ছে। Internet চেক করুন।', 'warning', 6000);
-            }
-            cb(cached);
-            return;
+      if (!fb) return;
+
+      fb.ref(PL_FB_PATH).once('value').then(function(snap){
+        var data = snap.val() || {};
+        var entries = Object.values(data).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+
+        // Safety: Firebase খালি দিলে কিন্তু local এ data আছে — local রাখো
+        if (entries.length === 0 && cached.length > 0) {
+          console.warn('PL: Firebase খালি, local cache ('+ cached.length +' entries) রাখা হলো');
+          return; // local cache overwrite করা যাবে না
+        }
+
+        // Firebase এ বেশি data থাকলে (অন্য device থেকে এসেছে) — merge করো
+        if (entries.length > 0) {
+          // cached এ যা আছে কিন্তু Firebase এ নেই — সেগুলো Firebase এ push করো (locally saved but not synced)
+          var fbIds = {};
+          entries.forEach(function(e){ fbIds[e.id] = true; });
+          var unsynced = cached.filter(function(e){ return !fbIds[e.id]; });
+          if (unsynced.length > 0) {
+            console.warn('PL: '+unsynced.length+' টি entry local এ আছে কিন্তু Firebase এ নেই — sync করা হচ্ছে');
+            unsynced.forEach(function(e){
+              fb.ref(PL_FB_PATH + '/' + e.id).set(e).catch(function(err){ console.error('PL sync failed:', err); });
+            });
+            // merged list বানাও
+            var merged = entries.concat(unsynced).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+            localStorage.setItem('igl_pl_cache', JSON.stringify(merged));
+            plRender(merged);
+          } else {
+            localStorage.setItem('igl_pl_cache', JSON.stringify(entries));
+            plRender(entries);
           }
-          localStorage.setItem('igl_pl_cache', JSON.stringify(entries));
-          cb(entries);
-        }).catch(function(){ cb(cached); });
-      } else { cb(cached); }
+        }
+      }).catch(function(err){
+        console.warn('PL Firebase load failed:', err);
+        // local cache ই দেখানো হচ্ছে — আর কিছু করার নেই
+      });
+
     } catch(e){ cb([]); }
   }
 
