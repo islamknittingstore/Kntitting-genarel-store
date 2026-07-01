@@ -3441,7 +3441,14 @@ window.iglSaveNavVisibility = function() {
       <div class="card-header" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         🔍 Stationery Search & Reports
         <span id="stn-total-items" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
-        <div style="margin-left:auto;display:flex;gap:6px;" class="no-print">
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;" class="no-print">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:2px 8px;">
+            <label style="font-size:11px;color:#fff;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="stn-print-font-size" value="9" min="5" max="16" step="0.5"
+              style="width:42px;border:none;outline:none;font-size:12px;font-weight:700;color:#0e6655;padding:0;border-radius:3px;text-align:center;"
+              title="Print Font Size (pt)">
+            <span style="font-size:10px;color:#fff;">pt</span>
+          </span>
           <div style="position:relative;display:inline-block;" id="stn-print-dropdown-wrap">
             <button class="btn btn-sm" onclick="stnTogglePrintMenu()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">🖨️ Print ▾</button>
             <div id="stn-print-menu" style="display:none;position:absolute;right:0;top:110%;background:#1a2332;border:1px solid #2c3e50;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.5);z-index:9999;min-width:220px;overflow:hidden;">
@@ -3843,7 +3850,14 @@ window.iglSaveNavVisibility = function() {
       <div class="card-header" style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;border-bottom:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         🔍 Packaging Search & Reports
         <span id="pkg-total-items" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
-        <div style="margin-left:auto;display:flex;gap:6px;" class="no-print">
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;" class="no-print">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:2px 8px;">
+            <label style="font-size:11px;color:#fff;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="pkg-print-font-size" value="9" min="5" max="16" step="0.5"
+              style="width:42px;border:none;outline:none;font-size:12px;font-weight:700;color:#0e6655;padding:0;border-radius:3px;text-align:center;"
+              title="Print Font Size (pt)">
+            <span style="font-size:10px;color:#fff;">pt</span>
+          </span>
           <div style="position:relative;display:inline-block;" id="pkg-print-dropdown-wrap">
             <button class="btn btn-sm" onclick="pkgTogglePrintMenu()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);">🖨️ Print ▾</button>
             <div id="pkg-print-menu" style="display:none;position:absolute;right:0;top:110%;background:#1a2332;border:1px solid #2c3e50;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.5);z-index:9999;min-width:190px;overflow:hidden;">
@@ -8223,34 +8237,6 @@ function stockBadge(stock) {
   return `<div class="stock-badge ok">STOCK OK (${stock})</div>`;
 }
 
-// ── Reusable Print Font-Size/Row-Height Toolbar (Stationery/Packaging item-wise print) ──
-// একই সুবিধা যা Needle প্রিন্টে আছে — popup window এ ফন্ট সাইজ ও রো হাইট কমানো/বাড়ানো যাবে
-function _printFontToolbarHTML(defaultFS) {
-  var fs = defaultFS || 9;
-  return ''
-    + '<div class="no-print" style="position:sticky;top:0;background:#fff;border-bottom:2px solid #ddd;padding:8px 12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-family:Arial,sans-serif;z-index:10;">'
-    + '<b style="font-size:12px;color:#1a5276;white-space:nowrap;">🔤 প্রিন্ট সেটিংস:</b>'
-    + '<label style="font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap;">ফন্ট সাইজ:'
-    + '<input type="range" id="_pf-fs" min="6" max="16" step="0.5" value="'+fs+'" style="width:100px;" oninput="document.getElementById(\'_pf-fs-val\').textContent=this.value+\'pt\';_pfApply();">'
-    + '<span id="_pf-fs-val" style="font-weight:700;min-width:32px;">'+fs+'pt</span></label>'
-    + '<label style="font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap;">রো হাইট:'
-    + '<input type="range" id="_pf-rp" min="1" max="14" step="1" value="3" style="width:100px;" oninput="document.getElementById(\'_pf-rp-val\').textContent=this.value+\'px\';_pfApply();">'
-    + '<span id="_pf-rp-val" style="font-weight:700;min-width:28px;">3px</span></label>'
-    + '<button onclick="window.print()" style="padding:6px 16px;background:#27ae60;border:none;color:#fff;border-radius:5px;font-weight:700;font-size:12px;cursor:pointer;">🖨️ প্রিন্ট করুন</button>'
-    + '</div>'
-    + '<style id="_pf-style"></style>'
-    + '<script>'
-    + 'function _pfApply(){'
-    + '  var fs=document.getElementById("_pf-fs").value;'
-    + '  var rp=document.getElementById("_pf-rp").value;'
-    + '  var thp=(Number(rp)+1);'
-    + '  var s=document.getElementById("_pf-style");'
-    + '  s.textContent="body{font-size:"+fs+"pt;} table{font-size:"+fs+"pt;} th{padding:"+thp+"px 7px;font-size:"+fs+"pt;} td{padding:"+rp+"px 7px;font-size:"+fs+"pt;} .total-row td{padding:"+thp+"px 7px;font-size:"+fs+"pt;} .dept-hdr{font-size:"+fs+"pt;}";'
-    + '}'
-    + '_pfApply();'
-    + '<\/script>';
-}
-
 function fmtDate(d) {
   if (!d) return '';
   var parts = String(d).split('-');
@@ -9275,6 +9261,9 @@ function stnPrint(showTotal) {
   var data = stnGetTableData();
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
+  var fsEl = document.getElementById('stn-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
+
   var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
   var periodStr = dateFrom && dateTo ? _fmtDMY(dateFrom)+' থেকে '+_fmtDMY(dateTo)
@@ -9284,22 +9273,20 @@ function stnPrint(showTotal) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 portrait;margin:10mm 8mm;}';
-  html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
+  html += 'body{font-family:Arial,sans-serif;font-size:'+fs+'pt!important;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
-  html += 'table{width:100%;border-collapse:collapse;font-size:9pt;}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
   html += 'thead tr{background:#0e6655;color:#fff;}';
-  html += 'th{padding:4px 7px;text-align:left;font-size:9pt;}';
-  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:9pt;}';
+  html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
+  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
+  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
-  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
-  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'</div></div>';
@@ -12968,6 +12955,9 @@ function stnPrintOriented(orientation, stockFilter) {
     data.title += filterLabel;
   }
 
+  var fsEl = document.getElementById('stn-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
+
   var dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('stn-date-to')||{value:''}).value;
   var periodStr = dateFrom && dateTo ? _fmtDMY(dateFrom)+' থেকে '+_fmtDMY(dateTo)
@@ -12975,22 +12965,20 @@ function stnPrintOriented(orientation, stockFilter) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 '+orientation+';margin:10mm 8mm 10mm 10mm;}';
-  html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
+  html += 'body{font-family:Arial,sans-serif;font-size:'+fs+'pt!important;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
-  html += 'table{width:100%;border-collapse:collapse;font-size:9pt;}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
   html += 'thead tr{background:#0e6655;color:#fff;}';
-  html += 'th{padding:4px 7px;text-align:left;font-size:9pt;}';
-  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:9pt;}';
+  html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
+  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
+  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
-  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
-  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'<br>'+orientation.toUpperCase()+'</div></div>';
@@ -13397,6 +13385,9 @@ function pkgPrint() {
   var data = pkgGetTableData();
   if (!data || data.rows.length === 0) { toast('No data to print!', 'warning'); return; }
 
+  var fsEl = document.getElementById('pkg-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
+
   var dateFrom = (document.getElementById('pkg-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('pkg-date-to')||{value:''}).value;
   var periodStr = dateFrom && dateTo ? _fmtDMY(dateFrom)+' থেকে '+_fmtDMY(dateTo)
@@ -13406,22 +13397,20 @@ function pkgPrint() {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 portrait;margin:10mm 8mm;}';
-  html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
+  html += 'body{font-family:Arial,sans-serif;font-size:'+fs+'pt!important;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
-  html += 'table{width:100%;border-collapse:collapse;font-size:9pt;}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
   html += 'thead tr{background:#0e6655;color:#fff;}';
-  html += 'th{padding:4px 7px;text-align:left;font-size:9pt;}';
-  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:9pt;}';
+  html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
+  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
+  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
-  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
-  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'</div></div>';
@@ -16999,6 +16988,9 @@ function pkgPrintOriented(orientation, stockFilter) {
     data.title += filterLabel;
   }
 
+  var fsEl = document.getElementById('pkg-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
+
   var dateFrom = (document.getElementById('pkg-date-from')||{value:''}).value;
   var dateTo   = (document.getElementById('pkg-date-to')||{value:''}).value;
   var periodStr = dateFrom && dateTo ? _fmtDMY(dateFrom)+' থেকে '+_fmtDMY(dateTo)
@@ -17006,22 +16998,20 @@ function pkgPrintOriented(orientation, stockFilter) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+data.title+'</title><style>';
   html += '@page{size:A4 '+orientation+';margin:10mm 8mm 10mm 10mm;}';
-  html += 'body{font-family:Arial,sans-serif;font-size:9pt;margin:0;padding:0;color:#000;}';
+  html += 'body{font-family:Arial,sans-serif;font-size:'+fs+'pt!important;margin:0;padding:0;color:#000;}';
   html += '.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0e6655;padding-bottom:5px;margin-bottom:8px;}';
   html += '.hdr-left h2{margin:0;font-size:13pt;color:#0e6655;}';
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
-  html += 'table{width:100%;border-collapse:collapse;font-size:9pt;}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
   html += 'thead tr{background:#0e6655;color:#fff;}';
-  html += 'th{padding:4px 7px;text-align:left;font-size:9pt;}';
-  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:9pt;}';
+  html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
+  html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
+  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
-  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
-  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'<br>'+orientation.toUpperCase()+'</div></div>';
