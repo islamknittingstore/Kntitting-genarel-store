@@ -3551,7 +3551,8 @@ window.iglSaveNavVisibility = function() {
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
         <button onclick="stnReqSimplePrint('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
         <button onclick="stnReqPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💰 Print (Rate সহ)</button>
-        <button onclick="stnReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive</button>
+        <button onclick="stnReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate সহ)</button>
+        <button onclick="stnReqPrintComparisonNoRate()" style="background:linear-gradient(135deg,#16a085,#1abc9c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate ছাড়া)</button>
         <button onclick="stnReqExcelDownload()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📥 Excel Download</button>
       </div>
     </div>
@@ -8222,6 +8223,34 @@ function stockBadge(stock) {
   return `<div class="stock-badge ok">STOCK OK (${stock})</div>`;
 }
 
+// ── Reusable Print Font-Size/Row-Height Toolbar (Stationery/Packaging item-wise print) ──
+// একই সুবিধা যা Needle প্রিন্টে আছে — popup window এ ফন্ট সাইজ ও রো হাইট কমানো/বাড়ানো যাবে
+function _printFontToolbarHTML(defaultFS) {
+  var fs = defaultFS || 9;
+  return ''
+    + '<div class="no-print" style="position:sticky;top:0;background:#fff;border-bottom:2px solid #ddd;padding:8px 12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-family:Arial,sans-serif;z-index:10;">'
+    + '<b style="font-size:12px;color:#1a5276;white-space:nowrap;">🔤 প্রিন্ট সেটিংস:</b>'
+    + '<label style="font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap;">ফন্ট সাইজ:'
+    + '<input type="range" id="_pf-fs" min="6" max="16" step="0.5" value="'+fs+'" style="width:100px;" oninput="document.getElementById(\'_pf-fs-val\').textContent=this.value+\'pt\';_pfApply();">'
+    + '<span id="_pf-fs-val" style="font-weight:700;min-width:32px;">'+fs+'pt</span></label>'
+    + '<label style="font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap;">রো হাইট:'
+    + '<input type="range" id="_pf-rp" min="1" max="14" step="1" value="3" style="width:100px;" oninput="document.getElementById(\'_pf-rp-val\').textContent=this.value+\'px\';_pfApply();">'
+    + '<span id="_pf-rp-val" style="font-weight:700;min-width:28px;">3px</span></label>'
+    + '<button onclick="window.print()" style="padding:6px 16px;background:#27ae60;border:none;color:#fff;border-radius:5px;font-weight:700;font-size:12px;cursor:pointer;">🖨️ প্রিন্ট করুন</button>'
+    + '</div>'
+    + '<style id="_pf-style"></style>'
+    + '<script>'
+    + 'function _pfApply(){'
+    + '  var fs=document.getElementById("_pf-fs").value;'
+    + '  var rp=document.getElementById("_pf-rp").value;'
+    + '  var thp=(Number(rp)+1);'
+    + '  var s=document.getElementById("_pf-style");'
+    + '  s.textContent="body{font-size:"+fs+"pt;} table{font-size:"+fs+"pt;} th{padding:"+thp+"px 7px;font-size:"+fs+"pt;} td{padding:"+rp+"px 7px;font-size:"+fs+"pt;} .total-row td{padding:"+thp+"px 7px;font-size:"+fs+"pt;} .dept-hdr{font-size:"+fs+"pt;}";'
+    + '}'
+    + '_pfApply();'
+    + '<\/script>';
+}
+
 function fmtDate(d) {
   if (!d) return '';
   var parts = String(d).split('-');
@@ -9268,7 +9297,9 @@ function stnPrint(showTotal) {
   html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
   html += 'button{display:none!important;}';
+  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
+  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'</div></div>';
@@ -10710,6 +10741,71 @@ function stnReqPrintComparison() {
     + '</div></body></html>';
 
   var w = window.open('','_blank','width=1050,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
+// ── Print ৩-খ: Requisition Qty vs Receive Qty (Rate ছাড়া) ──
+function stnReqPrintComparisonNoRate() {
+  var items = stnReqGetSelected();
+  if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
+  var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
+  var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = title + ' — ' + (MONTHS[month]||'') + ' ' + year;
+  var mStr  = year + '-' + String(month).padStart(2,'0');
+  var mFrom = mStr + '-01';
+  var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+
+  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery'; });
+
+  var rows = items.map(function(it, i) {
+    var reqQty = Number(it.qty)||0;
+    var rcvQty = allRcv
+      .filter(function(r){ return r.item===it.name && r.date>=mFrom && r.date<=mTo; })
+      .reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+    var diff   = rcvQty - reqQty;
+    var dClr   = diff>=0 ? '#1a6b3a' : '#c0392b';
+    return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(i+1)+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #bbb;font-weight:500;">'+it.name+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(it.unit||'Pcs')+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a5276;">'+reqQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a6b3a;">'+rcvQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:'+dClr+';">'+(diff>=0?'+':'')+diff+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10px;margin:0;}'
+    + 'table{width:100%;border-collapse:collapse;}'
+    + 'th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 6px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:11px;color:#555;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div>'
+    + '<div style="font-size:11px;color:#777;margin-top:2px;">Requisition vs Receive তুলনা (Rate ছাড়া)</div></div>'
+    + '<table><thead>'
+    + '<tr>'
+    + '<th style="background:#34495e;color:#fff;text-align:center;width:35px;">SL</th>'
+    + '<th style="background:#34495e;color:#fff;text-align:left;">Item Name</th>'
+    + '<th style="background:#34495e;color:#fff;text-align:center;width:60px;">Unit</th>'
+    + '<th style="background:#2980b9;color:#fff;text-align:center;width:80px;">Req Qty</th>'
+    + '<th style="background:#27ae60;color:#fff;text-align:center;width:80px;">Receive Qty</th>'
+    + '<th style="background:#7d3c98;color:#fff;text-align:center;width:70px;">Diff</th>'
+    + '</tr>'
+    + '</thead><tbody>'+rows+'</tbody></table>'
+    + '<div class="footer">'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Accounts</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div>'
+    + '</div></body></html>';
+
+  var w = window.open('','_blank','width=1000,height=700');
   w.document.write(html); w.document.close();
   w.onload = function(){ w.focus(); w.print(); };
 }
@@ -12892,7 +12988,9 @@ function stnPrintOriented(orientation, stockFilter) {
   html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
   html += 'button{display:none!important;}';
+  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
+  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'<br>'+orientation.toUpperCase()+'</div></div>';
@@ -13321,7 +13419,9 @@ function pkgPrint() {
   html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
   html += 'button{display:none!important;}';
+  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
+  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'</div></div>';
@@ -16919,7 +17019,9 @@ function pkgPrintOriented(orientation, stockFilter) {
   html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:9pt;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:9pt;}';
   html += 'button{display:none!important;}';
+  html += '@media print{.no-print{display:none!important;}}';
   html += '</style></head><body>';
+  html += _printFontToolbarHTML(9);
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
   html += '<div class="hdr-right">সময়কাল: '+periodStr+'<br>Print Date: '+fmtDate(todayStr())+'<br>'+orientation.toUpperCase()+'</div></div>';
@@ -17984,6 +18086,7 @@ function addItem() {
 
   renderMaster();
   populateMasterDataLists();
+  triggerAutoSave();
   toast(`✅ "${name}" added! Group: ${groupText}${category ? ' | Category: '+category : ''}`, 'success');
 }
 
@@ -17995,6 +18098,7 @@ function addGroup() {
   if (document.getElementById('new-group-name')) document.getElementById('new-group-name').value = '';
   renderMaster();
   populateMasterDataLists();
+  triggerAutoSave();
   toast(`✅ Group "${name}" added!`);
 }
 
@@ -18005,6 +18109,7 @@ async function deleteItem(i) {
   var deletedItem = arr[i];
   if (deletedItem) binAdd('store_item', deletedItem, 'Store Item — ' + (deletedItem.name||''));
   arr.splice(i, 1); DB.items = arr;
+  triggerAutoSave();
   renderMaster();
   _refreshAllGroupDropdowns();
   toast('Item deleted', 'warning');
@@ -18021,6 +18126,7 @@ function addMachine() {
   document.getElementById('new-m-no').value = '';
   document.getElementById('new-m-cat').value = '';
   renderMaster();
+  triggerAutoSave();
   toast(' Machine added!');
 }
 
@@ -18039,6 +18145,7 @@ function updateMachineCat(i, val) {
   const arr = DB.machines;
   arr[i].cat = val;
   DB.machines = arr;
+  triggerAutoSave();
   toast('Category updated!');
 }
 
@@ -18123,6 +18230,7 @@ function bulkImportItems() {
   DB.groups = groups;
   DB.items = items;
   renderMaster();
+  triggerAutoSave();
 
   var msg = 'Done! Added: ' + added + ' items.';
   if (skipped > 0) msg += ' Skipped (duplicate): ' + skipped + '.';
@@ -18201,6 +18309,7 @@ function bulkImportMachines() {
 
   DB.machines = machines;
   renderMaster();
+  triggerAutoSave();
 
   document.getElementById('bulkMachineStatus').textContent = 'Added: ' + added + '  |  Skipped: ' + skipped;
   document.getElementById('bulkMachineText').value = '';
@@ -20051,6 +20160,7 @@ function nsrSaveAll() {
   }
   // ─────────────────────────────────────────────────────────────
   toast('✅ ' + entries.length + 'টি New Set Record সেভ হয়েছে', 'success');
+  triggerAutoSave();
 
   document.querySelectorAll('.nsr-qty').forEach(function(el){ el.value = ''; });
   document.querySelectorAll('.nsr-chk').forEach(function(el){ el.checked = false; });
@@ -20481,6 +20591,9 @@ function stnModalAdd(){
     var arr=DB.stnItems;
     arr.push({group:'Stationery',category:cat,name:name});
     DB.stnItems=arr;
+    clearTimeout(window._fbSaveTimer);
+    if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
+    if(typeof triggerAutoSave === 'function') triggerAutoSave();
     msg.innerHTML='<span style="color:#27ae60">✅ "'+name+'" Stationery-এ যোগ হয়েছে!</span>';
   }
 
