@@ -2374,6 +2374,8 @@ var IGL_NAV_ITEMS = {
   'nav-needle-issue':      { label: '✏️ Needle Issue Entry',      section: '🪡 Needle Section' },
   'nav-needle-receive':    { label: '📥 Needle Receive',          section: '🪡 Needle Section' },
   'nav-needle-monthly':    { label: '📊 Monthly Machine Wise',    section: '🪡 Needle Section' },
+  'nav-needle-monthly-prod':{ label: '📊📦 Machine Wise + Production', section: '🪡 Needle Section' },
+  'nav-machine-set-summary':{ label: '🔧 Machine Set Summary',    section: '🪡 Needle Section' },
   'nav-needle-daily':      { label: '📆 Daily Summary',           section: '🪡 Needle Section' },
   'nav-needle-use-report': { label: '📋 Shift Needle Use Report', section: '🪡 Needle Section' },
   'nav-needle-newset-record':{ label: '📝 New Set Record',        section: '🪡 Needle Section' },
@@ -2701,6 +2703,8 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-issue"><a href="#" onclick="showPage('needle_issue', this); return false;"><span class="icon">✏️</span> Needle Issue Entry</a></li>
       <li id="nav-needle-receive"><a href="#" onclick="showPage('needle_receive', this); return false;"><span class="icon">📥</span> Needle Receive</a></li>
       <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
+      <li id="nav-needle-monthly-prod"><a href="#" onclick="showPage('needle_monthly_prod', this); return false;"><span class="icon">📊📦</span> Machine Wise + Production</a></li>
+      <li id="nav-machine-set-summary"><a href="#" onclick="showPage('machine_set_summary', this); return false;"><span class="icon">🔧</span> Machine Set Summary</a></li>
       <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
       <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
       <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
@@ -4933,6 +4937,59 @@ function ok(msg) {
       <div class="header-print" id="used-monthly-print-header"></div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="usedNeedleMonthlyGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEEDLE + PRODUCTION GRID (Sheet 2) -->
+  <div class="page" id="page-needle_monthly_prod">
+    <div class="page-header">
+      <h2>📊📦 Machine Wise Needle + Production</h2>
+      <p>প্রতিটা মেশিনের প্রতিদিনের needle সংখ্যা ও production (kg) — Excel দিয়ে bulk update</p>
+    </div>
+    <div class="card">
+      <div class="card-header" style="background:#f0f3f7;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select class="form-control" id="nmp-month" style="width:130px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="nmp-year" value="2026" min="2020" max="2050" style="width:90px;">
+          <select class="form-control" id="nmp-section" style="width:130px;">
+            <option value="">All Sections</option>
+            <option value="Circular">Circular</option>
+            <option value="Flat Knit">Flat Knit</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="renderNeedleMonthlyProd()">View</button>
+          <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
+          <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()">📤 Excel Import</button>
+          <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:#666;">
+          <span style="color:#1a5276;font-weight:700;">■</span> নীল সংখ্যা = Needle issue &nbsp;&nbsp;
+          <span style="color:#1e8449;font-weight:700;">■</span> সবুজ সংখ্যা = Production (kg)
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="needleMonthlyProdGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MACHINE SET & PRODUCTION SUMMARY (Sheet 3) -->
+  <div class="page" id="page-machine_set_summary">
+    <div class="page-header">
+      <h2>🔧 Machine Set & Production Summary</h2>
+      <p>ERP সিরিয়াল অনুযায়ী — প্রতিটা মেশিনের Last Set তারিখ ও তারপর থেকে মোট Production</p>
+    </div>
+    <div class="card">
+      <div class="card-header" style="background:#f0f3f7;">
+        <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="machineSetSummaryGrid"></div>
       </div>
     </div>
   </div>
@@ -19841,6 +19898,316 @@ function renderUsedNeedleMonthly() {
 
   if (!html) html = '<div class="no-data" style="padding:40px;">No used needle issue data for this period.</div>';
   document.getElementById('usedNeedleMonthlyGrid').innerHTML = html;
+}
+
+// =====================================================================
+//  MACHINE WISE PRODUCTION MODULE (Sheet 2 + Sheet 3)
+// =====================================================================
+
+// ── Storage: প্রতি মাসের production একটা করে Firebase node এ (efficient bulk save/load) ──
+// path: igl_erp/nur_machprod/{year}_{month} = { machineId: { day: kg, ... }, ... }
+window._machProdCache = window._machProdCache || {}; // key "year_month" -> {machineId:{day:kg}}
+
+function _mpKey(year, month) { return year + '_' + month; }
+
+function mpLoadMonth(year, month, cb) {
+  var key = _mpKey(year, month);
+  if (window._machProdCache[key]) { cb(window._machProdCache[key]); return; }
+  try {
+    if (typeof firebase !== 'undefined' && firebase.database) {
+      firebase.database().ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
+        var v = snap.val() || {};
+        window._machProdCache[key] = v;
+        cb(v);
+      }).catch(function(){
+        var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
+        window._machProdCache[key] = local;
+        cb(local);
+      });
+      return;
+    }
+  } catch(e) {}
+  var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
+  window._machProdCache[key] = local;
+  cb(local);
+}
+
+function mpSaveMonth(year, month, dataObj) {
+  var key = _mpKey(year, month);
+  window._machProdCache[key] = dataObj;
+  localStorage.setItem('igl_machprod_' + key, JSON.stringify(dataObj));
+  try {
+    if (typeof firebase !== 'undefined' && firebase.database) {
+      firebase.database().ref('igl_erp/nur_machprod/' + key).set(dataObj);
+    }
+  } catch(e) { console.error('machProd save error', e); }
+}
+
+// ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
+function renderNeedleMonthlyProd() {
+  var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
+  var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
+  var sec   = (document.getElementById('nmp-section')||{}).value || '';
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var days = []; for (var d = 1; d <= daysInMonth; d++) days.push(d);
+
+  var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines())
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+
+  var allNeedles = NDB.needles.filter(function(n){
+    var nd = new Date(n.date);
+    return nd.getMonth()+1===month && nd.getFullYear()===year
+      && (n.needleType||'').toLowerCase()!=='used' && (n.type||'').toLowerCase()!=='used';
+  });
+
+  mpLoadMonth(year, month, function(prodData){
+    var t = '<div style="padding:10px 15px;">';
+    t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;">';
+    t += '<thead><tr>';
+    t += '<th style="width:24px;">ERP</th><th style="width:90px;text-align:left;padding-left:3px;">Machine ID</th><th style="width:26px;">Gauge</th>';
+    days.forEach(function(dd){
+      var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+      var isWeekend = new Date(dayStr).getDay()===5;
+      t += '<th style="width:22px;'+(isWeekend?'background:#e74c3c;color:#fff;':'')+'">'+dd+'</th>';
+    });
+    t += '<th style="width:40px;background:#1c2833;color:#fff;">Total<br>Needle</th>';
+    t += '<th style="width:44px;background:#1e8449;color:#fff;">Total<br>Prod(kg)</th>';
+    t += '</tr></thead><tbody>';
+
+    var grandNeedle = 0, grandProd = 0;
+    machines.forEach(function(m){
+      var mData = allNeedles.filter(function(n){ return n.machine === m.id; });
+      var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
+      var mProd = prodData[m.id] || {};
+      var rowProdTotal = 0;
+      t += '<tr>';
+      t += '<td style="text-align:center;">'+(m.erp||'')+'</td>';
+      t += '<td><b>'+m.id+'</b></td>';
+      t += '<td style="text-align:center;">'+(m.gauge||'-')+'</td>';
+      days.forEach(function(dd){
+        var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+        var dayQty = mData.filter(function(n){return n.date===dayStr;}).reduce(function(s,n){return s+n.qty;},0);
+        var dayKg  = parseFloat(mProd[dd]) || 0;
+        rowProdTotal += dayKg;
+        t += '<td style="text-align:center;padding:1px;line-height:1.2;">'
+           + (dayQty>0 ? '<div style="color:#1a5276;font-weight:700;">'+dayQty+'</div>' : '<div>&nbsp;</div>')
+           + (dayKg>0  ? '<div style="color:#1e8449;font-size:8px;">'+dayKg+'</div>'    : '')
+           + '</td>';
+      });
+      grandNeedle += rowTotal; grandProd += rowProdTotal;
+      t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;">'+(rowTotal||'')+'</td>';
+      t += '<td style="text-align:center;font-weight:700;background:#eafaf1;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
+      t += '</tr>';
+    });
+
+    t += '<tr style="background:#1c2833;color:#fff;font-weight:700;">';
+    t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;">সর্বমোট (Grand Total)</td>';
+    t += '<td style="text-align:center;background:#117a65;">'+grandNeedle+'</td>';
+    t += '<td style="text-align:center;background:#117a65;">'+grandProd.toFixed(1)+'</td>';
+    t += '</tr>';
+    t += '</tbody></table></div>';
+
+    document.getElementById('needleMonthlyProdGrid').innerHTML = t;
+  });
+}
+
+// ── Excel Template Export (production কলাম শুধু — fill করে আবার import করার জন্য) ──
+function mpExportTemplate() {
+  if (typeof XLSX === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = function(){ _mpDoExport(); };
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  _mpDoExport();
+}
+
+function _mpDoExport() {
+  var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
+  var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
+  var sec   = (document.getElementById('nmp-section')||{}).value || '';
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var days = []; for (var d = 1; d <= daysInMonth; d++) days.push(d);
+
+  var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines())
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+
+  mpLoadMonth(year, month, function(prodData){
+    var header = ['ERP','Machine ID','Gauge'].concat(days.map(function(d){return String(d);}));
+    var rows = [['Islam Garments Limited — Machine Wise Production Entry Sheet']];
+    rows.push([monthNames[month-1]+' '+year+' | নিচের প্রতিটা মেশিনের সারিতে, প্রতিদিনের ঘরে সেদিনের production (kg) লিখুন, তারপর এই ফাইলটাই Import করুন।']);
+    rows.push([]);
+    rows.push(header);
+    machines.forEach(function(m){
+      var mProd = prodData[m.id] || {};
+      var row = [m.erp||'', m.id, m.gauge||''];
+      days.forEach(function(dd){ row.push(mProd[dd] !== undefined ? mProd[dd] : ''); });
+      rows.push(row);
+    });
+
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:6},{wch:26},{wch:8}].concat(days.map(function(){return {wch:6};}));
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Production');
+    XLSX.writeFile(wb, 'Machine_Production_'+monthNames[month-1]+'_'+year+'.xlsx');
+    toast('✅ Excel Template ডাউনলোড হয়েছে — পূরণ করে আবার Import করুন', 'success');
+  });
+}
+
+// ── Excel Import (পূরণ করা ফাইল থেকে সব production একবারে bulk save) ──
+function mpImportExcel() {
+  document.getElementById('mp-import-file').click();
+}
+
+function mpHandleImportFile(evt) {
+  var file = evt.target.files[0];
+  if (!file) return;
+
+  function afterLibLoaded() {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+        // Header row খুঁজে বের করো (যেখানে প্রথম কলাম "ERP")
+        var headerIdx = rows.findIndex(function(r){ return r[0]==='ERP'; });
+        if (headerIdx < 0) { toast('❌ সঠিক ফরম্যাট নয় — Template ব্যবহার করুন', 'error'); return; }
+        var header = rows[headerIdx];
+        var dayColStart = 3; // 0:ERP 1:Machine ID 2:Gauge 3...:days
+
+        var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
+        var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
+
+        mpLoadMonth(year, month, function(prodData){
+          var updated = 0;
+          for (var i = headerIdx+1; i < rows.length; i++) {
+            var r = rows[i];
+            if (!r || !r[1]) continue; // Machine ID না থাকলে skip
+            var machId = String(r[1]).trim();
+            var mObj = {};
+            for (var c = dayColStart; c < header.length; c++) {
+              var dayNum = header[c];
+              var val = r[c];
+              if (val === undefined || val === null || val === '') continue;
+              var num = parseFloat(val);
+              if (isNaN(num)) continue;
+              mObj[dayNum] = num;
+              updated++;
+            }
+            if (Object.keys(mObj).length > 0) prodData[machId] = Object.assign(prodData[machId]||{}, mObj);
+          }
+          mpSaveMonth(year, month, prodData);
+          toast('✅ '+updated+'টি production entry Import হয়েছে', 'success');
+          renderNeedleMonthlyProd();
+        });
+      } catch(err) {
+        console.error(err);
+        toast('❌ ফাইল পড়তে সমস্যা হয়েছে', 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    evt.target.value = '';
+  }
+
+  if (typeof XLSX === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = afterLibLoaded;
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  afterLibLoaded();
+}
+
+// ── Sheet 3: Machine Set & Production Summary ──
+function renderMachineSetSummary() {
+  var machines = getNeedleMachines().slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var todayS = todayStr();
+
+  // প্রতিটা মেশিনের সব "New Set" রেকর্ড, তারিখ অনুযায়ী descending
+  var newSetByMachine = {};
+  NDB.needles.filter(function(n){ return n.type === 'newset' || n.source === 'nsr'; }).forEach(function(n){
+    if (!n.machine) return;
+    if (!newSetByMachine[n.machine]) newSetByMachine[n.machine] = [];
+    if (newSetByMachine[n.machine].indexOf(n.date) < 0) newSetByMachine[n.machine].push(n.date);
+  });
+  Object.keys(newSetByMachine).forEach(function(mid){
+    newSetByMachine[mid].sort(function(a,b){ return a<b?1:-1; }); // descending
+  });
+
+  // Last Set তারিখ অনুযায়ী প্রয়োজনীয় মাসগুলো বের করে সব মাসের production load করো
+  var neededMonths = {}; // "year_month" -> true
+  var iter = new Date();
+  // এই মুহূর্তে যতগুলো machine আছে, তাদের last-set মাস থেকে আজ পর্যন্ত সব মাস দরকার হতে পারে;
+  // simplicity-র জন্য গত ১২ মাস লোড করি (production সাধারণত এর মধ্যেই থাকে)
+  for (var i=0; i<12; i++) {
+    var y = iter.getFullYear(), m = iter.getMonth()+1;
+    neededMonths[_mpKey(y,m)] = {y:y, m:m};
+    iter.setMonth(iter.getMonth()-1);
+  }
+
+  var monthKeys = Object.keys(neededMonths);
+  var loaded = 0;
+  var allProdData = {}; // key -> data
+  monthKeys.forEach(function(key){
+    mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
+      loaded++;
+      if (loaded === monthKeys.length) finishRender();
+    });
+  });
+  if (monthKeys.length === 0) finishRender();
+
+  function finishRender() {
+    var t = '<div style="padding:10px 15px;">';
+    t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
+    t += '<thead><tr style="background:#4a235a;color:#fff;">';
+    t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
+    t += '<th style="padding:6px 8px;">Gauge</th><th style="padding:6px 8px;">Previous Set Date</th>';
+    t += '<th style="padding:6px 8px;">Last Set Date</th><th style="padding:6px 8px;">Production Since Last Set (kg)</th>';
+    t += '</tr></thead><tbody>';
+
+    machines.forEach(function(m, idx){
+      var dates = newSetByMachine[m.id] || [];
+      var lastSet = dates[0] || '';
+      var prevSet = dates[1] || '';
+
+      var prodSince = 0;
+      if (lastSet) {
+        monthKeys.forEach(function(key){
+          var parts = key.split('_');
+          var y = Number(parts[0]), mo = Number(parts[1]);
+          var data = window._machProdCache[key] || {};
+          var mProd = data[m.id] || {};
+          Object.keys(mProd).forEach(function(dayNum){
+            var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+            if (dayStr >= lastSet && dayStr <= todayS) prodSince += parseFloat(mProd[dayNum]) || 0;
+          });
+        });
+      }
+
+      t += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
+      t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>';
+      t += '</tr>';
+    });
+
+    t += '</tbody></table></div>';
+    document.getElementById('machineSetSummaryGrid').innerHTML = t;
+  }
 }
 
 function exportNeedleCSV() {
