@@ -12136,6 +12136,30 @@ function renderStationeryDashboard() {
           .concat(rcvEntries)
           .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
 
+        // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
+        // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
+        // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+        (function(){
+          var dateGroups = {}, dateKeys = [];
+          allEntries.forEach(function(r){
+            if (!dateGroups[r.date]) { dateGroups[r.date] = []; dateKeys.push(r.date); }
+            dateGroups[r.date].push(r);
+          });
+          dateKeys.sort();
+          var orderedEntries = [], simBal = bf;
+          dateKeys.forEach(function(dt){
+            var grp = dateGroups[dt];
+            var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
+            var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
+            var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
+            dayOrder.forEach(function(r){
+              orderedEntries.push(r);
+              if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
+            });
+          });
+          allEntries = orderedEntries;
+        })();
+
         runBal = bf;
         var rowNum = 0;
         var totalRcv = 0;
@@ -12509,7 +12533,18 @@ function stnPrintItemWise(orientation) {
   });
 
   var iwItems2 = Object.keys(iwMap2).sort();
-  var iwGrandTotal2 = iwIss2.reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+
+  // শুধু বর্তমানে visible/selected item প্রিন্ট করো (কোনো একটা item card ক্লিক করে থাকলে সেটাই)
+  var stnVisibleTables = document.querySelectorAll('.stn-iw-item-table');
+  var stnVisibleItems = [];
+  stnVisibleTables.forEach(function(t){
+    if (t.style.display !== 'none') stnVisibleItems.push(t.getAttribute('data-item'));
+  });
+  if (stnVisibleItems.length > 0 && stnVisibleItems.length < iwItems2.length) {
+    iwItems2 = iwItems2.filter(function(name){ return stnVisibleItems.indexOf(name) !== -1; });
+  }
+
+  var iwGrandTotal2 = iwItems2.reduce(function(s,name){ return s + (iwMap2[name] ? iwMap2[name].totalIssue : 0); }, 0);
 
   iwItems2.forEach(function(itemName){
     var d = iwMap2[itemName];
@@ -16193,6 +16228,30 @@ function renderPackagingDashboard() {
           .concat(rcvEntries)
           .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
 
+        // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
+        // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
+        // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+        (function(){
+          var dateGroups = {}, dateKeys = [];
+          allEntries.forEach(function(r){
+            if (!dateGroups[r.date]) { dateGroups[r.date] = []; dateKeys.push(r.date); }
+            dateGroups[r.date].push(r);
+          });
+          dateKeys.sort();
+          var orderedEntries = [], simBal = bf;
+          dateKeys.forEach(function(dt){
+            var grp = dateGroups[dt];
+            var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
+            var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
+            var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
+            dayOrder.forEach(function(r){
+              orderedEntries.push(r);
+              if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
+            });
+          });
+          allEntries = orderedEntries;
+        })();
+
         runBal = bf;
         var rowNum = 0;
         var totalRcv = 0;
@@ -16566,7 +16625,18 @@ function pkgPrintItemWise(orientation) {
   });
 
   var iwItems2 = Object.keys(iwMap2).sort();
-  var iwGrandTotal2 = iwIss2.reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+
+  // শুধু বর্তমানে visible/selected item প্রিন্ট করো (কোনো একটা item card ক্লিক করে থাকলে সেটাই)
+  var pkgVisibleTables = document.querySelectorAll('.pkg-iw-item-table');
+  var pkgVisibleItems = [];
+  pkgVisibleTables.forEach(function(t){
+    if (t.style.display !== 'none') pkgVisibleItems.push(t.getAttribute('data-item'));
+  });
+  if (pkgVisibleItems.length > 0 && pkgVisibleItems.length < iwItems2.length) {
+    iwItems2 = iwItems2.filter(function(name){ return pkgVisibleItems.indexOf(name) !== -1; });
+  }
+
+  var iwGrandTotal2 = iwItems2.reduce(function(s,name){ return s + (iwMap2[name] ? iwMap2[name].totalIssue : 0); }, 0);
 
   iwItems2.forEach(function(itemName){
     var d = iwMap2[itemName];
@@ -26091,7 +26161,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2+='<tr style="background:#f8f9fa;">';
     p2+='<td colspan="'+(1+p2NewTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
     p2+='<b>Total Needle Pcs: '+grandNew+'</b> <span style="font-size:7.5px;color:#888;">(Flat Knit বাদে)</span> | Working Days: '+workingDays2+' | Avg/Day: '+(workingDays2>0?(grandNew/workingDays2).toFixed(1):0);
-    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" class="no-print-hide" oninput="this.nextElementSibling.textContent=this.value;nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"><span class="print-only" style="font-size:8px;font-weight:700;min-width:40px;"></span> <span style="font-size:7.5px;color:#555;">kg</span>';
+    p2+=' &nbsp;&nbsp;&nbsp; <b>Total Production:</b> <input type="number" placeholder="Enter kg" id="nur-prod-kg-'+year+'-'+month+'" style="width:80px;border:none;border-bottom:1.5px solid #888;outline:none;font-size:8px;font-weight:700;padding:0 2px;background:transparent;text-align:center;" oninput="nurSaveProdKg('+year+','+month+',this.value);" onkeydown="if(event.key===\'Enter\')this.blur()"> <span style="font-size:7.5px;color:#555;">kg</span>';
     p2+='</td>';
     var usedInMonth = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()==='used'; }).length;
     p2+='<td colspan="'+(usedTypes.length*(wCols+1)+1)+'" style="padding:3px 6px;border:1px solid #ddd;font-size:8px;">';
