@@ -4969,6 +4969,13 @@ function ok(msg) {
             <option value="Flat Knit">Flat Knit</option>
           </select>
           <button class="btn btn-primary btn-sm" onclick="renderNeedleMonthlyProd()">View</button>
+          <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="mp-print-font-size" value="8" min="5" max="14" step="0.5"
+              style="width:42px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;text-align:center;">
+            <span style="font-size:10px;color:#888;">pt</span>
+          </span>
+          <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpPrintGrid()">🖨️ Print</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
           <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
@@ -20115,6 +20122,116 @@ function renderNeedleMonthlyProd() {
     out += '</div></div>';
 
     document.getElementById('needleMonthlyProdGrid').innerHTML = out;
+  });
+}
+
+// ── Sheet 2 প্রিন্ট (হালকা কালি-সাশ্রয়ী ব্যাকগ্রাউন্ড) ──
+function mpPrintGrid() {
+  var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
+  var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
+  var sec   = (document.getElementById('nmp-section')||{}).value || '';
+  var fsEl  = document.getElementById('mp-print-font-size');
+  var fs    = fsEl ? (parseFloat(fsEl.value) || 8) : 8;
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var days = []; for (var d = 1; d <= daysInMonth; d++) days.push(d);
+
+  var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines());
+  var allNeedles = NDB.needles.filter(function(n){
+    var nd = new Date(n.date);
+    return nd.getMonth()+1===month && nd.getFullYear()===year
+      && (n.needleType||'').toLowerCase()!=='used' && (n.type||'').toLowerCase()!=='used';
+  });
+
+  mpLoadMonth(year, month, function(prodData){
+    function buildTable(title, machineList) {
+      if (!machineList.length) return {html:'', needle:0, prod:0};
+      var t = '<div style="margin-bottom:14px;">';
+      t += '<div style="background:'+_pLight('#1a5276')+';color:#1a5276;padding:5px 8px;font-weight:700;font-size:'+(fs+2)+'pt;border:1px solid #ccc;border-bottom:none;">'+title+'</div>';
+      t += '<table style="font-size:'+fs+'pt;border-collapse:collapse;width:100%;table-layout:fixed;border:1px solid #ccc;">';
+      t += '<thead><tr>';
+      t += '<th style="width:22px;border:1px solid #ccc;">ERP</th><th style="width:85px;text-align:left;padding-left:3px;border:1px solid #ccc;">Machine ID</th><th style="width:24px;border:1px solid #ccc;">Dia</th>';
+      days.forEach(function(dd){
+        var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+        var isWeekend = new Date(dayStr).getDay()===5;
+        t += '<th style="width:26px;border:1px solid #ccc;'+(isWeekend?('background:'+_pLight('#e74c3c')+';color:#c0392b;'):'')+'">'+dd+'</th>';
+      });
+      t += '<th style="width:34px;background:'+_pLight('#1c2833')+';color:#1c2833;border:1px solid #ccc;">Needle</th>';
+      t += '<th style="width:36px;background:'+_pLight('#1e8449')+';color:#1e8449;border:1px solid #ccc;">Prod(kg)</th>';
+      t += '</tr></thead><tbody>';
+
+      var secNeedle = 0, secProd = 0;
+      machineList.forEach(function(m){
+        var mData = allNeedles.filter(function(n){ return n.machine === m.id; });
+        var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
+        var mProd = prodData[m.id] || {};
+        var rowProdTotal = 0;
+        t += '<tr>';
+        t += '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>';
+        t += '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>';
+        t += '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>';
+        days.forEach(function(dd){
+          var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+          var dayQty = mData.filter(function(n){return n.date===dayStr;}).reduce(function(s,n){return s+n.qty;},0);
+          var dayKg  = parseFloat(mProd[dd]) || 0;
+          rowProdTotal += dayKg;
+          t += '<td style="text-align:center;padding:1px;line-height:1.15;border:1px solid #ddd;overflow:hidden;">'
+             + (dayQty>0 ? '<div style="color:#1a5276;font-weight:700;">'+dayQty+'</div>' : '<div>&nbsp;</div>')
+             + (dayKg>0  ? '<div style="color:#1e8449;font-size:'+(fs-1)+'pt;word-break:break-all;">'+dayKg+'</div>'    : '')
+             + '</td>';
+        });
+        secNeedle += rowTotal; secProd += rowProdTotal;
+        t += '<td style="text-align:center;font-weight:700;border:1px solid #ddd;">'+(rowTotal||'')+'</td>';
+        t += '<td style="text-align:center;font-weight:700;border:1px solid #ddd;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
+        t += '</tr>';
+      });
+
+      t += '<tr style="background:'+_pLight('#784212')+';color:#784212;font-weight:700;">';
+      t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;border:1px solid #ddd;">Sub Total — '+title+'</td>';
+      t += '<td style="text-align:center;border:1px solid #ddd;">'+secNeedle+'</td>';
+      t += '<td style="text-align:center;border:1px solid #ddd;">'+secProd.toFixed(1)+'</td>';
+      t += '</tr>';
+      t += '</tbody></table></div>';
+      return {html:t, needle:secNeedle, prod:secProd};
+    }
+
+    var page1 = [], page2 = [], page3 = [], flatKnit = [];
+    machines.forEach(function(m){
+      var erp = parseInt(m.erp || 0, 10);
+      if ((m.section||'') === 'Flat Knit') { flatKnit.push(m); return; }
+      if (erp >= 130) page3.push(m);
+      else if (erp <= 81) page1.push(m);
+      else if (erp >= 82 && erp <= 129) page2.push(m);
+    });
+    function sortByErp(arr){ arr.sort(function(a,b){ return (parseInt(a.erp||0,10))-(parseInt(b.erp||0,10)); }); }
+    sortByErp(page1); sortByErp(page2); sortByErp(page3);
+    flatKnit.sort(function(a,b){ return a.id.localeCompare(b.id); });
+
+    var body = '';
+    var grandNeedle = 0, grandProd = 0;
+    [['Circular — Page 1 (ERP 8–81)', page1], ['Circular — Page 2 (ERP 82–129)', page2],
+     ['Circular — Page 3 (ERP 130+)', page3], ['Flat Knit Machines', flatKnit]].forEach(function(pair){
+      var r = buildTable(pair[0], pair[1]);
+      if (r.html) { body += r.html; grandNeedle += r.needle; grandProd += r.prod; }
+    });
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Machine Wise Needle + Production</title><style>';
+    html += '@page{size:A4 landscape;margin:8mm;}';
+    html += 'body{font-family:Arial,sans-serif;margin:0;padding:0;color:#000;}';
+    html += 'button{display:none!important;}';
+    html += '</style></head><body>';
+    html += '<div style="text-align:center;padding:6px 0;">';
+    html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Wise Needle + Production</div>';
+    html += '<div style="font-size:9pt;color:#555;">'+monthNames[month-1]+' '+year+(sec?(' | '+sec):'')+' | Print Date: '+fmtDate(todayStr())+'</div></div>';
+    html += body;
+    html += '<div style="background:'+_pLight('#117a65')+';color:#117a65;font-weight:700;padding:6px 10px;border:1px solid #ccc;display:flex;justify-content:space-between;font-size:'+(fs+1)+'pt;">';
+    html += '<span>সর্বমোট (Grand Total)</span>';
+    html += '<span>Needle: '+grandNeedle+' pcs &nbsp;|&nbsp; Production: '+grandProd.toFixed(1)+' kg</span>';
+    html += '</div></body></html>';
+
+    var w = window.open('','_blank','width=1100,height=750');
+    w.document.write(html); w.document.close();
+    w.onload = function(){ w.focus(); w.print(); };
   });
 }
 
