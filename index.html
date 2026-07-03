@@ -2276,6 +2276,12 @@ function iglApplyPermissions() {
   // Daily Report
   var drgNav = document.getElementById('nav-needle-daily-report');
   if (drgNav) drgNav.style.display = (isAdmin || iglHasPermission('daily_report')) ? '' : 'none';
+
+  // Machine Wise + Production ও Machine Set Summary — শুধু Admin
+  var nmpNav = document.getElementById('nav-needle-monthly-prod');
+  if (nmpNav) nmpNav.style.display = isAdmin ? '' : 'none';
+  var mssNav = document.getElementById('nav-machine-set-summary');
+  if (mssNav) mssNav.style.display = isAdmin ? '' : 'none';
 }
 
 // ── Admin: User Password Edit ──
@@ -4964,7 +4970,7 @@ function ok(msg) {
           </select>
           <button class="btn btn-primary btn-sm" onclick="renderNeedleMonthlyProd()">View</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
-          <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()">📤 Excel Import</button>
+          <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
@@ -8511,6 +8517,15 @@ function showPage(name, el) {
     var pkgOk = (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') || (typeof iglHasPermission === 'function' && iglHasPermission('pkg_access'));
     if (!pkgOk) {
       if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই', 'error');
+      return;
+    }
+  }
+
+  // ── Machine Wise + Production ও Machine Set Summary — শুধু Admin ঢুকতে পারবে ──
+  if (name === 'needle_monthly_prod' || name === 'machine_set_summary') {
+    var mpOk = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    if (!mpOk) {
+      if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই — শুধু Admin দেখতে পারবে', 'error');
       return;
     }
   }
@@ -16337,7 +16352,22 @@ function renderPackagingDashboard() {
           '<td style="text-align:right;padding:6px 10px;">'+d.totalIssue+'</td>'+
           '<td style="text-align:right;padding:6px 10px;color:#f9e79f;">'+runBal+'</td>'+
           '<td></td></tr>';
-        html += '</tbody></table></div>';
+        html += '</tbody></table>';
+
+        // ── ডিপার্টমেন্ট অনুযায়ী Quantity সামারি (শুধু Packaging) ──
+        var deptQtyMap = {};
+        allEntries.filter(function(r){ return r.type === 'issue'; }).forEach(function(r){
+          var dp = r.dept || '(অজানা)';
+          deptQtyMap[dp] = (deptQtyMap[dp]||0) + r.qty;
+        });
+        var deptNames = Object.keys(deptQtyMap).sort();
+        if (deptNames.length) {
+          html += '<div style="padding:9px 14px;background:#f8f4fb;border-top:1px solid #e8daef;font-size:11.5px;color:#4a235a;">'+
+            '<b>ডিপার্টমেন্ট অনুযায়ী Quantity:</b> '+
+            deptNames.map(function(dp){ return '<span style="display:inline-block;margin:3px 6px 0 0;background:#e8daef;border-radius:10px;padding:3px 10px;">'+dp+' - <b>'+deptQtyMap[dp]+'</b></span>'; }).join('')+
+            '</div>';
+        }
+        html += '</div>';
       });
     }
   }
@@ -19100,22 +19130,26 @@ const NEEDLE_MACHINES = [
   {erp:"138",id:"Jacquard S/J 34''(3)",retail:"Jaq S/J 34\"3(138)",gauge:"24g",section:"Circular"},
   {erp:"139",id:"Jacquard Rib 34''(4)",retail:"Jaq Rib 34\"4(139)",gauge:"18g",section:"Circular"},
   {erp:"140",id:"Jacquard Rib 34''(5)",retail:"Jaq Rib 34\"5(140)",gauge:"18g",section:"Circular"},
-  {erp:"",id:"Shima Seiki ( 1 )",retail:"Shima(1)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 2 )",retail:"Shima(2)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 3 )",retail:"Shima(3)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 4 )",retail:"Shima(4)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 5 )",retail:"Shima(5)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 6 )",retail:"Shima(6)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 7 )",retail:"Shima(7)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 11 )",retail:"Shima(11)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 15 )",retail:"Shima(15)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 16 )",retail:"Shima(16)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 17 )",retail:"Shima(17)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 18 )",retail:"Shima(18)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 19 )",retail:"Shima(19)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Shima Seiki ( 20 )",retail:"Shima(20)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Yonthin Collar/Jacquard ( 1 )",retail:"Yonthin Collar(1)",gauge:"",section:"Flat Knit"},
-  {erp:"",id:"Yonthin Collar/Jacquard ( 2 )",retail:"Yonthin Collar(2)",gauge:"",section:"Flat Knit"}
+  {erp:"",id:"Shima Seiki ( 1 )",retail:"Shima(1)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 2 )",retail:"Shima(2)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 3 )",retail:"Shima(3)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 4 )",retail:"Shima(4)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 5 )",retail:"Shima(5)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 6 )",retail:"Shima(6)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 7 )",retail:"Shima(7)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 8 )",retail:"Shima(8)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 9 )",retail:"Shima(9)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 10 )",retail:"Shima(10)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 11 )",retail:"Shima(11)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 12 )",retail:"Shima(12)",gauge:"52",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 15 )",retail:"Shima(15)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 16 )",retail:"Shima(16)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 17 )",retail:"Shima(17)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 18 )",retail:"Shima(18)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 19 )",retail:"Shima(19)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Shima Seiki ( 20 )",retail:"Shima(20)",gauge:"60",section:"Flat Knit"},
+  {erp:"",id:"Yonthin Collar/Jacquard ( 1 )",retail:"Yonthin Collar(1)",gauge:"80",section:"Flat Knit"},
+  {erp:"",id:"Yonthin Collar/Jacquard ( 2 )",retail:"Yonthin Collar(2)",gauge:"80",section:"Flat Knit"}
 ];
 
 // —— Needle Machine Master: single source of truth = igl_retail_machines ——
@@ -19140,9 +19174,13 @@ function _seedRetailMachinesIfEmpty(){
     var changed = false;
     NEEDLE_MACHINES.forEach(function(m, i){
       var erpStr = (m.erp||'').toString();
-      if(!erpStr) return;
       var existIdx = -1;
-      stored.forEach(function(x, xi){ if(x.erp === erpStr) existIdx = xi; });
+      if (erpStr) {
+        stored.forEach(function(x, xi){ if(x.erp === erpStr) existIdx = xi; });
+      } else {
+        // erp ফাঁকা হলে (যেমন Flat Knit — Shima Seiki, Yonthin Collar/Jacquard) — নাম দিয়ে মিলাও
+        stored.forEach(function(x, xi){ if(!x.erp && x.name === (m.id||'')) existIdx = xi; });
+      }
       if(existIdx === -1){
         // নতুন মেশিন — যোগ করো
         stored.push({ id:'rm_seed_'+i+'_'+Date.now(), erp:erpStr, name:m.id||'', retail:m.retail||m.id||'', gauge:m.gauge||'', section:m.section||''});
@@ -19948,12 +19986,10 @@ function renderNeedleMonthlyProd() {
   var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
   var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
   var sec   = (document.getElementById('nmp-section')||{}).value || '';
-  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var daysInMonth = new Date(year, month, 0).getDate();
   var days = []; for (var d = 1; d <= daysInMonth; d++) days.push(d);
 
-  var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines())
-    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines());
 
   var allNeedles = NDB.needles.filter(function(n){
     var nd = new Date(n.date);
@@ -19962,53 +19998,93 @@ function renderNeedleMonthlyProd() {
   });
 
   mpLoadMonth(year, month, function(prodData){
-    var t = '<div style="padding:10px 15px;">';
-    t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;">';
-    t += '<thead><tr>';
-    t += '<th style="width:24px;">ERP</th><th style="width:90px;text-align:left;padding-left:3px;">Machine ID</th><th style="width:26px;">Gauge</th>';
-    days.forEach(function(dd){
-      var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
-      var isWeekend = new Date(dayStr).getDay()===5;
-      t += '<th style="width:22px;'+(isWeekend?'background:#e74c3c;color:#fff;':'')+'">'+dd+'</th>';
-    });
-    t += '<th style="width:40px;background:#1c2833;color:#fff;">Total<br>Needle</th>';
-    t += '<th style="width:44px;background:#1e8449;color:#fff;">Total<br>Prod(kg)</th>';
-    t += '</tr></thead><tbody>';
 
-    var grandNeedle = 0, grandProd = 0;
-    machines.forEach(function(m){
-      var mData = allNeedles.filter(function(n){ return n.machine === m.id; });
-      var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
-      var mProd = prodData[m.id] || {};
-      var rowProdTotal = 0;
-      t += '<tr>';
-      t += '<td style="text-align:center;">'+(m.erp||'')+'</td>';
-      t += '<td><b>'+m.id+'</b></td>';
-      t += '<td style="text-align:center;">'+(m.gauge||'-')+'</td>';
+    // ── একটা মেশিন-লিস্টের জন্য টেবিল বানানোর reusable ফাংশন ──
+    function buildTable(title, machineList) {
+      if (!machineList.length) return {html:'', needle:0, prod:0};
+      var t = '<div style="margin-bottom:18px;">';
+      t += '<div style="background:#1a5276;color:#fff;padding:6px 10px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;">'+title+'</div>';
+      t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;">';
+      t += '<thead><tr>';
+      t += '<th style="width:24px;">ERP</th><th style="width:90px;text-align:left;padding-left:3px;">Machine ID</th><th style="width:26px;">Dia</th>';
       days.forEach(function(dd){
         var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
-        var dayQty = mData.filter(function(n){return n.date===dayStr;}).reduce(function(s,n){return s+n.qty;},0);
-        var dayKg  = parseFloat(mProd[dd]) || 0;
-        rowProdTotal += dayKg;
-        t += '<td style="text-align:center;padding:1px;line-height:1.2;">'
-           + (dayQty>0 ? '<div style="color:#1a5276;font-weight:700;">'+dayQty+'</div>' : '<div>&nbsp;</div>')
-           + (dayKg>0  ? '<div style="color:#1e8449;font-size:8px;">'+dayKg+'</div>'    : '')
-           + '</td>';
+        var isWeekend = new Date(dayStr).getDay()===5;
+        t += '<th style="width:22px;'+(isWeekend?'background:#e74c3c;color:#fff;':'')+'">'+dd+'</th>';
       });
-      grandNeedle += rowTotal; grandProd += rowProdTotal;
-      t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;">'+(rowTotal||'')+'</td>';
-      t += '<td style="text-align:center;font-weight:700;background:#eafaf1;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
+      t += '<th style="width:40px;background:#1c2833;color:#fff;">Total<br>Needle</th>';
+      t += '<th style="width:44px;background:#1e8449;color:#fff;">Total<br>Prod(kg)</th>';
+      t += '</tr></thead><tbody>';
+
+      var secNeedle = 0, secProd = 0;
+      machineList.forEach(function(m){
+        var mData = allNeedles.filter(function(n){ return n.machine === m.id; });
+        var rowTotal = mData.reduce(function(s,n){return s+n.qty;},0);
+        var mProd = prodData[m.id] || {};
+        var rowProdTotal = 0;
+        t += '<tr>';
+        t += '<td style="text-align:center;">'+(m.erp||'')+'</td>';
+        t += '<td><b>'+m.id+'</b></td>';
+        t += '<td style="text-align:center;">'+(m.gauge||'-')+'</td>';
+        days.forEach(function(dd){
+          var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+          var dayQty = mData.filter(function(n){return n.date===dayStr;}).reduce(function(s,n){return s+n.qty;},0);
+          var dayKg  = parseFloat(mProd[dd]) || 0;
+          rowProdTotal += dayKg;
+          t += '<td style="text-align:center;padding:1px;line-height:1.2;">'
+             + (dayQty>0 ? '<div style="color:#1a5276;font-weight:700;">'+dayQty+'</div>' : '<div>&nbsp;</div>')
+             + (dayKg>0  ? '<div style="color:#1e8449;font-size:8px;">'+dayKg+'</div>'    : '')
+             + '</td>';
+        });
+        secNeedle += rowTotal; secProd += rowProdTotal;
+        t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;">'+(rowTotal||'')+'</td>';
+        t += '<td style="text-align:center;font-weight:700;background:#eafaf1;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
+        t += '</tr>';
+      });
+
+      t += '<tr style="background:#784212;color:#fff;font-weight:700;">';
+      t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;">Sub Total — '+title+'</td>';
+      t += '<td style="text-align:center;">'+secNeedle+'</td>';
+      t += '<td style="text-align:center;">'+secProd.toFixed(1)+'</td>';
       t += '</tr>';
+      t += '</tbody></table></div>';
+      return {html:t, needle:secNeedle, prod:secProd};
+    }
+
+    // ── Sheet 1-এর মতোই ৩টা page bucket-এ ভাগ করা (ERP 8–81 / 82–129 / 130+ ও Flat Knit) ──
+    var page1 = [], page2 = [], page3 = [], flatKnit = [];
+    machines.forEach(function(m){
+      var erp = parseInt(m.erp || 0, 10);
+      if ((m.section||'') === 'Flat Knit') { flatKnit.push(m); return; }
+      if (erp >= 130) page3.push(m);
+      else if (erp <= 81) page1.push(m);
+      else if (erp >= 82 && erp <= 129) page2.push(m);
     });
+    function sortByErp(arr){ arr.sort(function(a,b){ return (parseInt(a.erp||0,10))-(parseInt(b.erp||0,10)); }); }
+    sortByErp(page1); sortByErp(page2); sortByErp(page3);
+    flatKnit.sort(function(a,b){ return a.id.localeCompare(b.id); });
 
-    t += '<tr style="background:#1c2833;color:#fff;font-weight:700;">';
-    t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;">সর্বমোট (Grand Total)</td>';
-    t += '<td style="text-align:center;background:#117a65;">'+grandNeedle+'</td>';
-    t += '<td style="text-align:center;background:#117a65;">'+grandProd.toFixed(1)+'</td>';
-    t += '</tr>';
-    t += '</tbody></table></div>';
+    var out = '<div style="padding:10px 15px;">';
+    var grandNeedle = 0, grandProd = 0;
 
-    document.getElementById('needleMonthlyProdGrid').innerHTML = t;
+    var r1 = buildTable('Circular — Page 1 (ERP 8–81)', page1);
+    if (r1.html) { out += r1.html; grandNeedle += r1.needle; grandProd += r1.prod; }
+
+    var r2 = buildTable('Circular — Page 2 (ERP 82–129)', page2);
+    if (r2.html) { out += r2.html; grandNeedle += r2.needle; grandProd += r2.prod; }
+
+    var r3 = buildTable('Circular — Page 3 (ERP 130+)', page3);
+    if (r3.html) { out += r3.html; grandNeedle += r3.needle; grandProd += r3.prod; }
+
+    var r4 = buildTable('Flat Knit Machines', flatKnit);
+    if (r4.html) { out += r4.html; grandNeedle += r4.needle; grandProd += r4.prod; }
+
+    out += '<div style="background:#117a65;color:#fff;font-weight:700;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;font-size:12px;">';
+    out += '<span>📅 সর্বমোট (Grand Total)</span>';
+    out += '<span>Needle: '+grandNeedle+' pcs &nbsp;|&nbsp; Production: '+grandProd.toFixed(1)+' kg</span>';
+    out += '</div></div>';
+
+    document.getElementById('needleMonthlyProdGrid').innerHTML = out;
   });
 }
 
@@ -20068,6 +20144,116 @@ function mpHandleImportFile(evt) {
   var file = evt.target.files[0];
   if (!file) return;
 
+  // ফাইলটা প্রথমে টেক্সট হিসেবে পড়ে ফরম্যাট বুঝে নিচ্ছি:
+  // "Machine Wise Knitting Production Report" (HTML-based .xls, ফ্যাক্টরির আসল সিস্টেম থেকে export করা) হলে সরাসরি সেটা পার্স করবে
+  var textReader = new FileReader();
+  textReader.onload = function(e) {
+    var text = e.target.result || '';
+    if (text.indexOf('Machine Wise Knitting Production Report') !== -1) {
+      mpImportFromKnittingReport(text, evt);
+    } else {
+      mpImportFromXlsxTemplate(file, evt);
+    }
+  };
+  textReader.onerror = function(){ mpImportFromXlsxTemplate(file, evt); };
+  textReader.readAsText(file);
+}
+
+// ── ফ্যাক্টরির আসল "Machine Wise Knitting Production Report" (.xls, HTML ফরম্যাট) ইমপোর্ট ──
+function mpImportFromKnittingReport(text, evt) {
+  try {
+    var dm = text.match(/From\s*:\s*(\d{2})-(\d{2})-(\d{4})\s*To\s*:\s*(\d{2})-(\d{2})-(\d{4})/);
+    if (!dm) { toast('❌ রিপোর্টে তারিখের রেঞ্জ (From/To) পাওয়া যায়নি', 'error'); if(evt&&evt.target) evt.target.value=''; return; }
+    var year  = Number(dm[3]);
+    var month = Number(dm[2]);
+
+    // ERP → internal machine id ম্যাপ (Circular ও অন্যান্য ফ্লোরের জন্য, leading zero বাদ দিয়ে numeric match)
+    var erpMap = {};
+    getNeedleMachines().forEach(function(m){
+      var n = parseInt(m.erp, 10);
+      if (!isNaN(n) && !(n in erpMap)) erpMap[n] = m.id;
+    });
+
+    // Floor 3 (Shima Seiki + Yonthin Collar/Jacquard) — এই ফ্লোরের নম্বর Circular-এর ERP-র সাথে
+    // সংঘর্ষ করে (যেমন 13,14,20), তাই এদের জন্য আলাদা, নির্দিষ্ট mapping ব্যবহার করা হচ্ছে।
+    var floor3Map = {
+      1:"Shima Seiki ( 1 )", 2:"Shima Seiki ( 2 )", 3:"Shima Seiki ( 3 )", 4:"Shima Seiki ( 4 )",
+      5:"Shima Seiki ( 5 )", 6:"Shima Seiki ( 6 )", 7:"Shima Seiki ( 7 )", 8:"Shima Seiki ( 8 )",
+      9:"Shima Seiki ( 9 )", 10:"Shima Seiki ( 10 )", 11:"Shima Seiki ( 11 )", 12:"Shima Seiki ( 12 )",
+      13:"Yonthin Collar/Jacquard ( 1 )", 14:"Yonthin Collar/Jacquard ( 2 )",
+      15:"Shima Seiki ( 15 )", 16:"Shima Seiki ( 16 )", 17:"Shima Seiki ( 17 )", 18:"Shima Seiki ( 18 )",
+      19:"Shima Seiki ( 19 )", 20:"Shima Seiki ( 20 )"
+    };
+
+    var doc = new DOMParser().parseFromString(text, 'text/html');
+    var trs = doc.querySelectorAll('tr');
+    var prodData = {};
+    var matched = 0;
+    var unmatchedSet = {};
+
+    trs.forEach(function(tr){
+      var tds = tr.querySelectorAll('td');
+      if (tds.length < 10) return;
+      var sl = (tds[0].textContent || '').trim();
+      if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
+      var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
+      var machNoRaw = (tds[1].textContent || '').trim();
+      var machNo = parseInt(machNoRaw, 10);
+      if (isNaN(machNo)) return;
+
+      // Floor 3 হলে আলাদা (Shima/Yonthin) ম্যাপ ব্যবহার করো, নাহলে সাধারণ ERP ম্যাপ
+      var isFloor3 = /Floor\s*3/i.test(floorTxt);
+      var internalId = isFloor3 ? floor3Map[machNo] : erpMap[machNo];
+
+      var dayCols = tds.length - 7; // শেষ ২টা (Total, Avg/Day) ও শুরুর ৫টা (SL,MachNo,Floor,Dia,Capacity) বাদে
+      if (dayCols < 1) return;
+      var mObj = internalId ? (prodData[internalId] || {}) : null;
+
+      for (var c = 5; c < 5 + dayCols; c++) {
+        var day = c - 4;
+        var raw = (tds[c] ? tds[c].textContent : '') || '';
+        var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
+        if (!numMatch) continue;
+        var kg = parseFloat(numMatch[0].replace(/,/g, ''));
+        if (isNaN(kg) || kg === 0) continue;
+        if (internalId) mObj[day] = kg;
+      }
+      if (internalId) {
+        if (Object.keys(mObj).length) { prodData[internalId] = mObj; matched++; }
+      } else {
+        unmatchedSet[machNoRaw + (isFloor3?' (Floor 3)':'')] = true;
+      }
+    });
+
+    var unmatchedList = Object.keys(unmatchedSet);
+    if (matched === 0) { toast('❌ কোনো মেশিন মিলাতে পারিনি — ERP নম্বর মিলছে না', 'error'); if(evt&&evt.target) evt.target.value=''; return; }
+
+    mpLoadMonth(year, month, function(existing){
+      Object.keys(prodData).forEach(function(mid){
+        existing[mid] = Object.assign(existing[mid] || {}, prodData[mid]);
+      });
+      mpSaveMonth(year, month, existing);
+      var msg = '✅ ' + matched + 'টি মেশিনের production import হয়েছে (' + year + '-' + String(month).padStart(2,'0') + ')';
+      if (unmatchedList.length) msg += ' | ⚠️ ' + unmatchedList.length + 'টি মেশিন নম্বর মিলেনি: ' + unmatchedList.slice(0,15).join(', ') + (unmatchedList.length>15?' ...':'');
+      toast(msg, unmatchedList.length ? 'warning' : 'success');
+
+      var curM = Number((document.getElementById('nmp-month')||{}).value || 0);
+      var curY = Number((document.getElementById('nmp-year')||{}).value || 0);
+      var yearEl = document.getElementById('nmp-year'), monthEl = document.getElementById('nmp-month');
+      if (yearEl) yearEl.value = year;
+      if (monthEl) monthEl.value = month;
+      renderNeedleMonthlyProd();
+    });
+  } catch(err) {
+    console.error(err);
+    toast('❌ ফাইল পার্স করতে সমস্যা হয়েছে', 'error');
+  } finally {
+    if (evt && evt.target) evt.target.value = '';
+  }
+}
+
+// ── (fallback) আগের xlsx টেমপ্লেট ফরম্যাট ইমপোর্ট — ম্যানুয়াল Excel Template ব্যবহার করলে ──
+function mpImportFromXlsxTemplate(file, evt) {
   function afterLibLoaded() {
     var reader = new FileReader();
     reader.onload = function(e) {
@@ -20077,11 +20263,10 @@ function mpHandleImportFile(evt) {
         var ws = wb.Sheets[wb.SheetNames[0]];
         var rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
-        // Header row খুঁজে বের করো (যেখানে প্রথম কলাম "ERP")
         var headerIdx = rows.findIndex(function(r){ return r[0]==='ERP'; });
         if (headerIdx < 0) { toast('❌ সঠিক ফরম্যাট নয় — Template ব্যবহার করুন', 'error'); return; }
         var header = rows[headerIdx];
-        var dayColStart = 3; // 0:ERP 1:Machine ID 2:Gauge 3...:days
+        var dayColStart = 3;
 
         var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
         var year  = Number((document.getElementById('nmp-year')||{}).value  || new Date().getFullYear());
@@ -20090,7 +20275,7 @@ function mpHandleImportFile(evt) {
           var updated = 0;
           for (var i = headerIdx+1; i < rows.length; i++) {
             var r = rows[i];
-            if (!r || !r[1]) continue; // Machine ID না থাকলে skip
+            if (!r || !r[1]) continue;
             var machId = String(r[1]).trim();
             var mObj = {};
             for (var c = dayColStart; c < header.length; c++) {
@@ -20105,7 +20290,7 @@ function mpHandleImportFile(evt) {
             if (Object.keys(mObj).length > 0) prodData[machId] = Object.assign(prodData[machId]||{}, mObj);
           }
           mpSaveMonth(year, month, prodData);
-          toast('✅ '+updated+'টি production entry Import হয়েছে', 'success');
+          toast('✅ ' + updated + 'টি production entry Import হয়েছে', 'success');
           renderNeedleMonthlyProd();
         });
       } catch(err) {
@@ -20114,7 +20299,7 @@ function mpHandleImportFile(evt) {
       }
     };
     reader.readAsArrayBuffer(file);
-    evt.target.value = '';
+    if (evt && evt.target) evt.target.value = '';
   }
 
   if (typeof XLSX === 'undefined') {
