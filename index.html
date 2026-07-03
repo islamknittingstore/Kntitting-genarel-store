@@ -9358,12 +9358,12 @@ function stnPrint(showTotal) {
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
-  html += 'thead tr{background:#0e6655;color:#fff;}';
+  html += 'thead tr{background:#dfebe8;color:#0e6655;}';
   html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
   html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
+  html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
   html += '</style></head><body>';
 
@@ -9568,6 +9568,18 @@ function stnMgrClearFilter() {
   document.getElementById('smr-cat').value = '';
   document.getElementById('smr-dept').value = '';
   renderStnManagerReport();
+}
+
+// প্রিন্টের জন্য যেকোনো hex color-কে হালকা (কালি সাশ্রয়ী) tint-এ বদলে দেয়
+function _pLight(hex, ratio) {
+  try {
+    hex = (hex||'#1a5276').replace('#','');
+    if (hex.length !== 6) return '#eef2f7';
+    ratio = (ratio===undefined) ? 0.87 : ratio;
+    var r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), b = parseInt(hex.substr(4,2),16);
+    r = Math.round(r + (255-r)*ratio); g = Math.round(g + (255-g)*ratio); b = Math.round(b + (255-b)*ratio);
+    return '#' + [r,g,b].map(function(v){ return v.toString(16).padStart(2,'0'); }).join('');
+  } catch(e) { return '#eef2f7'; }
 }
 
 function _fmtDMY(d) {
@@ -10689,7 +10701,7 @@ function stnReqPrintWithRate() {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<style>@page{size:A4 portrait;margin:14mm 12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;}'
-    + 'table{width:100%;border-collapse:collapse;}th{background:#7d3c98!important;color:#fff!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + 'table{width:100%;border-collapse:collapse;}th{background:#eee5f1!important;color:#7d3c98!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:80px 0 20px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;margin-top:0;}</style></head><body>'
     + '<div style="text-align:center;padding:10px 0 6px;">'
@@ -10781,19 +10793,19 @@ function stnReqPrintComparison() {
     + '<div style="font-size:11px;color:#777;margin-top:2px;">Requisition vs Receive তুলনা</div></div>'
     + '<table><thead>'
     + '<tr>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:center;width:32px;">SL</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:left;">Item Name</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:center;width:50px;">Unit</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:right;width:75px;">Rate (৳)</th>'
-    + '<th colspan="2" style="background:#1a5276;color:#fff;text-align:center;">Requisition</th>'
-    + '<th colspan="2" style="background:#1a6b3a;color:#fff;text-align:center;">Receive</th>'
-    + '<th rowspan="2" style="background:#7d3c98;color:#fff;text-align:center;width:55px;">Diff</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:right;width:75px;">Rate (৳)</th>'
+    + '<th colspan="2" style="background:#e1e8ed;color:#1a5276;text-align:center;">Requisition</th>'
+    + '<th colspan="2" style="background:#e1ebe5;color:#1a6b3a;text-align:center;">Receive</th>'
+    + '<th rowspan="2" style="background:#eee5f1;color:#7d3c98;text-align:center;width:55px;">Diff</th>'
     + '</tr>'
     + '<tr>'
-    + '<th style="background:#2980b9;color:#fff;text-align:center;width:55px;">Qty</th>'
-    + '<th style="background:#2980b9;color:#fff;text-align:right;width:85px;">Amount (৳)</th>'
-    + '<th style="background:#27ae60;color:#fff;text-align:center;width:55px;">Qty</th>'
-    + '<th style="background:#27ae60;color:#fff;text-align:right;width:85px;">Amount (৳)</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:right;width:85px;">Amount (৳)</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:right;width:85px;">Amount (৳)</th>'
     + '</tr>'
     + '</thead><tbody>'+rows+'</tbody>'
     + '<tfoot><tr style="background:#f0f0f0;font-weight:700;">'
@@ -10863,12 +10875,12 @@ function stnReqPrintComparisonNoRate() {
     + '<div style="font-size:11px;color:#777;margin-top:2px;">Requisition vs Receive তুলনা (Rate ছাড়া)</div></div>'
     + '<table><thead>'
     + '<tr>'
-    + '<th style="background:#34495e;color:#fff;text-align:center;width:35px;">SL</th>'
-    + '<th style="background:#34495e;color:#fff;text-align:left;">Item Name</th>'
-    + '<th style="background:#34495e;color:#fff;text-align:center;width:60px;">Unit</th>'
-    + '<th style="background:#2980b9;color:#fff;text-align:center;width:80px;">Req Qty</th>'
-    + '<th style="background:#27ae60;color:#fff;text-align:center;width:80px;">Receive Qty</th>'
-    + '<th style="background:#7d3c98;color:#fff;text-align:center;width:70px;">Diff</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:35px;">SL</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:60px;">Unit</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:80px;">Req Qty</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:80px;">Receive Qty</th>'
+    + '<th style="background:#eee5f1;color:#7d3c98;text-align:center;width:70px;">Diff</th>'
     + '</tr>'
     + '</thead><tbody>'+rows+'</tbody></table>'
     + '<div class="footer">'
@@ -10941,7 +10953,7 @@ function stnReqPrintArea(areaId, thColor) {
     '  body > *:not(#stn-req-print-overlay) { display: none !important; }',
     '  #stn-req-print-overlay { display: block !important; font-family: Arial, sans-serif; padding: 0; color: #000; }',
     '  #stn-req-print-overlay table { width: 100%; border-collapse: collapse; }',
-    '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+(thColor||'#00838f')+' !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #stn-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+_pLight(thColor||'#00838f')+' !important; color: '+(thColor||'#00838f')+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
     '  #stn-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
     '  #stn-req-print-overlay tr:nth-child(even) td { background: #f7f7f7; }',
     isReq && rowCount >= 35 ? '  #stn-req-print-overlay div[style*="text-align:center"] { padding: 6px 10px 4px !important; }' : '',
@@ -11050,7 +11062,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:110px;">'
       + '</colgroup>';
     var thS = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-            + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+            + 'background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
       + '<th style="'+thS+';text-align:center;">SL</th>'
@@ -11110,7 +11122,7 @@ function stnReqSimplePrint(areaId, thColor) {
       + '<col style="width:80px;">'
       + '</colgroup>';
     var thS2 = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+             + 'background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
       + '<th style="'+thS2+';text-align:center;">SL</th>'
@@ -11278,7 +11290,7 @@ function stnReqSimplePrint__OLD_UNUSED(areaId, thColor) {
       + '<col style="width:60px;">'
       + '<col style="width:120px;">'
       + '</colgroup>'
-      + '<thead><tr style="background:'+thColor+';color:#fff;">'
+      + '<thead><tr style="background:'+_pLight(thColor)+';color:'+thColor+';">'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 5px;font-size:'+fontPt+'pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;">SL</th>'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 6px;font-size:'+fontPt+'pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Item Name</th>'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 4px;font-size:'+fontPt+'pt;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Qty</th>'
@@ -11430,7 +11442,7 @@ function stnReqSimplePrint__OLD_UNUSED(areaId, thColor) {
     + '<col style="width:72px;">'
     + '<col style="width:88px;">'
     + '</colgroup>'
-    + '<thead><tr id="reg-pov-thead" style="background:'+thColor+';color:#fff;">'
+    + '<thead><tr id="reg-pov-thead" style="background:'+_pLight(thColor)+';color:'+thColor+';">'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 5px;font-size:'+fontPt2+'pt;">SL</th>'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 6px;font-size:'+fontPt2+'pt;">Item Name</th>'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 4px;font-size:'+fontPt2+'pt;text-align:center;">Req Qty</th>'
@@ -12414,14 +12426,14 @@ function stnPrintItemDept() {
     + '<div style="font-size:8pt;color:#555;margin-top:1px;">Period: '+period+'</div>'
     + '</div>';
 
-  var thS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;background:'+thColor+';color:#fff;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+  var thS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;background:'+_pLight(thColor)+';color:'+thColor+';text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
   var thIS = thS + 'text-align:left;';
   var tdS  = 'border:0.5px solid #ddd;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;line-height:1.2;';
   var tdNS = tdS  + 'text-align:center;';
   var tdVS = tdNS + 'font-weight:700;color:#c0392b;background:#fdedec;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
   var tdZS = tdNS + 'color:#ccc;';
   var tdTS = tdNS + 'font-weight:700;background:#fce4e4;color:#7b241c;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
-  var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+  var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';';
   var tfGS = tfS.replace(thColor,'#4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
 
   var colHtml = '<colgroup><col style="width:'+itemColMm+'mm;">';
@@ -12571,11 +12583,11 @@ function stnPrintItemWise(orientation) {
   printHtml += '.hdr p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   printHtml += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   printHtml += 'table{width:100%;border-collapse:collapse;margin-bottom:12px;}';
-  printHtml += 'th{background:#4a235a;color:#fff;padding:4px 8px;font-size:8.5pt;text-align:left;}';
+  printHtml += 'th{background:#e7e2e9;color:#4a235a;padding:4px 8px;font-size:8.5pt;text-align:left;}';
   printHtml += 'td{padding:3px 8px;border-bottom:0.5px solid #ddd;font-size:8.5pt;}';
   printHtml += 'tr:nth-child(even) td{background:#fdf4ff;}';
   printHtml += '.item-hdr{background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;padding:6px 10px;margin-top:12px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;page-break-after:avoid;}';
-  printHtml += '.total-row td{background:#4a235a!important;color:#fff!important;font-weight:700;}';
+  printHtml += '.total-row td{background:#e7e2e9!important;color:#4a235a!important;font-weight:700;}';
   printHtml += 'button{display:none!important;}';
   printHtml += '</style></head><body>';
 
@@ -13118,12 +13130,12 @@ function stnPrintOriented(orientation, stockFilter) {
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
-  html += 'thead tr{background:#0e6655;color:#fff;}';
+  html += 'thead tr{background:#dfebe8;color:#0e6655;}';
   html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
   html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
+  html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
   html += '</style></head><body>';
 
@@ -13550,12 +13562,12 @@ function pkgPrint() {
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
-  html += 'thead tr{background:#0e6655;color:#fff;}';
+  html += 'thead tr{background:#dfebe8;color:#0e6655;}';
   html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
   html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
+  html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
   html += '</style></head><body>';
 
@@ -14853,7 +14865,7 @@ function pkgReqPrintWithRate() {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<style>@page{size:A4 portrait;margin:14mm 12mm;}body{font-family:Arial,sans-serif;font-size:12px;margin:0;}'
-    + 'table{width:100%;border-collapse:collapse;}th{background:#7d3c98!important;color:#fff!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + 'table{width:100%;border-collapse:collapse;}th{background:#eee5f1!important;color:#7d3c98!important;padding:7px 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:80px 0 20px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;margin-top:0;}</style></head><body>'
     + '<div style="text-align:center;padding:10px 0 6px;">'
@@ -14943,19 +14955,19 @@ function pkgReqPrintComparison() {
     + '<div style="font-size:11px;color:#777;margin-top:2px;">Requisition vs Receive তুলনা</div></div>'
     + '<table><thead>'
     + '<tr>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:center;width:32px;">SL</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:left;">Item Name</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:center;width:50px;">Unit</th>'
-    + '<th rowspan="2" style="background:#34495e;color:#fff;text-align:right;width:75px;">Rate (৳)</th>'
-    + '<th colspan="2" style="background:#1a5276;color:#fff;text-align:center;">Requisition</th>'
-    + '<th colspan="2" style="background:#1a6b3a;color:#fff;text-align:center;">Receive</th>'
-    + '<th rowspan="2" style="background:#7d3c98;color:#fff;text-align:center;width:55px;">Diff</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:right;width:75px;">Rate (৳)</th>'
+    + '<th colspan="2" style="background:#e1e8ed;color:#1a5276;text-align:center;">Requisition</th>'
+    + '<th colspan="2" style="background:#e1ebe5;color:#1a6b3a;text-align:center;">Receive</th>'
+    + '<th rowspan="2" style="background:#eee5f1;color:#7d3c98;text-align:center;width:55px;">Diff</th>'
     + '</tr>'
     + '<tr>'
-    + '<th style="background:#2980b9;color:#fff;text-align:center;width:55px;">Qty</th>'
-    + '<th style="background:#2980b9;color:#fff;text-align:right;width:85px;">Amount (৳)</th>'
-    + '<th style="background:#27ae60;color:#fff;text-align:center;width:55px;">Qty</th>'
-    + '<th style="background:#27ae60;color:#fff;text-align:right;width:85px;">Amount (৳)</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:right;width:85px;">Amount (৳)</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:right;width:85px;">Amount (৳)</th>'
     + '</tr>'
     + '</thead><tbody>'+rows+'</tbody>'
     + '<tfoot><tr style="background:#f0f0f0;font-weight:700;">'
@@ -15036,7 +15048,7 @@ function pkgReqPrintArea(areaId, thColor) {
     '  body > *:not(#pkg-req-print-overlay) { display: none !important; }',
     '  #pkg-req-print-overlay { display: block !important; font-family: Arial, sans-serif; padding: 0; color: #000; }',
     '  #pkg-req-print-overlay table { width: 100%; border-collapse: collapse; }',
-    '  #pkg-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+(thColor||'#00838f')+' !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    '  #pkg-req-print-overlay th { border: 0.5px solid #888; padding: '+thPad+'; font-size: '+fontSize+'; background: '+_pLight(thColor||'#00838f')+' !important; color: '+(thColor||'#00838f')+' !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
     '  #pkg-req-print-overlay td { border: 0.5px solid #888; padding: '+tdPad+'; font-size: '+fontSize+'; line-height: 1.2; }',
     '  #pkg-req-print-overlay tr:nth-child(even) td { background: #f7f7f7; }',
     isReq && rowCount >= 35 ? '  #pkg-req-print-overlay div[style*="text-align:center"] { padding: 6px 10px 4px !important; }' : '',
@@ -15142,7 +15154,7 @@ function pkgReqSimplePrint(areaId, thColor) {
       + '<col style="width:110px;">'
       + '</colgroup>';
     var thS = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-            + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+            + 'background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
       + '<th style="'+thS+';text-align:center;">SL</th>'
@@ -15202,7 +15214,7 @@ function pkgReqSimplePrint(areaId, thColor) {
       + '<col style="width:80px;">'
       + '</colgroup>';
     var thS2 = 'border:1px solid #333;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;'
-             + 'background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+             + 'background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
     theadHtml =
       '<thead><tr>'
       + '<th style="'+thS2+';text-align:center;">SL</th>'
@@ -15370,7 +15382,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
       + '<col style="width:60px;">'
       + '<col style="width:120px;">'
       + '</colgroup>'
-      + '<thead><tr style="background:'+thColor+';color:#fff;">'
+      + '<thead><tr style="background:'+_pLight(thColor)+';color:'+thColor+';">'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 5px;font-size:'+fontPt+'pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;">SL</th>'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 6px;font-size:'+fontPt+'pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Item Name</th>'
       + '<th style="border:0.5px solid #888;padding:'+padPx+'px 4px;font-size:'+fontPt+'pt;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Qty</th>'
@@ -15522,7 +15534,7 @@ function pkgReqSimplePrint__OLD_UNUSED(areaId, thColor) {
     + '<col style="width:72px;">'
     + '<col style="width:88px;">'
     + '</colgroup>'
-    + '<thead><tr id="reg-pov-thead" style="background:'+thColor+';color:#fff;">'
+    + '<thead><tr id="reg-pov-thead" style="background:'+_pLight(thColor)+';color:'+thColor+';">'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 5px;font-size:'+fontPt2+'pt;">SL</th>'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 6px;font-size:'+fontPt2+'pt;">Item Name</th>'
     + '<th style="border:0.5px solid #888;padding:'+padPx2+'px 4px;font-size:'+fontPt2+'pt;text-align:center;">Req Qty</th>'
@@ -16521,14 +16533,14 @@ function pkgPrintItemDept() {
     + '<div style="font-size:8pt;color:#555;margin-top:1px;">Period: '+period+'</div>'
     + '</div>';
 
-  var thS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;background:'+thColor+';color:#fff;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';white-space:nowrap;overflow:hidden;';
+  var thS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;background:'+_pLight(thColor)+';color:'+thColor+';text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';white-space:nowrap;overflow:hidden;';
   var thIS = thS + 'text-align:left;';
   var tdS  = 'border:0.5px solid #ddd;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;line-height:1.2;';
   var tdNS = tdS  + 'text-align:center;';
   var tdVS = tdNS + 'font-weight:700;color:#c0392b;background:#fdedec;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
   var tdZS = tdNS + 'color:#ccc;';
   var tdTS = tdNS + 'font-weight:700;background:#fce4e4;color:#7b241c;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
-  var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+thColor+';color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+thColor+';';
+  var tfS  = 'border:0.5px solid #8d1a1a;padding:'+padV+'px '+padH+'px;font-size:'+fontPt+'pt;font-weight:700;text-align:center;background:'+_pLight(thColor)+';color:'+thColor+';-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 1000px '+_pLight(thColor)+';';
   var tfGS = tfS.replace(thColor,'#4a1010') + 'font-size:'+(fontPt+0.5)+'pt;';
 
   var colHtml = '<colgroup><col style="width:'+itemColMm+'mm;">';
@@ -16678,11 +16690,11 @@ function pkgPrintItemWise(orientation) {
   printHtml += '.hdr p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   printHtml += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   printHtml += 'table{width:100%;border-collapse:collapse;margin-bottom:12px;}';
-  printHtml += 'th{background:#4a235a;color:#fff;padding:4px 8px;font-size:8.5pt;text-align:left;}';
+  printHtml += 'th{background:#e7e2e9;color:#4a235a;padding:4px 8px;font-size:8.5pt;text-align:left;}';
   printHtml += 'td{padding:3px 8px;border-bottom:0.5px solid #ddd;font-size:8.5pt;}';
   printHtml += 'tr:nth-child(even) td{background:#fdf4ff;}';
   printHtml += '.item-hdr{background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;padding:6px 10px;margin-top:12px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;page-break-after:avoid;}';
-  printHtml += '.total-row td{background:#4a235a!important;color:#fff!important;font-weight:700;}';
+  printHtml += '.total-row td{background:#e7e2e9!important;color:#4a235a!important;font-weight:700;}';
   printHtml += 'button{display:none!important;}';
   printHtml += '</style></head><body>';
 
@@ -16799,6 +16811,20 @@ function pkgPrintItemWise(orientation) {
     });
     printHtml += '<tr class="total-row"><td colspan="4" style="text-align:right;">সর্বমোট:</td><td></td><td style="text-align:right;">'+totalRcv2+'</td><td style="text-align:right;">'+d.totalIssue+'</td><td style="text-align:right;">'+runBal2+'</td><td></td></tr>';
     printHtml += '</tbody></table>';
+
+    // ── ডিপার্টমেন্ট অনুযায়ী Quantity সামারি (শুধু Packaging) ──
+    var deptQtyMap2 = {};
+    allE.filter(function(r){ return r.type === 'issue'; }).forEach(function(r){
+      var dp = r.dept || '(অজানা)';
+      deptQtyMap2[dp] = (deptQtyMap2[dp]||0) + r.qty;
+    });
+    var deptNames2 = Object.keys(deptQtyMap2).sort();
+    if (deptNames2.length) {
+      printHtml += '<div style="padding:6px 4px 10px;font-size:8.5pt;color:#4a235a;border-bottom:1px solid #e8daef;margin-bottom:4px;">'+
+        '<b>ডিপার্টমেন্ট অনুযায়ী Quantity:</b> '+
+        deptNames2.map(function(dp){ return '<span style="display:inline-block;margin:2px 5px 0 0;background:#f5eef8;border:0.5px solid #e8daef;border-radius:8px;padding:2px 8px;">'+dp+' - <b>'+deptQtyMap2[dp]+'</b></span>'; }).join('')+
+        '</div>';
+    }
   });
 
   printHtml += '<div style="text-align:right;font-weight:700;border-top:2px solid #6c3483;padding-top:6px;margin-top:10px;">সর্বমোট Issue: '+iwGrandTotal2+' pcs</div>';
@@ -17225,12 +17251,12 @@ function pkgPrintOriented(orientation, stockFilter) {
   html += '.hdr-left p{margin:2px 0 0;font-size:8.5pt;color:#555;}';
   html += '.hdr-right{text-align:right;font-size:8pt;color:#555;}';
   html += 'table{width:100%;border-collapse:collapse;font-size:'+fs+'pt!important;}';
-  html += 'thead tr{background:#0e6655;color:#fff;}';
+  html += 'thead tr{background:#dfebe8;color:#0e6655;}';
   html += 'th{padding:4px 7px;text-align:left;font-size:'+fs+'pt!important;}';
   html += 'td{padding:3px 7px;border-bottom:0.5px solid #ddd;font-size:'+fs+'pt!important;}';
   html += 'tr:nth-child(even) td{background:#f5fdf9;}';
-  html += '.dept-hdr{background:#1a5276;color:#fff;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
-  html += '.total-row td{background:#1c2833!important;color:#fff!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
+  html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
+  html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
   html += '</style></head><body>';
 
@@ -17588,7 +17614,7 @@ function printStockReport() {
         '</div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;">' +
-        '<button onclick="doStockPrint()" style="flex:1;padding:10px;background:#1a5276;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">Print করুন</button>' +
+        '<button onclick="doStockPrint()" style="flex:1;padding:10px;background:#e1e8ed;color:#1a5276;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">Print করুন</button>' +
         '<button onclick="var m=document.getElementById(&quot;stock-print-modal&quot;);if(m)m.remove();" style="padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:12px;cursor:pointer;">বাতিল</button>' +
       '</div>' +
     '</div>';
@@ -19390,7 +19416,7 @@ function printMachineWise() {
       '<div style="margin-bottom:8px;">' + tabBtns + '</div>' +
       '<div style="border:1px solid #ddd;border-radius:0 5px 5px 5px;padding:12px;">' + tabPanels + '</div>' +
       '<div style="display:flex;gap:10px;margin-top:14px;">' +
-        '<button onclick="doMWPrint('+pageCount+')" style="flex:1;background:#1a5276;color:#fff;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;font-weight:600;">✅ Print</button>' +
+        '<button onclick="doMWPrint('+pageCount+')" style="flex:1;background:#e1e8ed;color:#1a5276;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;font-weight:600;">✅ Print</button>' +
         '<button onclick="closeMWModal()" style="flex:1;background:#eee;color:#333;border:none;border-radius:5px;padding:9px;font-size:13px;cursor:pointer;">Cancel</button>' +
       '</div>' +
     '</div>';
@@ -20004,16 +20030,16 @@ function renderNeedleMonthlyProd() {
       if (!machineList.length) return {html:'', needle:0, prod:0};
       var t = '<div style="margin-bottom:18px;">';
       t += '<div style="background:#1a5276;color:#fff;padding:6px 10px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;">'+title+'</div>';
-      t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;">';
+      t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;border:1px solid #ccc;">';
       t += '<thead><tr>';
-      t += '<th style="width:24px;">ERP</th><th style="width:90px;text-align:left;padding-left:3px;">Machine ID</th><th style="width:26px;">Dia</th>';
+      t += '<th style="width:24px;border:1px solid #ccc;">ERP</th><th style="width:90px;text-align:left;padding-left:3px;border:1px solid #ccc;">Machine ID</th><th style="width:26px;border:1px solid #ccc;">Dia</th>';
       days.forEach(function(dd){
         var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
         var isWeekend = new Date(dayStr).getDay()===5;
-        t += '<th style="width:22px;'+(isWeekend?'background:#e74c3c;color:#fff;':'')+'">'+dd+'</th>';
+        t += '<th style="width:36px;border:1px solid #ccc;'+(isWeekend?'background:#e74c3c;color:#fff;':'')+'">'+dd+'</th>';
       });
-      t += '<th style="width:40px;background:#1c2833;color:#fff;">Total<br>Needle</th>';
-      t += '<th style="width:44px;background:#1e8449;color:#fff;">Total<br>Prod(kg)</th>';
+      t += '<th style="width:40px;background:#1c2833;color:#fff;border:1px solid #ccc;">Total<br>Needle</th>';
+      t += '<th style="width:44px;background:#1e8449;color:#fff;border:1px solid #ccc;">Total<br>Prod(kg)</th>';
       t += '</tr></thead><tbody>';
 
       var secNeedle = 0, secProd = 0;
@@ -20023,22 +20049,22 @@ function renderNeedleMonthlyProd() {
         var mProd = prodData[m.id] || {};
         var rowProdTotal = 0;
         t += '<tr>';
-        t += '<td style="text-align:center;">'+(m.erp||'')+'</td>';
-        t += '<td><b>'+m.id+'</b></td>';
-        t += '<td style="text-align:center;">'+(m.gauge||'-')+'</td>';
+        t += '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>';
+        t += '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>';
+        t += '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>';
         days.forEach(function(dd){
           var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
           var dayQty = mData.filter(function(n){return n.date===dayStr;}).reduce(function(s,n){return s+n.qty;},0);
           var dayKg  = parseFloat(mProd[dd]) || 0;
           rowProdTotal += dayKg;
-          t += '<td style="text-align:center;padding:1px;line-height:1.2;">'
+          t += '<td style="text-align:center;padding:1px;line-height:1.2;border:1px solid #ddd;overflow:hidden;">'
              + (dayQty>0 ? '<div style="color:#1a5276;font-weight:700;">'+dayQty+'</div>' : '<div>&nbsp;</div>')
-             + (dayKg>0  ? '<div style="color:#1e8449;font-size:8px;">'+dayKg+'</div>'    : '')
+             + (dayKg>0  ? '<div style="color:#1e8449;font-size:7.5px;word-break:break-all;">'+dayKg+'</div>'    : '')
              + '</td>';
         });
         secNeedle += rowTotal; secProd += rowProdTotal;
-        t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;">'+(rowTotal||'')+'</td>';
-        t += '<td style="text-align:center;font-weight:700;background:#eafaf1;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
+        t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;border:1px solid #ddd;">'+(rowTotal||'')+'</td>';
+        t += '<td style="text-align:center;font-weight:700;background:#eafaf1;border:1px solid #ddd;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
         t += '</tr>';
       });
 
@@ -28688,7 +28714,7 @@ function ndlSrPrint(){
   var mLabel=mSel?mNames[parseInt(mSel.value)-1]:''; var yLabel=ySel?ySel.value:'';
   var content=document.getElementById('ndl-sr-body').innerHTML;
   var win=window.open('','_blank','width=900,height=700');
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+ndText+'</title><style>body{font-family:Arial,sans-serif;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:5px 7px;}th{background:#2c3e50;color:#fff;font-size:11px;}@media print{button{display:none;}}</style></head><body><h3 style="text-align:center;margin:0;">Islam Garments Limited</h3><h4 style="text-align:center;margin:4px 0 10px 0;">Needle Stock Register — '+ndText+' | '+mLabel+' '+yLabel+'</h4>'+content+'</body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+ndText+'</title><style>body{font-family:Arial,sans-serif;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:5px 7px;}th{background:#e3e5e8;color:#2c3e50;font-size:11px;}@media print{button{display:none;}}</style></head><body><h3 style="text-align:center;margin:0;">Islam Garments Limited</h3><h4 style="text-align:center;margin:4px 0 10px 0;">Needle Stock Register — '+ndText+' | '+mLabel+' '+yLabel+'</h4>'+content+'</body></html>');
   win.document.close();
   setTimeout(function(){win.print();},400);
 }
@@ -28791,7 +28817,7 @@ function ndlConPrint(){
   var title=(_ndlConMode==='used'?'Used':'New')+' Needle Consolidated Register — '+mLabel+' '+yLabel;
   var content=document.getElementById('ndl-con-body').innerHTML;
   var win=window.open('','_blank','width=960,height=700');
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+title+'</title><style>body{font-family:Arial,sans-serif;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:5px 7px;}th{background:#2c3e50;color:#fff;font-size:11px;}@media print{button{display:none;}}</style></head><body><h3 style="text-align:center;margin:0;">Islam Garments Limited</h3><h4 style="text-align:center;margin:4px 0 10px 0;">'+title+'</h4>'+content+'</body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+title+'</title><style>body{font-family:Arial,sans-serif;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:5px 7px;}th{background:#e3e5e8;color:#2c3e50;font-size:11px;}@media print{button{display:none;}}</style></head><body><h3 style="text-align:center;margin:0;">Islam Garments Limited</h3><h4 style="text-align:center;margin:4px 0 10px 0;">'+title+'</h4>'+content+'</body></html>');
   win.document.close();setTimeout(function(){win.print();},400);
 }
 
@@ -30191,7 +30217,7 @@ function pqbDoPrint() {
         });
         var totalCol = totalAmt >= 0 ? '#27ae60' : '#e74c3c';
         // Person header
-        h += '<tr><td colspan="7" style="padding:10px 12px;background:#1c2833;color:#fff;font-weight:700;font-size:13px;">'
+        h += '<tr><td colspan="7" style="padding:10px 12px;background:#e1e3e4;color:#1c2833;font-weight:700;font-size:13px;">'
            + '👤 ' + person
            + '<span style="float:right;color:'+(totalAmt>=0?'#a9dfbf':'#f1948a')+';">ব্যালেন্স: ৳'+Math.abs(totalAmt).toLocaleString()+(totalAmt>=0?' (পাওনা)':' (দেনা)')+'</span>'
            + '</td></tr>';
@@ -30204,7 +30230,7 @@ function pqbDoPrint() {
             +'<td style="padding:8px;text-align:center;"><span style="background:'+col+';color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;white-space:nowrap;">'+(TYPE_LABELS[e.type]||e.type)+'</span></td>'
             +'<td style="padding:8px;font-size:12px;color:#555;">'+(e.person||'—')+'</td>'
             +'<td style="padding:8px;text-align:right;font-weight:700;color:'+col+';">৳'+(e.amount||0).toLocaleString()+'</td>'
-            +'<td style="padding:8px;text-align:center;"><button onclick="plDelEntry(\''+e.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button></td>'
+            +'<td style="padding:8px;text-align:center;"><button onclick="plDelEntry(\''+e.id+'\')" style="background:#fbe7e5;color:#e74c3c;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">🗑️</button></td>'
             +'</tr>';
         });
         // Subtotal row
@@ -30387,7 +30413,7 @@ function pqbDoPrint() {
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
         +'<span style="background:'+col+';color:#fff;border-radius:8px;padding:4px 8px;font-size:14px;">'+icon+'</span>'
         +'<span style="font-weight:700;font-size:14px;color:#2c3e50;">'+(decrypted.title||item.id)+'</span>'
-        +'<button onclick="vtDel(\''+item.id+'\')" style="margin-left:auto;background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;">🗑️</button>'
+        +'<button onclick="vtDel(\''+item.id+'\')" style="margin-left:auto;background:#fbe7e5;color:#e74c3c;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;">🗑️</button>'
         +'</div>';
       if(decrypted.user) h+='<div style="margin-bottom:6px;"><span style="font-size:10px;color:#7f8c8d;font-weight:700;text-transform:uppercase;">User/ID</span><br><span style="font-size:13px;font-weight:600;color:#2c3e50;">'+decrypted.user+'</span> <button onclick="vtCopy(\''+encodeURIComponent(decrypted.user)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">Copy</button></div>';
       if(decrypted.pass) h+='<div style="margin-bottom:6px;"><span style="font-size:10px;color:#7f8c8d;font-weight:700;text-transform:uppercase;">Password</span><br><div style="display:flex;align-items:center;gap:6px;"><span id="vtp_'+item.id+'" style="font-size:13px;font-weight:600;color:#8e44ad;letter-spacing:2px;">••••••••</span><button onclick="vtToggle(\''+item.id+'\',\''+encodeURIComponent(decrypted.pass)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">👁</button><button onclick="vtCopy(\''+encodeURIComponent(decrypted.pass)+'\')" style="font-size:10px;background:#ecf0f1;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;">Copy</button></div></div>';
@@ -30556,7 +30582,7 @@ function pqbDoPrint() {
     html += '<thead>';
 
     // Header row 1: group labels
-    html += '<tr style="background:#1c2833;color:#fff;">';
+    html += '<tr style="background:#e1e3e4;color:#1c2833;">';
     html += '<th rowspan="2" style="padding:2px 3px;border:1px solid #555;width:68px;text-align:center;font-size:8px;">Date</th>';
     types1.forEach(function(t){
       html += '<th colspan="4" style="padding:3px;border:1px solid #555;text-align:center;">'+t.label+'</th>';
@@ -30569,7 +30595,7 @@ function pqbDoPrint() {
     html += '</tr>';
 
     // Header row 2: A / B / C / Total
-    html += '<tr style="background:#2c3e50;color:#fff;">';
+    html += '<tr style="background:#e3e5e8;color:#2c3e50;">';
     var shiftHeaders = shifts.map(function(s){ return '<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:30px;font-size:9px;">'+s+'</th>'; }).join('') + '<th style="padding:2px 3px;border:1px solid #555;text-align:center;width:30px;background:#117a65;font-size:9px;">T</th>';
     var totalCols = types1.length * 4 + JAQ_ERPS.length * 4;
     for (var ci=0; ci < types1.length + JAQ_ERPS.length; ci++) {
@@ -30632,7 +30658,7 @@ function pqbDoPrint() {
     });
 
     // Total row
-    html += '<tr style="background:#1c2833;color:#fff;font-weight:700;">';
+    html += '<tr style="background:#e1e3e4;color:#1c2833;font-weight:700;">';
     html += '<td style="padding:4px 2px;border:1px solid #555;text-align:center;font-size:8px;">TOTAL</td>';
     types1.forEach(function(t){
       var rowT=0;
