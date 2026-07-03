@@ -19977,20 +19977,19 @@ function _mpKey(year, month) { return year + '_' + month; }
 function mpLoadMonth(year, month, cb) {
   var key = _mpKey(year, month);
   if (window._machProdCache[key]) { cb(window._machProdCache[key]); return; }
-  try {
-    if (typeof firebase !== 'undefined' && firebase.database) {
-      firebase.database().ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
-        var v = snap.val() || {};
-        window._machProdCache[key] = v;
-        cb(v);
-      }).catch(function(){
-        var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
-        window._machProdCache[key] = local;
-        cb(local);
-      });
-      return;
-    }
-  } catch(e) {}
+  if (typeof _fbDb !== 'undefined') {
+    _fbDb.ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
+      var v = snap.val() || {};
+      window._machProdCache[key] = v;
+      cb(v);
+    }).catch(function(err){
+      console.error('machProd load error', err);
+      var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
+      window._machProdCache[key] = local;
+      cb(local);
+    });
+    return;
+  }
   var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
   window._machProdCache[key] = local;
   cb(local);
@@ -20000,11 +19999,16 @@ function mpSaveMonth(year, month, dataObj) {
   var key = _mpKey(year, month);
   window._machProdCache[key] = dataObj;
   localStorage.setItem('igl_machprod_' + key, JSON.stringify(dataObj));
-  try {
-    if (typeof firebase !== 'undefined' && firebase.database) {
-      firebase.database().ref('igl_erp/nur_machprod/' + key).set(dataObj);
-    }
-  } catch(e) { console.error('machProd save error', e); }
+  if (typeof _fbDb !== 'undefined') {
+    _fbDb.ref('igl_erp/nur_machprod/' + key).set(dataObj).then(function(){
+      console.log('machProd saved to Firebase:', key);
+    }).catch(function(err){
+      console.error('machProd save error', err);
+      toast('⚠️ Firebase সেভ ব্যর্থ হয়েছে — শুধু এই ডিভাইসে সেভ আছে: '+(err&&err.message?err.message:''), 'warning');
+    });
+  } else {
+    console.warn('_fbDb পাওয়া যায়নি — শুধু localStorage এ সেভ হয়েছে');
+  }
 }
 
 // ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
