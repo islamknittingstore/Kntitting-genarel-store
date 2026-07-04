@@ -19182,7 +19182,25 @@ const NEEDLE_MACHINES = [
   {erp:"",id:"Shima Seiki ( 19 )",retail:"Shima(19)",gauge:"60",section:"Flat Knit"},
   {erp:"",id:"Shima Seiki ( 20 )",retail:"Shima(20)",gauge:"60",section:"Flat Knit"},
   {erp:"",id:"Yonthin Collar/Jacquard ( 1 )",retail:"Yonthin Collar(1)",gauge:"80",section:"Flat Knit"},
-  {erp:"",id:"Yonthin Collar/Jacquard ( 2 )",retail:"Yonthin Collar(2)",gauge:"80",section:"Flat Knit"}
+  {erp:"",id:"Yonthin Collar/Jacquard ( 2 )",retail:"Yonthin Collar(2)",gauge:"80",section:"Flat Knit"},
+  {erp:"17",id:"T Flc 32''(5)",retail:"T Flc 32\"5(17)",gauge:"32",section:"Circular"},
+  {erp:"18",id:"T Flc 32''(6)",retail:"T Flc 32\"6(18)",gauge:"32",section:"Circular"},
+  {erp:"19",id:"T Flc 32''(7)",retail:"T Flc 32\"7(19)",gauge:"32",section:"Circular"},
+  {erp:"24",id:"T Flc 30''(4)",retail:"T Flc 30\"4(24)",gauge:"30",section:"Circular"},
+  {erp:"25",id:"T Flc 30''(5)",retail:"T Flc 30\"5(25)",gauge:"30",section:"Circular"},
+  {erp:"26",id:"T Flc 30''(6)",retail:"T Flc 30\"6(26)",gauge:"30",section:"Circular"},
+  {erp:"38",id:"Msj 30''(1)",retail:"Msj 30\"1(38)",gauge:"30",section:"Circular"},
+  {erp:"39",id:"Msj 30''(2)",retail:"Msj 30\"2(39)",gauge:"30",section:"Circular"},
+  {erp:"40",id:"Msj 30''(3)",retail:"Msj 30\"3(40)",gauge:"30",section:"Circular"},
+  {erp:"41",id:"Msj 30''(4)",retail:"Msj 30\"4(41)",gauge:"30",section:"Circular"},
+  {erp:"42",id:"Fsj 30''(1)",retail:"Fsj 30\"1(42)",gauge:"30",section:"Circular"},
+  {erp:"55",id:"Mr 30''(1)",retail:"Mr 30\"1(55)",gauge:"30",section:"Circular"},
+  {erp:"56",id:"Mr 30''(2)",retail:"Mr 30\"2(56)",gauge:"30",section:"Circular"},
+  {erp:"59",id:"Mr 30''(5)",retail:"Mr 30\"5(59)",gauge:"30",section:"Circular"},
+  {erp:"65",id:"F Est 30''(3)",retail:"F Est 30\"3(65)",gauge:"30",section:"Circular"},
+  {erp:"66",id:"F Est 30''(4)",retail:"F Est 30\"4(66)",gauge:"30",section:"Circular"},
+  {erp:"67",id:"F Est 30''(5)",retail:"F Est 30\"5(67)",gauge:"30",section:"Circular"},
+  {erp:"68",id:"F Est 30''(6)",retail:"F Est 30\"6(68)",gauge:"30",section:"Circular"}
 ];
 
 // —— Needle Machine Master: single source of truth = igl_retail_machines ——
@@ -19981,12 +19999,23 @@ window._machProdCache = window._machProdCache || {}; // key "year_month" -> {mac
 
 function _mpKey(year, month) { return year + '_' + month; }
 
+// Firebase key-তে "." "#" "$" "/" "[" "]" ব্যবহার করা যায় না (যেমন মেশিন আইডিতে থাকা "S/J")।
+// তাই সেভ করার আগে এই ক্যারেক্টারগুলো এনকোড করে নিরাপদ key বানানো হয়, লোড করার সময় আবার আসল নামে ফিরিয়ে আনা হয়।
+function _mpKeyEncode(k) {
+  return String(k).replace(/[.#$\/\[\]]/g, function(ch){ return '~' + ch.charCodeAt(0) + '~'; });
+}
+function _mpKeyDecode(k) {
+  return String(k).replace(/~(\d+)~/g, function(_, code){ return String.fromCharCode(Number(code)); });
+}
+
 function mpLoadMonth(year, month, cb) {
   var key = _mpKey(year, month);
   if (window._machProdCache[key]) { cb(window._machProdCache[key]); return; }
   if (typeof _fbDb !== 'undefined') {
     _fbDb.ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
-      var v = snap.val() || {};
+      var raw = snap.val() || {};
+      var v = {};
+      Object.keys(raw).forEach(function(k){ v[_mpKeyDecode(k)] = raw[k]; });
       window._machProdCache[key] = v;
       cb(v);
     }).catch(function(err){
@@ -20007,7 +20036,9 @@ function mpSaveMonth(year, month, dataObj) {
   window._machProdCache[key] = dataObj;
   localStorage.setItem('igl_machprod_' + key, JSON.stringify(dataObj));
   if (typeof _fbDb !== 'undefined') {
-    _fbDb.ref('igl_erp/nur_machprod/' + key).set(dataObj).then(function(){
+    var encoded = {};
+    Object.keys(dataObj).forEach(function(mid){ encoded[_mpKeyEncode(mid)] = dataObj[mid]; });
+    _fbDb.ref('igl_erp/nur_machprod/' + key).set(encoded).then(function(){
       console.log('machProd saved to Firebase:', key);
     }).catch(function(err){
       console.error('machProd save error', err);
