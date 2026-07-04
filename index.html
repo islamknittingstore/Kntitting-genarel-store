@@ -20296,7 +20296,8 @@ function mpHandleImportFile(evt) {
   var textReader = new FileReader();
   textReader.onload = function(e) {
     var text = e.target.result || '';
-    if (text.indexOf('Machine Wise Knitting Production Report') !== -1) {
+    var lowerText = text.toLowerCase();
+    if (lowerText.indexOf('knitting production report') !== -1 || /from\s*:\s*\d{2}-\d{2}-\d{4}\s*to\s*:\s*\d{2}-\d{2}-\d{4}/i.test(text)) {
       mpImportFromKnittingReport(text, evt);
     } else {
       mpImportFromXlsxTemplate(file, evt);
@@ -20339,36 +20340,40 @@ function mpImportFromKnittingReport(text, evt) {
     var unmatchedSet = {};
 
     trs.forEach(function(tr){
-      var tds = tr.querySelectorAll('td');
-      if (tds.length < 10) return;
-      var sl = (tds[0].textContent || '').trim();
-      if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
-      var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
-      var machNoRaw = (tds[1].textContent || '').trim();
-      var machNo = parseInt(machNoRaw, 10);
-      if (isNaN(machNo)) return;
+      try {
+        var tds = tr.querySelectorAll('td');
+        if (tds.length < 10) return;
+        var sl = (tds[0].textContent || '').trim();
+        if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
+        var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
+        var machNoRaw = (tds[1].textContent || '').trim();
+        var machNo = parseInt(machNoRaw, 10);
+        if (isNaN(machNo)) return;
 
-      // Floor 3 হলে আলাদা (Shima/Yonthin) ম্যাপ ব্যবহার করো, নাহলে সাধারণ ERP ম্যাপ
-      var isFloor3 = /Floor\s*3/i.test(floorTxt);
-      var internalId = isFloor3 ? floor3Map[machNo] : erpMap[machNo];
+        // Floor 3 হলে আলাদা (Shima/Yonthin) ম্যাপ ব্যবহার করো, নাহলে সাধারণ ERP ম্যাপ
+        var isFloor3 = /Floor\s*3/i.test(floorTxt);
+        var internalId = isFloor3 ? floor3Map[machNo] : erpMap[machNo];
 
-      var dayCols = tds.length - 7; // শেষ ২টা (Total, Avg/Day) ও শুরুর ৫টা (SL,MachNo,Floor,Dia,Capacity) বাদে
-      if (dayCols < 1) return;
-      var mObj = internalId ? (prodData[internalId] || {}) : null;
+        var dayCols = tds.length - 7; // শেষ ২টা (Total, Avg/Day) ও শুরুর ৫টা (SL,MachNo,Floor,Dia,Capacity) বাদে
+        if (dayCols < 1) return;
+        var mObj = internalId ? (prodData[internalId] || {}) : null;
 
-      for (var c = 5; c < 5 + dayCols; c++) {
-        var day = c - 4;
-        var raw = (tds[c] ? tds[c].textContent : '') || '';
-        var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
-        if (!numMatch) continue;
-        var kg = parseFloat(numMatch[0].replace(/,/g, ''));
-        if (isNaN(kg) || kg === 0) continue;
-        if (internalId) mObj[day] = kg;
-      }
-      if (internalId) {
-        if (Object.keys(mObj).length) { prodData[internalId] = mObj; matched++; }
-      } else {
-        unmatchedSet[machNoRaw + (isFloor3?' (Floor 3)':'')] = true;
+        for (var c = 5; c < 5 + dayCols; c++) {
+          var day = c - 4;
+          var raw = (tds[c] ? tds[c].textContent : '') || '';
+          var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
+          if (!numMatch) continue;
+          var kg = parseFloat(numMatch[0].replace(/,/g, ''));
+          if (isNaN(kg) || kg === 0) continue;
+          if (internalId) mObj[day] = kg;
+        }
+        if (internalId) {
+          if (Object.keys(mObj).length) { prodData[internalId] = mObj; matched++; }
+        } else {
+          unmatchedSet[machNoRaw + (isFloor3?' (Floor 3)':'')] = true;
+        }
+      } catch(rowErr) {
+        console.error('row parse error', rowErr);
       }
     });
 
@@ -20393,7 +20398,7 @@ function mpImportFromKnittingReport(text, evt) {
     });
   } catch(err) {
     console.error(err);
-    toast('❌ ফাইল পার্স করতে সমস্যা হয়েছে', 'error');
+    toast('❌ ফাইল পার্স করতে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error');
   } finally {
     if (evt && evt.target) evt.target.value = '';
   }
@@ -20442,7 +20447,7 @@ function mpImportFromXlsxTemplate(file, evt) {
         });
       } catch(err) {
         console.error(err);
-        toast('❌ ফাইল পড়তে সমস্যা হয়েছে', 'error');
+        toast('❌ ফাইল পড়তে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error');
       }
     };
     reader.readAsArrayBuffer(file);
