@@ -8609,6 +8609,15 @@ function showPage(name, el) {
       var _mwcw = localStorage.getItem('igl_mw_cw'); if(_mwcw && document.getElementById('mw-cw')) document.getElementById('mw-cw').value=_mwcw;
       renderNeedleMonthly();
     }
+    else if (name === 'needle_monthly_prod') {
+      var now3 = new Date();
+      if (document.getElementById('nmp-month')) document.getElementById('nmp-month').value = now3.getMonth()+1;
+      if (document.getElementById('nmp-year')) document.getElementById('nmp-year').value = now3.getFullYear();
+      renderNeedleMonthlyProd();
+    }
+    else if (name === 'machine_set_summary') {
+      renderMachineSetSummary();
+    }
     else if (name === 'needle_master_page') {
       _seedRetailMachinesIfEmpty();
       renderNeedleMasterTable();
@@ -20012,14 +20021,31 @@ function mpLoadMonth(year, month, cb) {
   var key = _mpKey(year, month);
   if (window._machProdCache[key]) { cb(window._machProdCache[key]); return; }
   if (typeof _fbDb !== 'undefined') {
+    var _mpDone = false;
+    var _mpTimeout = setTimeout(function(){
+      if (_mpDone) return;
+      _mpDone = true;
+      console.warn('machProd load timeout — localStorage থেকে fallback করছে:', key);
+      if (typeof toast === 'function') toast('⚠️ Firebase থেকে Production লোড হতে দেরি হচ্ছে — লোকাল ক্যাশ দেখানো হচ্ছে', 'warning');
+      var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
+      window._machProdCache[key] = local;
+      cb(local);
+    }, 6000);
     _fbDb.ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
+      if (_mpDone) return;
+      _mpDone = true;
+      clearTimeout(_mpTimeout);
       var raw = snap.val() || {};
       var v = {};
       Object.keys(raw).forEach(function(k){ v[_mpKeyDecode(k)] = raw[k]; });
       window._machProdCache[key] = v;
       cb(v);
     }).catch(function(err){
+      if (_mpDone) return;
+      _mpDone = true;
+      clearTimeout(_mpTimeout);
       console.error('machProd load error', err);
+      if (typeof toast === 'function') toast('⚠️ Firebase থেকে Production লোড ব্যর্থ: '+(err&&err.message?err.message:err), 'warning');
       var local = JSON.parse(localStorage.getItem('igl_machprod_' + key) || '{}');
       window._machProdCache[key] = local;
       cb(local);
@@ -20035,18 +20061,31 @@ function mpSaveMonth(year, month, dataObj) {
   var key = _mpKey(year, month);
   window._machProdCache[key] = dataObj;
   localStorage.setItem('igl_machprod_' + key, JSON.stringify(dataObj));
-  if (typeof _fbDb !== 'undefined') {
-    var encoded = {};
-    Object.keys(dataObj).forEach(function(mid){ encoded[_mpKeyEncode(mid)] = dataObj[mid]; });
-    _fbDb.ref('igl_erp/nur_machprod/' + key).set(encoded).then(function(){
-      console.log('machProd saved to Firebase:', key);
-    }).catch(function(err){
-      console.error('machProd save error', err);
-      toast('⚠️ Firebase সেভ ব্যর্থ হয়েছে — শুধু এই ডিভাইসে সেভ আছে: '+(err&&err.message?err.message:''), 'warning');
-    });
-  } else {
+
+  if (typeof _fbDb === 'undefined') {
     console.warn('_fbDb পাওয়া যায়নি — শুধু localStorage এ সেভ হয়েছে');
+    if (typeof toast === 'function') toast('⚠️ Firebase সংযোগ নেই — শুধু এই ডিভাইসে সেভ আছে', 'warning');
+    return;
   }
+
+  // নেট না থাকলে সাথে সাথে বুঝিয়ে দাও — চেষ্টাও করবে, কিন্তু ইউজারকে জানিয়ে রাখবে
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (typeof fbStatus === 'function') fbStatus('error', '📶 Offline — Production শুধু লোকাল সেভ হয়েছে');
+    if (typeof toast === 'function') toast('📶 ইন্টারনেট নেই — Production শুধু এই ডিভাইসে সেভ হয়েছে, নেট এলে আবার Import করুন', 'warning');
+  }
+
+  if (typeof fbStatus === 'function') fbStatus('saving', 'Production সেভ হচ্ছে...');
+
+  var encoded = {};
+  Object.keys(dataObj).forEach(function(mid){ encoded[_mpKeyEncode(mid)] = dataObj[mid]; });
+  _fbDb.ref('igl_erp/nur_machprod/' + key).set(encoded).then(function(){
+    console.log('machProd saved to Firebase:', key);
+    if (typeof fbStatus === 'function') fbStatus('saved', '✅ Production Synced');
+  }).catch(function(err){
+    console.error('machProd save error', err);
+    if (typeof fbStatus === 'function') fbStatus('error', '❌ Production sync failed');
+    if (typeof toast === 'function') toast('⚠️ Firebase সেভ ব্যর্থ হয়েছে — শুধু এই ডিভাইসে সেভ আছে: '+(err&&err.message?err.message:''), 'warning');
+  });
 }
 
 // ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
@@ -20066,6 +20105,7 @@ function renderNeedleMonthlyProd() {
   });
 
   mpLoadMonth(year, month, function(prodData){
+   try {
 
     // ── একটা মেশিন-লিস্টের জন্য টেবিল বানানোর reusable ফাংশন ──
     function buildTable(title, machineList) {
@@ -20153,6 +20193,10 @@ function renderNeedleMonthlyProd() {
     out += '</div></div>';
 
     document.getElementById('needleMonthlyProdGrid').innerHTML = out;
+   } catch(renderErr) {
+     console.error('renderNeedleMonthlyProd error:', renderErr);
+     if (typeof toast === 'function') toast('❌ গ্রিড রেন্ডার করতে সমস্যা: ' + (renderErr && renderErr.message ? renderErr.message : renderErr), 'error');
+   }
   });
 }
 
