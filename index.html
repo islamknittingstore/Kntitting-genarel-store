@@ -4963,6 +4963,15 @@ function ok(msg) {
             <option value="10">October</option><option value="11">November</option><option value="12">December</option>
           </select>
           <input type="number" class="form-control" id="nmp-year" value="2026" min="2020" max="2050" style="width:90px;">
+          <script>
+            (function(){
+              var d = new Date();
+              var mEl = document.getElementById('nmp-month');
+              var yEl = document.getElementById('nmp-year');
+              if (mEl) mEl.value = d.getMonth()+1;
+              if (yEl) yEl.value = d.getFullYear();
+            })();
+          </script>
           <select class="form-control" id="nmp-section" style="width:130px;">
             <option value="">All Sections</option>
             <option value="Circular">Circular</option>
