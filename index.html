@@ -5008,7 +5008,26 @@ function ok(msg) {
     </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
-        <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select class="form-control" id="mss-month" style="width:130px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="mss-year" value="2026" min="2020" max="2050" style="width:90px;">
+          <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
+          <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+            <input type="number" id="mss-print-font-size" value="9" min="5" max="14" step="0.5"
+              style="width:42px;border:none;outline:none;font-size:12px;font-weight:700;color:#4a235a;padding:0;text-align:center;">
+            <span style="font-size:10px;color:#888;">pt</span>
+          </span>
+          <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mssPrintSummary()">🖨️ Print (এই মাসের শেষ পর্যন্ত)</button>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:#666;">
+          মাস সিলেক্ট করে Refresh চাপলে <b>ওই মাসের শেষ তারিখ পর্যন্ত</b> হিসাব করা Last Set ও Production দেখাবে (চলতি মাস সিলেক্ট করলে আজ পর্যন্ত)
+        </div>
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="machineSetSummaryGrid"></div>
@@ -8625,6 +8644,9 @@ function showPage(name, el) {
       renderNeedleMonthlyProd();
     }
     else if (name === 'machine_set_summary') {
+      var now4 = new Date();
+      if (document.getElementById('mss-month')) document.getElementById('mss-month').value = now4.getMonth()+1;
+      if (document.getElementById('mss-year')) document.getElementById('mss-year').value = now4.getFullYear();
       renderMachineSetSummary();
     }
     else if (name === 'needle_master_page') {
@@ -15929,10 +15951,12 @@ function pkgEditTx(type, id) {
   var rmkNames = (typeof pkgGetRemarkNames === 'function') ? pkgGetRemarkNames() : [];
   document.getElementById('pkg-edit-remarks-list').innerHTML = rmkNames.map(function(n){ return '<option value="'+n+'">'; }).join('');
 
-  // Dept select — pkgGetDepts() থেকে
+  // Dept select — pkgGetDepts() (প্রি-সেট) + বাস্তবে ব্যবহৃত সব ডিপার্টমেন্ট (মিলিয়ে, কোনোটা বাদ যাবে না)
   var deptList = (typeof pkgGetDepts === 'function') ? pkgGetDepts() : [];
+  var usedDepts = (DB.issues||[]).filter(function(r){ return r.group==='Packaging' && r.machineId; }).map(function(r){ return r.machineId; });
+  var allDepts = Array.from(new Set(deptList.concat(usedDepts).filter(Boolean))).sort();
   var deptSel = document.getElementById('pkg-edit-dept');
-  deptSel.innerHTML = '<option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>' + deptList.map(function(d){ return '<option value="'+d+'"'+(d===(entry.machineId||'')?' selected':'')+'>'+d+'</option>'; }).join('');
+  deptSel.innerHTML = '<option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>' + allDepts.map(function(d){ return '<option value="'+d+'"'+(d===(entry.machineId||'')?' selected':'')+'>'+d+'</option>'; }).join('');
 
   if (type === 'ISSUE') {
     document.getElementById('pkg-edit-slip').value  = entry.slip    || '';
@@ -20012,7 +20036,9 @@ function renderUsedNeedleMonthly() {
 // =====================================================================
 
 // ── Storage: প্রতি মাসের production একটা করে Firebase node এ (efficient bulk save/load) ──
-// path: igl_erp/nur_machprod/{year}_{month} = { machineId: { day: kg, ... }, ... }
+// path: igl_machprod_v2/{year}_{month} = { machineId: { day: kg, ... }, ... }
+// ⚠️ গুরুত্বপূর্ণ: এটা ইচ্ছাকৃতভাবে 'igl_erp' রুটের বাইরে আলাদা path — কারণ fbSaveAll() প্রতিবার
+// 'igl_erp' রুট পুরোটা .set() দিয়ে ওভাররাইট করে; ভেতরে রাখলে প্রতিটা সাধারণ Auto-Save-এ Production ডাটা মুছে যেত।
 window._machProdCache = window._machProdCache || {}; // key "year_month" -> {machineId:{day:kg}}
 
 function _mpKey(year, month) { return year + '_' + month; }
@@ -20040,7 +20066,7 @@ function mpLoadMonth(year, month, cb) {
       window._machProdCache[key] = local;
       cb(local);
     }, 6000);
-    _fbDb.ref('igl_erp/nur_machprod/' + key).once('value').then(function(snap){
+    _fbDb.ref('igl_machprod_v2/' + key).once('value').then(function(snap){
       if (_mpDone) return;
       _mpDone = true;
       clearTimeout(_mpTimeout);
@@ -20087,7 +20113,7 @@ function mpSaveMonth(year, month, dataObj) {
 
   var encoded = {};
   Object.keys(dataObj).forEach(function(mid){ encoded[_mpKeyEncode(mid)] = dataObj[mid]; });
-  _fbDb.ref('igl_erp/nur_machprod/' + key).set(encoded).then(function(){
+  _fbDb.ref('igl_machprod_v2/' + key).set(encoded).then(function(){
     console.log('machProd saved to Firebase:', key);
     if (typeof fbStatus === 'function') fbStatus('saved', '✅ Production Synced');
   }).catch(function(err){
@@ -20552,12 +20578,21 @@ function mpImportFromXlsxTemplate(file, evt) {
 
 // ── Sheet 3: Machine Set & Production Summary ──
 function renderMachineSetSummary() {
-  var machines = getNeedleMachines().slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
   var todayS = todayStr();
 
-  // প্রতিটা মেশিনের সব "New Set" রেকর্ড, তারিখ অনুযায়ী descending
+  // মাস/বছর সিলেক্টর থেকে "as of" তারিখ ঠিক করা — সেই মাসের শেষ তারিখ, কিন্তু আজকের বেশি না
+  var selMonth = Number((document.getElementById('mss-month')||{}).value || (new Date().getMonth()+1));
+  var selYear  = Number((document.getElementById('mss-year')||{}).value  || new Date().getFullYear());
+  var monthEndDate = new Date(selYear, selMonth, 0); // ওই মাসের শেষ দিন
+  var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
+  var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr; // ভবিষ্যতের মাস সিলেক্ট করলে আজকের তারিখেই capped থাকবে
+
+  // প্রতিটা মেশিনের সব "New Set" রেকর্ড, তারিখ অনুযায়ী descending — কিন্তু asOfDate এর পরেরগুলো বাদ (historical snapshot)
   var newSetByMachine = {};
-  NDB.needles.filter(function(n){ return n.type === 'newset' || n.source === 'nsr'; }).forEach(function(n){
+  NDB.needles.filter(function(n){ return (n.type === 'newset' || n.source === 'nsr') && n.date && n.date <= asOfDate; }).forEach(function(n){
     if (!n.machine) return;
     if (!newSetByMachine[n.machine]) newSetByMachine[n.machine] = [];
     if (newSetByMachine[n.machine].indexOf(n.date) < 0) newSetByMachine[n.machine].push(n.date);
@@ -20566,11 +20601,9 @@ function renderMachineSetSummary() {
     newSetByMachine[mid].sort(function(a,b){ return a<b?1:-1; }); // descending
   });
 
-  // Last Set তারিখ অনুযায়ী প্রয়োজনীয় মাসগুলো বের করে সব মাসের production load করো
+  // asOfDate থেকে পেছনের ১২ মাস — production data দরকার
   var neededMonths = {}; // "year_month" -> true
-  var iter = new Date();
-  // এই মুহূর্তে যতগুলো machine আছে, তাদের last-set মাস থেকে আজ পর্যন্ত সব মাস দরকার হতে পারে;
-  // simplicity-র জন্য গত ১২ মাস লোড করি (production সাধারণত এর মধ্যেই থাকে)
+  var iter = new Date(monthEndDate);
   for (var i=0; i<12; i++) {
     var y = iter.getFullYear(), m = iter.getMonth()+1;
     neededMonths[_mpKey(y,m)] = {y:y, m:m};
@@ -20579,7 +20612,6 @@ function renderMachineSetSummary() {
 
   var monthKeys = Object.keys(neededMonths);
   var loaded = 0;
-  var allProdData = {}; // key -> data
   monthKeys.forEach(function(key){
     mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
       loaded++;
@@ -20589,7 +20621,9 @@ function renderMachineSetSummary() {
   if (monthKeys.length === 0) finishRender();
 
   function finishRender() {
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var t = '<div style="padding:10px 15px;">';
+    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে</div>';
     t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
     t += '<thead><tr style="background:#4a235a;color:#fff;">';
     t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
@@ -20611,7 +20645,7 @@ function renderMachineSetSummary() {
           var mProd = data[m.id] || {};
           Object.keys(mProd).forEach(function(dayNum){
             var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
-            if (dayStr >= lastSet && dayStr <= todayS) prodSince += parseFloat(mProd[dayNum]) || 0;
+            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
           });
         });
       }
@@ -20628,6 +20662,101 @@ function renderMachineSetSummary() {
 
     t += '</tbody></table></div>';
     document.getElementById('machineSetSummaryGrid').innerHTML = t;
+  }
+}
+
+// ── Sheet 3 প্রিন্ট: নির্বাচিত মাসের শেষ তারিখ পর্যন্ত হিসাব করা স্ন্যাপশট প্রিন্ট ──
+function mssPrintSummary() {
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var todayS = todayStr();
+  var fsEl = document.getElementById('mss-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
+
+  var selMonth = Number((document.getElementById('mss-month')||{}).value || (new Date().getMonth()+1));
+  var selYear  = Number((document.getElementById('mss-year')||{}).value  || new Date().getFullYear());
+  var monthEndDate = new Date(selYear, selMonth, 0);
+  var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
+  var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr;
+
+  var newSetByMachine = {};
+  NDB.needles.filter(function(n){ return (n.type === 'newset' || n.source === 'nsr') && n.date && n.date <= asOfDate; }).forEach(function(n){
+    if (!n.machine) return;
+    if (!newSetByMachine[n.machine]) newSetByMachine[n.machine] = [];
+    if (newSetByMachine[n.machine].indexOf(n.date) < 0) newSetByMachine[n.machine].push(n.date);
+  });
+  Object.keys(newSetByMachine).forEach(function(mid){
+    newSetByMachine[mid].sort(function(a,b){ return a<b?1:-1; });
+  });
+
+  var neededMonths = {};
+  var iter = new Date(monthEndDate);
+  for (var i=0; i<12; i++) {
+    var y = iter.getFullYear(), m = iter.getMonth()+1;
+    neededMonths[_mpKey(y,m)] = {y:y, m:m};
+    iter.setMonth(iter.getMonth()-1);
+  }
+  var monthKeys = Object.keys(neededMonths);
+  var loaded = 0;
+  monthKeys.forEach(function(key){
+    mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
+      loaded++;
+      if (loaded === monthKeys.length) doPrint();
+    });
+  });
+  if (monthKeys.length === 0) doPrint();
+
+  function doPrint() {
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var rows = '';
+    machines.forEach(function(m, idx){
+      var dates = newSetByMachine[m.id] || [];
+      var lastSet = dates[0] || '';
+      var prevSet = dates[1] || '';
+      var prodSince = 0;
+      if (lastSet) {
+        monthKeys.forEach(function(key){
+          var parts = key.split('_');
+          var y = Number(parts[0]), mo = Number(parts[1]);
+          var data = window._machProdCache[key] || {};
+          var mProd = data[m.id] || {};
+          Object.keys(mProd).forEach(function(dayNum){
+            var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+          });
+        });
+      }
+      rows += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">'
+        + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
+        + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
+        + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>'
+        + '</tr>';
+    });
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Machine Set Summary</title><style>';
+    html += '@page{size:A4 portrait;margin:10mm;}';
+    html += 'body{font-family:Arial,sans-serif;margin:0;padding:0;color:#000;font-size:'+fs+'pt;}';
+    html += 'table{width:100%;border-collapse:collapse;}';
+    html += 'th{padding:5px 8px;border:1px solid #ddd;}';
+    html += 'td{padding:4px 8px;}';
+    html += 'button{display:none!important;}';
+    html += '</style></head><body>';
+    html += '<div style="text-align:center;padding:6px 0;">';
+    html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Set & Production Summary</div>';
+    html += '<div style="font-size:9pt;color:#555;">'+monthNames[selMonth-1]+' '+selYear+' — '+_fmtDMY(asOfDate)+' পর্যন্ত হিসাব | Print Date: '+fmtDate(todayStr())+'</div></div>';
+    html += '<table><thead><tr style="background:'+_pLight('#4a235a')+';color:#4a235a;">';
+    html += '<th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
+    html += '<th>Previous Set Date</th><th>Last Set Date</th><th>Production Since Last Set (kg)</th>';
+    html += '</tr></thead><tbody>'+rows+'</tbody></table>';
+    html += '</body></html>';
+
+    var w = window.open('','_blank','width=1000,height=750');
+    w.document.write(html); w.document.close();
+    w.onload = function(){ w.focus(); w.print(); };
   }
 }
 
@@ -23103,6 +23232,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var fromDate = document.getElementById('rna-from').value;
     var toDate = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ return; }
+
+    // ⚠️ Firebase-এর পুরো needle history লোড হওয়ার আগে (শুধু localStorage-এর trimmed/৩০-দিনের
+    // cache থাকা অবস্থায়) হিসাব করলে BF ভুল/বেশি দেখাতে পারে। তাই পুরো লোড না হওয়া পর্যন্ত
+    // অপেক্ষা করছি, আর একটা "লোড হচ্ছে" মেসেজ দেখাচ্ছি যাতে ভুল সংখ্যায় ভয় না পান।
+    if (!window._fbInitialLoadDone) {
+      var rnaContentEl = document.getElementById('rna-content');
+      if (rnaContentEl) rnaContentEl.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">⏳ Cloud থেকে সম্পূর্ণ ডাটা লোড হচ্ছে... একটু অপেক্ষা করুন।</div>';
+      // লোড শেষ হলে স্বয়ংক্রিয়ভাবে আবার render করার চেষ্টা করবে
+      setTimeout(function(){
+        if (window._fbInitialLoadDone) renderRetailNeedleAccount();
+      }, 800);
+      return;
+    }
 
     var nm = ndlGetMaster();
     var rcv = ndlGetRcv();
