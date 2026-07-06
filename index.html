@@ -20123,6 +20123,54 @@ function mpSaveMonth(year, month, dataObj) {
   });
 }
 
+// ── নতুন (ইনটেক) মেশিনের "Running Date" — যেসব মেশিনের কোনো New Set Record নেই,
+// তাদের জন্য এই তারিখ থেকেই Production হিসাব শুরু হবে ──
+// path: igl_machine_rundate_v2 = { encodedMachineId: 'YYYY-MM-DD', ... }  (igl_erp এর বাইরে, নিরাপদ)
+window._machRunDateCache = null; // null = এখনো লোড হয়নি
+
+function mrdLoadAll(cb) {
+  if (window._machRunDateCache !== null) { cb(window._machRunDateCache); return; }
+  if (typeof _fbDb === 'undefined') {
+    var local = JSON.parse(localStorage.getItem('igl_machrundate') || '{}');
+    window._machRunDateCache = local;
+    cb(local);
+    return;
+  }
+  _fbDb.ref('igl_machine_rundate_v2').once('value').then(function(snap){
+    var raw = snap.val() || {};
+    var v = {};
+    Object.keys(raw).forEach(function(k){ v[_mpKeyDecode(k)] = raw[k]; });
+    window._machRunDateCache = v;
+    cb(v);
+  }).catch(function(err){
+    console.error('runDate load error', err);
+    var local = JSON.parse(localStorage.getItem('igl_machrundate') || '{}');
+    window._machRunDateCache = local;
+    cb(local);
+  });
+}
+
+function mrdSaveDate(machineId, dateStr) {
+  window._machRunDateCache = window._machRunDateCache || {};
+  if (dateStr) window._machRunDateCache[machineId] = dateStr;
+  else delete window._machRunDateCache[machineId];
+  localStorage.setItem('igl_machrundate', JSON.stringify(window._machRunDateCache));
+
+  if (typeof _fbDb === 'undefined') return;
+  if (typeof fbStatus === 'function') fbStatus('saving', 'Running Date সেভ হচ্ছে...');
+  var encodedKey = _mpKeyEncode(machineId);
+  var ref = _fbDb.ref('igl_machine_rundate_v2/' + encodedKey);
+  var p = dateStr ? ref.set(dateStr) : ref.remove();
+  p.then(function(){
+    if (typeof fbStatus === 'function') fbStatus('saved', '✅ Running Date Synced');
+    if (typeof toast === 'function') toast('✅ Running Date সেভ হয়েছে', 'success');
+  }).catch(function(err){
+    console.error('runDate save error', err);
+    if (typeof fbStatus === 'function') fbStatus('error', '❌ Running Date sync failed');
+    if (typeof toast === 'function') toast('⚠️ Running Date সেভ ব্যর্থ: '+(err&&err.message?err.message:''), 'warning');
+  });
+}
+
 // ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
 function renderNeedleMonthlyProd() {
   var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
@@ -20604,7 +20652,7 @@ function renderMachineSetSummary() {
   // asOfDate থেকে পেছনের ১২ মাস — production data দরকার
   var neededMonths = {}; // "year_month" -> true
   var iter = new Date(monthEndDate);
-  for (var i=0; i<12; i++) {
+  for (var i=0; i<18; i++) {
     var y = iter.getFullYear(), m = iter.getMonth()+1;
     neededMonths[_mpKey(y,m)] = {y:y, m:m};
     iter.setMonth(iter.getMonth()-1);
@@ -20612,18 +20660,20 @@ function renderMachineSetSummary() {
 
   var monthKeys = Object.keys(neededMonths);
   var loaded = 0;
+  var runDates = {};
+  function checkDone(){ if (loaded === monthKeys.length) { mrdLoadAll(function(rd){ runDates = rd; finishRender(); }); } }
   monthKeys.forEach(function(key){
     mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
       loaded++;
-      if (loaded === monthKeys.length) finishRender();
+      checkDone();
     });
   });
-  if (monthKeys.length === 0) finishRender();
+  if (monthKeys.length === 0) checkDone();
 
   function finishRender() {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var t = '<div style="padding:10px 15px;">';
-    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে</div>';
+    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে | 🆕 = নতুন মেশিন Running Date থেকে হিসাব</div>';
     t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
     t += '<thead><tr style="background:#4a235a;color:#fff;">';
     t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
@@ -20635,9 +20685,16 @@ function renderMachineSetSummary() {
       var dates = newSetByMachine[m.id] || [];
       var lastSet = dates[0] || '';
       var prevSet = dates[1] || '';
+      var isNewMachine = false;
+      var effectiveDate = lastSet;
+
+      if (!lastSet) {
+        var rd = runDates[m.id] || '';
+        if (rd) { effectiveDate = rd; isNewMachine = true; }
+      }
 
       var prodSince = 0;
-      if (lastSet) {
+      if (effectiveDate) {
         monthKeys.forEach(function(key){
           var parts = key.split('_');
           var y = Number(parts[0]), mo = Number(parts[1]);
@@ -20645,9 +20702,19 @@ function renderMachineSetSummary() {
           var mProd = data[m.id] || {};
           Object.keys(mProd).forEach(function(dayNum){
             var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
-            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+            if (dayStr >= effectiveDate && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
           });
         });
+      }
+
+      var lastSetCell;
+      if (lastSet) {
+        lastSetCell = '<span style="color:#6c3483;font-weight:700;">'+_fmtDMY(lastSet)+'</span>';
+      } else if (isNewMachine) {
+        lastSetCell = '<span style="color:#117a65;font-weight:700;">🆕 '+_fmtDMY(effectiveDate)+'</span> '
+          + '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \''+effectiveDate+'\'); return false;" style="font-size:9px;color:#888;">✏️</a>';
+      } else {
+        lastSetCell = '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \'\'); return false;" style="color:#c0392b;font-size:10.5px;">🆕 Running Date সেট করুন</a>';
       }
 
       t += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">';
@@ -20655,14 +20722,24 @@ function renderMachineSetSummary() {
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>';
-      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>';
-      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+lastSetCell+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toFixed(1):'-')+'</td>';
       t += '</tr>';
     });
 
     t += '</tbody></table></div>';
     document.getElementById('machineSetSummaryGrid').innerHTML = t;
   }
+}
+
+// ── নতুন মেশিনের Running Date সেট/এডিট করার জন্য prompt ──
+function mssPromptRunDate(machineId, currentDate) {
+  var val = prompt('"'+machineId+'" — মেশিন Running শুরুর তারিখ দিন (YYYY-MM-DD ফরম্যাটে):', currentDate || todayStr());
+  if (val === null) return; // cancel
+  val = val.trim();
+  if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) { toast('❌ তারিখ ফরম্যাট ভুল — YYYY-MM-DD ব্যবহার করুন (যেমন 2026-03-15)', 'error'); return; }
+  mrdSaveDate(machineId, val);
+  renderMachineSetSummary();
 }
 
 // ── Sheet 3 প্রিন্ট: নির্বাচিত মাসের শেষ তারিখ পর্যন্ত হিসাব করা স্ন্যাপশট প্রিন্ট ──
@@ -20692,20 +20769,22 @@ function mssPrintSummary() {
 
   var neededMonths = {};
   var iter = new Date(monthEndDate);
-  for (var i=0; i<12; i++) {
+  for (var i=0; i<18; i++) {
     var y = iter.getFullYear(), m = iter.getMonth()+1;
     neededMonths[_mpKey(y,m)] = {y:y, m:m};
     iter.setMonth(iter.getMonth()-1);
   }
   var monthKeys = Object.keys(neededMonths);
   var loaded = 0;
+  var runDates = {};
+  function checkDone(){ if (loaded === monthKeys.length) { mrdLoadAll(function(rd){ runDates = rd; doPrint(); }); } }
   monthKeys.forEach(function(key){
     mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
       loaded++;
-      if (loaded === monthKeys.length) doPrint();
+      checkDone();
     });
   });
-  if (monthKeys.length === 0) doPrint();
+  if (monthKeys.length === 0) checkDone();
 
   function doPrint() {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -20714,8 +20793,14 @@ function mssPrintSummary() {
       var dates = newSetByMachine[m.id] || [];
       var lastSet = dates[0] || '';
       var prevSet = dates[1] || '';
+      var isNewMachine = false;
+      var effectiveDate = lastSet;
+      if (!lastSet) {
+        var rd = runDates[m.id] || '';
+        if (rd) { effectiveDate = rd; isNewMachine = true; }
+      }
       var prodSince = 0;
-      if (lastSet) {
+      if (effectiveDate) {
         monthKeys.forEach(function(key){
           var parts = key.split('_');
           var y = Number(parts[0]), mo = Number(parts[1]);
@@ -20723,17 +20808,18 @@ function mssPrintSummary() {
           var mProd = data[m.id] || {};
           Object.keys(mProd).forEach(function(dayNum){
             var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
-            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+            if (dayStr >= effectiveDate && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
           });
         });
       }
+      var lastSetTxt = lastSet ? _fmtDMY(lastSet) : (isNewMachine ? '🆕 '+_fmtDMY(effectiveDate) : '-');
       rows += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
         + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:'+(isNewMachine?'#117a65':'#6c3483')+';font-weight:700;">'+lastSetTxt+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toFixed(1):'-')+'</td>'
         + '</tr>';
     });
 
