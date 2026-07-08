@@ -8327,9 +8327,14 @@ function seedData() {
 // 
 function getStock(itemName) {
   var bf = 0;
+  var foundInStn = false;
   if (typeof DB !== 'undefined' && DB.stnItems) {
     var it = DB.stnItems.find(function(x){ return x.name === itemName; });
-    if (it) bf = Number(it.bf) || 0;
+    if (it) { bf = Number(it.bf) || 0; foundInStn = true; }
+  }
+  if (!foundInStn && typeof DB !== 'undefined' && DB.pkgItems) {
+    var itP = DB.pkgItems.find(function(x){ return x.name === itemName; });
+    if (itP) bf = Number(itP.bf) || 0;
   }
   const rec = DB.receives.filter(r => r.item === itemName).reduce((s,r) => s + Number(r.qty), 0);
   const iss = DB.issues.filter(i => i.item === itemName).reduce((s,i) => s + Number(i.qty), 0);
@@ -9412,6 +9417,7 @@ function stnPrint(showTotal) {
   html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   html += '</style></head><body>';
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
@@ -12636,6 +12642,7 @@ function stnPrintItemWise(orientation) {
   printHtml += '.item-hdr{background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;padding:6px 10px;margin-top:12px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;page-break-after:avoid;}';
   printHtml += '.total-row td{background:#e7e2e9!important;color:#4a235a!important;font-weight:700;}';
   printHtml += 'button{display:none!important;}';
+  printHtml += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   printHtml += '</style></head><body>';
 
   printHtml += '<div class="hdr"><div><h2>Islam Garments Limited — Item Wise Issue</h2><p>সময়কাল: '+periodStr+'</p></div>';
@@ -13184,6 +13191,7 @@ function stnPrintOriented(orientation, stockFilter) {
   html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   html += '</style></head><body>';
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Stationery</h2><p>'+data.title+'</p></div>';
@@ -13616,6 +13624,7 @@ function pkgPrint() {
   html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   html += '</style></head><body>';
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
@@ -16745,6 +16754,7 @@ function pkgPrintItemWise(orientation) {
   printHtml += '.item-hdr{background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;padding:6px 10px;margin-top:12px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;page-break-after:avoid;}';
   printHtml += '.total-row td{background:#e7e2e9!important;color:#4a235a!important;font-weight:700;}';
   printHtml += 'button{display:none!important;}';
+  printHtml += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   printHtml += '</style></head><body>';
 
   printHtml += '<div class="hdr"><div><h2>Islam Garments Limited — Item Wise Issue</h2><p>সময়কাল: '+periodStr+'</p></div>';
@@ -17307,6 +17317,7 @@ function pkgPrintOriented(orientation, stockFilter) {
   html += '.dept-hdr{background:#e1e8ed;color:#1a5276;padding:5px 9px;font-weight:700;font-size:'+fs+'pt!important;margin-top:10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;}';
   html += '.total-row td{background:#e1e3e4!important;color:#1c2833!important;font-weight:700;padding:4px 7px;font-size:'+fs+'pt!important;}';
   html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
   html += '</style></head><body>';
 
   html += '<div class="hdr"><div class="hdr-left"><h2>Islam Garments Limited — Packaging</h2><p>'+data.title+'</p></div>';
@@ -20377,6 +20388,7 @@ function mpPrintGrid() {
     html += '@page{size:A4 landscape;margin:8mm;}';
     html += 'body{font-family:Arial,sans-serif;margin:0;padding:0;color:#000;}';
     html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
     html += '</style></head><body>';
     html += '<div style="text-align:center;padding:6px 0;">';
     html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Wise Needle + Production</div>';
@@ -20830,6 +20842,7 @@ function mssPrintSummary() {
     html += 'th{padding:5px 8px;border:1px solid #ddd;}';
     html += 'td{padding:4px 8px;}';
     html += 'button{display:none!important;}';
+  html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
     html += '</style></head><body>';
     html += '<div style="text-align:center;padding:6px 0;">';
     html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Set & Production Summary</div>';
