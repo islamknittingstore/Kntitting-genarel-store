@@ -12273,9 +12273,7 @@ function renderStationeryDashboard() {
           .concat(rcvEntries)
           .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
 
-        // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
-        // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
-        // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+        // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো: সবসময় Receive আগে, Issue পরে
         (function(){
           var dateGroups = {}, dateKeys = [];
           allEntries.forEach(function(r){
@@ -12283,16 +12281,12 @@ function renderStationeryDashboard() {
             dateGroups[r.date].push(r);
           });
           dateKeys.sort();
-          var orderedEntries = [], simBal = bf;
+          var orderedEntries = [];
           dateKeys.forEach(function(dt){
             var grp = dateGroups[dt];
             var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
             var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
-            var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
-            dayOrder.forEach(function(r){
-              orderedEntries.push(r);
-              if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
-            });
+            rcvsInGrp.concat(issuesInGrp).forEach(function(r){ orderedEntries.push(r); });
           });
           allEntries = orderedEntries;
         })();
@@ -12714,9 +12708,7 @@ function stnPrintItemWise(orientation) {
       .concat(rcvE)
       .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
 
-    // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো:
-    // যদি সেই তারিখ শুরুর BF ০ হয় → Receive আগে, Issue পরে (নাহলে ব্যালেন্স মাইনাসে চলে যায়)
-    // যদি BF ০ না হয় (কিছু থাকে) → Issue আগে, Receive পরে (আগের ক্রমই থাকবে)
+    // একই তারিখে একাধিক entry থাকলে ক্রম ঠিক করো: সবসময় Receive আগে, Issue পরে
     (function(){
       var dateGroups = {}, dateKeys = [];
       allE.forEach(function(r){
@@ -12724,16 +12716,12 @@ function stnPrintItemWise(orientation) {
         dateGroups[r.date].push(r);
       });
       dateKeys.sort();
-      var orderedE = [], simBal = runBal2;
+      var orderedE = [];
       dateKeys.forEach(function(dt){
         var grp = dateGroups[dt];
         var issuesInGrp = grp.filter(function(r){ return r.type==='issue'; });
         var rcvsInGrp   = grp.filter(function(r){ return r.type==='receive'; });
-        var dayOrder = (simBal === 0) ? rcvsInGrp.concat(issuesInGrp) : issuesInGrp.concat(rcvsInGrp);
-        dayOrder.forEach(function(r){
-          orderedE.push(r);
-          if (r.type==='receive') simBal += r.qty; else simBal -= r.qty;
-        });
+        rcvsInGrp.concat(issuesInGrp).forEach(function(r){ orderedE.push(r); });
       });
       allE = orderedE;
     })();
