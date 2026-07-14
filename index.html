@@ -9338,7 +9338,7 @@ function stnGetTableData() {
   if (_stnTab === 'chalan') {
     var chalanRecs = DB.receives.filter(function(r){
       return stnNames.includes(r.item) && (!q || (r.chalan||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
-    }).sort(function(a,b){return b.id-a.id;});
+    }).sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; });
     var cTot = chalanRecs.reduce(function(s,r){return s+r.qty;},0);
     return {
       title: 'Stationery — Challan-wise Receive Report',
@@ -9354,7 +9354,7 @@ function stnGetTableData() {
   if (_stnTab === 'slip') {
     var slipIss = DB.issues.filter(function(r){
       return stnNames.includes(r.item) && (!q || (r.slip||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
-    }).sort(function(a,b){return b.id-a.id;});
+    }).sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; });
     var sTot = slipIss.reduce(function(s,r){return s+r.qty;},0);
     return {
       title: 'Stationery — Slip-wise Issue Report',
@@ -12058,7 +12058,7 @@ function renderStationeryDashboard() {
       html += '<table><thead><tr>'
         +(_isAdminRcv ? '<th style="width:34px;"><input type="checkbox" id="stn-chk-all-rcv" onchange="stnBulkSelectAll(\'rcv\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
-      html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += chalanRecs.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr>'+(_isAdminRcv ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-rcv" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'RECEIVE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'RECEIVE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
@@ -12094,7 +12094,7 @@ function renderStationeryDashboard() {
       html += '<table><thead><tr>'
         +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="stn-chk-all-iss" onchange="stnBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
-      html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += slipIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
@@ -12137,7 +12137,7 @@ function renderStationeryDashboard() {
       });
       var deptGrandTotal = deptIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
-      html += deptIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += deptIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
@@ -13534,7 +13534,7 @@ function pkgGetTableData() {
   if (_stnTab === 'chalan') {
     var chalanRecs = DB.receives.filter(function(r){
       return pkgNames.includes(r.item) && (!q || (r.chalan||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
-    }).sort(function(a,b){return b.id-a.id;});
+    }).sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; });
     var cTot = chalanRecs.reduce(function(s,r){return s+r.qty;},0);
     return {
       title: 'Packaging — Challan-wise Receive Report',
@@ -13550,7 +13550,7 @@ function pkgGetTableData() {
   if (_stnTab === 'slip') {
     var slipIss = DB.issues.filter(function(r){
       return pkgNames.includes(r.item) && (!q || (r.slip||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
-    }).sort(function(a,b){return b.id-a.id;});
+    }).sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; });
     var sTot = slipIss.reduce(function(s,r){return s+r.qty;},0);
     return {
       title: 'Packaging — Slip-wise Issue Report',
@@ -16143,7 +16143,7 @@ function renderPackagingDashboard() {
       html += '<table><thead><tr>'
         +(_isAdminRcv ? '<th style="width:34px;"><input type="checkbox" id="pkg-chk-all-rcv" onchange="pkgBulkSelectAll(\'rcv\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Action</th></tr></thead><tbody>';
-      html += chalanRecs.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += chalanRecs.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr>'+(_isAdminRcv ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-rcv" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
           +'<td style="display:flex;gap:5px;"><button onclick="pkgEditTx(\'RECEIVE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'RECEIVE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
@@ -16179,7 +16179,7 @@ function renderPackagingDashboard() {
       html += '<table><thead><tr>'
         +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="pkg-chk-all-iss" onchange="pkgBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
-      html += slipIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += slipIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="pkgEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
@@ -16222,7 +16222,7 @@ function renderPackagingDashboard() {
       });
       var deptGrandTotal = deptIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
       html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
-      html += deptIss.sort(function(a,b){return b.id-a.id;}).map(function(r,i){
+      html += deptIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="pkgEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
