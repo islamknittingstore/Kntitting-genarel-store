@@ -5178,7 +5178,7 @@ function ok(msg) {
             <option value="9">September</option><option value="10">October</option>
             <option value="11">November</option><option value="12">December</option>
           </select>
-          <input type="number" class="form-control" id="ns-year" value="2026" style="width:90px;" oninput="renderNewSetLog()">
+          <input type="number" class="form-control" id="ns-year" placeholder="বছর (ঐচ্ছিক)" style="width:130px;" oninput="renderNewSetLog()">
         </div>
       </div>
       <div class="header-print">
@@ -21016,6 +21016,21 @@ function renderNewSetLog() {
   // Sort by date desc
   data = data.slice().sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
 
+  // ── মেশিন নম্বর/নাম দিয়ে সার্চ করলে (আর সব রেজাল্ট একই মেশিনের হলে) —
+  // শুধু সবশেষ ৩টা New Set দেখাও, প্রতিটাকে আলাদা রঙে হাইলাইট করে ──
+  var isSingleMachineSearch = false;
+  var _nsDateColorMap = {};
+  if (q && data.length > 0) {
+    var uniqMachines = Array.from(new Set(data.map(function(n){ return n.machine; })));
+    if (uniqMachines.length === 1) {
+      isSingleMachineSearch = true;
+      var uniqDates = Array.from(new Set(data.map(function(n){ return n.date; }))).slice(0, 3); // ইতিমধ্যে date desc সাজানো
+      data = data.filter(function(n){ return uniqDates.indexOf(n.date) !== -1; });
+      var _nsRowColors = ['#eafaf1', '#eaf4fb', '#fdf2e9']; // সবুজ (সবশেষ), নীল, কমলা (সবচেয়ে পুরনো)
+      uniqDates.forEach(function(d, di){ _nsDateColorMap[d] = _nsRowColors[di] || '#f5f5f5'; });
+    }
+  }
+
   var tbody = document.getElementById('newSetLogTable');
   var summary = document.getElementById('newSetLogSummary');
 
@@ -21027,14 +21042,19 @@ function renderNewSetLog() {
 
   var nm = ndlGetMaster();
   var _isAdminNS = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+  var _nsDateOrder = isSingleMachineSearch ? Object.keys(_nsDateColorMap) : [];
+  var _nsLabels = ['🟢 সবশেষ', '🔵 আগেরটা', '🟠 তার আগেরটা'];
   tbody.innerHTML = data.map(function(r, i){
     var canDel = _isAdminNS || (window.IGL_CURRENT_USER && r.userId === window.IGL_CURRENT_USER.role);
     var needleName = r.needle || (nm.find(function(n){ return n.id === r.needleId; }) || {}).name || '-';
     var needleType = r.needleType || (nm.find(function(n){ return n.id === r.needleId; }) || {}).type || '-';
     var typeBg = needleType === 'Sinker' ? '#8e44ad' : '#2980b9';
-    return '<tr>' +
+    var rowStyle = isSingleMachineSearch ? ' style="background:'+(_nsDateColorMap[r.date]||'#f5f5f5')+';"' : '';
+    var dateRank = isSingleMachineSearch ? _nsDateOrder.indexOf(r.date) : -1;
+    var dateLabel = (dateRank >= 0 && _nsLabels[dateRank]) ? ' ' + _nsLabels[dateRank] : '';
+    return '<tr' + rowStyle + '>' +
       '<td>' + (i+1) + '</td>' +
-      '<td>' + fmtDate(r.date) + '</td>' +
+      '<td>' + (isSingleMachineSearch ? '<b>'+fmtDate(r.date)+'</b>' + dateLabel : fmtDate(r.date)) + '</td>' +
       '<td style="text-align:center;">' + (r.erp||'-') + '</td>' +
       '<td><b>' + (r.machine||'-') + '</b></td>' +
       '<td>' + (r.section||'-') + '</td>' +
