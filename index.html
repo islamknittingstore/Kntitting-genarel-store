@@ -2282,6 +2282,8 @@ function iglApplyPermissions() {
   if (nmpNav) nmpNav.style.display = isAdmin ? '' : 'none';
   var mssNav = document.getElementById('nav-machine-set-summary');
   if (mssNav) mssNav.style.display = isAdmin ? '' : 'none';
+  var srNav = document.getElementById('nav-set-replace');
+  if (srNav) srNav.style.display = isAdmin ? '' : 'none';
 }
 
 // ── Admin: User Password Edit ──
@@ -2382,6 +2384,7 @@ var IGL_NAV_ITEMS = {
   'nav-needle-monthly':    { label: '📊 Monthly Machine Wise',    section: '🪡 Needle Section' },
   'nav-needle-monthly-prod':{ label: '📊📦 Machine Wise + Production', section: '🪡 Needle Section' },
   'nav-machine-set-summary':{ label: '🔧 Machine Set Summary',    section: '🪡 Needle Section' },
+  'nav-set-replace':       { label: '🔁 Set Replace & Correction', section: '🪡 Needle Section' },
   'nav-needle-daily':      { label: '📆 Daily Summary',           section: '🪡 Needle Section' },
   'nav-needle-use-report': { label: '📋 Shift Needle Use Report', section: '🪡 Needle Section' },
   'nav-needle-newset-record':{ label: '📝 New Set Record',        section: '🪡 Needle Section' },
@@ -2711,6 +2714,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
       <li id="nav-needle-monthly-prod"><a href="#" onclick="showPage('needle_monthly_prod', this); return false;"><span class="icon">📊📦</span> Machine Wise + Production</a></li>
       <li id="nav-machine-set-summary"><a href="#" onclick="showPage('machine_set_summary', this); return false;"><span class="icon">🔧</span> Machine Set Summary</a></li>
+      <li id="nav-set-replace"><a href="#" onclick="showPage('set_replace', this); return false;"><span class="icon">🔁</span> Set Replace &amp; Correction</a></li>
       <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
       <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
       <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
@@ -5031,6 +5035,73 @@ function ok(msg) {
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="machineSetSummaryGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SET REPLACE & CORRECTION -->
+  <div class="page" id="page-set_replace">
+    <div class="page-header">
+      <h2>🔁 Set Replace & Correction</h2>
+      <p>অফিসিয়ালি এক মেশিনে সেট রেকর্ড হয়েছে, কিন্তু আসলে অন্য মেশিনে বসেছে — এমন সংশোধনী এখানে রেকর্ড করুন</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="background:#fdedec;color:#943126;">➕ নতুন Correction যোগ করুন</div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div>
+            <div class="form-group">
+              <label>অফিসিয়ালি যেই মেশিনে রেকর্ড হয়েছিল (Original)</label>
+              <select class="form-control" id="sr-orig-machine"><option value="">-- মেশিন সিলেক্ট করুন --</option></select>
+            </div>
+            <div class="form-group">
+              <label>New Set-এর তারিখ</label>
+              <input type="date" class="form-control" id="sr-date">
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>আসলে যেই মেশিনে বসেছে (Actual)</label>
+              <select class="form-control" id="sr-actual-machine"><option value="">-- মেশিন সিলেক্ট করুন --</option></select>
+            </div>
+            <div class="form-group">
+              <label>Remarks (ঐচ্ছিক)</label>
+              <input type="text" class="form-control" id="sr-remarks" placeholder="যেমন: ভুলবশত ৯২ নম্বরে বসানো হয়েছে">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="srAddRecord()">💾 Correction সেভ করুন</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:15px;">
+      <div class="card-header" style="background:#f0f3f7;">📋 সব Correction রেকর্ড</div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="setReplaceListGrid"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:15px;">
+      <div class="card-header" style="background:#f0f3f7;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="color:#6c3483;">📊 সংশোধিত (Corrected) Machine Set Summary</b>
+          <select class="form-control" id="csr-month" style="width:130px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="csr-year" value="2026" min="2020" max="2050" style="width:90px;">
+          <button class="btn btn-primary btn-sm" onclick="renderCorrectedSetSummary()">🔄 Refresh</button>
+          <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="csrPrintSummary()">🖨️ Print</button>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:#666;">
+          এই টেবিলে উপরের Correction রেকর্ডগুলো হিসাবে ধরে Last Set ও Production দেখানো হয় — মূল "Machine Set Summary" পেজ এটার দ্বারা প্রভাবিত হয় না
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="correctedSetSummaryGrid"></div>
       </div>
     </div>
   </div>
@@ -8562,7 +8633,7 @@ function showPage(name, el) {
   }
 
   // ── Machine Wise + Production ও Machine Set Summary — শুধু Admin ঢুকতে পারবে ──
-  if (name === 'needle_monthly_prod' || name === 'machine_set_summary') {
+  if (name === 'needle_monthly_prod' || name === 'machine_set_summary' || name === 'set_replace') {
     var mpOk = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
     if (!mpOk) {
       if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই — শুধু Admin দেখতে পারবে', 'error');
@@ -8653,6 +8724,15 @@ function showPage(name, el) {
       if (document.getElementById('mss-month')) document.getElementById('mss-month').value = now4.getMonth()+1;
       if (document.getElementById('mss-year')) document.getElementById('mss-year').value = now4.getFullYear();
       renderMachineSetSummary();
+    }
+    else if (name === 'set_replace') {
+      var now5 = new Date();
+      if (document.getElementById('csr-month')) document.getElementById('csr-month').value = now5.getMonth()+1;
+      if (document.getElementById('csr-year')) document.getElementById('csr-year').value = now5.getFullYear();
+      if (document.getElementById('sr-date')) document.getElementById('sr-date').value = todayStr();
+      srPopulateMachineDropdowns();
+      renderSetReplaceList();
+      renderCorrectedSetSummary();
     }
     else if (name === 'needle_master_page') {
       _seedRetailMachinesIfEmpty();
@@ -20836,6 +20916,308 @@ function mssPrintSummary() {
     html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Set & Production Summary</div>';
     html += '<div style="font-size:9pt;color:#555;">'+monthNames[selMonth-1]+' '+selYear+' — '+_fmtDMY(asOfDate)+' পর্যন্ত হিসাব | Print Date: '+fmtDate(todayStr())+'</div></div>';
     html += '<table><thead><tr style="background:'+_pLight('#4a235a')+';color:#4a235a;">';
+    html += '<th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
+    html += '<th>Previous Set Date</th><th>Last Set Date</th><th>Production Since Last Set (kg)</th>';
+    html += '</tr></thead><tbody>'+rows+'</tbody></table>';
+    html += '</body></html>';
+
+    var w = window.open('','_blank','width=1000,height=750');
+    w.document.write(html); w.document.close();
+    w.onload = function(){ w.focus(); w.print(); };
+  }
+}
+
+// =====================================================================
+//  SET REPLACE & CORRECTION MODULE
+// =====================================================================
+// path: igl_set_replace_v2 = { recordId: {origMachine, actualMachine, date, remarks, ts}, ... }
+// (igl_erp এর বাইরে, নিরাপদ — সাধারণ Auto-Save কখনো এটা মুছবে না)
+window._setReplaceCache = null;
+
+function srLoadAll(cb) {
+  if (window._setReplaceCache !== null) { cb(window._setReplaceCache); return; }
+  if (typeof _fbDb === 'undefined') {
+    var local = JSON.parse(localStorage.getItem('igl_setreplace') || '{}');
+    window._setReplaceCache = local;
+    cb(local);
+    return;
+  }
+  _fbDb.ref('igl_set_replace_v2').once('value').then(function(snap){
+    var v = snap.val() || {};
+    window._setReplaceCache = v;
+    cb(v);
+  }).catch(function(err){
+    console.error('setReplace load error', err);
+    var local = JSON.parse(localStorage.getItem('igl_setreplace') || '{}');
+    window._setReplaceCache = local;
+    cb(local);
+  });
+}
+
+function srSaveAll(data) {
+  window._setReplaceCache = data;
+  localStorage.setItem('igl_setreplace', JSON.stringify(data));
+  if (typeof _fbDb === 'undefined') return;
+  if (typeof fbStatus === 'function') fbStatus('saving', 'Correction সেভ হচ্ছে...');
+  _fbDb.ref('igl_set_replace_v2').set(data).then(function(){
+    if (typeof fbStatus === 'function') fbStatus('saved', '✅ Synced');
+  }).catch(function(err){
+    console.error('setReplace save error', err);
+    if (typeof fbStatus === 'function') fbStatus('error', '❌ Sync failed');
+    if (typeof toast === 'function') toast('⚠️ সেভ ব্যর্থ: '+(err&&err.message?err.message:''), 'warning');
+  });
+}
+
+function srPopulateMachineDropdowns() {
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var opts = '<option value="">-- মেশিন সিলেক্ট করুন --</option>' +
+    machines.map(function(m){ return '<option value="'+m.id.replace(/"/g,'&quot;')+'">'+(m.erp?('['+m.erp+'] '):'')+m.id+'</option>'; }).join('');
+  var o1 = document.getElementById('sr-orig-machine');
+  var o2 = document.getElementById('sr-actual-machine');
+  if (o1) o1.innerHTML = opts;
+  if (o2) o2.innerHTML = opts;
+}
+
+function srAddRecord() {
+  var origMachine = (document.getElementById('sr-orig-machine')||{}).value || '';
+  var actualMachine = (document.getElementById('sr-actual-machine')||{}).value || '';
+  var date = (document.getElementById('sr-date')||{}).value || '';
+  var remarks = (document.getElementById('sr-remarks')||{}).value || '';
+
+  if (!origMachine) { toast('❌ Original মেশিন সিলেক্ট করুন', 'error'); return; }
+  if (!actualMachine) { toast('❌ Actual মেশিন সিলেক্ট করুন', 'error'); return; }
+  if (!date) { toast('❌ তারিখ দিন', 'error'); return; }
+  if (origMachine === actualMachine) { toast('❌ Original ও Actual মেশিন একই হতে পারবে না', 'error'); return; }
+
+  srLoadAll(function(data){
+    var id = 'sr_' + Date.now();
+    data[id] = { origMachine: origMachine, actualMachine: actualMachine, date: date, remarks: remarks, ts: Date.now() };
+    srSaveAll(data);
+    toast('✅ Correction রেকর্ড সেভ হয়েছে', 'success');
+    document.getElementById('sr-remarks').value = '';
+    renderSetReplaceList();
+    renderCorrectedSetSummary();
+  });
+}
+
+function srDeleteRecord(id) {
+  if (!confirm('এই Correction রেকর্ডটা মুছে দেবেন?')) return;
+  srLoadAll(function(data){
+    delete data[id];
+    srSaveAll(data);
+    toast('🗑️ মুছে ফেলা হয়েছে', 'warning');
+    renderSetReplaceList();
+    renderCorrectedSetSummary();
+  });
+}
+
+function renderSetReplaceList() {
+  srLoadAll(function(data){
+    var ids = Object.keys(data).sort(function(a,b){ return (data[b].ts||0) - (data[a].ts||0); });
+    var grid = document.getElementById('setReplaceListGrid');
+    if (!grid) return;
+    if (ids.length === 0) {
+      grid.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">এখনো কোনো Correction রেকর্ড নেই</div>';
+      return;
+    }
+    var t = '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
+    t += '<thead><tr style="background:#943126;color:#fff;">';
+    t += '<th style="padding:6px 8px;">তারিখ</th><th style="padding:6px 8px;text-align:left;">Original (রেকর্ড হয়েছিল)</th>';
+    t += '<th style="padding:6px 8px;text-align:left;">Actual (আসলে বসেছে)</th><th style="padding:6px 8px;text-align:left;">Remarks</th><th></th>';
+    t += '</tr></thead><tbody>';
+    ids.forEach(function(id, idx){
+      var r = data[id];
+      t += '<tr style="background:'+(idx%2===1?'#fdf2f0':'#fff')+';">';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+_fmtDMY(r.date)+'</td>';
+      t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#c0392b;">'+r.origMachine+'</td>';
+      t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#117a65;font-weight:700;">'+r.actualMachine+'</td>';
+      t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(r.remarks||'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;"><a href="#" onclick="srDeleteRecord(\''+id+'\'); return false;" style="color:#c0392b;">🗑️</a></td>';
+      t += '</tr>';
+    });
+    t += '</tbody></table>';
+    grid.innerHTML = t;
+  });
+}
+
+// ── প্রতিটা মেশিনের New Set তারিখের লিস্ট বের করে, Correction রেকর্ড অনুযায়ী সমন্বয় করে ──
+function _csrBuildAdjustedDates(asOfDate, corrections) {
+  var byMachine = {};
+  NDB.needles.filter(function(n){ return (n.type === 'newset' || n.source === 'nsr') && n.date && n.date <= asOfDate; }).forEach(function(n){
+    if (!n.machine) return;
+    if (!byMachine[n.machine]) byMachine[n.machine] = [];
+    if (byMachine[n.machine].indexOf(n.date) < 0) byMachine[n.machine].push(n.date);
+  });
+
+  // Correction প্রয়োগ: origMachine থেকে এই তারিখ বাদ, actualMachine এ যোগ
+  Object.keys(corrections).forEach(function(id){
+    var c = corrections[id];
+    if (!c.date || c.date > asOfDate) return; // ভবিষ্যতের correction এখনো প্রযোজ্য না
+    if (byMachine[c.origMachine]) {
+      byMachine[c.origMachine] = byMachine[c.origMachine].filter(function(d){ return d !== c.date; });
+    }
+    if (!byMachine[c.actualMachine]) byMachine[c.actualMachine] = [];
+    if (byMachine[c.actualMachine].indexOf(c.date) < 0) byMachine[c.actualMachine].push(c.date);
+  });
+
+  Object.keys(byMachine).forEach(function(mid){
+    byMachine[mid].sort(function(a,b){ return a<b?1:-1; }); // descending
+  });
+  return byMachine;
+}
+
+function renderCorrectedSetSummary() {
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var todayS = todayStr();
+
+  var selMonth = Number((document.getElementById('csr-month')||{}).value || (new Date().getMonth()+1));
+  var selYear  = Number((document.getElementById('csr-year')||{}).value  || new Date().getFullYear());
+  var monthEndDate = new Date(selYear, selMonth, 0);
+  var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
+  var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr;
+
+  var neededMonths = {};
+  var iter = new Date(monthEndDate);
+  for (var i=0; i<18; i++) {
+    var y = iter.getFullYear(), m = iter.getMonth()+1;
+    neededMonths[_mpKey(y,m)] = {y:y, m:m};
+    iter.setMonth(iter.getMonth()-1);
+  }
+  var monthKeys = Object.keys(neededMonths);
+  var loaded = 0;
+
+  srLoadAll(function(corrections){
+    function checkDone(){ if (loaded === monthKeys.length) finishRender(corrections); }
+    monthKeys.forEach(function(key){
+      mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){ loaded++; checkDone(); });
+    });
+    if (monthKeys.length === 0) checkDone();
+  });
+
+  function finishRender(corrections) {
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
+
+    var t = '<div style="padding:10px 15px;">';
+    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে (Correction প্রয়োগসহ)</div>';
+    t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
+    t += '<thead><tr style="background:#6c3483;color:#fff;">';
+    t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
+    t += '<th style="padding:6px 8px;">Gauge</th><th style="padding:6px 8px;">Previous Set Date</th>';
+    t += '<th style="padding:6px 8px;">Last Set Date</th><th style="padding:6px 8px;">Production Since Last Set (kg)</th>';
+    t += '</tr></thead><tbody>';
+
+    machines.forEach(function(m, idx){
+      var dates = newSetByMachine[m.id] || [];
+      var lastSet = dates[0] || '';
+      var prevSet = dates[1] || '';
+
+      var prodSince = 0;
+      if (lastSet) {
+        monthKeys.forEach(function(key){
+          var parts = key.split('_');
+          var y = Number(parts[0]), mo = Number(parts[1]);
+          var data = window._machProdCache[key] || {};
+          var mProd = data[m.id] || {};
+          Object.keys(mProd).forEach(function(dayNum){
+            var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+          });
+        });
+      }
+
+      t += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
+      t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>';
+      t += '</tr>';
+    });
+
+    t += '</tbody></table></div>';
+    document.getElementById('correctedSetSummaryGrid').innerHTML = t;
+  }
+}
+
+function csrPrintSummary() {
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  var todayS = todayStr();
+  var selMonth = Number((document.getElementById('csr-month')||{}).value || (new Date().getMonth()+1));
+  var selYear  = Number((document.getElementById('csr-year')||{}).value  || new Date().getFullYear());
+  var monthEndDate = new Date(selYear, selMonth, 0);
+  var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
+  var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr;
+
+  var neededMonths = {};
+  var iter = new Date(monthEndDate);
+  for (var i=0; i<18; i++) {
+    var y = iter.getFullYear(), m = iter.getMonth()+1;
+    neededMonths[_mpKey(y,m)] = {y:y, m:m};
+    iter.setMonth(iter.getMonth()-1);
+  }
+  var monthKeys = Object.keys(neededMonths);
+  var loaded = 0;
+
+  srLoadAll(function(corrections){
+    function checkDone(){ if (loaded === monthKeys.length) doPrint(corrections); }
+    monthKeys.forEach(function(key){
+      mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){ loaded++; checkDone(); });
+    });
+    if (monthKeys.length === 0) checkDone();
+  });
+
+  function doPrint(corrections) {
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
+    var rows = '';
+    machines.forEach(function(m, idx){
+      var dates = newSetByMachine[m.id] || [];
+      var lastSet = dates[0] || '';
+      var prevSet = dates[1] || '';
+      var prodSince = 0;
+      if (lastSet) {
+        monthKeys.forEach(function(key){
+          var parts = key.split('_');
+          var y = Number(parts[0]), mo = Number(parts[1]);
+          var data = window._machProdCache[key] || {};
+          var mProd = data[m.id] || {};
+          Object.keys(mProd).forEach(function(dayNum){
+            var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+            if (dayStr >= lastSet && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+          });
+        });
+      }
+      rows += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">'
+        + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
+        + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
+        + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#6c3483;font-weight:700;">'+(lastSet?_fmtDMY(lastSet):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(lastSet? prodSince.toFixed(1):'-')+'</td>'
+        + '</tr>';
+    });
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Corrected Machine Set Summary</title><style>';
+    html += '@page{size:A4 portrait;margin:10mm;}';
+    html += 'body{font-family:Arial,sans-serif;margin:0;padding:0;color:#000;font-size:9pt;}';
+    html += 'table{width:100%;border-collapse:collapse;}';
+    html += 'th{padding:5px 8px;border:1px solid #ddd;}';
+    html += 'td{padding:4px 8px;}';
+    html += 'button{display:none!important;}';
+    html += '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
+    html += '</style></head><body>';
+    html += '<div style="text-align:center;padding:6px 0;">';
+    html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Corrected Machine Set & Production Summary</div>';
+    html += '<div style="font-size:9pt;color:#555;">'+monthNames[selMonth-1]+' '+selYear+' — '+_fmtDMY(asOfDate)+' পর্যন্ত হিসাব (Correction প্রয়োগসহ) | Print Date: '+fmtDate(todayStr())+'</div></div>';
+    html += '<table><thead><tr style="background:'+_pLight('#6c3483')+';color:#6c3483;">';
     html += '<th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
     html += '<th>Previous Set Date</th><th>Last Set Date</th><th>Production Since Last Set (kg)</th>';
     html += '</tr></thead><tbody>'+rows+'</tbody></table>';
