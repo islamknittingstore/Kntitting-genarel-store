@@ -5238,7 +5238,7 @@ function ok(msg) {
       <div class="card-body no-print" style="padding:10px 20px;">
         <div class="search-bar">
           <input type="text" class="form-control" id="ns-search"
-            placeholder="Search: machine name, date, ERP no..."
+            placeholder="শুধু ERP নম্বর দিন (যেমন: 14)"
             oninput="renderNewSetLog()">
           <select class="form-control" style="width:160px;" id="ns-month" onchange="renderNewSetLog()">
             <option value="">All Months</option>
@@ -21384,15 +21384,11 @@ function renderNewSetLog() {
     });
   }
 
-  // Search filter
+  // Search filter — শুধু ERP (মেশিন নম্বর) দিয়ে, exact match আগে, না মিললে prefix match
   if (q) {
-    data = data.filter(function(n){
-      return (n.machine||'').toLowerCase().includes(q) ||
-             (n.date||'').includes(q) ||
-             (n.erp||'').toLowerCase().includes(q) ||
-             (n.section||'').toLowerCase().includes(q) ||
-             (n.remarks||'').toLowerCase().includes(q);
-    });
+    var qTrim = q.trim();
+    var exactMatches = data.filter(function(n){ return (n.erp||'').toLowerCase() === qTrim; });
+    data = exactMatches.length ? exactMatches : data.filter(function(n){ return (n.erp||'').toLowerCase().indexOf(qTrim) === 0; });
   }
 
   // Sort by date desc
@@ -27650,7 +27646,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     localStorage.setItem('igl_nur_prod_'+year+'_'+month, value);
   }
 
-  // Firebase থেকে Total Production load করো
+  // Firebase থেকে Total Production load করো — ম্যানুয়াল ভ্যালু না থাকলে
+  // Machine Wise Production (Excel Import করা ডাটা) থেকে স্বয়ংক্রিয়ভাবে যোগফল বসাবে (ঐচ্ছিক override থাকবে)
   function nurLoadProdKg(year, month, inputEl) {
     var key = 'nur_prod/' + year + '_' + month;
     if (typeof _fbDb !== 'undefined') {
@@ -27671,6 +27668,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             if (span2) span2.textContent = local;
             // Firebase এ migrate করো
             _fbDb.ref(key).set(local);
+          } else {
+            // কোথাও ম্যানুয়াল ভ্যালু নেই — Machine Wise Production থেকে অটো-ক্যালকুলেট করো
+            _nurAutoCalcProdKg(year, month, inputEl);
           }
         }
       });
@@ -27682,8 +27682,32 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         inputEl.setAttribute('value', saved);
         var span3 = inputEl.nextElementSibling;
         if (span3) span3.textContent = saved;
+      } else {
+        _nurAutoCalcProdKg(year, month, inputEl);
       }
     }
+  }
+
+  // Machine Wise Production (Excel Import করা ডাটা) থেকে ওই মাসের মোট প্রোডাকশন যোগ করে বসায় —
+  // এটা শুধু একটা সাজেস্টেড/ডিফল্ট মান, ম্যানুয়ালি এডিট করে override করা যাবে (ঐচ্ছিক থাকবে)
+  function _nurAutoCalcProdKg(year, month, inputEl) {
+    if (typeof mpLoadMonth !== 'function') return;
+    mpLoadMonth(year, month, function(prodData){
+      var total = 0;
+      Object.keys(prodData||{}).forEach(function(mid){
+        var mProd = prodData[mid] || {};
+        Object.keys(mProd).forEach(function(dayNum){ total += parseFloat(mProd[dayNum]) || 0; });
+      });
+      if (total > 0) {
+        var rounded = Math.round(total * 10) / 10;
+        inputEl.value = rounded;
+        inputEl.setAttribute('value', rounded);
+        inputEl.style.color = '#1e8449';
+        inputEl.title = 'Machine Wise Production থেকে স্বয়ংক্রিয়ভাবে বসানো হয়েছে — চাইলে এডিট করে বদলাতে পারবেন';
+        var span4 = inputEl.nextElementSibling;
+        if (span4) span4.textContent = rounded;
+      }
+    });
   }
 
 
