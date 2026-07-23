@@ -4228,6 +4228,7 @@ window.iglSaveNavVisibility = function() {
             <button class="btn btn-primary" onclick="gsSyncReceives()">📥 Receive Only Sync</button>
             <button class="btn btn-danger"  onclick="gsSyncIssues()">📤 Issue Only Sync</button>
             <button class="btn btn-outline" onclick="gsSyncStock()">📦 Current Stock Sync</button>
+            <button class="btn btn-outline" style="border-color:#6c3483;color:#6c3483;" onclick="gsSyncNeedle()">🪡 Needle Sync (Issue+Receive+Balance)</button>
           </div>
           <div id="gs-sync-result" style="margin-top:12px;"></div>
         </div>
@@ -4285,6 +4286,9 @@ window.iglSaveNavVisibility = function() {
 const SHEET_NAME_ISSUE   = 'Issue';
 const SHEET_NAME_STOCK   = 'Stock';
 const SHEET_NAME_STN     = 'Stationery';
+const SHEET_NAME_NEEDLE_ISSUE   = 'Needle_Issue';
+const SHEET_NAME_NEEDLE_RECEIVE = 'Needle_Receive';
+const SHEET_NAME_NEEDLE_BALANCE = 'Needle_Balance';
 const DRIVE_FILE_NAME    = 'IGL_Store_ERP_Data.json'; // Google Drive এ এই নামে সেভ হবে
 
 // ── Google Drive এ JSON save/update ──
@@ -4334,10 +4338,21 @@ function doPost(e) {
       syncSheet(ss, SHEET_NAME_ISSUE, data.issues,
         ['ID','Date','Slip','Group','Category','Item','Qty','Machine/Dept','Machine No','Remarks']);
       syncStockSheet(ss, data.items, data.receives, data.issues);
+      if (data.needleMaster) {
+        syncNeedleIssueSheet(ss, data.needleIssues || []);
+        syncNeedleReceiveSheet(ss, data.needleReceives || []);
+        syncNeedleBalanceSheet(ss, data.needleMaster, data.needleReceives || [], data.needleIssues || []);
+      }
       // Drive ও update
       PropertiesService.getScriptProperties().setProperty('igl_backup', raw);
       saveToDrive(raw);
       return ok('All synced + Drive updated');
+    }
+    if (data.action === 'sync_needle') {
+      syncNeedleIssueSheet(ss, data.needleIssues || []);
+      syncNeedleReceiveSheet(ss, data.needleReceives || []);
+      syncNeedleBalanceSheet(ss, data.needleMaster || [], data.needleReceives || [], data.needleIssues || []);
+      return ok('Needle data synced (Issue + Receive + Balance)');
     }
     if (data.action === 'sync_receives') {
       syncSheet(ss, SHEET_NAME_RECEIVE, data.receives,
@@ -4366,6 +4381,20 @@ function doPost(e) {
         [data.row.id, data.row.date, data.row.slip||'', data.row.group, data.row.category,
          data.row.item, data.row.qty, data.row.machineId||'', data.row.machineNo||'', data.row.remarks||'']);
       return ok('Issue appended');
+    }
+    if (data.action === 'append_needle_issue') {
+      appendRow(ss, SHEET_NAME_NEEDLE_ISSUE,
+        ['ID','Date','Machine','ERP','Section','Type','Needle Type','Qty','Needle','Worker','Shift','Remarks'],
+        [data.row.id, data.row.date, data.row.machine||'', data.row.erp||'', data.row.section||'',
+         data.row.type||'', data.row.needleType||'', data.row.qty, data.row.needle||'', data.row.worker||'', data.row.shift||'', data.row.remarks||'']);
+      return ok('Needle issue appended');
+    }
+    if (data.action === 'append_needle_receive') {
+      appendRow(ss, SHEET_NAME_NEEDLE_RECEIVE,
+        ['ID','Date','Needle Code','Needle Type','Stock Type','Section','Challan','Qty'],
+        [data.row.id, data.row.date, data.row.needleCode||'', data.row.needleType||'', data.row.needleStockType||'',
+         data.row.section||'', data.row.challan||'', data.row.qty]);
+      return ok('Needle receive appended');
     }
     return ok('Unknown action');
   } catch(err) {
@@ -4410,6 +4439,44 @@ function syncStockSheet(ss, items, receives, issues) {
     var iss = issues.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+r.qty;},0);
     var stk = rec - iss;
     sh.appendRow([it.name, it.group||'', it.category||'', rec, iss, stk, stk<=0?'STOCK OUT':stk<=10?'LOW':'OK']);
+  });
+  formatHeader(sh);
+}
+
+// ── Needle Issue — আলাদা শিটে ──
+function syncNeedleIssueSheet(ss, rows) {
+  var sh = ss.getSheetByName(SHEET_NAME_NEEDLE_ISSUE) || ss.insertSheet(SHEET_NAME_NEEDLE_ISSUE);
+  sh.clearContents();
+  sh.appendRow(['ID','Date','Machine','ERP','Section','Type','Needle Type','Qty','Needle','Worker','Shift','Remarks']);
+  rows.forEach(function(r) {
+    sh.appendRow([r.id, r.date, r.machine||'', r.erp||'', r.section||'', r.type||'', r.needleType||'',
+      r.qty, r.needle||'', r.worker||'', r.shift||'', r.remarks||'']);
+  });
+  formatHeader(sh);
+}
+
+// ── Needle Receive — আলাদা শিটে ──
+function syncNeedleReceiveSheet(ss, rows) {
+  var sh = ss.getSheetByName(SHEET_NAME_NEEDLE_RECEIVE) || ss.insertSheet(SHEET_NAME_NEEDLE_RECEIVE);
+  sh.clearContents();
+  sh.appendRow(['ID','Date','Needle Code','Needle Type','Stock Type','Section','Challan','Qty']);
+  rows.forEach(function(r) {
+    sh.appendRow([r.id, r.date, r.needleCode||'', r.needleType||'', r.needleStockType||'', r.section||'', r.challan||'', r.qty]);
+  });
+  formatHeader(sh);
+}
+
+// ── Needle Balance (B/F + Receive - Issue) — আলাদা শিটে ──
+function syncNeedleBalanceSheet(ss, master, receives, issues) {
+  var sh = ss.getSheetByName(SHEET_NAME_NEEDLE_BALANCE) || ss.insertSheet(SHEET_NAME_NEEDLE_BALANCE);
+  sh.clearContents();
+  sh.appendRow(['Needle Code','Name','Type','B/F','Total Receive','Total Issue','Balance']);
+  master.forEach(function(n) {
+    var bf = Number(n.bf) || 0;
+    var rec = receives.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+    var iss = issues.filter(function(r){ return r.needleId===n.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+    var bal = bf + rec - iss;
+    sh.appendRow([n.code||'', n.name||'', n.type||'', bf, rec, iss, bal]);
   });
   formatHeader(sh);
 }
@@ -18798,7 +18865,14 @@ async function _gsFetch(payload, resultId) {
   }
 }
 
-function gsSyncAll()      { _gsFetch({ action:'sync_all', receives:DB.receives, issues:DB.issues, items:DB.items }, 'gs-sync-result'); }
+function gsSyncAll()      {
+  _gsFetch({
+    action:'sync_all', receives:DB.receives, issues:DB.issues, items:DB.items,
+    needleMaster: (typeof ndlGetMaster === 'function') ? ndlGetMaster() : [],
+    needleReceives: (typeof ndlGetRcv === 'function') ? ndlGetRcv() : [],
+    needleIssues: (typeof NDB !== 'undefined') ? NDB.needles : []
+  }, 'gs-sync-result');
+}
 function gsSyncReceives() { _gsFetch({ action:'sync_receives', receives:DB.receives }, 'gs-sync-result'); }
 function gsSyncIssues()   { _gsFetch({ action:'sync_issues', issues:DB.issues }, 'gs-sync-result'); }
 function gsSyncStock()    { _gsFetch({ action:'sync_stock', items:DB.items, receives:DB.receives, issues:DB.issues }, 'gs-sync-result'); }
@@ -18813,6 +18887,35 @@ async function gsAutoSyncRow(type, row) {
     var t = new Date().toLocaleString('en-BD',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
     localStorage.setItem('igl_gs_last_sync', t);
   } catch(e) { console.warn('Auto sync failed:', e); }
+}
+
+// ── Needle Issue / Receive / Balance — Google Sheets sync (আলাদা আলাদা শিটে) ──
+function gsSyncNeedle() {
+  _gsFetch({
+    action: 'sync_needle',
+    needleMaster: (typeof ndlGetMaster === 'function') ? ndlGetMaster() : [],
+    needleReceives: (typeof ndlGetRcv === 'function') ? ndlGetRcv() : [],
+    needleIssues: (typeof NDB !== 'undefined') ? NDB.needles : []
+  }, 'gs-sync-result');
+}
+
+// Auto sync on save — called from saveNeedleReceive / nmiSaveAll
+async function gsAutoSyncNeedleRow(type, row) {
+  if (!gsGetAutoSync()) return;
+  var url = gsGetURL();
+  if (!url) return;
+  try {
+    await fetch(url, { method:'POST', body: JSON.stringify({ action: type==='receive' ? 'append_needle_receive' : 'append_needle_issue', row: row }) });
+    var t = new Date().toLocaleString('en-BD',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+    localStorage.setItem('igl_gs_last_sync', t);
+  } catch(e) { console.warn('Needle auto sync failed:', e); }
+}
+
+async function gsAutoSyncNeedleRows(type, rows) {
+  if (!rows || !rows.length) return;
+  for (var i = 0; i < rows.length; i++) {
+    await gsAutoSyncNeedleRow(type, rows[i]);
+  }
 }
 
 function gsCopyScriptCode() {
@@ -25478,8 +25581,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var needle=nm.find(function(n){return n.id===ndlId;});
     if(!needle){toast('Not found!','error');return;}
     var arr=ndlGetRcv();
-    arr.push({id:Date.now(),date:date,needleId:ndlId,needleCode:needle.code,needleType:needle.type,needleStockType:needleStockType,section:needle.section,challan:challan,qty:qty,userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''),entryTime:new Date().toISOString()});
+    var rcvRec = {id:Date.now(),date:date,needleId:ndlId,needleCode:needle.code,needleType:needle.type,needleStockType:needleStockType,section:needle.section,challan:challan,qty:qty,userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''),entryTime:new Date().toISOString()};
+    arr.push(rcvRec);
     ndlSetRcv(arr);
+    gsAutoSyncNeedleRow('receive', rcvRec);
     toast('✅ Receive saved: '+needle.code+' ('+needleStockType+')','success');
     triggerAutoSave();
     document.getElementById('nr-needle').value='';
@@ -26217,6 +26322,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var arr=NDB.needles;
     var saved=0;
     var newSetNdlIds=[];  // New Set auto-mapping এর জন্য
+    var _newIssueRows=[]; // Google Sheets Auto-Sync এর জন্য এই সেভে তৈরি হওয়া সব রেকর্ড
     checked.forEach(function(cb){
       var nId=cb.dataset.nid;
       var qtyEl=document.querySelector('.nmi-qty[data-nid="'+nId+'"]');
@@ -26264,12 +26370,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       };
       arr.push(rec);
       saved++;
+      _newIssueRows.push(rec);
       // New Set auto-mapping এর জন্য needle ID collect করো
       if (finalType === 'newset' && needleType === 'new') {
         if (newSetNdlIds.indexOf(actualNId) < 0) newSetNdlIds.push(actualNId);
       }
     });
     NDB.needles = arr;
+    gsAutoSyncNeedleRows('issue', _newIssueRows);
 
     // ─── Auto-Align Sinker Mapping for NMI newset ────────────────────────────
     if (type === 'newset' && needleType === 'new') {
