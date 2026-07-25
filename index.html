@@ -4417,15 +4417,22 @@ function doGet(e) {
 
 function syncSheet(ss, name, rows, headers) {
   var sh = ss.getSheetByName(name) || ss.insertSheet(name);
-  sh.clearContents();
-  sh.appendRow(headers);
-  rows.forEach(function(r) {
+  if (sh.getLastRow() < 1) { sh.appendRow(headers); formatHeader(sh); }
+  // যা যা আগে থেকেই শিটে আছে (ID দিয়ে চেক), সেগুলো বাদ দিয়ে শুধু বাকি (pending) গুলোই যোগ করো —
+  // এতে বার বার চাপলেও শুরু থেকে আর লিখতে হয় না, আগেরটা মুছেও ফেলে না।
+  var existingIds = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow > 1) {
+    var idCol = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    idCol.forEach(function(r){ existingIds[String(r[0])] = true; });
+  }
+  var pending = rows.filter(function(r){ return !existingIds[String(r.id)]; });
+  pending.forEach(function(r) {
     if (name === 'Receive')
       sh.appendRow([r.id,r.date,r.group||'',r.category||'',r.item,r.chalan||'',r.supplier||'',r.qty]);
     else
       sh.appendRow([r.id,r.date,r.slip||'',r.group||'',r.category||'',r.item,r.qty,r.machineId||'',r.machineNo||'',r.remarks||'']);
   });
-  formatHeader(sh);
 }
 
 function syncStockSheet(ss, items, receives, issues) {
@@ -4441,27 +4448,39 @@ function syncStockSheet(ss, items, receives, issues) {
   formatHeader(sh);
 }
 
-// ── Needle Issue — আলাদা শিটে ──
+// ── Needle Issue — আলাদা শিটে (incremental — শুধু নতুন/বাকি থাকা এন্ট্রি যোগ হয়) ──
 function syncNeedleIssueSheet(ss, rows) {
   var sh = ss.getSheetByName(SHEET_NAME_NEEDLE_ISSUE) || ss.insertSheet(SHEET_NAME_NEEDLE_ISSUE);
-  sh.clearContents();
-  sh.appendRow(['ID','Date','Machine','ERP','Section','Type','Needle Type','Qty','Needle','Worker','Shift','Remarks']);
-  rows.forEach(function(r) {
+  if (sh.getLastRow() < 1) {
+    sh.appendRow(['ID','Date','Machine','ERP','Section','Type','Needle Type','Qty','Needle','Worker','Shift','Remarks']);
+    formatHeader(sh);
+  }
+  var existingIds = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow > 1) {
+    sh.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function(r){ existingIds[String(r[0])] = true; });
+  }
+  rows.filter(function(r){ return !existingIds[String(r.id)]; }).forEach(function(r) {
     sh.appendRow([r.id, r.date, r.machine||'', r.erp||'', r.section||'', r.type||'', r.needleType||'',
       r.qty, r.needle||'', r.worker||'', r.shift||'', r.remarks||'']);
   });
-  formatHeader(sh);
 }
 
-// ── Needle Receive — আলাদা শিটে ──
+// ── Needle Receive — আলাদা শিটে (incremental — শুধু নতুন/বাকি থাকা এন্ট্রি যোগ হয়) ──
 function syncNeedleReceiveSheet(ss, rows) {
   var sh = ss.getSheetByName(SHEET_NAME_NEEDLE_RECEIVE) || ss.insertSheet(SHEET_NAME_NEEDLE_RECEIVE);
-  sh.clearContents();
-  sh.appendRow(['ID','Date','Needle Code','Needle Type','Stock Type','Section','Challan','Qty']);
-  rows.forEach(function(r) {
+  if (sh.getLastRow() < 1) {
+    sh.appendRow(['ID','Date','Needle Code','Needle Type','Stock Type','Section','Challan','Qty']);
+    formatHeader(sh);
+  }
+  var existingIds = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow > 1) {
+    sh.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function(r){ existingIds[String(r[0])] = true; });
+  }
+  rows.filter(function(r){ return !existingIds[String(r.id)]; }).forEach(function(r) {
     sh.appendRow([r.id, r.date, r.needleCode||'', r.needleType||'', r.needleStockType||'', r.section||'', r.challan||'', r.qty]);
   });
-  formatHeader(sh);
 }
 
 // ── Needle Balance (B/F + Receive - Issue) — আলাদা শিটে ──
@@ -5056,6 +5075,7 @@ function ok(msg) {
           <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpPrintGrid()">🖨️ Print</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
           <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
+          <button class="btn btn-sm no-print" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="smpOpenModal()" title="একটা নির্দিষ্ট মেশিনের ১-২ বছরের পুরনো Production একসাথে Import করুন">📅 একটি মেশিনের বহু বছরের ডাটা Import</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
@@ -5065,6 +5085,39 @@ function ok(msg) {
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="needleMonthlyProdGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Machine Multi-Year Production Import Modal -->
+  <div id="smp-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:8px;max-width:480px;width:92%;padding:20px;max-height:85vh;overflow-y:auto;">
+      <h3 style="margin:0 0 6px;color:#a04000;">📅 একটি মেশিনের বহু বছরের Production Import</h3>
+      <p style="font-size:12px;color:#666;margin:0 0 14px;">একটা নির্দিষ্ট মেশিনের জন্য ১-২ বছরের পুরনো Production একসাথে (Excel দিয়ে) বসাতে পারবেন — Machine Set Summary-তে পুরনো Set-এর সঠিক হিসাবের জন্য দরকার হলে।</p>
+
+      <div class="form-group">
+        <label>মেশিন সিলেক্ট করুন</label>
+        <select class="form-control" id="smp-machine"><option value="">-- মেশিন সিলেক্ট করুন --</option></select>
+      </div>
+
+      <div style="background:#fdf2e9;border:1px solid #f5cba7;border-radius:6px;padding:10px;font-size:11.5px;color:#7e5109;margin:10px 0;">
+        <b>Excel ফরম্যাট (সহজ ২ কলাম):</b><br>
+        কলাম A: তারিখ (যেমন 2024-06-01 বা 01-06-2024)<br>
+        কলাম B: Production (kg)<br>
+        প্রথম সারি হেডার হতে পারে (Date, Production) — থাকলেও চলবে, না থাকলেও চলবে।<br>
+        <button class="btn btn-sm" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:3px 10px;margin-top:6px;cursor:pointer;" onclick="smpDownloadSampleTemplate()">📥 নমুনা টেমপ্লেট ডাউনলোড</button>
+      </div>
+
+      <div class="form-group">
+        <label>Excel ফাইল সিলেক্ট করুন</label>
+        <input type="file" class="form-control" id="smp-file" accept=".xlsx,.xls">
+      </div>
+
+      <div id="smp-result" style="margin:10px 0;font-size:12px;"></div>
+
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button class="btn btn-primary" onclick="smpImport()" style="flex:1;">📤 Import করুন</button>
+        <button class="btn btn-outline" onclick="smpCloseModal()" style="flex:1;">বাতিল</button>
       </div>
     </div>
   </div>
@@ -20805,6 +20858,139 @@ function mpImportFromXlsxTemplate(file, evt) {
   afterLibLoaded();
 }
 
+// =====================================================================
+//  একক মেশিনের বহু বছরের Production Import (Machine Set Summary-র জন্য)
+// =====================================================================
+function smpOpenModal() {
+  var sel = document.getElementById('smp-machine');
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+  sel.innerHTML = '<option value="">-- মেশিন সিলেক্ট করুন --</option>' +
+    machines.map(function(m){ return '<option value="'+m.id.replace(/"/g,'&quot;')+'">'+(m.erp?('['+m.erp+'] '):'')+m.id+'</option>'; }).join('');
+  document.getElementById('smp-result').innerHTML = '';
+  document.getElementById('smp-file').value = '';
+  document.getElementById('smp-modal-overlay').style.display = 'flex';
+}
+
+function smpCloseModal() {
+  document.getElementById('smp-modal-overlay').style.display = 'none';
+}
+
+function smpDownloadSampleTemplate() {
+  function build() {
+    var rows = [['Date','Production (kg)'],['2024-06-01', 25.5],['2024-06-02', 30.2],['2024-06-03', '']];
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:16}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Production');
+    XLSX.writeFile(wb, 'Single_Machine_Production_Sample.xlsx');
+  }
+  if (typeof XLSX === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = build;
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  build();
+}
+
+function smpImport() {
+  var machineId = document.getElementById('smp-machine').value;
+  var fileEl = document.getElementById('smp-file');
+  var resultEl = document.getElementById('smp-result');
+  if (!machineId) { toast('❌ মেশিন সিলেক্ট করুন', 'error'); return; }
+  if (!fileEl.files || !fileEl.files[0]) { toast('❌ Excel ফাইল সিলেক্ট করুন', 'error'); return; }
+  var file = fileEl.files[0];
+
+  function afterLibLoaded() {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+        // ── প্রতিটা সারি পার্স করে {year, month, day, kg} বের করো ──
+        var parsed = [];
+        rows.forEach(function(r){
+          if (!r || r.length < 2) return;
+          var rawDate = r[0], rawKg = r[1];
+          if (rawDate === 'Date' || rawDate === undefined || rawDate === '') return; // header/খালি স্কিপ
+          var kg = parseFloat(rawKg);
+          if (isNaN(kg) || kg === 0) return;
+
+          var y, mo, d;
+          if (rawDate instanceof Date) {
+            y = rawDate.getFullYear(); mo = rawDate.getMonth()+1; d = rawDate.getDate();
+          } else {
+            var s = String(rawDate).trim();
+            var m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);        // YYYY-MM-DD
+            var m2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);        // DD-MM-YYYY
+            var m3 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);      // DD/MM/YYYY
+            if (m1) { y=+m1[1]; mo=+m1[2]; d=+m1[3]; }
+            else if (m2) { y=+m2[3]; mo=+m2[2]; d=+m2[1]; }
+            else if (m3) { y=+m3[3]; mo=+m3[2]; d=+m3[1]; }
+            else return; // ফরম্যাট মেলেনি — স্কিপ
+          }
+          parsed.push({y:y, m:mo, d:d, kg:kg});
+        });
+
+        if (!parsed.length) {
+          resultEl.innerHTML = '<span style="color:#c0392b;">❌ কোনো বৈধ Date+Production সারি পাওয়া যায়নি</span>';
+          return;
+        }
+
+        // ── মাস অনুযায়ী গ্রুপ করো ──
+        var byMonth = {};
+        parsed.forEach(function(p){
+          var key = p.y + '_' + p.m;
+          if (!byMonth[key]) byMonth[key] = {y:p.y, m:p.m, days:{}};
+          byMonth[key].days[p.d] = p.kg;
+        });
+
+        var monthKeys = Object.keys(byMonth);
+        var done = 0, totalDays = 0;
+        resultEl.innerHTML = '⏳ '+monthKeys.length+'টা মাসের ডাটা প্রসেস হচ্ছে...';
+
+        monthKeys.forEach(function(key){
+          var mData = byMonth[key];
+          mpLoadMonth(mData.y, mData.m, function(existing){
+            existing[machineId] = Object.assign(existing[machineId] || {}, mData.days);
+            mpSaveMonth(mData.y, mData.m, existing);
+            totalDays += Object.keys(mData.days).length;
+            done++;
+            if (done === monthKeys.length) {
+              resultEl.innerHTML = '<span style="color:#1e8449;font-weight:700;">✅ '+monthKeys.length+'টা মাস, মোট '+totalDays+'টা দিনের Production সেভ হয়েছে</span>';
+              toast('✅ '+machineId+'-এর জন্য '+monthKeys.length+' মাসের Production import হয়েছে', 'success');
+              renderNeedleMonthlyProd();
+            }
+          });
+        });
+      } catch(err) {
+        console.error(err);
+        resultEl.innerHTML = '<span style="color:#c0392b;">❌ ফাইল পড়তে সমস্যা হয়েছে: '+(err&&err.message?err.message:err)+'</span>';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  if (typeof XLSX === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = afterLibLoaded;
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  afterLibLoaded();
+}
+
 // ── Sheet 3: Machine Set & Production Summary ──
 function renderMachineSetSummary() {
   var machines = getNeedleMachines()
@@ -21718,8 +21904,7 @@ function nsrSaveAll() {
   checked.forEach(function(cb) {
     var nid   = cb.dataset.nid;
     var qtyEl = document.querySelector('.nsr-qty[data-nid="' + nid + '"]');
-    var qty   = qtyEl ? (parseInt(qtyEl.value) || 0) : 0;
-    if (qty <= 0) return;
+    var qty   = qtyEl ? (parseInt(qtyEl.value) || 0) : 0; // কোয়ান্টিটি না দিলে ০ ধরে নেবে, তবু সেভ হবে
     var n = nm.find(function(x){ return x.id === nid; });
     // Sinker row এ dropdown থেকে selected sinker নাও
     var sinkerSel = document.querySelector('.nsr-sinker-sel[data-nid="' + nid + '"]');
@@ -21732,8 +21917,6 @@ function nsrSaveAll() {
       qty:        qty
     });
   });
-
-  if (!toSave.length) { toast('❌ Qty 0 এর বেশি দিন', 'error'); return; }
 
   var now    = Date.now();
   var userId = window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : 'user';
