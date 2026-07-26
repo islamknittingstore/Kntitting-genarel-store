@@ -21917,7 +21917,8 @@ function nsrSaveAll() {
   if (!machId) { toast('❌ Machine সিলেক্ট করুন', 'error'); return; }
 
   var checked = document.querySelectorAll('.nsr-chk:checked');
-  if (!checked.length) { toast('❌ অন্তত একটি Needle সিলেক্ট করুন', 'error'); return; }
+  // অন্তত একটা Needle সিলেক্ট করা বাধ্যতামূলক না — কোনো Needle Assign করা না থাকলে বা
+  // সিলেক্ট না করলেও, শুধু "এই তারিখে Set change হয়েছে" রেকর্ড হিসেবে সেভ হবে
 
   var nm = ndlGetMaster();
   var toSave = [];
@@ -21937,6 +21938,12 @@ function nsrSaveAll() {
       qty:        qty
     });
   });
+
+  // কোনো Needle সিলেক্ট না করা থাকলে (বা assign করা না থাকলে) একটা placeholder রেকর্ড
+  // বসাও, যাতে "এই তারিখে Set change হয়েছে" তথ্যটা অন্তত সেভ থাকে
+  if (!toSave.length) {
+    toSave.push({ needleId: '', needle: '(নিডেল তথ্য নেই)', needleType: '', qty: 0 });
+  }
 
   var now    = Date.now();
   var userId = window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : 'user';
