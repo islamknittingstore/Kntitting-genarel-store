@@ -21041,8 +21041,13 @@ function renderMachineSetSummary() {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var t = '<div style="padding:10px 15px;">';
     t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে | 🆕 = নতুন মেশিন Running Date থেকে হিসাব</div>';
+    t += '<div class="no-print" style="margin-bottom:6px;">';
+    t += '<a href="#" onclick="mssToggleAllPrint(true); return false;" style="font-size:11px;margin-right:12px;">☑️ সব সিলেক্ট</a>';
+    t += '<a href="#" onclick="mssToggleAllPrint(false); return false;" style="font-size:11px;">⬜ সব বাদ দিন</a>';
+    t += '</div>';
     t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
     t += '<thead><tr style="background:#4a235a;color:#fff;">';
+    t += '<th class="no-print" style="padding:6px 4px;width:26px;">✔️</th>';
     t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
     t += '<th style="padding:6px 8px;">Gauge</th><th style="padding:6px 8px;">Previous Set Date</th>';
     t += '<th style="padding:6px 8px;">Last Set Date</th><th style="padding:6px 8px;">Production Since Last Set (kg)</th>';
@@ -21085,6 +21090,7 @@ function renderMachineSetSummary() {
       }
 
       t += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">';
+      t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" checked></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
@@ -21109,11 +21115,25 @@ function mssPromptRunDate(machineId, currentDate) {
   renderMachineSetSummary();
 }
 
+// ── প্রিন্টে সব মেশিন সিলেক্ট/ডিসিলেক্ট করার জন্য ──
+function mssToggleAllPrint(state) {
+  document.querySelectorAll('.mss-print-chk').forEach(function(cb){ cb.checked = state; });
+}
+
 // ── Sheet 3 প্রিন্ট: নির্বাচিত মাসের শেষ তারিখ পর্যন্ত হিসাব করা স্ন্যাপশট প্রিন্ট ──
 function mssPrintSummary() {
   var machines = getNeedleMachines()
     .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
     .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+
+  // চেকবক্স আনটিক করা মেশিনগুলো প্রিন্ট থেকে বাদ দাও
+  var hiddenSet = {};
+  var anyChk = document.querySelectorAll('.mss-print-chk');
+  if (anyChk.length) {
+    anyChk.forEach(function(cb){ if (!cb.checked) hiddenSet[cb.getAttribute('data-machine')] = true; });
+    machines = machines.filter(function(m){ return !hiddenSet[m.id]; });
+  }
+
   var todayS = todayStr();
   var fsEl = document.getElementById('mss-print-font-size');
   var fs   = fsEl ? (parseFloat(fsEl.value) || 9) : 9;
