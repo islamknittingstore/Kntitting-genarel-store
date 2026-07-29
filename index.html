@@ -1255,6 +1255,26 @@ if('serviceWorker' in navigator){
     }
 
     fbStatus('saving', 'Syncing...');
+
+    // ⚠️⚠️ Item Master Merge Fix ⚠️⚠️
+    // আগে DB.stnItems/DB.pkgItems সরাসরি local memory থেকে overwrite করে Firebase এ সেভ হতো।
+    // এতে সমস্যা হতো: একটা ডিভাইস/ট্যাব পুরনো (stale) item list নিয়ে খোলা থাকলে, সেখানে
+    // অন্য কোনো action (যেমন Receive/Issue entry) করলেই fbSaveAll ট্রিগার হতো এবং সেই পুরনো
+    // list দিয়ে Firebase এর নতুন item (অন্য ডিভাইসে যোগ করা) মুছে যেত — কিছুদিন পর item "গায়েব"।
+    // এখন save করার আগে Firebase এর সর্বশেষ item list fetch করে local এর সাথে merge করা হয়,
+    // যাতে local এ না থাকলেও remote-এ থাকা (এবং deleted না হওয়া) item হারিয়ে না যায়।
+    Promise.all([
+      _fbDb.ref('igl_erp/stn/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
+      _fbDb.ref('igl_erp/pkg/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; })
+    ]).then(function(remoteArr){
+      _fbSaveAllWithMerge(remoteArr[0], remoteArr[1]);
+    }).catch(function(){
+      // Remote fetch ব্যর্থ হলেও local data দিয়ে সেভ চালিয়ে যাও — আগের মতোই আচরণ
+      _fbSaveAllWithMerge(null, null);
+    });
+  };
+
+  function _fbSaveAllWithMerge(remoteStnItems, remotePkgItems){
     try {
       // Save করার আগে deletedIds দিয়ে filter — offline device এর পুরনো deleted item Firebase এ যাবে না
       var _delCache = (typeof _fbDelIdsCache !== 'undefined') ? _fbDelIdsCache : {};
@@ -1273,12 +1293,42 @@ if('serviceWorker' in navigator){
         _delIdsForSave[k.replace(/:/g, '__')] = true;
       });
 
+      // local item list (deleted বাদে)
+      var _localStnItems = (typeof DB !== 'undefined') ? (DB.stnItems||[]).filter(function(it){ return !(_delCache||{})['stn_item:'+String(it.id)]; }) : [];
+      var _localPkgItems = (typeof DB !== 'undefined') ? (DB.pkgItems||[]).filter(function(it){ return !(_delCache||{})['pkg_item:'+String(it.id)]; }) : [];
+
+      // Merge: local এ যা আছে তা রাখো (local edits প্রাধান্য পাবে), আর remote-এ থাকা কিন্তু
+      // local memory তে (stale cache এর কারণে) নেই এমন item গুলোও যোগ করে দাও — deleted না হলে।
+      var _mergedStnItems = _localStnItems.slice();
+      if (Array.isArray(remoteStnItems)) {
+        var _localStnIds = {}; _localStnItems.forEach(function(it){ _localStnIds[it.id] = true; });
+        remoteStnItems.forEach(function(it){
+          if (it && it.id && !_localStnIds[it.id] && !(_delCache||{})['stn_item:'+String(it.id)]) {
+            _mergedStnItems.push(it);
+          }
+        });
+      }
+      var _mergedPkgItems = _localPkgItems.slice();
+      if (Array.isArray(remotePkgItems)) {
+        var _localPkgIds = {}; _localPkgItems.forEach(function(it){ _localPkgIds[it.id] = true; });
+        remotePkgItems.forEach(function(it){
+          if (it && it.id && !_localPkgIds[it.id] && !(_delCache||{})['pkg_item:'+String(it.id)]) {
+            _mergedPkgItems.push(it);
+          }
+        });
+      }
+      // merge করা তালিকা local memory তেও বসিয়ে দাও, যাতে এই ডিভাইসেও missing item ফিরে আসে
+      if (typeof DB !== 'undefined') {
+        if (_mergedStnItems.length !== _localStnItems.length) DB.stnItems = _mergedStnItems;
+        if (_mergedPkgItems.length !== _localPkgItems.length) DB.pkgItems = _mergedPkgItems;
+      }
+
       // ⚠️⚠️ Extra Safety: master data (items/groups/stnItems/pkgItems) খালি হলে
       // আগের cached Firebase data দিয়ে রক্ষা করো — accidental wipe থেকে বাঁচাতে
       var _itemsArr   = (typeof DB !== 'undefined') ? (DB.items||[])    : [];
       var _groupsArr  = (typeof DB !== 'undefined') ? (DB.groups||[])   : [];
-      var _stnItemsArr= (typeof DB !== 'undefined') ? (DB.stnItems||[]) : [];
-      var _pkgItemsArr= (typeof DB !== 'undefined') ? (DB.pkgItems||[]) : [];
+      var _stnItemsArr= _mergedStnItems;
+      var _pkgItemsArr= _mergedPkgItems;
       var _skipItems    = _itemsArr.length === 0    && (window._fbLastKnownItemsCount||0)    > 0;
       var _skipGroups   = _groupsArr.length === 0   && (window._fbLastKnownGroupsCount||0)   > 0;
       var _skipStnItems = _stnItemsArr.length === 0 && (window._fbLastKnownStnItemsCount||0) > 0;
@@ -1304,13 +1354,13 @@ if('serviceWorker' in navigator){
         },
         stn: {
           // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
-          items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]).filter(function(it){ return !(_fbDelIdsCache||{})['stn_item:'+String(it.id)]; }) : [],
+          items:        _mergedStnItems,
           requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {},
           // Requisition Record — শুধুমাত্র তথ্যগত রেকর্ড, ব্যালেন্সে যোগ হয় না
           recordOnly:   (typeof DB !== 'undefined') ? (DB.stnRecordOnly||{}) : {}
         },
         pkg: {
-          items:        (typeof DB !== 'undefined') ? (DB.pkgItems||[]).filter(function(it){ return !(_fbDelIdsCache||{})['pkg_item:'+String(it.id)]; }) : [],
+          items:        _mergedPkgItems,
           requisitions: (typeof DB !== 'undefined') ? (DB.pkgRequisitions||{}) : {}
         },
         ndlRcv: _safeNdlRcv,
@@ -1356,7 +1406,7 @@ if('serviceWorker' in navigator){
       fbMarkPending();
       console.error(e);
     }
-  };
+  }
 
   // ── Local JSON Auto-Save (File System Access API) ──
   // Firebase save সফল হলে background এ local folder এ JSON সেভ করে
@@ -3768,6 +3818,7 @@ window.iglSaveNavVisibility = function() {
         <button onclick="stnRecAutoFillFromActual()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="যে মাসে ইতিমধ্যে সিস্টেমে আসল Requisition/Receive এন্ট্রি করা আছে (যেমন March, April...আজ পর্যন্ত), সেই মাসের প্রকৃত ডাটা এখানে বসিয়ে দেবে">🔄 Auto-Fill (প্রকৃত ডাটা)</button>
         <button onclick="stnRecSave()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💾 Save Record</button>
         <button onclick="stnRecPrintComparison()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
+        <button onclick="stnRecPrintReceiveOnly()" style="background:linear-gradient(135deg,#186a3b,#28b463);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="শুধুমাত্র Receive করা Item এর তালিকা প্রিন্ট করুন">🖨️ Print Receive Only</button>
       </div>
     </div>
 
@@ -10960,18 +11011,11 @@ function stnReqSaveRequisition() {
   var title = (document.getElementById('req-title')||{}).value || '';
   var key   = 'req_'+year+'_'+month;
   var reqs  = DB.stnRequisitions || {};
-  // আগের saved items এর সাথে merge করো
   var prevItems = (reqs[key] && reqs[key].items) ? reqs[key].items : [];
-  // নতুন items এ আগেরগুলো merge — একই item থাকলে নতুনটা রাখো
-  var merged = prevItems.slice();
-  newItems.forEach(function(ni){
-    var existing = merged.findIndex(function(pi){ return pi.id === ni.id || pi.name === ni.name; });
-    if (existing >= 0) {
-      merged[existing] = ni; // আপডেট করো
-    } else {
-      merged.push(ni); // নতুন যোগ করো
-    }
-  });
+  // ⚠️ চেকলিস্টে বর্তমানে যা টিক দেওয়া আছে সেটাই চূড়ান্ত তালিকা — আগে prevItems এর সাথে
+  // merge করা হতো, ফলে uncheck করা item ও Save এর পরও থেকে যেত (কখনো মুছতো না)।
+  // এখন সরাসরি newItems ব্যবহার করা হচ্ছে, যাতে uncheck করলে সেটা সত্যিই বাদ যায়।
+  var merged = newItems.slice();
   var addedCount = newItems.filter(function(ni){
     return !prevItems.find(function(pi){ return pi.id===ni.id||pi.name===ni.name; });
   }).length;
@@ -12251,6 +12295,13 @@ function stnRecPrintComparison() {
       + '</tr>';
   }).join('');
 
+  var totalDiff = totalRcv - totalReq;
+  var totalPctTxt = '-';
+  if (totalReq > 0) {
+    var totalPct = (totalDiff / totalReq) * 100;
+    totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
+  }
+
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
@@ -12275,7 +12326,65 @@ function stnRecPrintComparison() {
     + '<td colspan="3" style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;">মোট (Total):</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a5276;">'+totalReq+'</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a6b3a;">'+totalRcv+'</td>'
-    + '<td style="border:0.5px solid #bbb;"></td><td style="border:0.5px solid #bbb;"></td><td style="border:0.5px solid #bbb;"></td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:'+(totalDiff>=0?'#1a6b3a':'#c0392b')+';">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;">'+totalPctTxt+'</td>'
+    + '<td style="border:0.5px solid #bbb;"></td>'
+    + '</tr></tfoot></table>'
+    + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=1050,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
+// শুধুমাত্র Receive করা Item এর তালিকা প্রিন্ট করে (Req/Diff/% ছাড়া)
+function stnRecPrintReceiveOnly() {
+  var key   = stnRecKey();
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  if (!saved || !saved.items || !saved.items.length) { toast('⚠️ এই মাসের কোনো সেভ করা রেকর্ড নেই!', 'warning'); return; }
+
+  var rcvItems = saved.items.filter(function(r){ return (r.recvQty||0) > 0; });
+  if (!rcvItems.length) { toast('⚠️ এই মাসে কোনো Receive Qty পাওয়া যায়নি!', 'warning'); return; }
+
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = 'Stationery Receive Record — ' + (MONTHS[saved.month]||'') + ' ' + saved.year;
+  var totalRcv = 0;
+
+  var rows = rcvItems.map(function(r, i){
+    totalRcv += (r.recvQty||0);
+    return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(i+1)+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #bbb;">'+r.name+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(r.unit||'Pcs')+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:#1a6b3a;">'+r.recvQty+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #bbb;font-size:10px;color:#666;">'+(r.remarks||'')+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;}'
+    + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 6px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div>'
+    + '<div style="font-size:10px;color:#c0392b;margin-top:2px;">⚠️ শুধুমাত্র তথ্যগত রেকর্ড — মূল স্টক ব্যালেন্সে যুক্ত নয়</div></div>'
+    + '<table><thead><tr>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:80px;">Rcv Qty</th>'
+    + '<th style="background:#f5f5f5;color:#555;text-align:left;">Remarks</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#f0f0f0;font-weight:700;">'
+    + '<td colspan="3" style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;">মোট (Total):</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a6b3a;">'+totalRcv+'</td>'
+    + '<td style="border:0.5px solid #bbb;"></td>'
     + '</tr></tfoot></table>'
     + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
     + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
@@ -12713,7 +12822,10 @@ function renderStationeryDashboard() {
     var dateTo2   = (document.getElementById('stn-date-to')||{value:''}).value;
     var slipIss = DB.issues.filter(function(r){
       if (!stnNames.includes(r.item)) return false;
-      if (q && !(r.slip||'').toLowerCase().includes(q) && !r.item.toLowerCase().includes(q)) return false;
+      // ⚠️ Slip ট্যাবে সার্চ শুধু Slip No. দিয়ে মিলবে — Item নামের সাথে মেলানো হবে না,
+      // কারণ এতে আগে "20" লিখলে Slip No. 20 এর সাথে "Register Khata - 20" জাতীয়
+      // item ও ভুলভাবে চলে আসতো।
+      if (q && !(r.slip||'').toLowerCase().includes(q)) return false;
       if (dateFrom2 && r.date < dateFrom2) return false;
       if (dateTo2   && r.date > dateTo2)   return false;
       return true;
@@ -15446,18 +15558,11 @@ function pkgReqSaveRequisition() {
   var title = (document.getElementById('pkgreq-req-title')||{}).value || '';
   var key   = 'req_'+year+'_'+month;
   var reqs  = DB.pkgRequisitions || {};
-  // আগের saved items এর সাথে merge করো
   var prevItems = (reqs[key] && reqs[key].items) ? reqs[key].items : [];
-  // নতুন items এ আগেরগুলো merge — একই item থাকলে নতুনটা রাখো
-  var merged = prevItems.slice();
-  newItems.forEach(function(ni){
-    var existing = merged.findIndex(function(pi){ return pi.id === ni.id || pi.name === ni.name; });
-    if (existing >= 0) {
-      merged[existing] = ni; // আপডেট করো
-    } else {
-      merged.push(ni); // নতুন যোগ করো
-    }
-  });
+  // ⚠️ চেকলিস্টে বর্তমানে যা টিক দেওয়া আছে সেটাই চূড়ান্ত তালিকা — আগে prevItems এর সাথে
+  // merge করা হতো, ফলে uncheck করা item ও Save এর পরও থেকে যেত (কখনো মুছতো না)।
+  // এখন সরাসরি newItems ব্যবহার করা হচ্ছে, যাতে uncheck করলে সেটা সত্যিই বাদ যায়।
+  var merged = newItems.slice();
   var addedCount = newItems.filter(function(ni){
     return !prevItems.find(function(pi){ return pi.id===ni.id||pi.name===ni.name; });
   }).length;
@@ -16798,7 +16903,8 @@ function renderPackagingDashboard() {
     var dateTo2   = (document.getElementById('pkg-date-to')||{value:''}).value;
     var slipIss = DB.issues.filter(function(r){
       if (!pkgNames.includes(r.item)) return false;
-      if (q && !(r.slip||'').toLowerCase().includes(q) && !r.item.toLowerCase().includes(q)) return false;
+      // ⚠️ Slip ট্যাবে সার্চ শুধু Slip No. দিয়ে মিলবে — Item নামের সাথে মেলানো হবে না
+      if (q && !(r.slip||'').toLowerCase().includes(q)) return false;
       if (dateFrom2 && r.date < dateFrom2) return false;
       if (dateTo2   && r.date > dateTo2)   return false;
       return true;
