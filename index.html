@@ -1305,7 +1305,9 @@ if('serviceWorker' in navigator){
         stn: {
           // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
           items:        (typeof DB !== 'undefined') ? (DB.stnItems||[]).filter(function(it){ return !(_fbDelIdsCache||{})['stn_item:'+String(it.id)]; }) : [],
-          requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {}
+          requisitions: (typeof DB !== 'undefined') ? (DB.stnRequisitions||DB.requisitions||{}) : {},
+          // Requisition Record — শুধুমাত্র তথ্যগত রেকর্ড, ব্যালেন্সে যোগ হয় না
+          recordOnly:   (typeof DB !== 'undefined') ? (DB.stnRecordOnly||{}) : {}
         },
         pkg: {
           items:        (typeof DB !== 'undefined') ? (DB.pkgItems||[]).filter(function(it){ return !(_fbDelIdsCache||{})['pkg_item:'+String(it.id)]; }) : [],
@@ -1563,6 +1565,10 @@ if('serviceWorker' in navigator){
           // Stationery requisitions → DB.stnRequisitions
           if(data.stn.requisitions){
             DB.stnRequisitions = data.stn.requisitions;
+          }
+          // Stationery Requisition Record (তথ্যগত রেকর্ড) → DB.stnRecordOnly
+          if(data.stn.recordOnly){
+            DB.stnRecordOnly = data.stn.recordOnly;
           }
           // Stationery receives/issues — data.db.receives/issues এ already আছে (Stationery সহ)
           // duplicate এড়াতে stn node থেকে আর load করা হয় না
@@ -2199,6 +2205,7 @@ window.iglLogout = function(){
 // Available permissions list
 var IGL_PERMISSIONS = {
   'stn_requisition':  '📋 Stationery Requisition',
+  'stn_req_record':   '🗂️ Stationery Requisition Record',
   'stn_item_master':   '📦 STN Item Master',
   'pkg_access':        '📦 Packaging Section (Full Access)',
   'pkg_requisition':   '📋 Packaging Requisition',
@@ -2251,6 +2258,11 @@ function iglApplyPermissions() {
   var imNav = document.getElementById('nav-stn-item-master');
   if (imNav) {
     imNav.style.display = (isAdmin || iglHasPermission('stn_item_master')) ? '' : 'none';
+  }
+  // Requisition Record menu
+  var recNav = document.getElementById('nav-stn-req-record');
+  if (recNav) {
+    recNav.style.display = (isAdmin || iglHasPermission('stn_req_record')) ? '' : 'none';
   }
   // Packaging — পুরো group (Dashboard সহ) admin permission দিয়ে gate করা
   var pkgHasAccess = isAdmin || iglHasPermission('pkg_access');
@@ -2399,6 +2411,7 @@ var IGL_NAV_ITEMS = {
   'personal_vault':  { label: '🔑 My Vault',        section: '🔐 Personal' },
   // Stationery
   'nav-stn-dashboard':     { label: '📊 Stationery Dashboard',    section: '🖊️ Stationery' },
+  'nav-stn-req-record':    { label: '🗂️ Requisition Record',      section: '🖊️ Stationery' },
   'nav-pkg-dashboard':     { label: '📊 Packaging Dashboard',     section: '📦 Packaging' }
 };
 
@@ -2740,6 +2753,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-stn-dashboard"><a href="#" onclick="showPage('stationery_dashboard', this); return false;"><span class="icon">📊</span> Stationery Dashboard</a></li>
       <li id="nav-stn-item-master" style="display:none;"><a href="#" onclick="showPage('stn_item_master', this); return false;"><span class="icon">📦</span> Item Master</a></li>
       <li id="nav-stn-requisition" style="display:none;"><a href="#" onclick="showPage('stn_requisition', this); return false;"><span class="icon">📋</span> Requisition</a></li>
+      <li id="nav-stn-req-record" style="display:none;"><a href="#" onclick="showPage('stn_requisition_record', this); return false;"><span class="icon">🗂️</span> Requisition Record</a></li>
     </ul>
   </div>
 
@@ -3707,6 +3721,99 @@ window.iglSaveNavVisibility = function() {
     </div>
 
   </div><!-- /page-stn_requisition -->
+
+  <!--  STATIONERY REQUISITION RECORD (তথ্যগত রেকর্ড শুধু — ব্যালেন্সে যোগ হয় না)  -->
+  <div class="page" id="page-stn_requisition_record">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>🗂️ Requisition Record</h2>
+        <p>পুরনো মাসের (যেমন: জানুয়ারি) Requisition ও Receive শুধুমাত্র রেকর্ড হিসেবে সংরক্ষণ করুন — এই তথ্য মূল স্টক ব্যালেন্সে যোগ হবে না</p>
+      </div>
+    </div>
+
+    <div class="card no-print" style="margin-bottom:16px;border:1px solid #e67e22;">
+      <div class="card-body" style="padding:12px 16px;background:#fef5e7;color:#7d5a10;font-size:13px;border-radius:6px;">
+        ⚠️ <b>মনে রাখুন:</b> এখানে যা কিছু সেভ করবেন তা <b>শুধুমাত্র তথ্য/প্রিন্টের জন্য রেকর্ড</b> হিসেবে থাকবে। এই Qty কখনো Stationery Dashboard-এর Stock/Balance হিসাবে যোগ হবে না, এবং <b>Requisition</b> পেজের Req vs Receive রিপোর্টেও এটা ব্যবহার হয় না। মূল ব্যালেন্স মেলানোর জন্য এই পেজ সম্পূর্ণ আলাদা রাখা হয়েছে।
+        <br><br>
+        📌 <b>March, April বা আজ পর্যন্ত</b> যেসব মাসে সিস্টেমে ইতিমধ্যে আসল Requisition (checklist) ও Receive এন্ট্রি করা আছে, সেই মাস সিলেক্ট করে <b>🔄 Auto-Fill (প্রকৃত ডাটা)</b> বাটনে ক্লিক করলে প্রকৃত Req/Rcv Qty এখানে বসে যাবে — শুধু রিভিউ করে <b>💾 Save Record</b> করলেই Diff ও % সহ প্রিন্ট করতে পারবেন।
+      </div>
+    </div>
+
+    <!-- History Card -->
+    <div class="card no-print" style="margin-bottom:16px;border:1px solid #d4ac0d;">
+      <div class="card-header" style="background:linear-gradient(135deg,#7d6608,#d4ac0d);color:#fff;border-bottom:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span>📂 Saved Records</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select id="rec-history-select" onchange="stnRecLoadHistory(this.value)" style="padding:5px 12px;border-radius:5px;border:none;font-size:13px;font-weight:600;min-width:180px;">
+            <option value="">-- মাস সিলেক্ট করুন --</option>
+          </select>
+          <button onclick="stnRecDeleteHistory()" style="padding:5px 12px;border-radius:5px;border:1px solid rgba(255,255,255,0.5);background:rgba(231,76,60,0.7);color:#fff;font-size:12px;cursor:pointer;font-weight:700;">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Month/Year select -->
+    <div class="card no-print" style="margin-bottom:16px;">
+      <div class="card-body" style="padding:14px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:600;color:#555;">মাস:</label>
+        <select id="rec-month" onchange="stnRecOnMonthChange()" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+          <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <label style="font-size:13px;font-weight:600;color:#555;">বছর:</label>
+        <select id="rec-year" onchange="stnRecOnMonthChange()" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;"></select>
+        <input type="text" id="rec-search" placeholder="🔍 Item খুঁজুন..." oninput="stnRecFilterItems()" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+        <button onclick="stnRecAutoFillFromActual()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="যে মাসে ইতিমধ্যে সিস্টেমে আসল Requisition/Receive এন্ট্রি করা আছে (যেমন March, April...আজ পর্যন্ত), সেই মাসের প্রকৃত ডাটা এখানে বসিয়ে দেবে">🔄 Auto-Fill (প্রকৃত ডাটা)</button>
+        <button onclick="stnRecSave()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💾 Save Record</button>
+        <button onclick="stnRecPrintComparison()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print</button>
+      </div>
+    </div>
+
+    <!-- Entry Table -->
+    <div class="card no-print" style="margin-bottom:16px;">
+      <div class="card-header" style="background:linear-gradient(135deg,#00695c,#00838f);color:#fff;">📝 Item-wise Requisition ও Receive Qty দিন</div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:640px;">
+          <thead>
+            <tr style="background:#f0f3f7;font-size:12px;color:#555;">
+              <th style="padding:8px;text-align:left;">Item Name</th>
+              <th style="padding:8px;text-align:center;width:110px;">Category</th>
+              <th style="padding:8px;text-align:center;width:90px;">Req Qty</th>
+              <th style="padding:8px;text-align:center;width:90px;">Rcv Qty</th>
+              <th style="padding:8px;text-align:left;width:200px;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody id="rec-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(135deg,#4a235a,#7d3c98);color:#fff;">📊 এই মাসের Req vs Receive সারাংশ (Saved অনুযায়ী)</div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:500px;">
+          <thead>
+            <tr style="background:#f0f3f7;font-size:12px;color:#555;">
+              <th style="padding:8px;text-align:center;width:40px;">SL</th>
+              <th style="padding:8px;text-align:left;">Item Name</th>
+              <th style="padding:8px;text-align:center;width:90px;">Req Qty</th>
+              <th style="padding:8px;text-align:center;width:90px;">Rcv Qty</th>
+              <th style="padding:8px;text-align:center;width:70px;">Diff</th>
+              <th style="padding:8px;text-align:center;width:80px;">% কম/বেশি</th>
+            </tr>
+          </thead>
+          <tbody id="rec-summary-body">
+            <tr><td colspan="6" style="text-align:center;padding:16px;color:#aaa;">কোনো ডাটা নেই</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /page-stn_requisition_record -->
 
   <!--  PACKAGING DASHBOARD  -->
   <div class="page" id="page-packaging_dashboard">
@@ -8938,6 +9045,13 @@ function showPage(name, el) {
       }
       stnReqInit();
     }
+    else if (name === 'stn_requisition_record') {
+      if (!iglHasPermission('stn_req_record')) {
+        toast('⛔ এই পেজটি শুধুমাত্র Admin বা অনুমোদিত User এর জন্য।', 'error');
+        return;
+      }
+      stnRecInit();
+    }
     else if (name === 'sheets_setup') gsRenderSetupPage();
     else if (name === 'bin') { binRender(); }
   } catch(e) { console.error('Render error on page ' + name + ':', e); }
@@ -11853,10 +11967,339 @@ function _stnDownloadCsv(rows, filename) {
 // Legacy shim
 function stnReqExcel() { stnReqExcelDownload(); }
 
+// =====================================================================
+//  STATIONERY REQUISITION RECORD  (তথ্যগত রেকর্ড শুধু)
+//  ⚠️ এই পুরো মডিউল DB.receives / DB.issues / getStock() থেকে সম্পূর্ণ
+//  আলাদা। এখানে যা সেভ হয় তা শুধু DB.stnRecordOnly তে থাকে — মূল স্টক
+//  ব্যালেন্স হিসাবে কখনো যোগ হয় না।
+// =====================================================================
+function stnRecInit() {
+  var curYear = new Date().getFullYear();
+  var selY = document.getElementById('rec-year');
+  if (selY) {
+    selY.innerHTML = '';
+    for (var y = curYear - 2; y <= curYear + 2; y++) {
+      selY.innerHTML += '<option value="'+y+'"'+(y===curYear?' selected':'')+'>'+y+'</option>';
+    }
+  }
+  var selM = document.getElementById('rec-month');
+  if (selM) selM.value = new Date().getMonth() + 1;
+
+  stnRecPopulateHistory();
+  var key = stnRecKey();
+  var recs = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  stnRecBuildTable(saved ? saved.items : null);
+  stnRecRenderSummary(saved ? saved.items : []);
+  var histSel = document.getElementById('rec-history-select');
+  if (histSel) histSel.value = saved ? key : '';
+}
+
+function stnRecKey() {
+  var m = (document.getElementById('rec-month')||{}).value;
+  var y = (document.getElementById('rec-year')||{}).value;
+  if (!m || !y) return '';
+  return 'rec_' + y + '_' + String(m).padStart(2,'0');
+}
+
+function stnRecBuildTable(prefill) {
+  var tbody = document.getElementById('rec-tbody');
+  if (!tbody) return;
+  var hidden = (typeof stnGetHiddenItems === 'function') ? stnGetHiddenItems() : [];
+  var items  = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var q = ((document.getElementById('rec-search')||{}).value || '').trim().toLowerCase();
+  if (q) items = items.filter(function(it){ return (it.name||'').toLowerCase().indexOf(q) >= 0; });
+
+  var savedMap = {};
+  (prefill||[]).forEach(function(r){ savedMap[r.id] = r; });
+
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">কোনো Item পাওয়া যায়নি</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = items.map(function(it){
+    var s = savedMap[it.id] || {};
+    return '<tr>'
+      + '<td style="padding:6px 8px;border-bottom:1px solid #eee;">'+it.name+'</td>'
+      + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;color:#777;font-size:12px;">'+(it.category||'-')+'</td>'
+      + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;"><input type="number" min="0" id="rec-req-'+it.id+'" value="'+(s.reqQty||'')+'" style="width:70px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
+      + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;"><input type="number" min="0" id="rec-rcv-'+it.id+'" value="'+(s.recvQty||'')+'" style="width:70px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
+      + '<td style="padding:6px;border-bottom:1px solid #eee;"><input type="text" id="rec-rmk-'+it.id+'" value="'+((s.remarks||'').replace(/"/g,'&quot;'))+'" style="width:100%;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function stnRecFilterItems() {
+  var key   = stnRecKey();
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  stnRecBuildTable(saved ? saved.items : null);
+}
+
+// প্রকৃত Requisition checklist (DB.stnRequisitions) ও প্রকৃত Receive (DB.receives)
+// থেকে সিলেক্ট করা মাসের ডাটা টেনে এনে ফর্মে বসিয়ে দেয় — শুধু Auto-Fill, Save না
+// করা পর্যন্ত DB.stnRecordOnly-তে কিছু লেখা হয় না।
+function stnRecAutoFillFromActual() {
+  var month = Number((document.getElementById('rec-month')||{}).value);
+  var year  = Number((document.getElementById('rec-year')||{}).value);
+  if (!month || !year) { toast('⚠️ মাস/বছর সিলেক্ট করুন!', 'warning'); return; }
+
+  var mStr  = year + '-' + String(month).padStart(2,'0');
+  var mFrom = mStr + '-01';
+  var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+
+  var reqKeyA = 'req_' + year + '_' + month;                              // আসল সেভ ফরম্যাট (unpadded, যেমন req_2026_7)
+  var reqKeyB = 'req_' + year + '_' + String(month).padStart(2,'0');      // fallback (padded, যেমন req_2026_07)
+  var reqStore = DB.stnRequisitions || {};
+  var reqData = reqStore[reqKeyA] || reqStore[reqKeyB];
+  var reqMap  = {};
+  if (reqData && reqData.items) {
+    reqData.items.forEach(function(it){ reqMap[it.id] = Number(it.qty) || 0; });
+  }
+
+  var allRcv = (DB.receives||[]).filter(function(r){ return r.group === 'Stationery' && r.date >= mFrom && r.date <= mTo; });
+
+  var hidden = (typeof stnGetHiddenItems === 'function') ? stnGetHiddenItems() : [];
+  var items  = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+
+  var filled = 0;
+  items.forEach(function(it){
+    var recvQty = allRcv.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0);
+    var reqQty  = reqMap[it.id] || 0;
+    var reqEl = document.getElementById('rec-req-'+it.id);
+    var rcvEl = document.getElementById('rec-rcv-'+it.id);
+    if (reqEl) reqEl.value = reqQty || '';
+    if (rcvEl) rcvEl.value = recvQty || '';
+    if (reqQty > 0 || recvQty > 0) filled++;
+  });
+
+  if (!reqData && filled === 0) {
+    toast('ℹ️ এই মাসের কোনো প্রকৃত Requisition/Receive ডাটা পাওয়া যায়নি।', 'info');
+  } else if (!reqData) {
+    toast('ℹ️ এই মাসের Requisition checklist পাওয়া যায়নি — শুধু প্রকৃত Receive ডাটা বসানো হয়েছে ('+filled+' item)।', 'info');
+  } else {
+    toast('✅ প্রকৃত ডাটা থেকে '+filled+'টা Item Auto-Fill হয়েছে। রিভিউ করে 💾 Save Record করুন।', 'success');
+  }
+}
+
+function stnRecOnMonthChange() {
+  var key   = stnRecKey();
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  stnRecBuildTable(saved ? saved.items : null);
+  stnRecRenderSummary(saved ? saved.items : []);
+  var histSel = document.getElementById('rec-history-select');
+  if (histSel) histSel.value = saved ? key : '';
+  if (saved) toast('📂 ' + key.replace('rec_','').replace('_',' / ') + ' এর রেকর্ড লোড হয়েছে।', 'success');
+  else toast('🆕 নতুন মাস — ফাঁকা ফর্ম।', 'info');
+}
+
+function stnRecSave() {
+  var key = stnRecKey();
+  if (!key) { toast('⚠️ মাস/বছর সিলেক্ট করুন!', 'warning'); return; }
+
+  var hidden = (typeof stnGetHiddenItems === 'function') ? stnGetHiddenItems() : [];
+  var items  = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+  var rows = [];
+  items.forEach(function(it){
+    var reqEl = document.getElementById('rec-req-'+it.id);
+    var rcvEl = document.getElementById('rec-rcv-'+it.id);
+    var rmkEl = document.getElementById('rec-rmk-'+it.id);
+    if (!reqEl && !rcvEl) return;
+    var reqQty  = Number(reqEl ? reqEl.value : 0) || 0;
+    var recvQty = Number(rcvEl ? rcvEl.value : 0) || 0;
+    var remarks = rmkEl ? rmkEl.value : '';
+    if (reqQty > 0 || recvQty > 0 || (remarks && remarks.trim())) {
+      rows.push({ id: it.id, name: it.name, unit: it.unit || 'Pcs', reqQty: reqQty, recvQty: recvQty, remarks: remarks });
+    }
+  });
+
+  if (!rows.length) { toast('⚠️ অন্তত একটা Item এ Qty দিন!', 'warning'); return; }
+
+  var month = Number((document.getElementById('rec-month')||{}).value);
+  var year  = Number((document.getElementById('rec-year')||{}).value);
+  var recs  = DB.stnRecordOnly || {};
+  recs[key] = { month: month, year: year, items: rows, savedAt: new Date().toISOString() };
+  DB.stnRecordOnly = recs;
+
+  toast('✅ Record সেভ হয়েছে! (এই Qty মূল স্টক ব্যালেন্সে যোগ হবে না)', 'success');
+  stnRecPopulateHistory();
+  stnRecRenderSummary(rows);
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+
+function stnRecPopulateHistory() {
+  var sel = document.getElementById('rec-history-select');
+  if (!sel) return;
+  var recs = DB.stnRecordOnly || {};
+  var keys = Object.keys(recs).sort().reverse();
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  sel.innerHTML = '<option value="">-- মাস সিলেক্ট করুন --</option>';
+  keys.forEach(function(k){
+    var parts = k.replace('rec_','').split('_');
+    var yr = parts[0], mn = parts[1];
+    var label = (MONTHS[Number(mn)]||mn) + ' ' + yr + ' (' + (recs[k].items||[]).length + ' items)';
+    sel.innerHTML += '<option value="'+k+'">'+label+'</option>';
+  });
+}
+
+function stnRecLoadHistory(key) {
+  if (!key) return;
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  if (!saved) return;
+  var selM = document.getElementById('rec-month');
+  var selY = document.getElementById('rec-year');
+  if (selM) selM.value = saved.month;
+  if (selY) selY.value = saved.year;
+  stnRecBuildTable(saved.items);
+  stnRecRenderSummary(saved.items);
+  toast('📂 ' + key.replace('rec_','').replace('_',' / ') + ' এর রেকর্ড লোড হয়েছে।', 'success');
+}
+
+function stnRecDeleteHistory() {
+  var sel = document.getElementById('rec-history-select');
+  var key = sel ? sel.value : '';
+  if (!key) { toast('⚠️ আগে একটা মাস সিলেক্ট করুন।', 'warning'); return; }
+  if (!confirm(key.replace('rec_','').replace('_',' / ') + ' এর Record delete করবেন?')) return;
+  var recs = DB.stnRecordOnly || {};
+  delete recs[key];
+  DB.stnRecordOnly = recs;
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  stnRecPopulateHistory();
+  stnRecBuildTable(null);
+  stnRecRenderSummary([]);
+  toast('🗑️ Delete হয়েছে।', 'success');
+}
+
+function stnRecRenderSummary(rows) {
+  var tbody = document.getElementById('rec-summary-body');
+  if (!tbody) return;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:#aaa;">কোনো ডাটা নেই</td></tr>';
+    return;
+  }
+  var totalReq = 0, totalRcv = 0;
+  var body = rows.map(function(r, i){
+    var diff = (r.recvQty||0) - (r.reqQty||0);
+    totalReq += (r.reqQty||0);
+    totalRcv += (r.recvQty||0);
+    var dClr = diff >= 0 ? '#1a6b3a' : '#c0392b';
+    var pctTxt = '-';
+    var pClr = '#888';
+    if (r.reqQty > 0) {
+      var pct = (diff / r.reqQty) * 100;
+      pClr = pct >= 0 ? '#1a6b3a' : '#c0392b';
+      pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    }
+    return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
+      + '<td style="text-align:center;padding:6px;border:0.5px solid #ddd;">'+(i+1)+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #ddd;">'+r.name+'</td>'
+      + '<td style="text-align:center;border:0.5px solid #ddd;color:#1a5276;font-weight:600;">'+r.reqQty+'</td>'
+      + '<td style="text-align:center;border:0.5px solid #ddd;color:#1a6b3a;font-weight:600;">'+r.recvQty+'</td>'
+      + '<td style="text-align:center;border:0.5px solid #ddd;font-weight:700;color:'+dClr+';">'+(diff>=0?'+':'')+diff+'</td>'
+      + '<td style="text-align:center;border:0.5px solid #ddd;font-weight:700;color:'+pClr+';">'+pctTxt+'</td>'
+      + '</tr>';
+  }).join('');
+  var totalDiff = totalRcv - totalReq;
+  var totalPctTxt = '-';
+  if (totalReq > 0) {
+    var totalPct = (totalDiff / totalReq) * 100;
+    totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
+  }
+  body += '<tr style="background:#f0f0f0;font-weight:700;">'
+    + '<td colspan="2" style="text-align:right;padding:6px 8px;border:0.5px solid #ddd;">মোট:</td>'
+    + '<td style="text-align:center;border:0.5px solid #ddd;color:#1a5276;">'+totalReq+'</td>'
+    + '<td style="text-align:center;border:0.5px solid #ddd;color:#1a6b3a;">'+totalRcv+'</td>'
+    + '<td style="text-align:center;border:0.5px solid #ddd;color:'+(totalDiff>=0?'#1a6b3a':'#c0392b')+';">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
+    + '<td style="text-align:center;border:0.5px solid #ddd;">'+totalPctTxt+'</td></tr>';
+  tbody.innerHTML = body;
+}
+
+function stnRecPrintComparison() {
+  var key   = stnRecKey();
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  if (!saved || !saved.items || !saved.items.length) { toast('⚠️ এই মাসের কোনো সেভ করা রেকর্ড নেই!', 'warning'); return; }
+
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = 'Stationery Requisition Record — ' + (MONTHS[saved.month]||'') + ' ' + saved.year;
+  var totalReq = 0, totalRcv = 0;
+
+  var rows = saved.items.map(function(r, i){
+    var diff = (r.recvQty||0) - (r.reqQty||0);
+    totalReq += (r.reqQty||0);
+    totalRcv += (r.recvQty||0);
+    var dClr = diff >= 0 ? '#1a6b3a' : '#c0392b';
+    var pctTxt = '-';
+    var pClr = '#888';
+    if (r.reqQty > 0) {
+      var pct = (diff / r.reqQty) * 100;
+      pClr = pct >= 0 ? '#1a6b3a' : '#c0392b';
+      pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    }
+    return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(i+1)+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #bbb;">'+r.name+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(r.unit||'Pcs')+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a5276;">'+r.reqQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a6b3a;">'+r.recvQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:'+dClr+';">'+(diff>=0?'+':'')+diff+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:'+pClr+';">'+pctTxt+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #bbb;font-size:10px;color:#666;">'+(r.remarks||'')+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;}'
+    + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 6px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div>'
+    + '<div style="font-size:10px;color:#c0392b;margin-top:2px;">⚠️ শুধুমাত্র তথ্যগত রেকর্ড — মূল স্টক ব্যালেন্সে যুক্ত নয়</div></div>'
+    + '<table><thead><tr>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:70px;">Req Qty</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:70px;">Rcv Qty</th>'
+    + '<th style="background:#eee5f1;color:#7d3c98;text-align:center;width:60px;">Diff</th>'
+    + '<th style="background:#fdf2e3;color:#b9770e;text-align:center;width:70px;">% কম/বেশি</th>'
+    + '<th style="background:#f5f5f5;color:#555;text-align:left;">Remarks</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#f0f0f0;font-weight:700;">'
+    + '<td colspan="3" style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;">মোট (Total):</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a5276;">'+totalReq+'</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a6b3a;">'+totalRcv+'</td>'
+    + '<td style="border:0.5px solid #bbb;"></td><td style="border:0.5px solid #bbb;"></td><td style="border:0.5px solid #bbb;"></td>'
+    + '</tr></tfoot></table>'
+    + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=1050,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+// ── END STATIONERY REQUISITION RECORD MODULE ──────────────────────────
+
 // DB.stnRequisitions getter/setter
 Object.defineProperty(DB, 'stnRequisitions', {
   get: function(){ return _get('igl_stn_requisitions') || {}; },
   set: function(v){ _set('igl_stn_requisitions', v); },
+  configurable: true
+});
+
+// DB.stnRecordOnly getter/setter — "Requisition Record" (তথ্যগত রেকর্ড শুধু)
+// ⚠️ এই ডাটা DB.receives/DB.issues থেকে সম্পূর্ণ আলাদা রাখা হয়েছে —
+// getStock()/স্টক ব্যালেন্স হিসাবে এটা কখনো ব্যবহার হয় না, শুধু রিপোর্টের জন্য।
+Object.defineProperty(DB, 'stnRecordOnly', {
+  get: function(){ return _get('igl_stn_record_only') || {}; },
+  set: function(v){ _set('igl_stn_record_only', v); },
   configurable: true
 });
 
