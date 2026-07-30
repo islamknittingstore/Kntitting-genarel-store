@@ -3815,10 +3815,18 @@ window.iglSaveNavVisibility = function() {
         <label style="font-size:13px;font-weight:600;color:#555;">বছর:</label>
         <select id="rec-year" onchange="stnRecOnMonthChange()" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;"></select>
         <input type="text" id="rec-search" placeholder="🔍 Item খুঁজুন..." oninput="stnRecFilterItems()" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;">
+          <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
+          <input type="number" id="rec-print-font-size" value="9" min="5" max="16" step="0.5"
+            style="width:44px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;text-align:center;"
+            title="Print Font Size (pt) — সব Requisition Record প্রিন্টে apply হবে">
+          <span style="font-size:10px;color:#888;">pt</span>
+        </span>
         <button onclick="stnRecAutoFillFromActual()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="যে মাসে ইতিমধ্যে সিস্টেমে আসল Requisition/Receive এন্ট্রি করা আছে (যেমন March, April...আজ পর্যন্ত), সেই মাসের প্রকৃত ডাটা এখানে বসিয়ে দেবে">🔄 Auto-Fill (প্রকৃত ডাটা)</button>
         <button onclick="stnRecSave()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💾 Save Record</button>
         <button onclick="stnRecPrintComparison()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition vs Receive — Diff ও % কম/বেশি সহ">🖨️ Print (Diff/%)</button>
         <button onclick="stnRecPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition vs Receive — Rate ও Amount সহ (সেই মাসের রেট অনুযায়ী)">🖨️ Print (Rate সহ)</button>
+        <button onclick="stnRecPrintFull()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="একই টেবিলে Rate, Amount, Receive Amount, Diff ও % — সবকিছু একসাথে">🖨️ Print (Rate + Diff/%)</button>
         <button onclick="stnRecPrintReceiveOnly()" style="background:linear-gradient(135deg,#186a3b,#28b463);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="শুধুমাত্র Receive করা Item এর তালিকা প্রিন্ট করুন">🖨️ Print Receive Only</button>
       </div>
     </div>
@@ -3832,13 +3840,14 @@ window.iglSaveNavVisibility = function() {
             <tr style="background:#f0f3f7;font-size:12px;color:#555;">
               <th style="padding:8px;text-align:left;">Item Name</th>
               <th style="padding:8px;text-align:center;width:110px;">Category</th>
+              <th style="padding:8px;text-align:center;width:90px;" title="ডিফল্ট Rate Item Master থেকে (আগের মাস থেকে carry-forward) — এখানে বদলালে সেটাই এই মাস থেকে নতুন ডিফল্ট হয়ে যাবে">Rate ৳</th>
               <th style="padding:8px;text-align:center;width:90px;">Req Qty</th>
               <th style="padding:8px;text-align:center;width:90px;">Rcv Qty</th>
               <th style="padding:8px;text-align:left;width:200px;">Remarks</th>
             </tr>
           </thead>
           <tbody id="rec-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">Loading...</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -12058,16 +12067,24 @@ function stnRecBuildTable(prefill) {
   var savedMap = {};
   (prefill||[]).forEach(function(r){ savedMap[r.id] = r; });
 
+  // ⚠️ এই মাসের ডিফল্ট Rate — Item Master এর Rate History থেকে carry-forward করে বের করা হচ্ছে
+  var m = (document.getElementById('rec-month')||{}).value;
+  var y = (document.getElementById('rec-year')||{}).value;
+  var monthKey = (y && m) ? (y + '-' + String(m).padStart(2,'0') + '-01') : null;
+
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">কোনো Item পাওয়া যায়নি</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">কোনো Item পাওয়া যায়নি</td></tr>';
     return;
   }
 
   tbody.innerHTML = items.map(function(it){
     var s = savedMap[it.id] || {};
+    // আগে এই রেকর্ডে rate সেভ করা থাকলে সেটাই দেখাও, না থাকলে carry-forward ডিফল্ট Rate
+    var defaultRate = (s.rate != null && s.rate !== '') ? s.rate : (monthKey ? stnGetRateForDate(it.id, monthKey) : (it.rate||0));
     return '<tr>'
       + '<td style="padding:6px 8px;border-bottom:1px solid #eee;">'+it.name+'</td>'
       + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;color:#777;font-size:12px;">'+(it.category||'-')+'</td>'
+      + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;"><input type="number" min="0" step="0.01" id="rec-rate-'+it.id+'" value="'+(defaultRate||'')+'" style="width:75px;text-align:center;border:1px solid #e8c84a;background:#fffde7;border-radius:4px;padding:5px;"></td>'
       + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;"><input type="number" min="0" id="rec-req-'+it.id+'" value="'+(s.reqQty||'')+'" style="width:70px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
       + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;"><input type="number" min="0" id="rec-rcv-'+it.id+'" value="'+(s.recvQty||'')+'" style="width:70px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
       + '<td style="padding:6px;border-bottom:1px solid #eee;"><input type="text" id="rec-rmk-'+it.id+'" value="'+((s.remarks||'').replace(/"/g,'&quot;'))+'" style="width:100%;border:1px solid #ccc;border-radius:4px;padding:5px;"></td>'
@@ -12144,31 +12161,44 @@ function stnRecSave() {
   var key = stnRecKey();
   if (!key) { toast('⚠️ মাস/বছর সিলেক্ট করুন!', 'warning'); return; }
 
+  var month = Number((document.getElementById('rec-month')||{}).value);
+  var year  = Number((document.getElementById('rec-year')||{}).value);
+  var monthKey = year + '-' + String(month).padStart(2,'0') + '-01';
+
   var hidden = (typeof stnGetHiddenItems === 'function') ? stnGetHiddenItems() : [];
   var items  = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
   var rows = [];
+  var rateChangedCount = 0;
   items.forEach(function(it){
-    var reqEl = document.getElementById('rec-req-'+it.id);
-    var rcvEl = document.getElementById('rec-rcv-'+it.id);
-    var rmkEl = document.getElementById('rec-rmk-'+it.id);
+    var reqEl  = document.getElementById('rec-req-'+it.id);
+    var rcvEl  = document.getElementById('rec-rcv-'+it.id);
+    var rmkEl  = document.getElementById('rec-rmk-'+it.id);
+    var rateEl = document.getElementById('rec-rate-'+it.id);
     if (!reqEl && !rcvEl) return;
     var reqQty  = Number(reqEl ? reqEl.value : 0) || 0;
     var recvQty = Number(rcvEl ? rcvEl.value : 0) || 0;
     var remarks = rmkEl ? rmkEl.value : '';
+    var rate    = Number(rateEl ? rateEl.value : 0) || 0;
     if (reqQty > 0 || recvQty > 0 || (remarks && remarks.trim())) {
-      rows.push({ id: it.id, name: it.name, unit: it.unit || 'Pcs', reqQty: reqQty, recvQty: recvQty, remarks: remarks });
+      // ⚠️ Rate পরিবর্তন হলে Item Master এ আপডেট করো — এই মাস থেকে (এবং পরের মাসগুলোতে,
+      // যতক্ষণ না নতুন কোনো পরিবর্তন হয়) এটাই ডিফল্ট Rate হিসেবে carry-forward হবে।
+      if (rate > 0) {
+        var defaultRate = stnGetRateForDate(it.id, monthKey);
+        if (Number(defaultRate) !== rate) {
+          if (stnSetItemRateForMonth(it.id, rate, monthKey)) rateChangedCount++;
+        }
+      }
+      rows.push({ id: it.id, name: it.name, unit: it.unit || 'Pcs', rate: rate, reqQty: reqQty, recvQty: recvQty, remarks: remarks });
     }
   });
 
   if (!rows.length) { toast('⚠️ অন্তত একটা Item এ Qty দিন!', 'warning'); return; }
 
-  var month = Number((document.getElementById('rec-month')||{}).value);
-  var year  = Number((document.getElementById('rec-year')||{}).value);
   var recs  = DB.stnRecordOnly || {};
   recs[key] = { month: month, year: year, items: rows, savedAt: new Date().toISOString() };
   DB.stnRecordOnly = recs;
 
-  toast('✅ Record সেভ হয়েছে! (এই Qty মূল স্টক ব্যালেন্সে যোগ হবে না)', 'success');
+  toast('✅ Record সেভ হয়েছে!' + (rateChangedCount ? ' ('+rateChangedCount+'টা Item এর Rate আপডেট হয়েছে)' : '') + ' (এই Qty মূল স্টক ব্যালেন্সে যোগ হবে না)', 'success');
   stnRecPopulateHistory();
   stnRecRenderSummary(rows);
   if (typeof triggerAutoSave === 'function') triggerAutoSave();
@@ -12300,8 +12330,11 @@ function stnRecPrintComparison() {
     totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
   }
 
+  var fsEl = document.getElementById('rec-print-font-size');
+  var fs = fsEl ? (Number(fsEl.value) || 10) : 10;
+
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;color:#000;}'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
     + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
@@ -12344,14 +12377,14 @@ function stnRecPrintWithRate() {
 
   var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
   var titleText = 'Stationery Requisition Record — ' + (MONTHS[saved.month]||'') + ' ' + saved.year;
-  // ⚠️ Rate সেই নির্দিষ্ট মাসের হিসেবে বের করা হচ্ছে (stnGetRateForDate) — তাই January/February
-  // এর মতো পুরনো মাসেও, সেই সময় যা Rate ছিল (এখনকার Rate না) সেটাই সঠিকভাবে প্রিন্ট হবে।
+  // ⚠️ Requisition Record সেভ করার সময় যেই Rate বসানো হয়েছিল সেটাই ব্যবহার হচ্ছে (r.rate) —
+  // পুরনো রেকর্ড (যেখানে rate সেভ করা নেই) এর জন্য fallback হিসেবে stnGetRateForDate ব্যবহার হবে।
   var mFrom = saved.year + '-' + String(saved.month).padStart(2,'0') + '-01';
   var totalReq = 0, totalRcv = 0, totalReqAmt = 0, totalRcvAmt = 0;
 
   var rows = saved.items.map(function(r, i){
     var _masterItem = (DB.stnItems||[]).find(function(x){ return x.id===r.id || x.name===r.name; });
-    var rate = stnGetRateForDate(r.id, mFrom) || (_masterItem && _masterItem.rate) || 0;
+    var rate = (r.rate != null && r.rate !== '') ? r.rate : (stnGetRateForDate(r.id, mFrom) || (_masterItem && _masterItem.rate) || 0);
     var reqAmt = (r.reqQty||0) * (Number(rate)||0);
     var rcvAmt = (r.recvQty||0) * (Number(rate)||0);
     totalReq += (r.reqQty||0);
@@ -12370,8 +12403,11 @@ function stnRecPrintWithRate() {
       + '</tr>';
   }).join('');
 
+  var fsEl = document.getElementById('rec-print-font-size');
+  var fs = fsEl ? (Number(fsEl.value) || 8.5) : 8.5;
+
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:10mm;}body{font-family:Arial,sans-serif;font-size:8.5pt;margin:0;color:#000;}'
+    + '<style>@page{size:A4 portrait;margin:10mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
     + 'table{width:100%;border-collapse:collapse;}th{padding:6px 4px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
@@ -12412,7 +12448,101 @@ function stnRecPrintWithRate() {
   w.onload = function(){ w.focus(); w.print(); };
 }
 
-// প্রিন্ট ৩: শুধুমাত্র Receive করা Item এর তালিকা প্রিন্ট করে (Req/Diff/%/Rate ছাড়া)
+// প্রিন্ট ৩: Requisition vs Receive — Rate, Amount, Diff ও % সব একসাথে একটা টেবিলে
+function stnRecPrintFull() {
+  var key   = stnRecKey();
+  var recs  = DB.stnRecordOnly || {};
+  var saved = recs[key];
+  if (!saved || !saved.items || !saved.items.length) { toast('⚠️ এই মাসের কোনো সেভ করা রেকর্ড নেই!', 'warning'); return; }
+
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = 'Stationery Requisition Record — ' + (MONTHS[saved.month]||'') + ' ' + saved.year;
+  // ⚠️ Requisition Record সেভ করার সময় যেই Rate বসানো হয়েছিল সেটাই ব্যবহার হচ্ছে (r.rate) —
+  // পুরনো রেকর্ডে না থাকলে fallback হিসেবে stnGetRateForDate ব্যবহার হবে।
+  var mFrom = saved.year + '-' + String(saved.month).padStart(2,'0') + '-01';
+  var totalReq = 0, totalRcv = 0, totalReqAmt = 0, totalRcvAmt = 0, totalDiff = 0;
+
+  var rows = saved.items.map(function(r, i){
+    var _masterItem = (DB.stnItems||[]).find(function(x){ return x.id===r.id || x.name===r.name; });
+    var rate = (r.rate != null && r.rate !== '') ? r.rate : (stnGetRateForDate(r.id, mFrom) || (_masterItem && _masterItem.rate) || 0);
+    var reqAmt = (r.reqQty||0) * (Number(rate)||0);
+    var rcvAmt = (r.recvQty||0) * (Number(rate)||0);
+    var diff = (r.recvQty||0) - (r.reqQty||0);
+    var pctTxt = '-';
+    if (r.reqQty > 0) {
+      var pct = (diff / r.reqQty) * 100;
+      pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    }
+    totalReq += (r.reqQty||0);
+    totalRcv += (r.recvQty||0);
+    totalReqAmt += reqAmt;
+    totalRcvAmt += rcvAmt;
+    totalDiff += diff;
+    return '<tr style="background:'+(i%2===1?'#f5f5f5':'#fff')+'">'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;">'+(i+1)+'</td>'
+      + '<td style="padding:5px 6px;border:0.5px solid #999;">'+r.name+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;">'+(rate?Number(rate).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:600;">'+r.reqQty+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;">'+(r.unit||'Pcs')+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;font-weight:700;">'+(reqAmt?Number(reqAmt).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:600;">'+r.recvQty+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;font-weight:700;">'+(rcvAmt?Number(rcvAmt).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:700;">'+(diff>=0?'+':'')+diff+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:700;">'+pctTxt+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var totalPctTxt = '-';
+  if (totalReq > 0) {
+    var totalPct = (totalDiff / totalReq) * 100;
+    totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
+  }
+
+  var fsEl = document.getElementById('rec-print-font-size');
+  var fs = fsEl ? (Number(fsEl.value) || 8) : 8;
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:9mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
+    + 'table{width:100%;border-collapse:collapse;table-layout:fixed;}th{padding:5px 3px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 10px;border-bottom:2px solid #000;margin-bottom:10px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:11px;color:#000;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div></div>'
+    + '<table><thead><tr>'
+    + '<th style="text-align:center;width:26px;">SL</th>'
+    + '<th style="text-align:left;width:150px;">Item Name</th>'
+    + '<th style="text-align:right;width:48px;">Rate (৳)</th>'
+    + '<th style="text-align:center;width:42px;">Req Qty</th>'
+    + '<th style="text-align:center;width:38px;">Unit</th>'
+    + '<th style="text-align:right;width:60px;">Req Amount (৳)</th>'
+    + '<th style="text-align:center;width:42px;">Rcv Qty</th>'
+    + '<th style="text-align:right;width:60px;">Rcv Amount (৳)</th>'
+    + '<th style="text-align:center;width:42px;">Diff</th>'
+    + '<th style="text-align:center;width:48px;">% কম/বেশি</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#eaeaea;font-weight:700;">'
+    + '<td colspan="3" style="text-align:right;padding:6px 6px;border:0.5px solid #999;">মোট (Total):</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalReq+'</td>'
+    + '<td style="border:0.5px solid #999;"></td>'
+    + '<td style="text-align:right;padding:6px 5px;border:0.5px solid #999;">'+Number(totalReqAmt).toLocaleString()+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalRcv+'</td>'
+    + '<td style="text-align:right;padding:6px 5px;border:0.5px solid #999;">'+Number(totalRcvAmt).toLocaleString()+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalPctTxt+'</td>'
+    + '</tr></tfoot></table>'
+    + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=1050,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
+// প্রিন্ট ৪: শুধুমাত্র Receive করা Item এর তালিকা প্রিন্ট করে (Req/Diff/%/Rate ছাড়া)
 function stnRecPrintReceiveOnly() {
   var key   = stnRecKey();
   var recs  = DB.stnRecordOnly || {};
@@ -12436,8 +12566,11 @@ function stnRecPrintReceiveOnly() {
       + '</tr>';
   }).join('');
 
+  var fsEl = document.getElementById('rec-print-font-size');
+  var fs = fsEl ? (Number(fsEl.value) || 10) : 10;
+
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;color:#000;}'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
     + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
@@ -23524,6 +23657,32 @@ function stnGetRateForDate(itemId, forDate) {
   // forMonth বা তার আগের সবচেয়ে কাছের rate নাও (carry forward)
   history.forEach(function(h){ if((h.month||'')<=forMonth && h.rate) best=h.rate; });
   return best||item.rate||0;
+}
+
+// ⚠️ কোনো নির্দিষ্ট মাসের জন্য Rate সেট করে — Item Master এর rate/rateHistory পুনর্গঠন করে,
+// যাতে সেই মাস (এবং forward-এ পরবর্তী কোনো নতুন পরিবর্তন না হওয়া পর্যন্ত পরের সব মাস) এই Rate-ই
+// ডিফল্ট হিসেবে carry-forward হয় (stnGetRateForDate এর মাধ্যমে)। Requisition Record থেকে
+// Rate পরিবর্তন করলে এটাই ব্যবহার হয়।
+function stnSetItemRateForMonth(itemId, newRate, effMonth) {
+  if (!itemId || !newRate || newRate <= 0 || !effMonth) return false;
+  var idx = (DB.stnItems||[]).findIndex(function(x){ return x.id === itemId; });
+  if (idx === -1) return false;
+  var _stnArr = DB.stnItems.slice();
+  var it = _stnArr[idx];
+  var monthKey = effMonth.slice(0,7);
+  var history = (it.rateHistory||[]).slice();
+  if (it.rate) history.push({ rate: it.rate, month: (it.rateEffDate||'2020-01').slice(0,7), setAt: it.rateSetAt || null });
+  // একই মাসের আগের entry থাকলে সরিয়ে এই নতুনটা বসাও (replace)
+  history = history.filter(function(h){ return (h.month||'') !== monthKey; });
+  history.push({ rate: newRate, month: monthKey, setAt: new Date().toISOString() });
+  history.sort(function(a,b){ return (a.month||'').localeCompare(b.month||''); });
+  var latest = history[history.length - 1];
+  it.rate = latest.rate;
+  it.rateEffDate = latest.month;
+  it.rateSetAt = latest.setAt;
+  it.rateHistory = history.slice(0, -1);
+  DB.stnItems = _stnArr;
+  return true;
 }
 
 function pkgMigrateItems(){
