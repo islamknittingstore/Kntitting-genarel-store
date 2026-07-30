@@ -3825,6 +3825,7 @@ window.iglSaveNavVisibility = function() {
         </span>
         <button onclick="stnRecAutoFillFromActual()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="যে মাসে ইতিমধ্যে সিস্টেমে আসল Requisition/Receive এন্ট্রি করা আছে (যেমন March, April...আজ পর্যন্ত), সেই মাসের প্রকৃত ডাটা এখানে বসিয়ে দেবে">🔄 Auto-Fill (প্রকৃত ডাটা)</button>
         <button onclick="stnRecSave()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💾 Save Record</button>
+        <button onclick="stnRecSyncJanRateToApril()" style="background:linear-gradient(135deg,#8e5b00,#e0a800);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Item Master-এ সেভ করা জানুয়ারি মাসের Rate দিয়ে, Jan–Apr এর সেভ করা Requisition Record-এর শুধু Rate ঘরটা আপডেট করে। Req Qty, Rcv Qty, Remarks অপরিবর্তিত থাকবে।">🧾 জানু Rate → এপ্রিল সিঙ্ক</button>
         <button onclick="stnRecPrintComparison()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition vs Receive — Diff ও % কম/বেশি সহ">🖨️ Print (Diff/%)</button>
         <button onclick="stnRecPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition vs Receive — Rate ও Amount সহ (সেই মাসের রেট অনুযায়ী)">🖨️ Print (Rate সহ)</button>
         <button onclick="stnRecPrintFull()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="একই টেবিলে Rate, Amount, Receive Amount, Diff ও % — সবকিছু একসাথে">🖨️ Print (Rate + Diff/%)</button>
@@ -12264,6 +12265,49 @@ function stnRecSave() {
   stnRecPopulateHistory();
   stnRecRenderSummary(rows);
   if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+
+// ⚠️ Item Master-এ সেভ করা জানুয়ারি মাসের Rate ধরে, Jan–Apr এর সেভ করা
+// Requisition Record (DB.stnRecordOnly)-এর প্রতিটা Item-এর শুধু rate ঘরটা
+// আপডেট করে দেয়। reqQty / recvQty / remarks কোনোভাবেই স্পর্শ করা হয় না।
+function stnRecSyncJanRateToApril() {
+  var year = Number((document.getElementById('rec-year')||{}).value) || new Date().getFullYear();
+  var janMonthKey = year + '-01-01';
+  var months = [1, 2, 3, 4];
+  var recs = DB.stnRecordOnly || {};
+  var rateCache = {};
+  var changedRecords = 0, changedItems = 0, preview = [];
+
+  months.forEach(function(m){
+    var key = 'rec_' + year + '_' + String(m).padStart(2,'0');
+    var rec = recs[key];
+    if (!rec || !rec.items) return;
+    var recChanged = false;
+    rec.items.forEach(function(it){
+      if (!(it.id in rateCache)) rateCache[it.id] = stnGetRateForDate(it.id, janMonthKey);
+      var janRate = rateCache[it.id];
+      if (janRate && Number(janRate) !== Number(it.rate||0)) {
+        if (preview.length < 12) preview.push(m+'/'+year+' — '+it.name+': ৳'+(it.rate||0)+' → ৳'+janRate);
+        it.rate = janRate; // শুধু rate; reqQty/recvQty/remarks অপরিবর্তিত
+        changedItems++;
+        recChanged = true;
+      }
+    });
+    if (recChanged) changedRecords++;
+  });
+
+  if (changedItems === 0) { toast('✅ জানুয়ারি '+year+' এর Rate অনুযায়ী Jan–Apr এর সব Record ইতিমধ্যে ঠিক আছে।', 'success'); return; }
+
+  var msg = 'জানুয়ারি '+year+'-এ Item Master-এ যে Rate ছিল, সেটা দিয়ে Jan–Apr '+year+'-এর সেভ করা Requisition Record-এ '+changedRecords+' টি মাসে মোট '+changedItems+' টি Item-এর শুধু Rate সংশোধন হবে।\nReq Qty, Rcv Qty, Remarks অপরিবর্তিত থাকবে।\n\n'+
+            preview.join('\n') + (changedItems > preview.length ? '\n...এবং আরও '+(changedItems-preview.length)+' টি' : '') +
+            '\n\nএগিয়ে যেতে চান? (এটা Undo করা যাবে না)';
+  if (!confirm(msg)) return;
+
+  DB.stnRecordOnly = recs;
+  triggerAutoSave();
+  try { if (typeof stnRecPopulateHistory === 'function') stnRecPopulateHistory(); } catch(e){}
+  try { if (typeof stnRecOnMonthChange === 'function') stnRecOnMonthChange(); } catch(e){}
+  toast('✅ '+changedRecords+' টি মাসে '+changedItems+' টি Item-এর Rate জানুয়ারি '+year+' অনুযায়ী আপডেট হয়েছে!', 'success');
 }
 
 function stnRecPopulateHistory() {
