@@ -3592,6 +3592,7 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
         <button onclick="stnImMergeDuplicates()" id="sim-merge-btn" style="display:none;background:linear-gradient(135deg,#922b21,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Duplicate মার্জ করুন</button>
+        <button onclick="stnBulkFixRequisitionRates()" style="background:linear-gradient(135deg,#6c3483,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="প্রতিটি মাসের Requisition-এ Item Master-এর Rate History অনুযায়ী সঠিক Rate বসিয়ে দেয়">🧾 অডিট রেট ফিক্স</button>
         <button onclick="stnImPageAdd()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">➕ নতুন Item</button>
       </div>
     </div>
@@ -11066,6 +11067,64 @@ function stnReqGetSaved() {
   if (!month || !year) return null;
   var reqs = DB.stnRequisitions || {};
   return reqs['req_'+year+'_'+month] || null;
+}
+
+// ── Item Master-এর rateHistory + বর্তমান rate থেকে একটা নির্দিষ্ট মাসে (yearMonthStr = 'YYYY-MM')
+// কার্যকর ছিল এমন Original Rate বের করো। rateHistory-তে একাধিক rate change থাকলেও ঠিক সেই
+// মাসের জন্য প্রযোজ্য rate-টাই রিটার্ন করে — future-এ rate আবার পাল্টালেও পুরনো মাসগুলো ঠিক থাকবে।
+function stnGetRateForMonth(masterItem, yearMonthStr) {
+  if (!masterItem) return null;
+  var timeline = (masterItem.rateHistory || []).map(function(h){ return {rate:h.rate, month:h.month}; });
+  if (masterItem.rate) timeline.push({rate:masterItem.rate, month:masterItem.rateEffDate || ''});
+  timeline = timeline.filter(function(t){ return t.month; });
+  timeline.sort(function(a,b){ return a.month < b.month ? -1 : (a.month > b.month ? 1 : 0); });
+  var chosen = null;
+  timeline.forEach(function(t){ if (t.month <= yearMonthStr) chosen = t; });
+  if (!chosen && timeline.length) chosen = timeline[0]; // ওই মাসের আগে কোনো এন্ট্রি না থাকলে সবচেয়ে পুরনোটাই ব্যবহার করো
+  return chosen ? chosen.rate : (masterItem.rate || null);
+}
+
+// ── অডিট রেট ফিক্স: প্রতিটি সেভ করা মাসিক Requisition-এ, প্রতিটি Item-এর rate
+// Item Master-এর Rate History অনুযায়ী সঠিক (original) rate দিয়ে বদলে দেয়। এতে করে
+// আগে ভুল/আনুমানিক rate দিয়ে সেভ হওয়া মাসগুলো একটা একটা করে ম্যানুয়ালি এডিট করতে হবে না।
+function stnBulkFixRequisitionRates() {
+  var reqs = DB.stnRequisitions || {};
+  var keys = Object.keys(reqs);
+  if (!keys.length) { toast('⚠️ কোনো Requisition রেকর্ড পাওয়া যায়নি।', 'warning'); return; }
+
+  var changedRecords = 0, changedItems = 0, preview = [];
+  keys.forEach(function(key){
+    var rec = reqs[key];
+    if (!rec || !rec.items) return;
+    var ymStr = rec.year + '-' + String(rec.month).padStart(2,'0');
+    var recChanged = false;
+    rec.items.forEach(function(it){
+      var masterItem = (DB.stnItems||[]).find(function(x){ return x.id === it.id; });
+      if (!masterItem) return;
+      var correctRate = stnGetRateForMonth(masterItem, ymStr);
+      if (correctRate != null && Number(correctRate) !== Number(it.rate||0)) {
+        if (preview.length < 12) preview.push(ymStr+' — '+it.name+': ৳'+(it.rate||0)+' → ৳'+correctRate);
+        it.rate = correctRate;
+        changedItems++;
+        recChanged = true;
+      }
+    });
+    if (recChanged) changedRecords++;
+  });
+
+  if (changedItems === 0) { toast('✅ সব Requisition-এর Rate ইতিমধ্যে সঠিক আছে — কোনো পরিবর্তন লাগেনি।', 'success'); return; }
+
+  var msg = changedRecords+' টি মাসের Requisition-এ মোট '+changedItems+' টি Item-এর Rate সংশোধন হবে।\n\n'+
+            preview.join('\n') + (changedItems > preview.length ? '\n...এবং আরও '+(changedItems-preview.length)+' টি' : '') +
+            '\n\nএগিয়ে যেতে চান? (এটা Undo করা যাবে না)';
+  if (!confirm(msg)) return;
+
+  DB.stnRequisitions = reqs;
+  triggerAutoSave();
+  try { if (typeof stnReqPopulateHistory === 'function') stnReqPopulateHistory(); } catch(e){}
+  try { if (typeof stnReqRenderRegister === 'function') stnReqRenderRegister(); } catch(e){}
+  try { if (typeof renderStationeryDashboard === 'function') renderStationeryDashboard(); } catch(e){}
+  toast('✅ '+changedRecords+' টি মাসের Requisition-এ '+changedItems+' টি Item-এর Rate সংশোধন হয়েছে!', 'success');
 }
 
 function stnReqRenderRegister() {
