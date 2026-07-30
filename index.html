@@ -12269,7 +12269,10 @@ function stnRecPrintComparison() {
 
   var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
   var titleText = 'Stationery Requisition Record — ' + (MONTHS[saved.month]||'') + ' ' + saved.year;
-  var totalReq = 0, totalRcv = 0;
+  // ⚠️ Rate সেই নির্দিষ্ট মাসের হিসেবে বের করা হচ্ছে (stnGetRateForDate) — তাই January/February
+  // এর মতো পুরনো মাসেও, সেই সময় যা Rate ছিল (এখনকার Rate না) সেটাই সঠিকভাবে প্রিন্ট হবে।
+  var mFrom = saved.year + '-' + String(saved.month).padStart(2,'0') + '-01';
+  var totalReq = 0, totalRcv = 0, totalReqAmt = 0, totalRcvAmt = 0;
 
   var rows = saved.items.map(function(r, i){
     var diff = (r.recvQty||0) - (r.reqQty||0);
@@ -12283,12 +12286,21 @@ function stnRecPrintComparison() {
       pClr = pct >= 0 ? '#1a6b3a' : '#c0392b';
       pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
     }
+    var _masterItem = (DB.stnItems||[]).find(function(x){ return x.id===r.id || x.name===r.name; });
+    var rate = stnGetRateForDate(r.id, mFrom) || (_masterItem && _masterItem.rate) || 0;
+    var reqAmt = (r.reqQty||0) * (Number(rate)||0);
+    var rcvAmt = (r.recvQty||0) * (Number(rate)||0);
+    totalReqAmt += reqAmt;
+    totalRcvAmt += rcvAmt;
     return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+'">'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(i+1)+'</td>'
       + '<td style="padding:6px 8px;border:0.5px solid #bbb;">'+r.name+'</td>'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;">'+(r.unit||'Pcs')+'</td>'
+      + '<td style="text-align:right;padding:6px 6px;border:0.5px solid #bbb;color:#555;">'+(rate?Number(rate).toLocaleString():'—')+'</td>'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a5276;">'+r.reqQty+'</td>'
+      + '<td style="text-align:right;padding:6px 6px;border:0.5px solid #bbb;font-weight:700;color:#7d3c98;">'+(reqAmt?Number(reqAmt).toLocaleString():'—')+'</td>'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:600;color:#1a6b3a;">'+r.recvQty+'</td>'
+      + '<td style="text-align:right;padding:6px 6px;border:0.5px solid #bbb;font-weight:700;color:#1a6b3a;">'+(rcvAmt?Number(rcvAmt).toLocaleString():'—')+'</td>'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:'+dClr+';">'+(diff>=0?'+':'')+diff+'</td>'
       + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #bbb;font-weight:700;color:'+pClr+';">'+pctTxt+'</td>'
       + '<td style="padding:6px 8px;border:0.5px solid #bbb;font-size:10px;color:#666;">'+(r.remarks||'')+'</td>'
@@ -12303,7 +12315,7 @@ function stnRecPrintComparison() {
   }
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:10pt;margin:0;}'
+    + '<style>@page{size:A4 landscape;margin:12mm;}body{font-family:Arial,sans-serif;font-size:9.5pt;margin:0;}'
     + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
     + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
@@ -12312,20 +12324,31 @@ function stnRecPrintComparison() {
     + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
     + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div>'
     + '<div style="font-size:10px;color:#c0392b;margin-top:2px;">⚠️ শুধুমাত্র তথ্যগত রেকর্ড — মূল স্টক ব্যালেন্সে যুক্ত নয়</div></div>'
-    + '<table><thead><tr>'
-    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
-    + '<th style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
-    + '<th style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
-    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:70px;">Req Qty</th>'
-    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:70px;">Rcv Qty</th>'
-    + '<th style="background:#eee5f1;color:#7d3c98;text-align:center;width:60px;">Diff</th>'
-    + '<th style="background:#fdf2e3;color:#b9770e;text-align:center;width:70px;">% কম/বেশি</th>'
-    + '<th style="background:#f5f5f5;color:#555;text-align:left;">Remarks</th>'
-    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<table><thead>'
+    + '<tr>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:32px;">SL</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:left;">Item Name</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:center;width:50px;">Unit</th>'
+    + '<th rowspan="2" style="background:#e4e7ea;color:#34495e;text-align:right;width:70px;">Rate (৳)</th>'
+    + '<th colspan="2" style="background:#e1e8ed;color:#1a5276;text-align:center;">Requisition</th>'
+    + '<th colspan="2" style="background:#e1ebe5;color:#1a6b3a;text-align:center;">Receive</th>'
+    + '<th rowspan="2" style="background:#eee5f1;color:#7d3c98;text-align:center;width:55px;">Diff</th>'
+    + '<th rowspan="2" style="background:#fdf2e3;color:#b9770e;text-align:center;width:65px;">% কম/বেশি</th>'
+    + '<th rowspan="2" style="background:#f5f5f5;color:#555;text-align:left;">Remarks</th>'
+    + '</tr>'
+    + '<tr>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e3eef5;color:#2980b9;text-align:right;width:80px;">Amount (৳)</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:center;width:55px;">Qty</th>'
+    + '<th style="background:#e2f4ea;color:#27ae60;text-align:right;width:80px;">Amount (৳)</th>'
+    + '</tr>'
+    + '</thead><tbody>'+rows+'</tbody>'
     + '<tfoot><tr style="background:#f0f0f0;font-weight:700;">'
-    + '<td colspan="3" style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;">মোট (Total):</td>'
+    + '<td colspan="4" style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;">মোট (Total):</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a5276;">'+totalReq+'</td>'
+    + '<td style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;color:#7d3c98;font-size:12px;">'+Number(totalReqAmt).toLocaleString()+'</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:#1a6b3a;">'+totalRcv+'</td>'
+    + '<td style="text-align:right;padding:7px 8px;border:0.5px solid #bbb;color:#1a6b3a;font-size:12px;">'+Number(totalRcvAmt).toLocaleString()+'</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;color:'+(totalDiff>=0?'#1a6b3a':'#c0392b')+';">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
     + '<td style="text-align:center;padding:7px;border:0.5px solid #bbb;">'+totalPctTxt+'</td>'
     + '<td style="border:0.5px solid #bbb;"></td>'
