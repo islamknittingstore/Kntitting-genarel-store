@@ -12079,8 +12079,11 @@ function stnRecBuildTable(prefill) {
 
   tbody.innerHTML = items.map(function(it){
     var s = savedMap[it.id] || {};
-    // আগে এই রেকর্ডে rate সেভ করা থাকলে সেটাই দেখাও, না থাকলে carry-forward ডিফল্ট Rate
-    var defaultRate = (s.rate != null && s.rate !== '') ? s.rate : (monthKey ? stnGetRateForDate(it.id, monthKey) : (it.rate||0));
+    // ⚠️ এখানে সবসময় Item Master এর সর্বশেষ (carry-forward) Rate দেখানো হচ্ছে — আগে সেভ করা
+    // রেকর্ডের পুরনো rate snapshot (s.rate) না দেখিয়ে, যাতে পরে Item Master এ Rate ঠিক করলে
+    // Requisition Record পেজ খুললেও সঠিক/আপডেটেড Rate-ই দেখা যায় এবং ভুলবশত Save দিলে পুরনো
+    // Rate আবার Master এ ফিরে না যায়। Print করা পুরনো কপিতে অবশ্য সেভ করার সময়কার Rate-ই থাকবে।
+    var defaultRate = monthKey ? stnGetRateForDate(it.id, monthKey) : (it.rate||0);
     return '<tr>'
       + '<td style="padding:6px 8px;border-bottom:1px solid #eee;">'+it.name+'</td>'
       + '<td style="text-align:center;padding:6px;border-bottom:1px solid #eee;color:#777;font-size:12px;">'+(it.category||'-')+'</td>'
