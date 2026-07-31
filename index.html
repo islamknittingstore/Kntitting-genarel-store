@@ -11018,6 +11018,63 @@ function stnReqUpdateRemark(itemId, val) {
   if (rmkInp) rmkInp.value = val;
 }
 
+// ⚠️ Requisition চেকলিস্ট (DB.stnRequisitions) সেভ হওয়ার সাথে সাথে সেই মাসের
+// Requisition Record (DB.stnRecordOnly)-ও নিজে থেকে আপডেট করে দেয় — ম্যানুয়ালি
+// Record পেজে গিয়ে Auto-Fill + Save করার দরকার পড়ে না।
+// এই ফাংশন শুধু তখনই কল হয় যখন সেই মাসের জন্য Requisition চেকলিস্ট সেভ হয় —
+// তাই Jan/Feb-এর মতো যে মাসগুলোতে চেকলিস্টই নেই, সেগুলো একদম অস্পৃশ্য থাকে (খাঁটি
+// ম্যানুয়াল এন্ট্রি হিসেবেই Record-এ থেকে যায়)।
+// Remarks — যদি আগে থেকে Record-এ ম্যানুয়ালি কিছু লেখা থাকে, সেটা সংরক্ষিত থাকে।
+function stnRecSyncFromRequisition(year, month, checklistItems) {
+  try {
+    year = Number(year); month = Number(month);
+    var recKey = 'rec_' + year + '_' + String(month).padStart(2,'0');
+    var mStr   = year + '-' + String(month).padStart(2,'0');
+    var mFrom  = mStr + '-01';
+    var mTo    = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+    var monthKey = mStr + '-01';
+
+    var reqMap = {};
+    (checklistItems||[]).forEach(function(it){ reqMap[it.id] = Number(it.qty) || 0; });
+
+    var allRcv = (DB.receives||[]).filter(function(r){ return r.group === 'Stationery' && r.date >= mFrom && r.date <= mTo; });
+
+    var hidden = (typeof stnGetHiddenItems === 'function') ? stnGetHiddenItems() : [];
+    var items  = (DB.stnItems||[]).filter(function(it){ return hidden.indexOf(it.id) === -1; });
+
+    var recs = DB.stnRecordOnly || {};
+    var existing = recs[recKey];
+    var existingMap = {};
+    if (existing && existing.items) existing.items.forEach(function(ri){ existingMap[ri.id] = ri; });
+
+    var rows = [];
+    items.forEach(function(it){
+      var reqQty  = reqMap[it.id] || 0;
+      var recvQty = allRcv.filter(function(r){ return r.item === it.name; }).reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0);
+      var prevRow = existingMap[it.id];
+      var remarks = prevRow ? (prevRow.remarks || '') : '';
+      if (reqQty > 0 || recvQty > 0 || (remarks && remarks.trim())) {
+        var rate = stnGetRateForDate(it.id, monthKey) || 0;
+        rows.push({ id: it.id, name: it.name, unit: it.unit || 'Pcs', rate: rate, reqQty: reqQty, recvQty: recvQty, remarks: remarks });
+      }
+    });
+
+    recs[recKey] = { month: month, year: year, items: rows, savedAt: new Date().toISOString() };
+    DB.stnRecordOnly = recs;
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    if (typeof stnRecPopulateHistory === 'function') stnRecPopulateHistory();
+
+    // ইউজার যদি এই মুহূর্তে Requisition Record পেজ খোলা রেখে একই মাস সিলেক্ট করা থাকে, UI-ও রিফ্রেশ করে দাও
+    var recM = document.getElementById('rec-month');
+    var recY = document.getElementById('rec-year');
+    if (recM && recY && Number(recM.value) === month && Number(recY.value) === year) {
+      stnRecBuildTable(rows);
+      stnRecRenderSummary(rows);
+    }
+    return rows.length;
+  } catch(e) { console.error('stnRecSyncFromRequisition error', e); return 0; }
+}
+
 function stnReqSaveRequisition() {
   var newItems = stnReqGetSelected();
   if (newItems.length === 0) { toast('⚠️ কমপক্ষে একটি Item টিক দিন!', 'warning'); return; }
@@ -11054,13 +11111,17 @@ function stnReqSaveRequisition() {
   if (_changed) { DB.stnItems = _stnArr.slice(); }
   triggerAutoSave();
   stnReqPopulateHistory();
+
+  // ✅ Requisition চেকলিস্ট সেভ হওয়ার সাথে সাথে সেই মাসের Requisition Record-ও নিজে থেকে sync হবে
+  var recSyncCount = stnRecSyncFromRequisition(year, month, merged);
+
   var regM = document.getElementById('reg-month');
   var regY = document.getElementById('reg-year');
   if (regM) regM.value = month;
   if (regY) regY.value = year;
   var msg = addedCount > 0
-    ? '✅ সেভ হয়েছে! '+addedCount+' টি নতুন Item যোগ হয়েছে। মোট: '+merged.length+' টি।'
-    : '✅ Requisition আপডেট হয়েছে! মোট: '+merged.length+' টি আইটেম।';
+    ? '✅ সেভ হয়েছে! '+addedCount+' টি নতুন Item যোগ হয়েছে। মোট: '+merged.length+' টি। (Requisition Record-ও sync হয়েছে — '+recSyncCount+' টি item)'
+    : '✅ Requisition আপডেট হয়েছে! মোট: '+merged.length+' টি আইটেম। (Requisition Record-ও sync হয়েছে — '+recSyncCount+' টি item)';
   toast(msg, 'success');
   stnReqRenderRegister();
 }
