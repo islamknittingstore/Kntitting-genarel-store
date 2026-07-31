@@ -22008,28 +22008,49 @@ function renderMachineSetSummary() {
     newSetByMachine[mid].sort(function(a,b){ return a<b?1:-1; }); // descending
   });
 
-  // asOfDate থেকে পেছনের ১২ মাস — production data দরকার
-  var neededMonths = {}; // "year_month" -> true
-  var iter = new Date(monthEndDate);
-  for (var i=0; i<18; i++) {
-    var y = iter.getFullYear(), m = iter.getMonth()+1;
-    neededMonths[_mpKey(y,m)] = {y:y, m:m};
-    iter.setMonth(iter.getMonth()-1);
-  }
+  // প্রতিটা মেশিনের Running Date (নতুন মেশিনের ক্ষেত্রে) আগে লোড করে নিচ্ছি, যাতে
+  // প্রতিটা মেশিনের প্রকৃত effectiveDate (Last Set / Running Date) জানা যায় —
+  // তারপর সেই সবচেয়ে পুরনো effectiveDate পর্যন্ত ঠিক যতগুলো মাস লাগবে ততগুলোই লোড হবে
+  // (আগে ফিক্সড ১৮ মাস ছিল, তাই ১৮ মাসের বেশি পুরনো Running Date/Import-এর data বাদ পড়ে যেত)
+  mrdLoadAll(function(rd){
+    var runDates = rd || {};
 
-  var monthKeys = Object.keys(neededMonths);
-  var loaded = 0;
-  var runDates = {};
-  function checkDone(){ if (loaded === monthKeys.length) { mrdLoadAll(function(rd){ runDates = rd; finishRender(); }); } }
-  monthKeys.forEach(function(key){
-    mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
-      loaded++;
-      checkDone();
+    var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
+    machines.forEach(function(m){
+      var dates = newSetByMachine[m.id] || [];
+      var eff = dates[0] || runDates[m.id] || '';
+      if (!eff) return;
+      var parts = eff.split('-');
+      var y = Number(parts[0]), mo = Number(parts[1]);
+      if (!y || !mo) return;
+      if (y < minY || (y === minY && mo < minM)) { minY = y; minM = mo; }
     });
-  });
-  if (monthKeys.length === 0) checkDone();
 
-  function finishRender() {
+    var neededMonths = {};
+    var iter = new Date(monthEndDate);
+    var guard = 0;
+    while (true) {
+      var y = iter.getFullYear(), m = iter.getMonth() + 1;
+      neededMonths[_mpKey(y, m)] = {y:y, m:m};
+      if (y < minY || (y === minY && m <= minM)) break;
+      iter.setMonth(iter.getMonth() - 1);
+      guard++;
+      if (guard > 300) break; // সেফটি — অস্বাভাবিক পুরনো তারিখ হলে infinite loop আটকানো
+    }
+
+    var monthKeys = Object.keys(neededMonths);
+    var loaded = 0;
+    function checkDone(){ if (loaded === monthKeys.length) finishRender(runDates, monthKeys); }
+    monthKeys.forEach(function(key){
+      mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
+        loaded++;
+        checkDone();
+      });
+    });
+    if (monthKeys.length === 0) checkDone();
+  });
+
+  function finishRender(runDates, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var t = '<div style="padding:10px 15px;">';
     t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে | 🆕 = নতুন মেশিন Running Date থেকে হিসাব</div>';
@@ -22146,26 +22167,45 @@ function mssPrintSummary() {
     newSetByMachine[mid].sort(function(a,b){ return a<b?1:-1; });
   });
 
-  var neededMonths = {};
-  var iter = new Date(monthEndDate);
-  for (var i=0; i<18; i++) {
-    var y = iter.getFullYear(), m = iter.getMonth()+1;
-    neededMonths[_mpKey(y,m)] = {y:y, m:m};
-    iter.setMonth(iter.getMonth()-1);
-  }
-  var monthKeys = Object.keys(neededMonths);
-  var loaded = 0;
-  var runDates = {};
-  function checkDone(){ if (loaded === monthKeys.length) { mrdLoadAll(function(rd){ runDates = rd; doPrint(); }); } }
-  monthKeys.forEach(function(key){
-    mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
-      loaded++;
-      checkDone();
-    });
-  });
-  if (monthKeys.length === 0) checkDone();
+  mrdLoadAll(function(rd){
+    var runDates = rd || {};
 
-  function doPrint() {
+    var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
+    machines.forEach(function(m){
+      var dates = newSetByMachine[m.id] || [];
+      var eff = dates[0] || runDates[m.id] || '';
+      if (!eff) return;
+      var parts = eff.split('-');
+      var y = Number(parts[0]), mo = Number(parts[1]);
+      if (!y || !mo) return;
+      if (y < minY || (y === minY && mo < minM)) { minY = y; minM = mo; }
+    });
+
+    var neededMonths = {};
+    var iter = new Date(monthEndDate);
+    var guard = 0;
+    while (true) {
+      var y = iter.getFullYear(), m = iter.getMonth() + 1;
+      neededMonths[_mpKey(y, m)] = {y:y, m:m};
+      if (y < minY || (y === minY && m <= minM)) break;
+      iter.setMonth(iter.getMonth() - 1);
+      guard++;
+      if (guard > 300) break;
+    }
+
+    var monthKeys = Object.keys(neededMonths);
+    var loaded = 0;
+    function checkDone(){ if (loaded === monthKeys.length) doPrint(runDates, monthKeys); }
+    monthKeys.forEach(function(key){
+      mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
+        loaded++;
+        checkDone();
+      });
+    });
+    if (monthKeys.length === 0) checkDone();
+  });
+
+  function doPrint(runDates, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var rows = '';
     machines.forEach(function(m, idx){
@@ -22379,28 +22419,43 @@ function renderCorrectedSetSummary() {
   var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
   var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr;
 
-  var neededMonths = {};
-  var iter = new Date(monthEndDate);
-  for (var i=0; i<18; i++) {
-    var y = iter.getFullYear(), m = iter.getMonth()+1;
-    neededMonths[_mpKey(y,m)] = {y:y, m:m};
-    iter.setMonth(iter.getMonth()-1);
-  }
-  var monthKeys = Object.keys(neededMonths);
-  var loaded = 0;
-
   srLoadAll(function(corrections){
-    function checkDone(){ if (loaded === monthKeys.length) finishRender(corrections); }
+    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
+
+    var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
+    machines.forEach(function(m){
+      var dates = newSetByMachine[m.id] || [];
+      var eff = dates[0] || '';
+      if (!eff) return;
+      var parts = eff.split('-');
+      var y = Number(parts[0]), mo = Number(parts[1]);
+      if (!y || !mo) return;
+      if (y < minY || (y === minY && mo < minM)) { minY = y; minM = mo; }
+    });
+
+    var neededMonths = {};
+    var iter = new Date(monthEndDate);
+    var guard = 0;
+    while (true) {
+      var y = iter.getFullYear(), m = iter.getMonth() + 1;
+      neededMonths[_mpKey(y, m)] = {y:y, m:m};
+      if (y < minY || (y === minY && m <= minM)) break;
+      iter.setMonth(iter.getMonth() - 1);
+      guard++;
+      if (guard > 300) break;
+    }
+
+    var monthKeys = Object.keys(neededMonths);
+    var loaded = 0;
+    function checkDone(){ if (loaded === monthKeys.length) finishRender(corrections, newSetByMachine, monthKeys); }
     monthKeys.forEach(function(key){
       mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){ loaded++; checkDone(); });
     });
     if (monthKeys.length === 0) checkDone();
   });
 
-  function finishRender(corrections) {
+  function finishRender(corrections, newSetByMachine, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
-
     var t = '<div style="padding:10px 15px;">';
     t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে (Correction প্রয়োগসহ)</div>';
     t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
@@ -22455,27 +22510,43 @@ function csrPrintSummary() {
   var monthEndStr = monthEndDate.getFullYear()+'-'+String(monthEndDate.getMonth()+1).padStart(2,'0')+'-'+String(monthEndDate.getDate()).padStart(2,'0');
   var asOfDate = (monthEndStr > todayS) ? todayS : monthEndStr;
 
-  var neededMonths = {};
-  var iter = new Date(monthEndDate);
-  for (var i=0; i<18; i++) {
-    var y = iter.getFullYear(), m = iter.getMonth()+1;
-    neededMonths[_mpKey(y,m)] = {y:y, m:m};
-    iter.setMonth(iter.getMonth()-1);
-  }
-  var monthKeys = Object.keys(neededMonths);
-  var loaded = 0;
-
   srLoadAll(function(corrections){
-    function checkDone(){ if (loaded === monthKeys.length) doPrint(corrections); }
+    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
+
+    var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
+    machines.forEach(function(m){
+      var dates = newSetByMachine[m.id] || [];
+      var eff = dates[0] || '';
+      if (!eff) return;
+      var parts = eff.split('-');
+      var y = Number(parts[0]), mo = Number(parts[1]);
+      if (!y || !mo) return;
+      if (y < minY || (y === minY && mo < minM)) { minY = y; minM = mo; }
+    });
+
+    var neededMonths = {};
+    var iter = new Date(monthEndDate);
+    var guard = 0;
+    while (true) {
+      var y = iter.getFullYear(), m = iter.getMonth() + 1;
+      neededMonths[_mpKey(y, m)] = {y:y, m:m};
+      if (y < minY || (y === minY && m <= minM)) break;
+      iter.setMonth(iter.getMonth() - 1);
+      guard++;
+      if (guard > 300) break;
+    }
+
+    var monthKeys = Object.keys(neededMonths);
+    var loaded = 0;
+    function checkDone(){ if (loaded === monthKeys.length) doPrint(corrections, newSetByMachine, monthKeys); }
     monthKeys.forEach(function(key){
       mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){ loaded++; checkDone(); });
     });
     if (monthKeys.length === 0) checkDone();
   });
 
-  function doPrint(corrections) {
+  function doPrint(corrections, newSetByMachine, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var newSetByMachine = _csrBuildAdjustedDates(asOfDate, corrections);
     var rows = '';
     machines.forEach(function(m, idx){
       var dates = newSetByMachine[m.id] || [];
