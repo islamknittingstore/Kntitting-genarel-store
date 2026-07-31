@@ -5270,8 +5270,11 @@ function ok(msg) {
         <select class="form-control" id="smp-machine"><option value="">-- মেশিন সিলেক্ট করুন --</option></select>
       </div>
 
+      <div style="background:#eafaf1;border:1px solid #a9dfbf;border-radius:6px;padding:10px;font-size:11.5px;color:#186a3b;margin:10px 0;">
+        ✅ <b>ফ্যাক্টরির আসল "Machine Wise Knitting Production Report" (.xls) সরাসরি Import করতে পারবেন</b> — যত বছর/মাসের ডাটাই থাকুক (যেমন: 19-11-2024 থেকে 30-06-2026), সিস্টেম নিজে থেকে ফরম্যাট চিনে সিলেক্ট করা মেশিনের row বের করে প্রতিদিনের Production বসিয়ে দেবে। কোনো কনভার্ট করার দরকার নেই।
+      </div>
       <div style="background:#fdf2e9;border:1px solid #f5cba7;border-radius:6px;padding:10px;font-size:11.5px;color:#7e5109;margin:10px 0;">
-        <b>Excel ফরম্যাট (সহজ ২ কলাম):</b><br>
+        <b>অথবা সহজ ২-কলাম Excel ফরম্যাট:</b><br>
         কলাম A: তারিখ (যেমন 2024-06-01 বা 01-06-2024)<br>
         কলাম B: Production (kg)<br>
         প্রথম সারি হেডার হতে পারে (Date, Production) — থাকলেও চলবে, না থাকলেও চলবে।<br>
@@ -21765,6 +21768,23 @@ function smpImport() {
   if (!fileEl.files || !fileEl.files[0]) { toast('❌ Excel ফাইল সিলেক্ট করুন', 'error'); return; }
   var file = fileEl.files[0];
 
+  // ফাইলটা প্রথমে টেক্সট হিসেবে পড়ে দেখা হচ্ছে এটা ফ্যাক্টরির আসল
+  // "Machine Wise Knitting Production Report" (.xls, HTML ফরম্যাট, বহু বছরের ডাটা সহ) কিনা —
+  // হলে সরাসরি সিলেক্ট করা মেশিনের row বের করে প্রতিটা দিনের Production import হবে।
+  // না হলে আগের সহজ ২-কলাম (Date, Production) টেমপ্লেট হিসেবে পার্স হবে।
+  var textReader = new FileReader();
+  textReader.onload = function(e) {
+    var text = e.target.result || '';
+    if (/knitting production report/i.test(text) || /from\s*:\s*\d{2}-\d{2}-\d{4}\s*to\s*:\s*\d{2}-\d{2}-\d{4}/i.test(text)) {
+      smpImportFromKnittingReport(text, machineId, resultEl);
+    } else {
+      smpImportFromSimpleTemplate();
+    }
+  };
+  textReader.onerror = function(){ smpImportFromSimpleTemplate(); };
+  textReader.readAsText(file);
+
+  function smpImportFromSimpleTemplate() {
   function afterLibLoaded() {
     var reader = new FileReader();
     reader.onload = function(e) {
@@ -21848,6 +21868,119 @@ function smpImport() {
     return;
   }
   afterLibLoaded();
+  } // end smpImportFromSimpleTemplate
+}
+
+// ── ফ্যাক্টরির আসল "Machine Wise Knitting Production Report" (.xls, HTML ফরম্যাট,
+//     বহু বছর/মাসের ডাটা একসাথে) থেকে একটামাত্র সিলেক্ট করা মেশিনের row বের করে
+//     প্রতিটা দিনের Production import করে — reqQty/recvQty জাতীয় অন্য কিছু ছোঁয় না। ──
+function smpImportFromKnittingReport(text, machineId, resultEl) {
+  try {
+    var dm = text.match(/From\s*:\s*(\d{2})-(\d{2})-(\d{4})\s*To\s*:\s*(\d{2})-(\d{2})-(\d{4})/);
+    if (!dm) {
+      resultEl.innerHTML = '<span style="color:#c0392b;">❌ রিপোর্টে তারিখের রেঞ্জ (From/To) পাওয়া যায়নি</span>';
+      return;
+    }
+    var startDate = new Date(Number(dm[3]), Number(dm[2]) - 1, Number(dm[1]));
+
+    // সিলেক্ট করা মেশিনের ERP নম্বর বের করা
+    var machines = getNeedleMachines();
+    var targetMachine = null;
+    for (var i = 0; i < machines.length; i++) { if (machines[i].id === machineId) { targetMachine = machines[i]; break; } }
+    if (!targetMachine || !targetMachine.erp) {
+      resultEl.innerHTML = '<span style="color:#c0392b;">❌ সিলেক্ট করা মেশিনের ERP নম্বর খুঁজে পাওয়া যায়নি</span>';
+      return;
+    }
+    var targetErp = parseInt(targetMachine.erp, 10);
+
+    // Floor 3 (Shima Seiki + Yonthin Collar/Jacquard) — ERP নম্বর অন্য ফ্লোরের সাথে সংঘর্ষ করে,
+    // তাই bulk import-এর মতোই আলাদা mapping দিয়ে নিশ্চিত করা হচ্ছে সঠিক row-ই মিলছে কিনা।
+    var floor3Map = {
+      1:"Shima Seiki ( 1 )", 2:"Shima Seiki ( 2 )", 3:"Shima Seiki ( 3 )", 4:"Shima Seiki ( 4 )",
+      5:"Shima Seiki ( 5 )", 6:"Shima Seiki ( 6 )", 7:"Shima Seiki ( 7 )", 8:"Shima Seiki ( 8 )",
+      9:"Shima Seiki ( 9 )", 10:"Shima Seiki ( 10 )", 11:"Shima Seiki ( 11 )", 12:"Shima Seiki ( 12 )",
+      13:"Yonthin Collar/Jacquard ( 1 )", 14:"Yonthin Collar/Jacquard ( 2 )",
+      15:"Shima Seiki ( 15 )", 16:"Shima Seiki ( 16 )", 17:"Shima Seiki ( 17 )", 18:"Shima Seiki ( 18 )",
+      19:"Shima Seiki ( 19 )", 20:"Shima Seiki ( 20 )"
+    };
+    var isTargetFloor3 = false;
+    Object.keys(floor3Map).forEach(function(k){ if (floor3Map[k] === machineId) isTargetFloor3 = true; });
+
+    var doc = new DOMParser().parseFromString(text, 'text/html');
+    var trs = doc.querySelectorAll('tr');
+    var parsed = []; // {y,m,d,kg}
+    var rowFound = false;
+
+    trs.forEach(function(tr){
+      if (rowFound) return; // একটা মেশিনের একটাই row থাকা উচিত
+      try {
+        var tds = tr.querySelectorAll('td');
+        if (tds.length < 10) return;
+        var sl = (tds[0].textContent || '').trim();
+        if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
+        var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
+        var machNo = parseInt((tds[1].textContent || '').trim(), 10);
+        if (isNaN(machNo) || machNo !== targetErp) return;
+
+        var rowIsFloor3 = /Floor\s*3/i.test(floorTxt);
+        if (rowIsFloor3 !== isTargetFloor3) return; // ভুল ফ্লোরের সংঘর্ষ এড়ানো
+
+        var dayCols = tds.length - 7; // শুরুর ৫টা (SL,MachNo,Floor,Dia,Capacity) ও শেষের ২টা (Total, Avg/Day) বাদে
+        if (dayCols < 1) return;
+
+        for (var c = 5; c < 5 + dayCols; c++) {
+          var raw = (tds[c] ? tds[c].textContent : '') || '';
+          var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
+          if (!numMatch) continue;
+          var kg = parseFloat(numMatch[0].replace(/,/g, ''));
+          if (isNaN(kg) || kg === 0) continue;
+          var d = new Date(startDate);
+          d.setDate(d.getDate() + (c - 5));
+          parsed.push({ y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), kg: kg });
+        }
+        rowFound = true;
+      } catch(rowErr) { console.error('row parse error', rowErr); }
+    });
+
+    if (!rowFound) {
+      resultEl.innerHTML = '<span style="color:#c0392b;">❌ এই মেশিনের (ERP '+targetErp+') ডাটা রিপোর্টে খুঁজে পাওয়া যায়নি</span>';
+      return;
+    }
+    if (!parsed.length) {
+      resultEl.innerHTML = '<span style="color:#c0392b;">❌ মেশিনটা রিপোর্টে পাওয়া গেছে, কিন্তু কোনো Production ভ্যালু (0 ছাড়া) নেই</span>';
+      return;
+    }
+
+    // ── মাস অনুযায়ী গ্রুপ করো, শুধু rate/production সেভ হবে — অন্য কিছু ছোঁয়া হবে না ──
+    var byMonth = {};
+    parsed.forEach(function(p){
+      var key = p.y + '_' + p.m;
+      if (!byMonth[key]) byMonth[key] = {y:p.y, m:p.m, days:{}};
+      byMonth[key].days[p.d] = p.kg;
+    });
+
+    var monthKeys = Object.keys(byMonth);
+    var done = 0, totalDays = 0;
+    resultEl.innerHTML = '⏳ '+monthKeys.length+'টা মাসের ডাটা প্রসেস হচ্ছে...';
+
+    monthKeys.forEach(function(key){
+      var mData = byMonth[key];
+      mpLoadMonth(mData.y, mData.m, function(existing){
+        existing[machineId] = Object.assign(existing[machineId] || {}, mData.days);
+        mpSaveMonth(mData.y, mData.m, existing);
+        totalDays += Object.keys(mData.days).length;
+        done++;
+        if (done === monthKeys.length) {
+          resultEl.innerHTML = '<span style="color:#1e8449;font-weight:700;">✅ '+monthKeys.length+'টা মাস, মোট '+totalDays+'টা দিনের Production সেভ হয়েছে</span>';
+          toast('✅ '+machineId+'-এর জন্য '+monthKeys.length+' মাসের ('+dm[1]+'-'+dm[2]+'-'+dm[3]+' → '+dm[4]+'-'+dm[5]+'-'+dm[6]+') Production import হয়েছে', 'success');
+          renderNeedleMonthlyProd();
+        }
+      });
+    });
+  } catch(err) {
+    console.error(err);
+    resultEl.innerHTML = '<span style="color:#c0392b;">❌ ফাইল পার্স করতে সমস্যা হয়েছে: '+(err&&err.message?err.message:err)+'</span>';
+  }
 }
 
 // ── Sheet 3: Machine Set & Production Summary ──
