@@ -23854,7 +23854,7 @@ function stnItemMasterRender() {
 // গুরুত্বপূর্ণ Stationery ডাটা এডিটের পর ডিবাউন্স উপেক্ষা করে সাথে সাথেই Firebase এ
 // পাঠিয়ে দেওয়া হয়, যাতে race window যতটা সম্ভব কমে যায়।
 function stnFbSaveNow() {
-  triggerAutoSave();
+  try { triggerAutoSave(); } catch(e) { console.error('triggerAutoSave error', e); }
   try {
     clearTimeout(window._fbSaveTimer);
     if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
@@ -23926,6 +23926,7 @@ function stnImOpenOrphanRepair() {
 }
 
 function stnImRepairOrphan(rowIdx) {
+ try {
   var orphanName = (window._stnOrphanNames||[])[rowIdx];
   if (!orphanName) { toast('❌ Orphan নাম খুঁজে পাওয়া যায়নি — মোডালটা বন্ধ করে আবার খুলুন', 'error'); return; }
   var sel = document.getElementById('orphan-target-'+rowIdx);
@@ -23960,6 +23961,10 @@ function stnImRepairOrphan(rowIdx) {
   // অন্য পেজ খোলা থাকলে রিফ্রেশ করে দাও
   try { if (typeof renderStationeryDashboard === 'function') renderStationeryDashboard(); } catch(e){}
   try { if (typeof stnItemMasterRender === 'function') stnItemMasterRender(); } catch(e){}
+ } catch(e) {
+  console.error('stnImRepairOrphan error', e);
+  toast('❌ রিপেয়ার করতে সমস্যা হয়েছে: '+(e && e.message ? e.message : e), 'error');
+ }
 }
 
 function stnImMergeDuplicates() {
