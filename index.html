@@ -23884,6 +23884,8 @@ function stnImOpenOrphanRepair() {
     return;
   }
 
+  window._stnOrphanNames = names;
+
   var itemOptions = (DB.stnItems||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); })
     .map(function(it){ return '<option value="'+it.id+'">'+_esc(it.name)+'</option>'; }).join('');
 
@@ -23895,7 +23897,7 @@ function stnImOpenOrphanRepair() {
       + '<div style="font-size:11px;color:#777;margin:3px 0 8px;">Receive: '+o.recCount+' রেকর্ড ('+o.recQty+' qty) &nbsp;|&nbsp; Issue: '+o.issCount+' রেকর্ড ('+o.issQty+' qty)</div>'
       + '<div style="display:flex;gap:6px;align-items:center;">'
       + '<select id="orphan-target-'+i+'" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;"><option value="">— বর্তমান কোন Item এর সাথে যুক্ত হবে? —</option>'+itemOptions+'</select>'
-      + '<button onclick="stnImRepairOrphan('+i+', '+JSON.stringify(nm)+')" style="padding:6px 14px;background:#1a6b3a;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;">🔗 রিপেয়ার</button>'
+      + '<button onclick="stnImRepairOrphan('+i+')" style="padding:6px 14px;background:#1a6b3a;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;">🔗 রিপেয়ার</button>'
       + '</div></div>';
   }).join('');
 
@@ -23908,7 +23910,9 @@ function stnImOpenOrphanRepair() {
   document.body.appendChild(overlay);
 }
 
-function stnImRepairOrphan(rowIdx, orphanName) {
+function stnImRepairOrphan(rowIdx) {
+  var orphanName = (window._stnOrphanNames||[])[rowIdx];
+  if (!orphanName) { toast('❌ Orphan নাম খুঁজে পাওয়া যায়নি — মোডালটা বন্ধ করে আবার খুলুন', 'error'); return; }
   var sel = document.getElementById('orphan-target-'+rowIdx);
   var targetId = sel ? sel.value : '';
   if (!targetId) { toast('⚠️ আগে একটা Item সিলেক্ট করুন!', 'warning'); return; }
