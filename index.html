@@ -23925,6 +23925,15 @@ function stnImOpenOrphanRepair() {
   document.body.appendChild(overlay);
 }
 
+// ⚠️⚠️ Direct-write + verify version ⚠️⚠️
+// আগের ভার্সন DB.receives/DB.issues (in-memory, সম্ভবত stale) বদলে সাধারণ
+// fbSaveAll()-এর মধ্য দিয়ে সেভ করতো — যেটা পুরো igl_erp নোড ওভাররাইট করে এবং
+// একটা debounce/race window রাখে (অন্য ট্যাব/ডিভাইস বা আগের কোনো pending save
+// এই সময়ের মধ্যে পুরনো ডাটা দিয়ে ওভাররাইট করে দিতে পারতো — যার ফলে রিপেয়ার করার
+// পরেও রিফ্রেশ দিলে আবার পুরনো/হারানো নামই ফিরে আসছিল)।
+// এই ভার্সন Firebase থেকে তাজা receives/issues সরাসরি টেনে আনে, শুধু ওই দুটো path-এ
+// টার্গেটেড write করে (পুরো নোড ছোঁয় না), এবং লেখার পর আবার পড়ে যাচাই করে যে
+// আসলেই বদলেছে কিনা — তাই এখন হয় স্থায়ীভাবে ঠিক হবে, নয়তো স্পষ্ট error দেখাবে।
 function stnImRepairOrphan(rowIdx) {
  try {
   var orphanName = (window._stnOrphanNames||[])[rowIdx];
@@ -23935,32 +23944,80 @@ function stnImRepairOrphan(rowIdx) {
   var target = (DB.stnItems||[]).find(function(it){ return it.id === targetId; });
   if (!target) { toast('❌ Item পাওয়া যায়নি!', 'error'); return; }
 
+  if (typeof firebase === 'undefined' || !firebase.database) {
+    toast('❌ Firebase সংযোগ পাওয়া যায়নি — ইন্টারনেট চেক করে আবার চেষ্টা করুন', 'error');
+    return;
+  }
+  if (!navigator.onLine) {
+    toast('❌ ইন্টারনেট সংযোগ নেই — অনলাইন হয়ে আবার চেষ্টা করুন', 'error');
+    return;
+  }
+
+  var btn = document.querySelector('#orphan-row-'+rowIdx+' button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ যাচাই করে সেভ হচ্ছে...'; }
+
   var recCount = 0, issCount = 0;
-  (DB.receives||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) { r.item = target.name; recCount++; } });
-  (DB.issues||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) { r.item = target.name; issCount++; } });
 
-  // Requisition ও Requisition Record এও (নাম ম্যাচ থাকলে) সিঙ্ক করে দাও
-  var reqs = DB.stnRequisitions || {};
-  Object.keys(reqs).forEach(function(k){
-    var m = reqs[k]; if (!m||!m.items) return;
-    m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
+  firebase.database().ref('igl_erp/db').once('value').then(function(snap){
+    var dbNode = snap.val() || {};
+    var receives = dbNode.receives || [];
+    var issues   = dbNode.issues   || [];
+
+    receives = receives.map(function(r){
+      if (r && r.group === 'Stationery' && r.item === orphanName) {
+        recCount++;
+        return Object.assign({}, r, { item: target.name });
+      }
+      return r;
+    });
+    issues = issues.map(function(r){
+      if (r && r.group === 'Stationery' && r.item === orphanName) {
+        issCount++;
+        return Object.assign({}, r, { item: target.name });
+      }
+      return r;
+    });
+
+    // শুধু receives ও issues path-এ টার্গেটেড write — বাকি কিছু (items/settings/needle ইত্যাদি) ছোঁয়া হচ্ছে না
+    return firebase.database().ref('igl_erp/db/receives').set(receives)
+      .then(function(){ return firebase.database().ref('igl_erp/db/issues').set(issues); })
+      .then(function(){ return firebase.database().ref('igl_erp/ts').set(Date.now()); })
+      .then(function(){ return firebase.database().ref('igl_erp/db/receives').once('value'); })
+      .then(function(verifySnap){
+        var verifyArr = verifySnap.val() || [];
+        var stillOrphan = verifyArr.some(function(r){ return r && r.group === 'Stationery' && r.item === orphanName; });
+        if (stillOrphan) { throw new Error('যাচাই ব্যর্থ — Firebase-এ এখনো পুরনো নাম দেখা যাচ্ছে'); }
+      });
+  }).then(function(){
+    // in-memory DB ও লোকালি আপডেট করো যাতে এই সেশনেও সাথে সাথে সব ঠিক দেখায়
+    (DB.receives||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) r.item = target.name; });
+    (DB.issues||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) r.item = target.name; });
+
+    // Requisition ও Requisition Record এও (নাম ম্যাচ থাকলে) সিঙ্ক করে দাও (local; পরবর্তী কোনো সেভে চলে যাবে)
+    var reqs = DB.stnRequisitions || {};
+    Object.keys(reqs).forEach(function(k){
+      var m = reqs[k]; if (!m||!m.items) return;
+      m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
+    });
+    var recs = DB.stnRecordOnly || {};
+    Object.keys(recs).forEach(function(k){
+      var m = recs[k]; if (!m||!m.items) return;
+      m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
+    });
+    DB.stnRecordOnly = recs;
+
+    toast('✅ "'+orphanName+'" → "'+target.name+'" স্থায়ীভাবে রিপেয়ার হয়েছে ও যাচাই সম্পন্ন ('+recCount+' Receive + '+issCount+' Issue রেকর্ড)', 'success');
+
+    var row = document.getElementById('orphan-row-'+rowIdx);
+    if (row) row.remove();
+
+    try { if (typeof renderStationeryDashboard === 'function') renderStationeryDashboard(); } catch(e){}
+    try { if (typeof stnItemMasterRender === 'function') stnItemMasterRender(); } catch(e){}
+  }).catch(function(e){
+    console.error('stnImRepairOrphan error', e);
+    toast('❌ রিপেয়ার ব্যর্থ হয়েছে: '+(e && e.message ? e.message : e)+' — আবার চেষ্টা করুন', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 রিপেয়ার'; }
   });
-  var recs = DB.stnRecordOnly || {};
-  Object.keys(recs).forEach(function(k){
-    var m = recs[k]; if (!m||!m.items) return;
-    m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
-  });
-  DB.stnRecordOnly = recs;
-
-  stnFbSaveNow();
-  toast('✅ "'+orphanName+'" → "'+target.name+'" এ রিপেয়ার হয়েছে ('+recCount+' Receive + '+issCount+' Issue রেকর্ড)', 'success');
-
-  var row = document.getElementById('orphan-row-'+rowIdx);
-  if (row) row.remove();
-
-  // অন্য পেজ খোলা থাকলে রিফ্রেশ করে দাও
-  try { if (typeof renderStationeryDashboard === 'function') renderStationeryDashboard(); } catch(e){}
-  try { if (typeof stnItemMasterRender === 'function') stnItemMasterRender(); } catch(e){}
  } catch(e) {
   console.error('stnImRepairOrphan error', e);
   toast('❌ রিপেয়ার করতে সমস্যা হয়েছে: '+(e && e.message ? e.message : e), 'error');
