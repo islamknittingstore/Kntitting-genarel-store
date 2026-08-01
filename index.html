@@ -23846,6 +23846,21 @@ function stnItemMasterRender() {
 // "এতিম" রেকর্ড ওখানে মিসিং দেখায় — যদিও raw ডাটাতে এখনো আছে।
 // এই টুল সেই এতিম নামগুলো খুঁজে বের করে, এক ক্লিকে বর্তমান কোনো Item এর
 // সাথে re-link করে দেয় (শুধু .item ফিল্ড বদলায়, Qty/Date/Chalan/Slip অপরিবর্তিত)।
+// ⚠️ Stationery-এর জন্য fbLoadAll() সবসময় Firebase-কেই master ধরে (local pending
+// merge হয় না) — তাই স্বাভাবিক triggerAutoSave() এর 1200ms ডিবাউন্স-এর মধ্যে যদি
+// অন্য কোনো device/tab থেকে বা আগের কোনো pending save থেকে Firebase 'ts' আপডেট হয়ে
+// fbLoadAll() ট্রিগার হয়, তাহলে আমাদের এইমাত্র করা local পরিবর্তন (যেমন item rename/
+// repair) সেভ হওয়ার আগেই পুরনো ডাটা দিয়ে ওভাররাইট হয়ে যেতে পারে। তাই এই ধরনের
+// গুরুত্বপূর্ণ Stationery ডাটা এডিটের পর ডিবাউন্স উপেক্ষা করে সাথে সাথেই Firebase এ
+// পাঠিয়ে দেওয়া হয়, যাতে race window যতটা সম্ভব কমে যায়।
+function stnFbSaveNow() {
+  triggerAutoSave();
+  try {
+    clearTimeout(window._fbSaveTimer);
+    if (typeof window.fbSaveAll === 'function') window.fbSaveAll();
+  } catch(e) { console.error('stnFbSaveNow error', e); }
+}
+
 function stnFindOrphanedStnItems() {
   var currentNames = (DB.stnItems||[]).map(function(it){ return it.name; });
   var currentSet = {};
@@ -23936,7 +23951,7 @@ function stnImRepairOrphan(rowIdx) {
   });
   DB.stnRecordOnly = recs;
 
-  triggerAutoSave();
+  stnFbSaveNow();
   toast('✅ "'+orphanName+'" → "'+target.name+'" এ রিপেয়ার হয়েছে ('+recCount+' Receive + '+issCount+' Issue রেকর্ড)', 'success');
 
   var row = document.getElementById('orphan-row-'+rowIdx);
@@ -24038,7 +24053,7 @@ function stnImMergeDuplicates() {
   toRemove.sort(function(a,b){return b-a;}).forEach(function(i){ items.splice(i,1); });
   DB.stnItems = items;
   localStorage.setItem('igl_stn_requisitions', JSON.stringify(DB.stnRequisitions||{}));
-  _triggerAutoSave();
+  stnFbSaveNow();
   stnItemMasterRender();
   toast('✅ '+merged+' টি Duplicate মার্জ হয়েছে!','success');
 }
@@ -24108,6 +24123,7 @@ function stnImEdit(idx) {
       DB.stnRecordOnly = recs;
     }
     _triggerAutoSave();
+    if (oldName !== newName) { try { clearTimeout(window._fbSaveTimer); if (typeof window.fbSaveAll === 'function') window.fbSaveAll(); } catch(e){} }
     document.body.removeChild(overlay);
     stnItemMasterRender();
     toast('✅ Item আপডেট হয়েছে','success');
