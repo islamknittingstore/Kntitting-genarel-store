@@ -3591,6 +3591,7 @@ window.iglSaveNavVisibility = function() {
         <p>সব Stationery Item এর Unit, Rate ও Rate History এখান থেকে Manage করুন</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+        <button onclick="stnImOpenOrphanRepair()" style="background:linear-gradient(135deg,#b9770e,#e67e22);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Item Master এ নাম বদলানোর পর যেসব পুরনো Receive/Issue রেকর্ড এখনো পুরনো নামে রয়ে গেছে (Chalan/Slip পেজে যেগুলো মিসিং দেখায়), সেগুলো খুঁজে বর্তমান Item এর সাথে re-link করে দেয়">🔧 হারানো Item রিপেয়ার</button>
         <button onclick="stnImMergeDuplicates()" id="sim-merge-btn" style="display:none;background:linear-gradient(135deg,#922b21,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Duplicate মার্জ করুন</button>
         <button onclick="stnBulkFixRequisitionRates()" style="background:linear-gradient(135deg,#6c3483,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="প্রতিটি মাসের Requisition-এ Item Master-এর Rate History অনুযায়ী সঠিক Rate বসিয়ে দেয়">🧾 অডিট রেট ফিক্স</button>
         <button onclick="stnImPageAdd()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">➕ নতুন Item</button>
@@ -23835,6 +23836,111 @@ function stnItemMasterRender() {
       + (isAdmin ? '<button onclick="stnImDelById(\''+it.id+'\')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;margin:2px;">🗑️</button>' : '')
       + '</td></tr>';
   }).join('');
+}
+
+// ── হারানো (Orphaned) Item রিপেয়ার ──────────────────────────────────────
+// Item Master এ নাম বদলানোর (Edit/Merge) সময় exact-string match দিয়ে
+// DB.receives/DB.issues রিনেম করা হয় — কেস/স্পেস মিসম্যাচ থাকলে কিছু পুরনো
+// রেকর্ড রিনেম হতে বাদ পড়ে যেতে পারে। Chalan/Slip পেজ শুধু বর্তমান Item Master
+// এর নামের সাথে মেলা রেকর্ডই দেখায় (stnNames.includes(r.item)), তাই এসব
+// "এতিম" রেকর্ড ওখানে মিসিং দেখায় — যদিও raw ডাটাতে এখনো আছে।
+// এই টুল সেই এতিম নামগুলো খুঁজে বের করে, এক ক্লিকে বর্তমান কোনো Item এর
+// সাথে re-link করে দেয় (শুধু .item ফিল্ড বদলায়, Qty/Date/Chalan/Slip অপরিবর্তিত)।
+function stnFindOrphanedStnItems() {
+  var currentNames = (DB.stnItems||[]).map(function(it){ return it.name; });
+  var currentSet = {};
+  currentNames.forEach(function(n){ currentSet[n] = true; });
+
+  var orphans = {}; // name -> {count, qty, recCount, issCount}
+  (DB.receives||[]).forEach(function(r){
+    if (r.group !== 'Stationery' || !r.item || currentSet[r.item]) return;
+    if (!orphans[r.item]) orphans[r.item] = {recQty:0, recCount:0, issQty:0, issCount:0};
+    orphans[r.item].recQty += Number(r.qty)||0;
+    orphans[r.item].recCount++;
+  });
+  (DB.issues||[]).forEach(function(r){
+    if (r.group !== 'Stationery' || !r.item || currentSet[r.item]) return;
+    if (!orphans[r.item]) orphans[r.item] = {recQty:0, recCount:0, issQty:0, issCount:0};
+    orphans[r.item].issQty += Number(r.qty)||0;
+    orphans[r.item].issCount++;
+  });
+  return orphans;
+}
+
+function stnImOpenOrphanRepair() {
+  var orphans = stnFindOrphanedStnItems();
+  var names = Object.keys(orphans);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'stn-orphan-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;';
+
+  if (!names.length) {
+    overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:26px 28px;width:360px;text-align:center;">'
+      + '<div style="font-size:15px;font-weight:700;color:#1a6b3a;margin-bottom:10px;">✅ কোনো হারানো Item নেই!</div>'
+      + '<div style="font-size:12px;color:#666;margin-bottom:16px;">সব Receive/Issue রেকর্ড বর্তমান Item Master এর সাথে ঠিকভাবে মিলছে।</div>'
+      + '<button onclick="document.body.removeChild(document.getElementById(\'stn-orphan-overlay\'))" style="padding:9px 20px;background:#1a6b3a;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;">ঠিক আছে</button></div>';
+    document.body.appendChild(overlay);
+    return;
+  }
+
+  var itemOptions = (DB.stnItems||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); })
+    .map(function(it){ return '<option value="'+it.id+'">'+_esc(it.name)+'</option>'; }).join('');
+
+  var rowsHtml = names.map(function(nm, i){
+    var o = orphans[nm];
+    var rowId = 'orphan-row-'+i;
+    return '<div id="'+rowId+'" style="border:1px solid #f0d9b5;background:#fffaf0;border-radius:8px;padding:10px 12px;margin-bottom:8px;">'
+      + '<div style="font-weight:700;color:#b9770e;font-size:13px;">⚠️ "'+_esc(nm)+'"</div>'
+      + '<div style="font-size:11px;color:#777;margin:3px 0 8px;">Receive: '+o.recCount+' রেকর্ড ('+o.recQty+' qty) &nbsp;|&nbsp; Issue: '+o.issCount+' রেকর্ড ('+o.issQty+' qty)</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;">'
+      + '<select id="orphan-target-'+i+'" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;"><option value="">— বর্তমান কোন Item এর সাথে যুক্ত হবে? —</option>'+itemOptions+'</select>'
+      + '<button onclick="stnImRepairOrphan('+i+', '+JSON.stringify(nm)+')" style="padding:6px 14px;background:#1a6b3a;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;">🔗 রিপেয়ার</button>'
+      + '</div></div>';
+  }).join('');
+
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:22px 24px;width:520px;max-height:82vh;overflow-y:auto;box-shadow:0 15px 50px rgba(0,0,0,0.3);">'
+    + '<div style="font-size:16px;font-weight:700;color:#333;margin-bottom:6px;">🔧 হারানো Item রিপেয়ার</div>'
+    + '<div style="font-size:12px;color:#777;margin-bottom:14px;">নিচের নামগুলো বর্তমান Item Master এ নেই — তাই Chalan/Slip পেজে মিসিং দেখাচ্ছে। প্রতিটার জন্য সঠিক বর্তমান Item সিলেক্ট করে "রিপেয়ার" চাপুন।</div>'
+    + rowsHtml
+    + '<div style="text-align:right;margin-top:10px;"><button onclick="document.body.removeChild(document.getElementById(\'stn-orphan-overlay\'))" style="padding:8px 18px;background:#f0f0f0;border:none;border-radius:7px;cursor:pointer;font-size:12px;">বন্ধ করুন</button></div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function stnImRepairOrphan(rowIdx, orphanName) {
+  var sel = document.getElementById('orphan-target-'+rowIdx);
+  var targetId = sel ? sel.value : '';
+  if (!targetId) { toast('⚠️ আগে একটা Item সিলেক্ট করুন!', 'warning'); return; }
+  var target = (DB.stnItems||[]).find(function(it){ return it.id === targetId; });
+  if (!target) { toast('❌ Item পাওয়া যায়নি!', 'error'); return; }
+
+  var recCount = 0, issCount = 0;
+  (DB.receives||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) { r.item = target.name; recCount++; } });
+  (DB.issues||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) { r.item = target.name; issCount++; } });
+
+  // Requisition ও Requisition Record এও (নাম ম্যাচ থাকলে) সিঙ্ক করে দাও
+  var reqs = DB.stnRequisitions || {};
+  Object.keys(reqs).forEach(function(k){
+    var m = reqs[k]; if (!m||!m.items) return;
+    m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
+  });
+  var recs = DB.stnRecordOnly || {};
+  Object.keys(recs).forEach(function(k){
+    var m = recs[k]; if (!m||!m.items) return;
+    m.items.forEach(function(ri){ if (ri.name===orphanName) ri.name = target.name; });
+  });
+  DB.stnRecordOnly = recs;
+
+  triggerAutoSave();
+  toast('✅ "'+orphanName+'" → "'+target.name+'" এ রিপেয়ার হয়েছে ('+recCount+' Receive + '+issCount+' Issue রেকর্ড)', 'success');
+
+  var row = document.getElementById('orphan-row-'+rowIdx);
+  if (row) row.remove();
+
+  // অন্য পেজ খোলা থাকলে রিফ্রেশ করে দাও
+  try { if (typeof renderStationeryDashboard === 'function') renderStationeryDashboard(); } catch(e){}
+  try { if (typeof stnItemMasterRender === 'function') stnItemMasterRender(); } catch(e){}
 }
 
 function stnImMergeDuplicates() {
