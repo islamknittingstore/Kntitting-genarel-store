@@ -3642,6 +3642,7 @@ window.iglSaveNavVisibility = function() {
         </span>
         <button onclick="stnReqSimplePrint('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
         <button onclick="stnReqPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💰 Print (Rate সহ)</button>
+        <button onclick="stnReqPrintDiffPercent()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition Record এর Print (Diff/%) এর মতোই — Req Qty, Rcv Qty, Diff ও % কম/বেশি সহ">🖨️ Print (Diff/%)</button>
         <button onclick="stnReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate সহ)</button>
         <button onclick="stnReqPrintComparisonNoRate()" style="background:linear-gradient(135deg,#16a085,#1abc9c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate ছাড়া)</button>
         <button onclick="stnReqExcelDownload()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📥 Excel Download</button>
@@ -11278,6 +11279,92 @@ function stnReqPrintWithRate() {
 }
 
 // ── Print ৩: Requisition Qty+Amount vs Receive Qty+Amount ──
+// ── Requisition Record এর "Print (Diff/%)" এর মতোই — কিন্তু Requisition পেজের
+//     নিজস্ব checklist ডাটা (reqQty) ও প্রকৃত Receive (rcvQty) থেকে Diff ও % দেখায় ──
+function stnReqPrintDiffPercent() {
+  var items = stnReqGetSelected();
+  if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
+  var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
+  var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = title + ' — ' + (MONTHS[month]||'') + ' ' + year;
+  var mStr  = year + '-' + String(month).padStart(2,'0');
+  var mFrom = mStr + '-01';
+  var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+
+  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery'; });
+  var totalReq = 0, totalRcv = 0;
+
+  var rows = items.map(function(it, i){
+    var reqQty = Number(it.qty)||0;
+    var rcvQty = allRcv
+      .filter(function(r){ return r.item===it.name && r.date>=mFrom && r.date<=mTo; })
+      .reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+    var diff = rcvQty - reqQty;
+    totalReq += reqQty;
+    totalRcv += rcvQty;
+    var pctTxt = '-';
+    if (reqQty > 0) {
+      var pct = (diff / reqQty) * 100;
+      pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    }
+    return '<tr style="background:'+(i%2===1?'#f5f5f5':'#fff')+'">'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;">'+(i+1)+'</td>'
+      + '<td style="padding:6px 8px;border:0.5px solid #999;">'+it.name+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;">'+(it.unit||'Pcs')+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;font-weight:600;">'+reqQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;font-weight:600;">'+rcvQty+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;font-weight:700;">'+(diff>=0?'+':'')+diff+'</td>'
+      + '<td style="text-align:center;padding:6px 4px;border:0.5px solid #999;font-weight:700;">'+pctTxt+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var totalDiff = totalRcv - totalReq;
+  var totalPctTxt = '-';
+  if (totalReq > 0) {
+    var totalPct = (totalDiff / totalReq) * 100;
+    totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
+  }
+
+  var fsEl = document.getElementById('req-print-font-size');
+  var fs = fsEl ? (Number(fsEl.value) || 9) : 9;
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:12mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
+    + 'table{width:100%;border-collapse:collapse;}th{padding:7px 5px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 10px;border-bottom:2px solid #000;margin-bottom:10px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:11px;color:#000;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div></div>'
+    + '<table><thead><tr>'
+    + '<th style="text-align:center;width:32px;">SL</th>'
+    + '<th style="text-align:left;">Item Name</th>'
+    + '<th style="text-align:center;width:60px;">Unit</th>'
+    + '<th style="text-align:center;width:80px;">Req Qty</th>'
+    + '<th style="text-align:center;width:80px;">Rcv Qty</th>'
+    + '<th style="text-align:center;width:70px;">Diff</th>'
+    + '<th style="text-align:center;width:80px;">% কম/বেশি</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#eaeaea;font-weight:700;">'
+    + '<td colspan="3" style="text-align:right;padding:7px 8px;border:0.5px solid #999;">মোট (Total):</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #999;">'+totalReq+'</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #999;">'+totalRcv+'</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #999;">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
+    + '<td style="text-align:center;padding:7px;border:0.5px solid #999;">'+totalPctTxt+'</td>'
+    + '</tr></tfoot></table>'
+    + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=1050,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
 function stnReqPrintComparison() {
   var items = stnReqGetSelected();
   if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
@@ -23786,14 +23873,51 @@ function stnImMergeDuplicates() {
       if(!master.unit && dup.unit) master.unit = dup.unit;
       // Rename all issue/receive records pointing to dup → master name
       var dupName = dup.name;
+      var dupId   = dup.id;
       var masterName = master.name;
+      var masterId   = master.id;
       (DB.issues||[]).forEach(function(r){ if(r.item===dupName && r.group==='Stationery') r.item=masterName; });
       (DB.receives||[]).forEach(function(r){ if(r.item===dupName && r.group==='Stationery') r.item=masterName; });
+
+      // ⚠️ শুধু নাম বদলালে চলবে না — id-ও master.id তে remap করতে হবে, নাহলে
+      // পুরনো (dup) id-এর সাথে যুক্ত Requisition checklist ও Requisition Record এর
+      // ডাটা "এতিম" হয়ে যায় (localStorage এ থেকে যায় কিন্তু পেজে আর দেখায় না,
+      // কারণ রেন্ডারিং সবসময় বর্তমান Item Master এর id দিয়ে খোঁজে)।
       var reqs = DB.stnRequisitions||{};
       Object.keys(reqs).forEach(function(k){
         var m=reqs[k]; if(!m||!m.items) return;
-        m.items.forEach(function(ri){ if(ri.name===dupName) ri.name=masterName; });
+        var masterRow = m.items.find(function(ri){ return ri.id===masterId; });
+        var dupRow    = m.items.find(function(ri){ return ri.id===dupId || ri.name===dupName; });
+        if (!dupRow) return;
+        dupRow.name = masterName;
+        if (masterRow && masterRow !== dupRow) {
+          masterRow.qty    = (Number(masterRow.qty)||0) + (Number(dupRow.qty)||0);
+          masterRow.amount = (Number(masterRow.amount)||0) + (Number(dupRow.amount)||0);
+          if (dupRow.remarks && !masterRow.remarks) masterRow.remarks = dupRow.remarks;
+          m.items = m.items.filter(function(ri){ return ri !== dupRow; });
+        } else {
+          dupRow.id = masterId;
+        }
       });
+
+      var recs = DB.stnRecordOnly||{};
+      Object.keys(recs).forEach(function(k){
+        var m=recs[k]; if(!m||!m.items) return;
+        var masterRow = m.items.find(function(ri){ return ri.id===masterId; });
+        var dupRow    = m.items.find(function(ri){ return ri.id===dupId || ri.name===dupName; });
+        if (!dupRow) return;
+        dupRow.name = masterName;
+        if (masterRow && masterRow !== dupRow) {
+          masterRow.reqQty  = (Number(masterRow.reqQty)||0)  + (Number(dupRow.reqQty)||0);
+          masterRow.recvQty = (Number(masterRow.recvQty)||0) + (Number(dupRow.recvQty)||0);
+          if (dupRow.remarks && !masterRow.remarks) masterRow.remarks = dupRow.remarks;
+          m.items = m.items.filter(function(ri){ return ri !== dupRow; });
+        } else {
+          dupRow.id = masterId;
+        }
+      });
+      DB.stnRecordOnly = recs;
+
       toRemove.push(arr[i].idx);
       merged++;
     }
@@ -23864,6 +23988,14 @@ function stnImEdit(idx) {
         m.items.forEach(function(ri){ if(ri.name===oldName) ri.name=newName; });
       });
       localStorage.setItem('igl_stn_requisitions', JSON.stringify(reqs));
+
+      // Requisition Record এও নাম আপডেট করো (id একই থাকে বলে data হারায় না, শুধু নাম sync করা)
+      var recs = DB.stnRecordOnly || {};
+      Object.keys(recs).forEach(function(k){
+        var m = recs[k]; if(!m||!m.items) return;
+        m.items.forEach(function(ri){ if(ri.id===it.id || ri.name===oldName) ri.name=newName; });
+      });
+      DB.stnRecordOnly = recs;
     }
     _triggerAutoSave();
     document.body.removeChild(overlay);
