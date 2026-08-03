@@ -5314,6 +5314,7 @@ function ok(msg) {
           </select>
           <input type="number" class="form-control" id="mss-year" value="2026" min="2020" max="2050" style="width:90px;">
           <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
+          <button class="btn btn-sm no-print" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mbOpenModal()">📝 প্রডাকশন বেজলাইন সেট করুন</button>
           <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
             <input type="number" id="mss-print-font-size" value="9" min="5" max="14" step="0.5"
@@ -5323,7 +5324,7 @@ function ok(msg) {
           <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mssPrintSummary()">🖨️ Print (এই মাসের শেষ পর্যন্ত)</button>
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
-          মাস সিলেক্ট করে Refresh চাপলে <b>ওই মাসের শেষ তারিখ পর্যন্ত</b> হিসাব করা Last Set ও Production দেখাবে (চলতি মাস সিলেক্ট করলে আজ পর্যন্ত)
+          মাস সিলেক্ট করে Refresh চাপলে <b>ওই মাসের শেষ তারিখ পর্যন্ত</b> হিসাব করা Last Set ও Production দেখাবে (চলতি মাস সিলেক্ট করলে আজ পর্যন্ত) | যেসব মেশিনের পুরনো (Excel Import না থাকা) সেট চেঞ্জের প্রডাকশন হাতে নেই, তাদের জন্য <b>📝 প্রডাকশন বেজলাইন</b> বাটন দিয়ে একটা তারিখ পর্যন্ত মোট প্রডাকশন বসিয়ে দিন — তারপর থেকে শুধু Excel Import যোগ হবে
         </div>
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
@@ -21415,6 +21416,127 @@ function mrdSaveDate(machineId, dateStr) {
   });
 }
 
+// ── মেশিন প্রডাকশন "বেজলাইন" — যেসব পুরনো Set Change এর Excel Import ডাটা নেই
+// (যেমন ২০২০ সালের আগের), তাদের জন্য একটা তারিখ পর্যন্ত মোট প্রডাকশন হাতে বসিয়ে
+// দেওয়া যায়। এরপর "Production Since Last Set" = এই বেজলাইন amount + ওই তারিখের
+// পরের Excel Import ডাটার যোগফল। ──
+// path: igl_machine_baseline_v2 = { encodedMachineId: {asOf:'YYYY-MM-DD', amount:number}, ... }
+window._machBaselineCache = null; // null = এখনো লোড হয়নি
+
+function mbLoadAll(cb) {
+  if (window._machBaselineCache !== null) { cb(window._machBaselineCache); return; }
+  if (typeof _fbDb === 'undefined') {
+    var local = JSON.parse(localStorage.getItem('igl_machbaseline') || '{}');
+    window._machBaselineCache = local;
+    cb(local);
+    return;
+  }
+  _fbDb.ref('igl_machine_baseline_v2').once('value').then(function(snap){
+    var raw = snap.val() || {};
+    var v = {};
+    Object.keys(raw).forEach(function(k){ v[_mpKeyDecode(k)] = raw[k]; });
+    window._machBaselineCache = v;
+    cb(v);
+  }).catch(function(err){
+    console.error('baseline load error', err);
+    var local = JSON.parse(localStorage.getItem('igl_machbaseline') || '{}');
+    window._machBaselineCache = local;
+    cb(local);
+  });
+}
+
+function mbSaveBaseline(machineId, asOfDate, amount) {
+  window._machBaselineCache = window._machBaselineCache || {};
+  if (asOfDate && amount !== null) {
+    window._machBaselineCache[machineId] = { asOf: asOfDate, amount: amount };
+  } else {
+    delete window._machBaselineCache[machineId];
+  }
+  localStorage.setItem('igl_machbaseline', JSON.stringify(window._machBaselineCache));
+
+  if (typeof _fbDb === 'undefined') return;
+  if (typeof fbStatus === 'function') fbStatus('saving', 'বেজলাইন সেভ হচ্ছে...');
+  var encodedKey = _mpKeyEncode(machineId);
+  var ref = _fbDb.ref('igl_machine_baseline_v2/' + encodedKey);
+  var p = (asOfDate && amount !== null) ? ref.set({ asOf: asOfDate, amount: amount }) : ref.remove();
+  p.then(function(){
+    if (typeof fbStatus === 'function') fbStatus('saved', '✅ বেজলাইন Synced');
+    if (typeof toast === 'function') toast('✅ বেজলাইন সেভ হয়েছে', 'success');
+  }).catch(function(err){
+    console.error('baseline save error', err);
+    if (typeof fbStatus === 'function') fbStatus('error', '❌ বেজলাইন sync failed');
+    if (typeof toast === 'function') toast('⚠️ বেজলাইন সেভ ব্যর্থ: '+(err&&err.message?err.message:''), 'warning');
+  });
+}
+
+// ── বেজলাইন সেট করার মোডাল ──
+function _mbEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mbOpenModal() {
+  mbLoadAll(function(baselines){
+    var overlay = document.createElement('div');
+    overlay.id = 'mb-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:14px;';
+
+    var machines = getNeedleMachines()
+      .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+      .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+
+    var machOptions = machines.map(function(m){
+      return '<option value="'+m.id.replace(/"/g,'&quot;')+'">'+(m.erp?('#'+m.erp+' — '):'')+m.id+'</option>';
+    }).join('');
+
+    var existingRows = Object.keys(baselines).map(function(mid){
+      var b = baselines[mid];
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;">'
+        + '<span><b>'+_mbEsc(mid)+'</b> — '+_fmtDMY(b.asOf)+' পর্যন্ত <span style="color:#1e8449;font-weight:700;">'+Number(b.amount).toFixed(1)+' kg</span></span>'
+        + '<a href="#" onclick="mbDeleteBaseline(\''+mid.replace(/'/g,"\\'")+'\'); return false;" style="color:#c0392b;font-size:11px;">🗑️ মুছুন</a>'
+        + '</div>';
+    }).join('') || '<div style="font-size:12px;color:#888;padding:8px;">এখনো কোনো বেজলাইন সেট করা হয়নি</div>';
+
+    overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:20px 22px;width:420px;max-width:100%;max-height:90vh;overflow-y:auto;">'
+      + '<div style="font-size:15px;font-weight:700;color:#117a65;margin-bottom:6px;">📝 প্রডাকশন বেজলাইন সেট করুন</div>'
+      + '<div style="font-size:11.5px;color:#666;margin-bottom:14px;">যেসব মেশিনের পুরনো সেট চেঞ্জের Excel Import ডাটা নেই, সেই মেশিন সিলেক্ট করে একটা তারিখ পর্যন্ত মোট প্রডাকশন (kg) বসিয়ে দিন। এই তারিখের <b>পরের</b> Excel Import ডাটা এর সাথে যোগ হয়ে মোট Production দেখাবে।</div>'
+      + '<label style="font-size:12px;font-weight:600;color:#333;">মেশিন</label>'
+      + '<select id="mb-machine" class="form-control" style="width:100%;margin:4px 0 10px;">'+machOptions+'</select>'
+      + '<label style="font-size:12px;font-weight:600;color:#333;">তারিখ পর্যন্ত (YYYY-MM-DD)</label>'
+      + '<input type="date" id="mb-date" class="form-control" style="width:100%;margin:4px 0 10px;" value="'+todayStr()+'">'
+      + '<label style="font-size:12px;font-weight:600;color:#333;">মোট প্রডাকশন (kg)</label>'
+      + '<input type="number" id="mb-amount" class="form-control" style="width:100%;margin:4px 0 14px;" placeholder="যেমন 12500" step="0.1">'
+      + '<div style="display:flex;gap:8px;margin-bottom:16px;">'
+      + '<button onclick="mbSubmitModal()" style="flex:1;padding:9px;background:#117a65;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;">💾 সেভ করুন</button>'
+      + '<button onclick="document.body.removeChild(document.getElementById(\'mb-overlay\'))" style="flex:1;padding:9px;background:#eee;color:#333;border:none;border-radius:7px;cursor:pointer;">বাতিল</button>'
+      + '</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#333;margin-bottom:4px;">বর্তমান বেজলাইনগুলো</div>'
+      + '<div style="border:1px solid #eee;border-radius:8px;">'+existingRows+'</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+  });
+}
+
+function mbSubmitModal() {
+  var machineId = (document.getElementById('mb-machine')||{}).value;
+  var dateVal = (document.getElementById('mb-date')||{}).value;
+  var amountVal = (document.getElementById('mb-amount')||{}).value;
+  if (!machineId) { toast('⚠️ মেশিন সিলেক্ট করুন', 'warning'); return; }
+  if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) { toast('⚠️ সঠিক তারিখ দিন', 'warning'); return; }
+  var amount = parseFloat(amountVal);
+  if (isNaN(amount) || amount < 0) { toast('⚠️ সঠিক প্রডাকশন পরিমাণ (kg) দিন', 'warning'); return; }
+
+  mbSaveBaseline(machineId, dateVal, amount);
+  var overlay = document.getElementById('mb-overlay');
+  if (overlay) document.body.removeChild(overlay);
+  renderMachineSetSummary();
+}
+
+function mbDeleteBaseline(machineId) {
+  if (!confirm('"'+machineId+'" এর বেজলাইন মুছে ফেলবেন?')) return;
+  mbSaveBaseline(machineId, null, null);
+  var overlay = document.getElementById('mb-overlay');
+  if (overlay) document.body.removeChild(overlay);
+  renderMachineSetSummary();
+  mbOpenModal();
+}
+
 // ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
 function renderNeedleMonthlyProd() {
   var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
@@ -22163,6 +22285,8 @@ function renderMachineSetSummary() {
   // (আগে ফিক্সড ১৮ মাস ছিল, তাই ১৮ মাসের বেশি পুরনো Running Date/Import-এর data বাদ পড়ে যেত)
   mrdLoadAll(function(rd){
     var runDates = rd || {};
+    mbLoadAll(function(bl){
+    var baselines = bl || {};
 
     var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
     machines.forEach(function(m){
@@ -22189,7 +22313,7 @@ function renderMachineSetSummary() {
 
     var monthKeys = Object.keys(neededMonths);
     var loaded = 0;
-    function checkDone(){ if (loaded === monthKeys.length) finishRender(runDates, monthKeys); }
+    function checkDone(){ if (loaded === monthKeys.length) finishRender(runDates, baselines, monthKeys); }
     monthKeys.forEach(function(key){
       mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
         loaded++;
@@ -22197,12 +22321,13 @@ function renderMachineSetSummary() {
       });
     });
     if (monthKeys.length === 0) checkDone();
+    });
   });
 
-  function finishRender(runDates, monthKeys) {
+  function finishRender(runDates, baselines, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var t = '<div style="padding:10px 15px;">';
-    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে | 🆕 = নতুন মেশিন Running Date থেকে হিসাব</div>';
+    t += '<div style="font-size:11px;color:#666;margin-bottom:6px;">📅 হিসাব করা হয়েছে <b>'+monthNames[selMonth-1]+' '+selYear+'</b> — <b>'+_fmtDMY(asOfDate)+'</b> পর্যন্ত ধরে | 🆕 = নতুন মেশিন Running Date থেকে হিসাব | 📝 = হাতে বসানো বেজলাইন + Excel Import যোগ করা হয়েছে</div>';
     t += '<div class="no-print" style="margin-bottom:6px;">';
     t += '<a href="#" onclick="mssToggleAllPrint(true); return false;" style="font-size:11px;margin-right:12px;">☑️ সব সিলেক্ট</a>';
     t += '<a href="#" onclick="mssToggleAllPrint(false); return false;" style="font-size:11px;">⬜ সব বাদ দিন</a>';
@@ -22227,8 +22352,21 @@ function renderMachineSetSummary() {
         if (rd) { effectiveDate = rd; isNewMachine = true; }
       }
 
-      var prodSince = 0;
-      if (effectiveDate) {
+      // এই মেশিনের বেজলাইন আছে কিনা চেক করা — থাকলে (এই সেট-পিরিয়ডের মধ্যে পড়লে,
+      // অর্থাৎ effectiveDate এর পরে বা সমান) সেই তারিখ থেকেই Excel যোগফল শুরু হবে,
+      // আর বেজলাইন amount টা শুরুর ভিত্তি হিসেবে যোগ হবে
+      var baseline = baselines[m.id];
+      var excelStartDate = effectiveDate;
+      var baselineAmount = 0;
+      var usedBaseline = false;
+      if (baseline && baseline.asOf && baseline.asOf <= asOfDate && (!effectiveDate || baseline.asOf >= effectiveDate)) {
+        excelStartDate = baseline.asOf;
+        baselineAmount = Number(baseline.amount) || 0;
+        usedBaseline = true;
+      }
+
+      var prodSince = baselineAmount;
+      if (effectiveDate || usedBaseline) {
         monthKeys.forEach(function(key){
           var parts = key.split('_');
           var y = Number(parts[0]), mo = Number(parts[1]);
@@ -22236,7 +22374,8 @@ function renderMachineSetSummary() {
           var mProd = data[m.id] || {};
           Object.keys(mProd).forEach(function(dayNum){
             var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
-            if (dayStr >= effectiveDate && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+            var afterStart = usedBaseline ? (dayStr > excelStartDate) : (dayStr >= excelStartDate);
+            if (afterStart && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
           });
         });
       }
@@ -22258,7 +22397,8 @@ function renderMachineSetSummary() {
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+lastSetCell+'</td>';
-      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toFixed(1):'-')+'</td>';
+      var baselineTag = usedBaseline ? ' <span title="'+_fmtDMY(baseline.asOf)+' পর্যন্ত হাতে বসানো '+baselineAmount.toFixed(1)+' kg + তারপরের Excel Import" style="font-size:9px;color:#117a65;">📝</span>' : '';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toFixed(1):'-')+baselineTag+'</td>';
       t += '</tr>';
     });
 
