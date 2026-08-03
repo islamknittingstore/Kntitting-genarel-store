@@ -31633,17 +31633,23 @@ function ndlConShowDayDetail(mode, dateStr){
   var dayRcvs = allRcvs.filter(function(r){ return r.date === dateStr; });
   var nm = ndlGetMaster ? ndlGetMaster() : [];
 
-  var groups = {}; // code -> {qty, slips:{}}
+  var groups = {}; // code -> {qty, slips:{}, ord}
+  var nmOrder = {}; // needle id -> position in Needle Account master list (এটাই আসল সিরিয়াল)
+  nm.forEach(function(n, i){ nmOrder[n.id] = i; });
+
   dayRcvs.forEach(function(r){
     var n = nm.find(function(x){ return x.id === r.needleId; });
     var code = n ? (n.code || n.name || r.needleId) : (r.needleCode || r.needleId || r.needle || '(অজানা)');
-    if (!groups[code]) groups[code] = { qty: 0, slips: {} };
+    if (!groups[code]) {
+      // Needle Account (master list)-এ থাকা সিরিয়াল অনুযায়ী অর্ডার; না পাওয়া গেলে সবার শেষে
+      groups[code] = { qty: 0, slips: {}, ord: (r.needleId !== undefined && nmOrder.hasOwnProperty(r.needleId)) ? nmOrder[r.needleId] : 999999 };
+    }
     groups[code].qty += Number(r.qty) || 0;
     var slip = r.slipNo || r.challan;
     if (slip) groups[code].slips[slip] = true;
   });
 
-  var codes = Object.keys(groups).sort();
+  var codes = Object.keys(groups).sort(function(a, b){ return groups[a].ord - groups[b].ord; });
   var totalQty = codes.reduce(function(s, c){ return s + groups[c].qty; }, 0);
 
   var rowsHtml = codes.map(function(code, i){
