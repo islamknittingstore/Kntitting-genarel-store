@@ -5316,6 +5316,7 @@ function ok(msg) {
           <input type="number" class="form-control" id="mss-year" value="2026" min="2020" max="2050" style="width:90px;">
           <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
           <button class="btn btn-sm no-print" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mbOpenModal()">📝 প্রডাকশন বেজলাইন সেট করুন</button>
+          <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mmpOpenReport()">📅 মাসিক প্রডাকশন রিপোর্ট (সেট চেঞ্জ থেকে)</button>
           <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
             <input type="number" id="mss-print-font-size" value="9" min="5" max="14" step="0.5"
@@ -21661,6 +21662,210 @@ function mbDeleteBaseline(machineId) {
   });
 }
 
+// =====================================================================
+//  মেশিন-ওয়াইজ মাসিক প্রডাকশন রিপোর্ট (শেষ সেট চেঞ্জ থেকে) — CO Sir কে
+//  পরের সেট চেঞ্জের অনুমতি চাওয়ার জন্য ব্যবহৃত হয়। সম্পূর্ণ read-only —
+//  কোনো ডাটা এডিট/সেভ করে না, শুধু বিদ্যমান Excel Import + বেজলাইন থেকে
+//  মাসভিত্তিক যোগফল বের করে দেখায় (Machine Set Summary এর হিসাবের সাথে সামঞ্জস্যপূর্ণ)।
+// =====================================================================
+function _mmpEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _mmpMonName(y, m) {
+  var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return names[m-1] + '-' + String(y).slice(2);
+}
+function _mmpFmtDate(d) {
+  if (!d) return '';
+  var p = d.split('-');
+  var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return Number(p[2]) + '-' + names[Number(p[1])-1] + '-' + p[0].slice(2);
+}
+
+function mmpOpenReport() {
+  var machines = getNeedleMachines()
+    .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
+    .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
+
+  var options = machines.map(function(m){
+    return '<option value="'+_mmpEsc(m.erp?('#'+m.erp+' — '+m.id):m.id)+'" data-id="'+_mmpEsc(m.id)+'">';
+  }).join('');
+
+  var overlay = document.createElement('div');
+  overlay.id = 'mmp-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:14px;';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:13px;padding:20px 22px;width:900px;max-width:100%;max-height:92vh;overflow-y:auto;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    + '<div style="font-size:15px;font-weight:700;color:#1a5276;">📅 মাসিক প্রডাকশন রিপোর্ট (শেষ সেট চেঞ্জ থেকে)</div>'
+    + '<button onclick="document.body.removeChild(document.getElementById(\'mmp-overlay\'))" style="background:#eee;border:none;color:#333;font-size:16px;width:28px;height:28px;border-radius:50%;cursor:pointer;">×</button>'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:#666;margin-bottom:12px;">মেশিন নাম্বার বা নাম লিখুন/সিলেক্ট করুন — শেষ সেট চেঞ্জের তারিখ থেকে আজ পর্যন্ত মাসভিত্তিক প্রডাকশন দেখাবে (CO Sir থেকে পারমিশন আনার জন্য এই রিপোর্ট প্রিন্ট করতে পারবেন)</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:14px;">'
+    + '<input list="mmp-machine-dl" id="mmp-machine-input" class="form-control" placeholder="যেমন: #97 বা মেশিনের নাম" style="flex:1;" onkeydown="if(event.key===\'Enter\') mmpGenerate();">'
+    + '<datalist id="mmp-machine-dl">'+options+'</datalist>'
+    + '<button onclick="mmpGenerate()" style="padding:8px 16px;background:#1a5276;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;white-space:nowrap;">🔍 দেখুন</button>'
+    + '</div>'
+    + '<div id="mmp-report-body"></div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(function(){ var inp=document.getElementById('mmp-machine-input'); if(inp) inp.focus(); }, 50);
+}
+
+function _mmpFindMachine(query) {
+  var machines = getNeedleMachines();
+  query = String(query||'').trim();
+  if (!query) return null;
+  var hashMatch = query.match(/^#?(\S+?)(\s*—.*)?$/);
+  var erpQuery = hashMatch ? hashMatch[1].replace(/^#/,'') : query;
+  // ১) exact ERP নাম্বার মিল
+  var byErp = machines.find(function(m){ return String(m.erp||'').toLowerCase() === erpQuery.toLowerCase(); });
+  if (byErp) return byErp;
+  // ২) "#97 — Vilike..." ফরম্যাট থেকে নাম অংশ বের করে exact id মিল
+  var nameFromOption = query.replace(/^#\S+\s*—\s*/, '');
+  var byIdExact = machines.find(function(m){ return m.id.toLowerCase() === nameFromOption.toLowerCase(); });
+  if (byIdExact) return byIdExact;
+  // ৩) partial নাম মিল (fallback)
+  var byIdPartial = machines.find(function(m){ return m.id.toLowerCase().indexOf(query.toLowerCase()) >= 0; });
+  return byIdPartial || null;
+}
+
+function mmpGenerate() {
+  var query = (document.getElementById('mmp-machine-input')||{}).value || '';
+  var m = _mmpFindMachine(query);
+  var body = document.getElementById('mmp-report-body');
+  if (!body) return;
+  if (!m) { body.innerHTML = '<div style="padding:14px;color:#c0392b;font-size:13px;">❌ এই নামে/নাম্বারে কোনো মেশিন পাওয়া যায়নি — ঠিকমতো সিলেক্ট করুন</div>'; return; }
+
+  body.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;">⏳ লোড হচ্ছে...</div>';
+
+  var todayS = todayStr();
+
+  // এই মেশিনের শেষ "New Set" রেকর্ড খুঁজে বের করা (Machine Set Summary এর একই লজিক)
+  var setDates = NDB.needles
+    .filter(function(n){ return (n.type === 'newset' || n.source === 'nsr') && n.machine === m.id && n.date && n.date <= todayS; })
+    .map(function(n){ return n.date; });
+  setDates = Array.from(new Set(setDates)).sort(function(a,b){ return a<b?1:-1; });
+  var lastSet = setDates[0] || '';
+
+  mrdLoadAll(function(rd){
+    var runDates = rd || {};
+    mbLoadAll(function(bl){
+      var baselines = bl || {};
+
+      var isNewMachine = false;
+      var effectiveDate = lastSet;
+      if (!lastSet) {
+        var rdVal = runDates[m.id] || '';
+        if (rdVal) { effectiveDate = rdVal; isNewMachine = true; }
+      }
+
+      if (!effectiveDate) {
+        body.innerHTML = '<div style="padding:14px;color:#c0392b;font-size:13px;">❌ এই মেশিনের কোনো "New Set" রেকর্ড বা Running Date পাওয়া যায়নি — রিপোর্ট বানানো যাচ্ছে না</div>';
+        return;
+      }
+
+      var baseline = baselines[m.id];
+      var excelStartDate = effectiveDate;
+      var baselineAmount = 0;
+      var usedBaseline = false;
+      if (baseline && baseline.asOf && baseline.asOf <= todayS && baseline.asOf >= effectiveDate) {
+        excelStartDate = baseline.asOf;
+        baselineAmount = Number(baseline.amount) || 0;
+        usedBaseline = true;
+      }
+
+      // বেজলাইন থাকলে সেই মাস থেকে, না থাকলে effectiveDate এর মাস থেকে শুরু
+      var startY = Number(excelStartDate.split('-')[0]), startM = Number(excelStartDate.split('-')[1]);
+      var endY = Number(todayS.split('-')[0]), endM = Number(todayS.split('-')[1]);
+
+      var monthList = [];
+      var y = startY, mo = startM, guard = 0;
+      while ((y < endY || (y === endY && mo <= endM)) && guard < 400) {
+        monthList.push({y:y, m:mo});
+        mo++; if (mo > 12) { mo = 1; y++; }
+        guard++;
+      }
+
+      var loaded = 0;
+      monthList.forEach(function(mk){
+        mpLoadMonth(mk.y, mk.m, function(){
+          loaded++;
+          if (loaded === monthList.length) renderReport();
+        });
+      });
+      if (monthList.length === 0) renderReport();
+
+      function renderReport() {
+        var monthRows = monthList.map(function(mk, idx){
+          var key = _mpKey(mk.y, mk.m);
+          var data = window._machProdCache[key] || {};
+          var mProd = data[m.id] || {};
+          var sum = 0;
+          Object.keys(mProd).forEach(function(dayNum){
+            var dayStr = mk.y + '-' + String(mk.m).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+            var afterStart = usedBaseline ? (dayStr > excelStartDate) : (dayStr >= excelStartDate);
+            if (afterStart && dayStr <= todayS) sum += parseFloat(mProd[dayNum]) || 0;
+          });
+          if (idx === 0 && usedBaseline) sum += baselineAmount; // বেজলাইনের প্রথম মাসেই যোগ হবে
+          return { label: _mmpMonName(mk.y, mk.m), value: sum };
+        });
+        var total = monthRows.reduce(function(s,r){ return s+r.value; }, 0);
+
+        window._mmpLastReport = { machine: m, monthRows: monthRows, total: total, startDate: excelStartDate, endDate: todayS, usedBaseline: usedBaseline, isNewMachine: isNewMachine };
+
+        var rowsHtml = monthRows.map(function(r, i){
+          return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+';">'
+            + '<td style="padding:7px 10px;border:1px solid #ccc;text-align:center;">'+r.label+'</td>'
+            + '<td style="padding:7px 10px;border:1px solid #ccc;text-align:center;font-weight:700;">'+Math.round(r.value).toLocaleString()+'</td>'
+            + '</tr>';
+        }).join('');
+
+        body.innerHTML = '<div style="border:1px solid #ddd;border-radius:8px;padding:14px;">'
+          + '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Month Wise production '+_mmpFmtDate(excelStartDate)+' To '+_mmpFmtDate(todayS)+'</div>'
+          + '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">ERP Machine No: '+_mmpEsc(m.erp||'-')+(usedBaseline?' <span style="font-size:11px;color:#117a65;font-weight:400;">(📝 '+_mmpFmtDate(excelStartDate)+' পর্যন্ত বেজলাইন '+baselineAmount.toLocaleString()+' kg সহ)</span>':'')+'</div>'
+          + '<table style="width:100%;border-collapse:collapse;max-width:520px;">'
+          + '<thead><tr style="background:#eaeaea;"><th style="padding:7px 10px;border:1px solid #ccc;">Month</th><th style="padding:7px 10px;border:1px solid #ccc;">'+_mmpEsc(m.id)+'</th></tr></thead>'
+          + '<tbody>'+rowsHtml+'</tbody>'
+          + '<tfoot><tr style="background:#eaeaea;font-weight:700;"><td style="padding:7px 10px;border:1px solid #ccc;text-align:center;">Total-</td><td style="padding:7px 10px;border:1px solid #ccc;text-align:center;">'+Math.round(total).toLocaleString()+'</td></tr></tfoot>'
+          + '</table>'
+          + '<div style="margin-top:12px;"><button onclick="mmpPrint()" style="padding:8px 16px;background:#c0392b;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;">🖨️ প্রিন্ট করুন</button></div>'
+          + '</div>';
+      }
+    });
+  });
+}
+
+function mmpPrint() {
+  var rep = window._mmpLastReport;
+  if (!rep) { toast('⚠️ আগে একটা রিপোর্ট দেখুন', 'warning'); return; }
+
+  var rowsHtml = rep.monthRows.map(function(r, i){
+    return '<tr style="background:'+(i%2===1?'#f4f4f4':'#fff')+';">'
+      + '<td style="padding:8px 12px;border:1px solid #000;text-align:center;">'+r.label+'</td>'
+      + '<td style="padding:8px 12px;border:1px solid #000;text-align:center;font-weight:700;">'+Math.round(r.value).toLocaleString()+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Month Wise Production</title><style>'
+    + '@page{size:A4 portrait;margin:14mm;}body{font-family:Arial,sans-serif;color:#000;margin:0;}'
+    + 'table{border-collapse:collapse;width:100%;max-width:480px;}th,td{border:1px solid #000;}'
+    + 'th{background:#eaeaea;padding:8px 12px;}'
+    + '</style></head><body>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+'</div>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:14px;">ERP Machine No: '+_mmpEsc(rep.machine.erp||'-')+'</div>'
+    + '<table>'
+    + '<thead><tr><th rowspan="2" style="width:110px;">Month</th><th>Machine Name</th></tr><tr><th>'+_mmpEsc(rep.machine.id)+'</th></tr></thead>'
+    + '<tbody>'+rowsHtml+'</tbody>'
+    + '<tfoot><tr style="background:#eaeaea;font-weight:700;"><td style="padding:8px 12px;text-align:center;">Total-</td><td style="padding:8px 12px;text-align:center;">'+Math.round(rep.total).toLocaleString()+'</td></tr></tfoot>'
+    + '</table>'
+    + '<div style="margin-top:90px;display:flex;justify-content:flex-end;">'
+    + '<div style="text-align:center;min-width:180px;"><div style="border-top:1px solid #000;padding-top:6px;font-size:12px;">Knitting Manager</div></div>'
+    + '</div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=900,height=750');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
 // ── Sheet 2: Machine Wise Needle + Production Grid (read-only display) ──
 function renderNeedleMonthlyProd() {
   var month = Number((document.getElementById('nmp-month')||{}).value || new Date().getMonth()+1);
@@ -22379,6 +22584,22 @@ function smpImportFromKnittingReport(text, machineId, resultEl) {
 }
 
 // ── Sheet 3: Machine Set & Production Summary ──
+// ── Machine Set Summary টেবিলের রো ক্লিক করলে সবুজ হাইলাইট টগল হবে — শুধু চোখে
+// ট্র্যাক করার সুবিধার জন্য (ERP থেকে Production পর্যন্ত), সম্পূর্ণ visual/স্ক্রিন-অনলি,
+// কোনো ডাটা বা প্রিন্টে প্রভাব ফেলে না ──
+function mssToggleRowHighlight(tr, event) {
+  if (event && event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'A')) return;
+  var isOn = tr.getAttribute('data-hl') === '1';
+  if (isOn) {
+    tr.setAttribute('data-hl', '0');
+    tr.style.background = tr.getAttribute('data-orig-bg') || '';
+  } else {
+    tr.setAttribute('data-orig-bg', tr.style.background);
+    tr.setAttribute('data-hl', '1');
+    tr.style.background = '#a9dfbf';
+  }
+}
+
 function renderMachineSetSummary() {
   var machines = getNeedleMachines()
     .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
@@ -22514,7 +22735,7 @@ function renderMachineSetSummary() {
         lastSetCell = '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \'\'); return false;" style="color:#c0392b;font-size:10.5px;">🆕 Running Date সেট করুন</a>';
       }
 
-      t += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">';
+      t += '<tr class="mss-row" onclick="mssToggleRowHighlight(this, event)" style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';cursor:pointer;">';
       t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" checked></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
@@ -22582,6 +22803,8 @@ function mssPrintSummary() {
 
   mrdLoadAll(function(rd){
     var runDates = rd || {};
+    mbLoadAll(function(bl){
+    var baselines = bl || {};
 
     var minY = monthEndDate.getFullYear(), minM = monthEndDate.getMonth() + 1;
     machines.forEach(function(m){
@@ -22608,7 +22831,7 @@ function mssPrintSummary() {
 
     var monthKeys = Object.keys(neededMonths);
     var loaded = 0;
-    function checkDone(){ if (loaded === monthKeys.length) doPrint(runDates, monthKeys); }
+    function checkDone(){ if (loaded === monthKeys.length) doPrint(runDates, baselines, monthKeys); }
     monthKeys.forEach(function(key){
       mpLoadMonth(neededMonths[key].y, neededMonths[key].m, function(data){
         loaded++;
@@ -22616,9 +22839,10 @@ function mssPrintSummary() {
       });
     });
     if (monthKeys.length === 0) checkDone();
+    });
   });
 
-  function doPrint(runDates, monthKeys) {
+  function doPrint(runDates, baselines, monthKeys) {
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var rows = '';
     machines.forEach(function(m, idx){
@@ -22631,8 +22855,18 @@ function mssPrintSummary() {
         var rd = runDates[m.id] || '';
         if (rd) { effectiveDate = rd; isNewMachine = true; }
       }
-      var prodSince = 0;
-      if (effectiveDate) {
+      var baseline = baselines[m.id];
+      var excelStartDate = effectiveDate;
+      var baselineAmount = 0;
+      var usedBaseline = false;
+      if (baseline && baseline.asOf && baseline.asOf <= asOfDate && (!effectiveDate || baseline.asOf >= effectiveDate)) {
+        excelStartDate = baseline.asOf;
+        baselineAmount = Number(baseline.amount) || 0;
+        usedBaseline = true;
+      }
+
+      var prodSince = baselineAmount;
+      if (effectiveDate || usedBaseline) {
         monthKeys.forEach(function(key){
           var parts = key.split('_');
           var y = Number(parts[0]), mo = Number(parts[1]);
@@ -22640,18 +22874,20 @@ function mssPrintSummary() {
           var mProd = data[m.id] || {};
           Object.keys(mProd).forEach(function(dayNum){
             var dayStr = y + '-' + String(mo).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
-            if (dayStr >= effectiveDate && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
+            var afterStart = usedBaseline ? (dayStr > excelStartDate) : (dayStr >= excelStartDate);
+            if (afterStart && dayStr <= asOfDate) prodSince += parseFloat(mProd[dayNum]) || 0;
           });
         });
       }
       var lastSetTxt = lastSet ? _fmtDMY(lastSet) : (isNewMachine ? '🆕 '+_fmtDMY(effectiveDate) : '-');
+      var baselineTagPrint = usedBaseline ? ' 📝' : '';
       rows += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
         + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:'+(isNewMachine?'#117a65':'#6c3483')+';font-weight:700;">'+lastSetTxt+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#000;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#000;font-weight:700;">'+lastSetTxt+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#000;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+baselineTagPrint+'</td>'
         + '</tr>';
     });
 
@@ -22667,7 +22903,7 @@ function mssPrintSummary() {
     html += '<div style="text-align:center;padding:6px 0;">';
     html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Set & Production Summary</div>';
     html += '<div style="font-size:9pt;color:#555;">'+monthNames[selMonth-1]+' '+selYear+' — '+_fmtDMY(asOfDate)+' পর্যন্ত হিসাব | Print Date: '+fmtDate(todayStr())+'</div></div>';
-    html += '<table><thead><tr style="background:'+_pLight('#4a235a')+';color:#4a235a;">';
+    html += '<table><thead><tr style="background:'+_pLight('#4a235a')+';color:#000;">';
     html += '<th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
     html += '<th>Previous Set Date</th><th>Last Set Date</th><th>Production Since Last Set (kg)</th>';
     html += '</tr></thead><tbody>'+rows+'</tbody></table>';
