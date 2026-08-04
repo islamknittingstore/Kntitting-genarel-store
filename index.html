@@ -3646,6 +3646,7 @@ window.iglSaveNavVisibility = function() {
         <button onclick="stnReqPrintDiffPercent()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition Record এর Print (Diff/%) এর মতোই — Req Qty, Rcv Qty, Diff ও % কম/বেশি সহ">🖨️ Print (Diff/%)</button>
         <button onclick="stnReqPrintComparison()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate সহ)</button>
         <button onclick="stnReqPrintComparisonNoRate()" style="background:linear-gradient(135deg,#16a085,#1abc9c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📊 Req vs Receive (Rate ছাড়া)</button>
+        <button onclick="stnReqPrintFull()" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition Record এর Print (Rate + Diff/%) এর মতোই — একই টেবিলে Rate, Amount, Receive Amount, Diff ও % সবকিছু একসাথে">🖨️ Print (Rate + Diff/%)</button>
         <button onclick="stnReqExcelDownload()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📥 Excel Download</button>
       </div>
     </div>
@@ -11522,6 +11523,107 @@ function stnReqPrintComparisonNoRate() {
     + '</div></body></html>';
 
   var w = window.open('','_blank','width=1000,height=700');
+  w.document.write(html); w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
+// ── Print: Requisition vs Receive — Rate, Amount, Diff ও % সব একসাথে (Requisition Record এর "Rate + Diff/%" প্রিন্টের মতোই, কিন্তু মূল Requisition পেজের লাইভ ডাটা থেকে) ──
+function stnReqPrintFull() {
+  var items = stnReqGetSelected();
+  if (!items.length) { toast('⚠️ কোনো Item select করা নেই!', 'warning'); return; }
+  var fsEl = document.getElementById('req-print-font-size');
+  var fs   = fsEl ? (parseFloat(fsEl.value) || 8) : 8;
+  var month  = Number((document.getElementById('req-month')||{}).value) || (new Date().getMonth()+1);
+  var year   = Number((document.getElementById('req-year')||{}).value)  || new Date().getFullYear();
+  var title  = (document.getElementById('req-title')||{}).value || 'Stationery Requisition';
+  var MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  var titleText = title + ' — ' + (MONTHS[month]||'') + ' ' + year;
+  var mStr  = year + '-' + String(month).padStart(2,'0');
+  var mFrom = mStr + '-01';
+  var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
+
+  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery'; });
+  var totalReq=0, totalRcv=0, totalReqAmt=0, totalRcvAmt=0, totalDiff=0;
+
+  var rows = items.map(function(it, i) {
+    var _masterItem = (DB.stnItems||[]).find(function(x){ return x.id===it.id||x.name===it.name; });
+    var rate = stnGetRateForDate(it.id, mFrom) || (_masterItem&&_masterItem.rate) || it.rate || 0;
+    var reqQty = Number(it.qty)||0;
+    var reqAmt = reqQty * (Number(rate)||0);
+    var rcvQty = allRcv
+      .filter(function(r){ return r.item===it.name && r.date>=mFrom && r.date<=mTo; })
+      .reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+    var rcvAmt = rcvQty * (Number(rate)||0);
+    var diff = rcvQty - reqQty;
+    var dClr = diff>=0 ? '#1a6b3a' : '#c0392b';
+    var pctTxt = '-';
+    if (reqQty > 0) {
+      var pct = (diff / reqQty) * 100;
+      pctTxt = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    }
+    totalReq += reqQty;
+    totalRcv += rcvQty;
+    totalReqAmt += reqAmt;
+    totalRcvAmt += rcvAmt;
+    totalDiff += diff;
+    return '<tr style="background:'+(i%2===1?'#f5f5f5':'#fff')+'">'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;">'+(i+1)+'</td>'
+      + '<td style="padding:5px 6px;border:0.5px solid #999;">'+it.name+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:600;">'+reqQty+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;">'+(it.unit||'Pcs')+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;">'+(rate?Number(rate).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;font-weight:700;">'+(reqAmt?Number(reqAmt).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:600;">'+rcvQty+'</td>'
+      + '<td style="text-align:right;padding:5px 5px;border:0.5px solid #999;font-weight:700;">'+(rcvAmt?Number(rcvAmt).toLocaleString():'—')+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:700;color:'+dClr+';">'+(diff>=0?'+':'')+diff+'</td>'
+      + '<td style="text-align:center;padding:5px 3px;border:0.5px solid #999;font-weight:700;color:'+dClr+';">'+pctTxt+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var totalPctTxt = '-';
+  if (totalReq > 0) {
+    var totalPct = (totalDiff / totalReq) * 100;
+    totalPctTxt = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(1) + '%';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<style>@page{size:A4 portrait;margin:9mm;}body{font-family:Arial,sans-serif;font-size:'+fs+'pt;margin:0;color:#000;}'
+    + 'table{width:100%;border-collapse:collapse;table-layout:fixed;}th{padding:5px 3px;background:#eaeaea!important;color:#000!important;border:0.5px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.footer{display:flex;justify-content:space-around;padding:60px 0 10px;}.sig{text-align:center;min-width:130px;}'
+    + '.sig-line{border-top:1px solid #555;padding-top:5px;font-size:11px;color:#444;}</style></head><body>'
+    + '<div style="text-align:center;padding:10px 0 10px;border-bottom:2px solid #000;margin-bottom:10px;">'
+    + '<div style="font-size:17px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:1px;">(Knit Wear Division)</div>'
+    + '<div style="font-size:11px;color:#000;margin-top:1px;">Unit: Knitting</div>'
+    + '<div style="font-size:13px;font-weight:700;margin-top:5px;">'+titleText+'</div></div>'
+    + '<table><thead><tr>'
+    + '<th style="text-align:center;width:26px;">SL</th>'
+    + '<th style="text-align:left;width:150px;">Item Name</th>'
+    + '<th style="text-align:center;width:42px;">Req Qty</th>'
+    + '<th style="text-align:center;width:38px;">Unit</th>'
+    + '<th style="text-align:right;width:48px;">Rate (৳)</th>'
+    + '<th style="text-align:right;width:60px;">Req Amount (৳)</th>'
+    + '<th style="text-align:center;width:42px;">Rcv Qty</th>'
+    + '<th style="text-align:right;width:60px;">Rcv Amount (৳)</th>'
+    + '<th style="text-align:center;width:42px;">Diff</th>'
+    + '<th style="text-align:center;width:48px;">% কম/বেশি</th>'
+    + '</tr></thead><tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#eaeaea;font-weight:700;">'
+    + '<td colspan="2" style="text-align:right;padding:6px 6px;border:0.5px solid #999;">মোট (Total):</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalReq+'</td>'
+    + '<td style="border:0.5px solid #999;"></td>'
+    + '<td style="border:0.5px solid #999;"></td>'
+    + '<td style="text-align:right;padding:6px 5px;border:0.5px solid #999;">'+Number(totalReqAmt).toLocaleString()+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalRcv+'</td>'
+    + '<td style="text-align:right;padding:6px 5px;border:0.5px solid #999;">'+Number(totalRcvAmt).toLocaleString()+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+(totalDiff>=0?'+':'')+totalDiff+'</td>'
+    + '<td style="text-align:center;padding:6px;border:0.5px solid #999;">'+totalPctTxt+'</td>'
+    + '</tr></tfoot></table>'
+    + '<div class="footer"><div class="sig"><div style="height:80px;"></div><div class="sig-line">Store / Admin</div></div>'
+    + '<div class="sig"><div style="height:80px;"></div><div class="sig-line">Manager</div></div></div>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank', 'width=1050,height=750');
   w.document.write(html); w.document.close();
   w.onload = function(){ w.focus(); w.print(); };
 }
@@ -22420,7 +22522,7 @@ function renderMachineSetSummary() {
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+lastSetCell+'</td>';
       var baselineTag = usedBaseline ? ' <span title="'+_fmtDMY(baseline.asOf)+' পর্যন্ত হাতে বসানো '+baselineAmount.toFixed(1)+' kg + তারপরের Excel Import" style="font-size:9px;color:#117a65;">📝</span>' : '';
-      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toFixed(1):'-')+baselineTag+'</td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#1e8449;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+baselineTag+'</td>';
       t += '</tr>';
     });
 
@@ -22549,7 +22651,7 @@ function mssPrintSummary() {
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;color:#888;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;color:'+(isNewMachine?'#117a65':'#6c3483')+';font-weight:700;">'+lastSetTxt+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toFixed(1):'-')+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#1e8449;font-weight:700;">'+(effectiveDate? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+'</td>'
         + '</tr>';
     });
 
