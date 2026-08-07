@@ -21744,6 +21744,7 @@ function mmpGenerate() {
     .map(function(n){ return n.date; });
   setDates = Array.from(new Set(setDates)).sort(function(a,b){ return a<b?1:-1; });
   var lastSet = setDates[0] || '';
+  var prevSet = setDates[1] || '';
 
   mrdLoadAll(function(rd){
     var runDates = rd || {};
@@ -21776,12 +21777,37 @@ function mmpGenerate() {
       var startY = Number(excelStartDate.split('-')[0]), startM = Number(excelStartDate.split('-')[1]);
       var endY = Number(todayS.split('-')[0]), endM = Number(todayS.split('-')[1]);
 
+      // আগের সেট পিরিয়ড (থাকলে) — [prevSet, lastSet) — এর জন্যও একই সাথে মাস লোড করা,
+      // যাতে নিচে "আগের সেট পিরিয়ডের টোটাল" আলাদা করে দেখানো যায়
+      var prevBaseline = (lastSet && prevSet) ? baselines[m.id] : null;
+      var prevUsedBaseline = false, prevExcelStart = prevSet, prevBaselineAmount = 0;
+      if (prevBaseline && prevBaseline.asOf && prevSet && lastSet && prevBaseline.asOf >= prevSet && prevBaseline.asOf < lastSet) {
+        prevExcelStart = prevBaseline.asOf;
+        prevBaselineAmount = Number(prevBaseline.amount) || 0;
+        prevUsedBaseline = true;
+      }
+      var prevStartY = prevSet ? Number(prevSet.split('-')[0]) : null;
+      var prevStartM = prevSet ? Number(prevSet.split('-')[1]) : null;
+      var prevEndY = prevSet ? Number(lastSet.split('-')[0]) : null;
+      var prevEndM = prevSet ? Number(lastSet.split('-')[1]) : null;
+
+      var monthSet = {};
       var monthList = [];
       var y = startY, mo = startM, guard = 0;
       while ((y < endY || (y === endY && mo <= endM)) && guard < 400) {
-        monthList.push({y:y, m:mo});
+        var k = y+'_'+mo;
+        if (!monthSet[k]) { monthSet[k] = true; monthList.push({y:y, m:mo}); }
         mo++; if (mo > 12) { mo = 1; y++; }
         guard++;
+      }
+      if (prevSet) {
+        y = prevStartY; mo = prevStartM; guard = 0;
+        while ((y < prevEndY || (y === prevEndY && mo <= prevEndM)) && guard < 400) {
+          var k2 = y+'_'+mo;
+          if (!monthSet[k2]) { monthSet[k2] = true; monthList.push({y:y, m:mo}); }
+          mo++; if (mo > 12) { mo = 1; y++; }
+          guard++;
+        }
       }
 
       var loaded = 0;
@@ -21794,7 +21820,12 @@ function mmpGenerate() {
       if (monthList.length === 0) renderReport();
 
       function renderReport() {
-        var monthRows = monthList.map(function(mk, idx){
+        var monthRows = monthList.filter(function(mk){
+          // প্রিভিউস-পিরিয়ড কভার করার জন্য যোগ করা মাসগুলো মূল টেবিলে না দেখানো —
+          // শুধু বর্তমান পিরিয়ডের (excelStartDate থেকে আজ পর্যন্ত) মাসগুলোই টেবিলে থাকবে
+          var d = mk.y+'-'+String(mk.m).padStart(2,'0');
+          return d >= (startY+'-'+String(startM).padStart(2,'0')) && (mk.y < endY || (mk.y===endY && mk.m<=endM));
+        }).map(function(mk, idx){
           var key = _mpKey(mk.y, mk.m);
           var data = window._machProdCache[key] || {};
           var mProd = data[m.id] || {};
@@ -21809,7 +21840,25 @@ function mmpGenerate() {
         });
         var total = monthRows.reduce(function(s,r){ return s+r.value; }, 0);
 
-        window._mmpLastReport = { machine: m, monthRows: monthRows, total: total, startDate: excelStartDate, endDate: todayS, usedBaseline: usedBaseline, isNewMachine: isNewMachine };
+        // আগের সেট পিরিয়ডের টোটাল (থাকলে) — [prevSet, lastSet) এর Excel ডাটা + প্রযোজ্য বেজলাইন
+        var prevPeriodTotal = null;
+        if (prevSet && lastSet) {
+          prevPeriodTotal = prevBaselineAmount;
+          monthList.forEach(function(mk){
+            var d = mk.y+'-'+String(mk.m).padStart(2,'0');
+            if (d < (prevStartY+'-'+String(prevStartM).padStart(2,'0')) || (mk.y > prevEndY || (mk.y===prevEndY && mk.m>prevEndM))) return;
+            var key = _mpKey(mk.y, mk.m);
+            var data = window._machProdCache[key] || {};
+            var mProd = data[m.id] || {};
+            Object.keys(mProd).forEach(function(dayNum){
+              var dayStr = mk.y + '-' + String(mk.m).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+              var afterStart = prevUsedBaseline ? (dayStr > prevExcelStart) : (dayStr >= prevSet);
+              if (afterStart && dayStr < lastSet) prevPeriodTotal += parseFloat(mProd[dayNum]) || 0;
+            });
+          });
+        }
+
+        window._mmpLastReport = { machine: m, monthRows: monthRows, total: total, startDate: excelStartDate, endDate: todayS, usedBaseline: usedBaseline, isNewMachine: isNewMachine, prevSet: prevSet, lastSet: lastSet, prevPeriodTotal: prevPeriodTotal };
 
         var rowsHtml = monthRows.map(function(r, i){
           return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+';">'
@@ -21818,9 +21867,14 @@ function mmpGenerate() {
             + '</tr>';
         }).join('');
 
+        var prevPeriodNote = (prevPeriodTotal !== null)
+          ? '<div style="font-size:11.5px;color:#7d3c98;margin-bottom:10px;">আগের সেট পিরিয়ড ('+_mmpFmtDate(prevSet)+' থেকে '+_mmpFmtDate(lastSet)+'): <b>'+Math.round(prevPeriodTotal).toLocaleString()+' kg</b>'+(prevUsedBaseline?' <span style="color:#117a65;">(📝 বেজলাইন সহ)</span>':'')+'</div>'
+          : '';
+
         body.innerHTML = '<div style="border:1px solid #ddd;border-radius:8px;padding:14px;">'
           + '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Month Wise production '+_mmpFmtDate(excelStartDate)+' To '+_mmpFmtDate(todayS)+'</div>'
-          + '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">ERP Machine No: '+_mmpEsc(m.erp||'-')+(usedBaseline?' <span style="font-size:11px;color:#117a65;font-weight:400;">(📝 '+_mmpFmtDate(excelStartDate)+' পর্যন্ত বেজলাইন '+baselineAmount.toLocaleString()+' kg সহ)</span>':'')+'</div>'
+          + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">ERP Machine No: '+_mmpEsc(m.erp||'-')+(usedBaseline?' <span style="font-size:11px;color:#117a65;font-weight:400;">(📝 '+_mmpFmtDate(excelStartDate)+' পর্যন্ত বেজলাইন '+baselineAmount.toLocaleString()+' kg সহ)</span>':'')+'</div>'
+          + prevPeriodNote
           + '<table style="width:100%;border-collapse:collapse;max-width:520px;">'
           + '<thead><tr style="background:#eaeaea;"><th style="padding:7px 10px;border:1px solid #ccc;">Month</th><th style="padding:7px 10px;border:1px solid #ccc;">'+_mmpEsc(m.id)+'</th></tr></thead>'
           + '<tbody>'+rowsHtml+'</tbody>'
@@ -21850,7 +21904,8 @@ function mmpPrint() {
     + 'th{background:#eaeaea;padding:8px 12px;}'
     + '</style></head><body>'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+'</div>'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:14px;">ERP Machine No: '+_mmpEsc(rep.machine.erp||'-')+'</div>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:6px;">ERP Machine No: '+_mmpEsc(rep.machine.erp||'-')+'</div>'
+    + (rep.prevPeriodTotal !== null && rep.prevPeriodTotal !== undefined ? '<div style="font-size:11.5px;margin-bottom:14px;">আগের সেট পিরিয়ড ('+_mmpFmtDate(rep.prevSet)+' থেকে '+_mmpFmtDate(rep.lastSet)+'): <b>'+Math.round(rep.prevPeriodTotal).toLocaleString()+' kg</b></div>' : '<div style="margin-bottom:14px;"></div>')
     + '<table>'
     + '<thead><tr><th rowspan="2" style="width:110px;">Month</th><th>Machine Name</th></tr><tr><th>'+_mmpEsc(rep.machine.id)+'</th></tr></thead>'
     + '<tbody>'+rowsHtml+'</tbody>'
@@ -22584,20 +22639,27 @@ function smpImportFromKnittingReport(text, machineId, resultEl) {
 }
 
 // ── Sheet 3: Machine Set & Production Summary ──
-// ── Machine Set Summary টেবিলের রো ক্লিক করলে সবুজ হাইলাইট টগল হবে — শুধু চোখে
-// ট্র্যাক করার সুবিধার জন্য (ERP থেকে Production পর্যন্ত), সম্পূর্ণ visual/স্ক্রিন-অনলি,
-// কোনো ডাটা বা প্রিন্টে প্রভাব ফেলে না ──
-function mssToggleRowHighlight(tr, event) {
+// ── Machine Set Summary টেবিলের রো ক্লিক করলে হাইলাইট সাইকেল হয় — অফ → হালকা সবুজ
+// → গাঢ় সবুজ → অফ (চোখে ট্র্যাক করার সুবিধার জন্য, ERP থেকে Production পর্যন্ত)।
+// এই স্টেট window._mssHighlight এ জমা থাকে, তাই রি-রেন্ডার হলেও থাকে এবং প্রিন্টেও
+// (কালো/ধূসর শেড হিসেবে) প্রতিফলিত হয় — ডাটা বদলায় না, শুধু ভিজ্যুয়াল ──
+function mssToggleRowHighlight(tr, event, machineId) {
   if (event && event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'A')) return;
-  var isOn = tr.getAttribute('data-hl') === '1';
-  if (isOn) {
-    tr.setAttribute('data-hl', '0');
-    tr.style.background = tr.getAttribute('data-orig-bg') || '';
-  } else {
-    tr.setAttribute('data-orig-bg', tr.style.background);
-    tr.setAttribute('data-hl', '1');
-    tr.style.background = '#a9dfbf';
-  }
+  window._mssHighlight = window._mssHighlight || {};
+  var cur = window._mssHighlight[machineId] || 0;
+  var next = (cur + 1) % 3; // 0 → 1 → 2 → 0
+  if (next === 0) delete window._mssHighlight[machineId]; else window._mssHighlight[machineId] = next;
+  var bg = next === 2 ? '#52be80' : (next === 1 ? '#a9dfbf' : (tr.getAttribute('data-orig-bg') || ''));
+  tr.style.background = bg;
+}
+
+// ── প্রিন্টের checkbox বদলালে সিলেকশন মনে রাখা (window._mssExcludedFromPrint এ) —
+// যাতে পরে রি-রেন্ডার (যেমন বেজলাইন সেভ, মাস বদল) হলেও আনটিক করা মেশিন আবার
+// টিক হয়ে না যায় ──
+function mssPrintChkChanged(machineId, checked) {
+  window._mssExcludedFromPrint = window._mssExcludedFromPrint || {};
+  if (checked) delete window._mssExcludedFromPrint[machineId];
+  else window._mssExcludedFromPrint[machineId] = true;
 }
 
 function renderMachineSetSummary() {
@@ -22735,8 +22797,15 @@ function renderMachineSetSummary() {
         lastSetCell = '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \'\'); return false;" style="color:#c0392b;font-size:10.5px;">🆕 Running Date সেট করুন</a>';
       }
 
-      t += '<tr class="mss-row" onclick="mssToggleRowHighlight(this, event)" style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';cursor:pointer;">';
-      t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" checked></td>';
+      window._mssHighlight = window._mssHighlight || {};
+      window._mssExcludedFromPrint = window._mssExcludedFromPrint || {};
+      var hlLevel = window._mssHighlight[m.id] || 0;
+      var rowBg = hlLevel === 2 ? '#52be80' : (hlLevel === 1 ? '#a9dfbf' : (idx%2===1?'#f9f4fc':'#fff'));
+      var isChecked = !window._mssExcludedFromPrint[m.id];
+
+      var altBg = (idx%2===1?'#f9f4fc':'#fff');
+      t += '<tr class="mss-row" data-mid="'+m.id.replace(/"/g,'&quot;')+'" data-orig-bg="'+altBg+'" onclick="mssToggleRowHighlight(this, event, \''+m.id.replace(/'/g,"\\'")+'\')" style="background:'+rowBg+';cursor:pointer;">';
+      t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();" onchange="mssPrintChkChanged(\''+m.id.replace(/'/g,"\\'")+'\', this.checked)" '+(isChecked?'checked':'')+'></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
@@ -22764,7 +22833,12 @@ function mssPromptRunDate(machineId, currentDate) {
 
 // ── প্রিন্টে সব মেশিন সিলেক্ট/ডিসিলেক্ট করার জন্য ──
 function mssToggleAllPrint(state) {
-  document.querySelectorAll('.mss-print-chk').forEach(function(cb){ cb.checked = state; });
+  window._mssExcludedFromPrint = window._mssExcludedFromPrint || {};
+  document.querySelectorAll('.mss-print-chk').forEach(function(cb){
+    cb.checked = state;
+    var mid = cb.getAttribute('data-machine');
+    if (state) delete window._mssExcludedFromPrint[mid]; else window._mssExcludedFromPrint[mid] = true;
+  });
 }
 
 // ── Sheet 3 প্রিন্ট: নির্বাচিত মাসের শেষ তারিখ পর্যন্ত হিসাব করা স্ন্যাপশট প্রিন্ট ──
@@ -22880,14 +22954,15 @@ function mssPrintSummary() {
         });
       }
       var lastSetTxt = lastSet ? _fmtDMY(lastSet) : (isNewMachine ? '🆕 '+_fmtDMY(effectiveDate) : '-');
-      var baselineTagPrint = usedBaseline ? ' 📝' : '';
-      rows += '<tr style="background:'+(idx%2===1?'#f9f4fc':'#fff')+';">'
+      var hlLevel = (window._mssHighlight && window._mssHighlight[m.id]) || 0;
+      var rowBgPrint = hlLevel === 2 ? '#999999' : (hlLevel === 1 ? '#dcdcdc' : (idx%2===1?'#f9f4fc':'#fff'));
+      rows += '<tr style="background:'+rowBgPrint+';">'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
         + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;color:#000;">'+(prevSet?_fmtDMY(prevSet):'-')+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;color:#000;font-weight:700;">'+lastSetTxt+'</td>'
-        + '<td style="text-align:center;border:1px solid #ddd;color:#000;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+baselineTagPrint+'</td>'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#000;font-weight:700;">'+((effectiveDate||usedBaseline)? prodSince.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'-')+'</td>'
         + '</tr>';
     });
 
