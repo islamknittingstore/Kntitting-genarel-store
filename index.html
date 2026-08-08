@@ -26339,12 +26339,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
-    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
     var bodyHTML = _rnaTabData.map(function(html, i){
-      return '<div class="rna-print-page">'
-        + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[i] + ' &nbsp;|&nbsp; <span>' + fromDate + ' to ' + toDate + '</span></div>'
-        + html
-        + '</div>';
+      return '<div class="rna-print-page">' + html + '</div>';
     }).join('');
 
     var css = _rnaPrintCSS('A4 landscape', '6mm', fontSize);
@@ -26362,7 +26358,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!fromDate||!toDate){ alert('আগে date range দিয়ে View চাপুন।'); return; }
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
-    var tabNames = ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
     var nm     = ndlGetMaster();
     var rcv    = ndlGetRcv();
     var issues = NDB.needles;
@@ -26373,7 +26368,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var bodyHTML =
       '<div id="rna-content-wrap">'
-      + '<div class="rna-header"><b>ISLAM GARMENTS LTD.</b> &nbsp;|&nbsp; Retail Needle Account — ' + tabNames[tabIdx] + ' &nbsp;|&nbsp; ' + fromDate + ' to ' + toDate + '</div>'
       + _rnaTabData[tabIdx]
       + '</div>';
 
@@ -26407,7 +26401,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
 
     var win = window.open('', '_blank', 'width=1400,height=900');
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + tabNames[tabIdx] + '</title><style>' + css + combinedExtraCss + tabExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
+    var _rnaTabNamesForTitle = RNA_TAB_NAMES || ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + _rnaTabNamesForTitle[tabIdx] + '</title><style>' + css + combinedExtraCss + tabExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
     win.document.close();
     win.focus();
   }
@@ -26968,12 +26963,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var S = 'border:1px solid #bbb;';
     var html = '<div style="font-family:Arial,sans-serif;min-width:600px;height:100%;display:flex;flex-direction:column;">';
 
-    // Print header
+    // Print header — কোম্পানির নাম, রিপোর্ট টাইটেল, তারিখ রেঞ্জ + একদম টেবিলের ঠিক উপরে "রানিং" (আজকের আসল) তারিখ
     html += '<div class="print-only" style="text-align:center;margin-bottom:4px;">';
     html += '<div style="font-size:13pt;font-weight:bold;">ISLAM GARMENTS LTD.</div>';
     html += '<div style="font-size:10pt;font-weight:bold;">Retail Needle Account ('+_esc(tabName)+')</div>';
     var _fmtDMY=function(d){if(!d)return '';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
     html += '<div style="font-size:8.5pt;">Date: '+_fmtDMY(fromDate)+' to '+_fmtDMY(toDate)+'</div></div>';
+    // "রানিং ডেট" = যেই তারিখ পর্যন্ত (To Date) সিলেক্ট করে রিপোর্ট জেনারেট করা হয়েছে — আজকের প্রকৃত তারিখ না
+    html += '<div class="print-only" style="text-align:right;margin-bottom:2px;font-size:8pt;font-weight:600;">Date: '+_fmtDMY(toDate)+'</div>';
 
     // ── Simple table: each row is independent ──
     html += '<table style="border-collapse:collapse;font-size:10px;width:auto;max-width:100%;">';
