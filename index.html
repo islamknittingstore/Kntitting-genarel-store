@@ -1675,6 +1675,12 @@ if('serviceWorker' in navigator){
           }
         }
 
+        // ✅ Firebase থেকে নতুন permission/settings এলে সাথে সাথে menu/nav আপডেট করো
+        // (আগে শুধু login/session-restore এ চলতো, তাই অন্য device এ admin permission
+        //  tick করলেও যেই user আগে থেকে login করা আছে, তার sidebar রিফ্রেশ হতো না —
+        //  তাকে logout/login বা page reload করতে হতো)
+        try { if(window.IGL_CURRENT_USER && typeof iglApplyPermissions === 'function') iglApplyPermissions(); } catch(e){}
+
         if(typeof updateDashboard === 'function') updateDashboard();
         if(typeof renderStock === 'function') renderStock();
         // Firebase load এর পর সব needle/issue/receive report refresh করো
@@ -2262,7 +2268,7 @@ var IGL_PERMISSIONS = {
   'pkg_item_master':   '📦 Packaging Item Master',
   'backdate_entry':   '📅 Back Date Entry (Needle Issue)',
   'daily_report':     '📨 Daily Report Generator',
-  'machine_set_summary': '🔧 Machine Set Summary'
+  'machine_set_summary': '🔧 Machine Set Summary (+ Machine Wise Production, Set Replace) — শুধু View'
 };
 
 function iglGetUserPermissions(username) {
@@ -2338,14 +2344,14 @@ function iglApplyPermissions() {
   var drgNav = document.getElementById('nav-needle-daily-report');
   if (drgNav) drgNav.style.display = (isAdmin || iglHasPermission('daily_report')) ? '' : 'none';
 
-  // Machine Wise + Production ও Set Replace — শুধু Admin
+  // Machine Wise + Production, Machine Set Summary, Set Replace — Admin অথবা যাকে 'machine_set_summary' permission দেওয়া হয়েছে
+  var mssPermOk = isAdmin || iglHasPermission('machine_set_summary');
   var nmpNav = document.getElementById('nav-needle-monthly-prod');
-  if (nmpNav) nmpNav.style.display = isAdmin ? '' : 'none';
-  // Machine Set Summary — Admin অথবা যাকে permission দেওয়া হয়েছে
+  if (nmpNav) nmpNav.style.display = mssPermOk ? '' : 'none';
   var mssNav = document.getElementById('nav-machine-set-summary');
-  if (mssNav) mssNav.style.display = (isAdmin || iglHasPermission('machine_set_summary')) ? '' : 'none';
+  if (mssNav) mssNav.style.display = mssPermOk ? '' : 'none';
   var srNav = document.getElementById('nav-set-replace');
-  if (srNav) srNav.style.display = isAdmin ? '' : 'none';
+  if (srNav) srNav.style.display = mssPermOk ? '' : 'none';
 }
 
 // ── Admin: User Password Edit ──
@@ -5248,9 +5254,9 @@ function ok(msg) {
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
           <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpPrintGrid()">🖨️ Print</button>
-          <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
-          <button class="btn btn-sm no-print" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
-          <button class="btn btn-sm no-print" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="smpOpenModal()" title="একটা নির্দিষ্ট মেশিনের ১-২ বছরের পুরনো Production একসাথে Import করুন">📅 একটি মেশিনের বহু বছরের ডাটা Import</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="smpOpenModal()" title="একটা নির্দিষ্ট মেশিনের ১-২ বছরের পুরনো Production একসাথে Import করুন">📅 একটি মেশিনের বহু বছরের ডাটা Import</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
@@ -5317,9 +5323,9 @@ function ok(msg) {
           </select>
           <input type="number" class="form-control" id="mss-year" value="2026" min="2020" max="2050" style="width:90px;">
           <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
-          <button class="btn btn-sm no-print" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mbOpenModal()">📝 প্রডাকশন বেজলাইন সেট করুন</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mbOpenModal()">📝 প্রডাকশন বেজলাইন সেট করুন</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mmpOpenReport()">📅 মাসিক প্রডাকশন রিপোর্ট (সেট চেঞ্জ থেকে)</button>
-          <button class="btn btn-sm no-print" style="background:#7d3c98;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mnmRunMigration()" title="Mr/F Est/Fukahama Auto S/J/Jacquard মেশিনগুলোর নাম বদল + পুরনো ডাটা migrate">🔧 মেশিন নাম মাইগ্রেশন চালান</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#7d3c98;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mnmRunMigration()" title="Mr/F Est/Fukahama Auto S/J/Jacquard মেশিনগুলোর নাম বদল + পুরনো ডাটা migrate">🔧 মেশিন নাম মাইগ্রেশন চালান</button>
           <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
             <input type="number" id="mss-print-font-size" value="9" min="5" max="14" step="0.5"
@@ -5345,7 +5351,7 @@ function ok(msg) {
       <p>অফিসিয়ালি এক মেশিনে সেট রেকর্ড হয়েছে, কিন্তু আসলে অন্য মেশিনে বসেছে — এমন সংশোধনী এখানে রেকর্ড করুন</p>
     </div>
 
-    <div class="card">
+    <div class="card admin-only-action">
       <div class="card-header" style="background:#fdedec;color:#943126;">➕ নতুন Correction যোগ করুন</div>
       <div class="card-body">
         <div class="form-grid">
@@ -8931,11 +8937,11 @@ function showPage(name, el) {
     }
   }
 
-  // ── Machine Wise + Production ও Set Replace — শুধু Admin ঢুকতে পারবে ──
+  // ── Machine Wise + Production ও Set Replace — Admin অথবা যাকে 'machine_set_summary' permission দেওয়া হয়েছে ──
   if (name === 'needle_monthly_prod' || name === 'set_replace') {
-    var mpOk = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    var mpOk = (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') || (typeof iglHasPermission === 'function' && iglHasPermission('machine_set_summary'));
     if (!mpOk) {
-      if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই — শুধু Admin দেখতে পারবে', 'error');
+      if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই', 'error');
       return;
     }
   }
@@ -21598,6 +21604,7 @@ function mbSaveBaseline(machineId, asOfDate, amount, cb) {
 // ── বেজলাইন সেট করার মোডাল ──
 function _mbEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function mbOpenModal() {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin বেজলাইন সেট করতে পারবে', 'error'); return; }
   mbLoadAll(function(baselines){
     var overlay = document.createElement('div');
     overlay.id = 'mb-overlay';
@@ -21718,6 +21725,7 @@ var MNM_RENAME_MAP = {
 };
 
 function mnmRunMigration() {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin মাইগ্রেশন চালাতে পারবে', 'error'); return; }
   var mapEntries = Object.keys(MNM_RENAME_MAP);
   if (!confirm('মোট '+mapEntries.length+'টা মেশিনের নাম বদলের পুরনো ডাটা (Set Change, Running Date, বেজলাইন, মাসিক Production) migrate করা হবে। এটা একবারই চালানো উচিত। এগোবেন?')) return;
   if (typeof firebase === 'undefined' || !firebase.database) { toast('❌ Firebase সংযোগ পাওয়া যায়নি', 'error'); return; }
@@ -22308,6 +22316,7 @@ function mpPrintGrid() {
 
 // ── Excel Template Export (production কলাম শুধু — fill করে আবার import করার জন্য) ──
 function mpExportTemplate() {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin এই অপশন ব্যবহার করতে পারবে', 'error'); return; }
   if (typeof XLSX === 'undefined') {
     var s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -22355,6 +22364,7 @@ function _mpDoExport() {
 
 // ── Excel Import (পূরণ করা ফাইল থেকে সব production একবারে bulk save) ──
 function mpImportExcel() {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin Import করতে পারবে', 'error'); return; }
   document.getElementById('mp-import-file').click();
 }
 
@@ -22541,6 +22551,7 @@ function mpImportFromXlsxTemplate(file, evt) {
 //  একক মেশিনের বহু বছরের Production Import (Machine Set Summary-র জন্য)
 // =====================================================================
 function smpOpenModal() {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin এই অপশন ব্যবহার করতে পারবে', 'error'); return; }
   var sel = document.getElementById('smp-machine');
   var machines = getNeedleMachines()
     .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
@@ -23206,6 +23217,8 @@ function srPopulateMachineDropdowns() {
 }
 
 function srAddRecord() {
+  var _srIsAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+  if (!_srIsAdmin) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin Correction যোগ করতে পারবে', 'error'); return; }
   var origMachine = (document.getElementById('sr-orig-machine')||{}).value || '';
   var actualMachine = (document.getElementById('sr-actual-machine')||{}).value || '';
   var date = (document.getElementById('sr-date')||{}).value || '';
@@ -23228,6 +23241,8 @@ function srAddRecord() {
 }
 
 function srDeleteRecord(id) {
+  var _srdIsAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+  if (!_srdIsAdmin) { if(typeof toast==='function') toast('❌ শুধুমাত্র Admin Correction ডিলিট করতে পারবে', 'error'); return; }
   if (!confirm('এই Correction রেকর্ডটা মুছে দেবেন?')) return;
   srLoadAll(function(data){
     delete data[id];
@@ -23259,7 +23274,7 @@ function renderSetReplaceList() {
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#c0392b;">'+r.origMachine+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#117a65;font-weight:700;">'+r.actualMachine+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(r.remarks||'-')+'</td>';
-      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;"><a href="#" onclick="srDeleteRecord(\''+id+'\'); return false;" style="color:#c0392b;">🗑️</a></td>';
+      t += '<td class="admin-only-action" style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;"><a href="#" onclick="srDeleteRecord(\''+id+'\'); return false;" style="color:#c0392b;">🗑️</a></td>';
       t += '</tr>';
     });
     t += '</tbody></table>';
