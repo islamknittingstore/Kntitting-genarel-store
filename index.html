@@ -21902,7 +21902,14 @@ function mmpGenerate() {
 
   body.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;">⏳ লোড হচ্ছে...</div>';
 
-  var todayS = todayStr();
+  // ✅ Machine Set Summary পেজের উপরে যেই মাস/বছর সিলেক্ট করা আছে, রিপোর্ট সেই মাস পর্যন্তই হবে
+  // (আগে সবসময় আজকের তারিখ পর্যন্ত হিসাব হতো, তাই অতীত মাস সিলেক্ট করে প্রিন্ট করলেও চলতি মাসের ডাটা ঢুকে যেত)
+  var _mmpRealToday = todayStr();
+  var _mssSelMonth = Number((document.getElementById('mss-month')||{}).value || (new Date().getMonth()+1));
+  var _mssSelYear  = Number((document.getElementById('mss-year')||{}).value  || new Date().getFullYear());
+  var _mssSelMonthEnd = new Date(_mssSelYear, _mssSelMonth, 0);
+  var _mssSelMonthEndStr = _mssSelMonthEnd.getFullYear()+'-'+String(_mssSelMonthEnd.getMonth()+1).padStart(2,'0')+'-'+String(_mssSelMonthEnd.getDate()).padStart(2,'0');
+  var todayS = (_mssSelMonthEndStr > _mmpRealToday) ? _mmpRealToday : _mssSelMonthEndStr;
 
   // এই মেশিনের শেষ "New Set" রেকর্ড খুঁজে বের করা (Machine Set Summary এর একই লজিক)
   var setDates = NDB.needles
@@ -24276,6 +24283,34 @@ function stnRenderDeptList(){
       +'<button onclick="stnModalDelDept('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">🗑️</button>'
       +'</div>';
   }).join('');
+  var fromSel=document.getElementById('stn-merge-from'), intoSel=document.getElementById('stn-merge-into');
+  if(fromSel && intoSel){
+    var opts=depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join('');
+    fromSel.innerHTML=opts; intoSel.innerHTML=opts;
+    if(depts.length>1) intoSel.selectedIndex=1;
+  }
+}
+async function stnModalMergeDept(){
+  var fromSel=document.getElementById('stn-merge-from'), intoSel=document.getElementById('stn-merge-into');
+  var oldName=(fromSel.value||'').trim(), newName=(intoSel.value||'').trim();
+  var msg=document.getElementById('stn-dept-msg');
+  if(!oldName || !newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ দুইটা Department সিলেক্ট করুন!</span>'; return; }
+  if(oldName===newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ একই Department সিলেক্ট করা যাবে না!</span>'; return; }
+  var affected=(DB.issues||[]).filter(function(r){ return r.machineId===oldName; }).length;
+  var ok=await igl_confirm('"'+oldName+'" এর সব ('+affected+'টা) Issue রেকর্ড "'+newName+'"-এ merge হবে, এবং "'+oldName+'" Department লিস্ট থেকে মুছে যাবে। এগোবেন?','','🔀');
+  if(!ok) return;
+  DB.issues = (DB.issues||[]).map(function(r){
+    if(r.machineId!==oldName) return r;
+    return Object.assign({}, r, {machineId:newName});
+  });
+  var depts=stnGetDepts().filter(function(d){ return d!==oldName; });
+  stnSaveDepts(depts);
+  triggerAutoSave();
+  if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
+  msg.innerHTML='<span style="color:#27ae60">✅ '+affected+'টা রেকর্ড "'+newName+'"-এ merge হয়েছে!</span>';
+  setTimeout(function(){ msg.innerHTML=''; },3000);
+  toast('✅ Department merge সম্পন্ন: '+affected+'টা রেকর্ড আপডেট হয়েছে','success');
+  stnRenderDeptList();
 }
 function stnModalAddDept(){
   var inp=document.getElementById('stn-new-dept-inp');
@@ -24353,6 +24388,16 @@ function stnOpenModal(){
           <div id="stn-dept-msg" style="font-size:12px;min-height:15px;margin-bottom:10px;"></div>
           <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">📋 বর্তমান Departments:</div>
           <div id="stn-dept-list"></div>
+          <div style="margin-top:16px;padding:12px;background:#fef9e7;border:1px solid #f7dc6f;border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;color:#7d6608;margin-bottom:4px;">🔀 দুইটা Department একসাথে করুন (Merge)</div>
+            <div style="font-size:11px;color:#7d6608;margin-bottom:8px;">ভুলে একই Department দুই নামে (যেমন "F. Delivery" ও "Fabrics Delivery") ইস্যু করা থাকলে — এখান থেকে একটাকে আরেকটার মধ্যে merge করে দিন। পুরনো সব Issue রেকর্ডও নতুন নামে বদলে যাবে।</div>
+            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+              <select id="stn-merge-from" class="form-control" style="flex:1;min-width:140px;"></select>
+              <span style="font-weight:700;color:#7d6608;">→</span>
+              <select id="stn-merge-into" class="form-control" style="flex:1;min-width:140px;"></select>
+              <button onclick="stnModalMergeDept()" style="background:#b7950b;color:#fff;border:none;padding:9px 15px;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;">🔀 Merge</button>
+            </div>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(md);
