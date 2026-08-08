@@ -24287,51 +24287,6 @@ function stnRenderDeptList(){
       +'<button onclick="stnModalDelDept('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">🗑️</button>'
       +'</div>';
   }).join('');
-  var fromSel=document.getElementById('stn-merge-from'), intoSel=document.getElementById('stn-merge-into');
-  if(fromSel && intoSel){
-    // ✅ "From" dropdown-এ শুধু বর্তমান Department লিস্টই না, পুরনো Issue রেকর্ডে থাকা কিন্তু এখন
-    // Department লিস্ট থেকে মুছে যাওয়া নামও (যেমন আগে যোগ করে পরে ডিলিট করা "F. Delivery") দেখাবে —
-    // কারণ সেগুলোর পুরনো রেকর্ড এখনো DB.issues-এ পড়ে আছে, merge করার দরকার হতে পারে
-    var stnItemNames = (DB.stnItems||[]).map(function(i){ return i.name; });
-    var histSet = {};
-    (DB.issues||[]).forEach(function(r){
-      if(r.machineId && stnItemNames.indexOf(r.item)!==-1) histSet[r.machineId]=true;
-    });
-    var orphanDepts = Object.keys(histSet).filter(function(d){ return depts.indexOf(d)===-1; });
-
-    var fromOpts = depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; })
-      .concat(orphanDepts.map(function(d){ return '<option value="'+d+'">'+d+' (পুরনো — লিস্টে নেই)</option>'; }))
-      .join('');
-    var intoOpts = depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join('');
-    fromSel.innerHTML=fromOpts; intoSel.innerHTML=intoOpts;
-    if(depts.length>1) intoSel.selectedIndex=1;
-  }
-}
-async function stnModalMergeDept(){
-  var fromSel=document.getElementById('stn-merge-from'), intoSel=document.getElementById('stn-merge-into');
-  var oldName=(fromSel.value||'').trim(), newName=(intoSel.value||'').trim();
-  var msg=document.getElementById('stn-dept-msg');
-  if(!oldName || !newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ দুইটা Department সিলেক্ট করুন!</span>'; return; }
-  if(oldName===newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ একই Department সিলেক্ট করা যাবে না!</span>'; return; }
-  var affected=(DB.issues||[]).filter(function(r){ return r.machineId===oldName; }).length;
-  var stillInList = stnGetDepts().indexOf(oldName)!==-1;
-  var confirmMsg = '"'+oldName+'" এর সব ('+affected+'টা) Issue রেকর্ড "'+newName+'"-এ merge হবে'
-    + (stillInList ? ', এবং "'+oldName+'" Department লিস্ট থেকে মুছে যাবে।' : ' (এটা এমনিতেই Department লিস্টে নেই)।')
-    + ' এগোবেন?';
-  var ok=await igl_confirm(confirmMsg,'','🔀');
-  if(!ok) return;
-  DB.issues = (DB.issues||[]).map(function(r){
-    if(r.machineId!==oldName) return r;
-    return Object.assign({}, r, {machineId:newName});
-  });
-  var depts=stnGetDepts().filter(function(d){ return d!==oldName; });
-  stnSaveDepts(depts);
-  triggerAutoSave();
-  if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
-  msg.innerHTML='<span style="color:#27ae60">✅ '+affected+'টা রেকর্ড "'+newName+'"-এ merge হয়েছে!</span>';
-  setTimeout(function(){ msg.innerHTML=''; },3000);
-  toast('✅ Department merge সম্পন্ন: '+affected+'টা রেকর্ড আপডেট হয়েছে','success');
-  stnRenderDeptList();
 }
 function stnModalAddDept(){
   var inp=document.getElementById('stn-new-dept-inp');
@@ -24409,16 +24364,6 @@ function stnOpenModal(){
           <div id="stn-dept-msg" style="font-size:12px;min-height:15px;margin-bottom:10px;"></div>
           <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">📋 বর্তমান Departments:</div>
           <div id="stn-dept-list"></div>
-          <div style="margin-top:16px;padding:12px;background:#fef9e7;border:1px solid #f7dc6f;border-radius:8px;">
-            <div style="font-size:12px;font-weight:700;color:#7d6608;margin-bottom:4px;">🔀 দুইটা Department একসাথে করুন (Merge)</div>
-            <div style="font-size:11px;color:#7d6608;margin-bottom:8px;">ভুলে একই Department দুই নামে (যেমন "F. Delivery" ও "Fabrics Delivery") ইস্যু করা থাকলে — এখান থেকে একটাকে আরেকটার মধ্যে merge করে দিন। পুরনো সব Issue রেকর্ডও নতুন নামে বদলে যাবে।</div>
-            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
-              <select id="stn-merge-from" class="form-control" style="flex:1;min-width:140px;"></select>
-              <span style="font-weight:700;color:#7d6608;">→</span>
-              <select id="stn-merge-into" class="form-control" style="flex:1;min-width:140px;"></select>
-              <button onclick="stnModalMergeDept()" style="background:#b7950b;color:#fff;border:none;padding:9px 15px;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;">🔀 Merge</button>
-            </div>
-          </div>
         </div>
       </div>`;
     document.body.appendChild(md);
