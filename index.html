@@ -2337,21 +2337,17 @@ function iglApplyPermissions() {
   if (pkgImNav) {
     pkgImNav.style.display = pkgHasAccess && (isAdmin || iglHasPermission('pkg_item_master')) ? '' : 'none';
   }
-  // Nav Visibility (hide/show menu items per admin config)
+  // Nav Visibility (hide/show menu items per admin config) — sidebar-এ "দেখাবে কি না" এটা এখানেই ঠিক হয়, permission থেকে সম্পূর্ণ আলাদা
   if (typeof iglApplyNavHide === 'function') iglApplyNavHide();
 
   // Daily Report
   var drgNav = document.getElementById('nav-needle-daily-report');
   if (drgNav) drgNav.style.display = (isAdmin || iglHasPermission('daily_report')) ? '' : 'none';
 
-  // Machine Wise + Production, Machine Set Summary, Set Replace — Admin অথবা যাকে 'machine_set_summary' permission দেওয়া হয়েছে
-  var mssPermOk = isAdmin || iglHasPermission('machine_set_summary');
-  var nmpNav = document.getElementById('nav-needle-monthly-prod');
-  if (nmpNav) nmpNav.style.display = mssPermOk ? '' : 'none';
-  var mssNav = document.getElementById('nav-machine-set-summary');
-  if (mssNav) mssNav.style.display = mssPermOk ? '' : 'none';
-  var srNav = document.getElementById('nav-set-replace');
-  if (srNav) srNav.style.display = mssPermOk ? '' : 'none';
+  // নোট: Machine Wise + Production / Machine Set Summary / Set Replace —
+  // sidebar-এ দেখাবে কি না তা এখন থেকে শুধু "👁️ Menu Visibility" চেকবক্স দিয়ে নিয়ন্ত্রিত হয় (উপরের iglApplyNavHide())।
+  // আর সেই সেকশনে ঢুকতে পারবে কি না তা শুধু "🔐 Extra Permissions" এর 'machine_set_summary' চেকবক্স দিয়ে
+  // showPage()-এর ভেতরে নিয়ন্ত্রিত হয় (index.html এর showPage ফাংশন দেখুন)। দুইটা সম্পূর্ণ স্বাধীন — একটা আরেকটাকে override করে না।
 }
 
 // ── Admin: User Password Edit ──
