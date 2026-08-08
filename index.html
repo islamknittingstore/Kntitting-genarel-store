@@ -2261,7 +2261,8 @@ var IGL_PERMISSIONS = {
   'pkg_requisition':   '📋 Packaging Requisition',
   'pkg_item_master':   '📦 Packaging Item Master',
   'backdate_entry':   '📅 Back Date Entry (Needle Issue)',
-  'daily_report':     '📨 Daily Report Generator'
+  'daily_report':     '📨 Daily Report Generator',
+  'machine_set_summary': '🔧 Machine Set Summary'
 };
 
 function iglGetUserPermissions(username) {
@@ -2337,11 +2338,12 @@ function iglApplyPermissions() {
   var drgNav = document.getElementById('nav-needle-daily-report');
   if (drgNav) drgNav.style.display = (isAdmin || iglHasPermission('daily_report')) ? '' : 'none';
 
-  // Machine Wise + Production ও Machine Set Summary — শুধু Admin
+  // Machine Wise + Production ও Set Replace — শুধু Admin
   var nmpNav = document.getElementById('nav-needle-monthly-prod');
   if (nmpNav) nmpNav.style.display = isAdmin ? '' : 'none';
+  // Machine Set Summary — Admin অথবা যাকে permission দেওয়া হয়েছে
   var mssNav = document.getElementById('nav-machine-set-summary');
-  if (mssNav) mssNav.style.display = isAdmin ? '' : 'none';
+  if (mssNav) mssNav.style.display = (isAdmin || iglHasPermission('machine_set_summary')) ? '' : 'none';
   var srNav = document.getElementById('nav-set-replace');
   if (srNav) srNav.style.display = isAdmin ? '' : 'none';
 }
@@ -5317,6 +5319,7 @@ function ok(msg) {
           <button class="btn btn-primary btn-sm" onclick="renderMachineSetSummary()">🔄 Refresh</button>
           <button class="btn btn-sm no-print" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mbOpenModal()">📝 প্রডাকশন বেজলাইন সেট করুন</button>
           <button class="btn btn-sm no-print" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mmpOpenReport()">📅 মাসিক প্রডাকশন রিপোর্ট (সেট চেঞ্জ থেকে)</button>
+          <button class="btn btn-sm no-print" style="background:#7d3c98;color:#fff;border:none;border-radius:4px;padding:5px 10px;cursor:pointer;" onclick="mnmRunMigration()" title="Mr/F Est/Fukahama Auto S/J/Jacquard মেশিনগুলোর নাম বদল + পুরনো ডাটা migrate">🔧 মেশিন নাম মাইগ্রেশন চালান</button>
           <span style="display:inline-flex;align-items:center;gap:4px;background:#f0f3f7;border:1px solid #ccc;border-radius:4px;padding:2px 8px;" class="no-print">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🔤 Font:</label>
             <input type="number" id="mss-print-font-size" value="9" min="5" max="14" step="0.5"
@@ -8928,11 +8931,20 @@ function showPage(name, el) {
     }
   }
 
-  // ── Machine Wise + Production ও Machine Set Summary — শুধু Admin ঢুকতে পারবে ──
-  if (name === 'needle_monthly_prod' || name === 'machine_set_summary' || name === 'set_replace') {
+  // ── Machine Wise + Production ও Set Replace — শুধু Admin ঢুকতে পারবে ──
+  if (name === 'needle_monthly_prod' || name === 'set_replace') {
     var mpOk = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
     if (!mpOk) {
       if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই — শুধু Admin দেখতে পারবে', 'error');
+      return;
+    }
+  }
+
+  // ── Machine Set Summary — Admin অথবা যাকে আলাদাভাবে permission দেওয়া হয়েছে ──
+  if (name === 'machine_set_summary') {
+    var mssOk = (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') || (typeof iglHasPermission === 'function' && iglHasPermission('machine_set_summary'));
+    if (!mssOk) {
+      if (typeof toast === 'function') toast('❌ এই সেকশনে আপনার অনুমতি নেই', 'error');
       return;
     }
   }
@@ -20479,10 +20491,10 @@ const NEEDLE_MACHINES = [
   {erp:"60",id:"Mayer & Cie Rib 30''(6)",retail:"MR-30\"6(60)",gauge:"24g",section:"Circular"},
   {erp:"61",id:"Mayer & Cie Auto S/J 30''(1)",retail:"Auto MR-30\"1(61)",gauge:"24g",section:"Circular"},
   {erp:"62",id:"Mayer & Cie Auto S/J 30''(2)",retail:"Auto MR-30\"2(62)",gauge:"24g",section:"Circular"},
-  {erp:"63",id:"Fukahama Auto S/J 30''(1)",retail:"Auto Fu-30\"1(63)",gauge:"24g",section:"Circular"},
-  {erp:"64",id:"Fukahama Auto S/J 30''(2)",retail:"Auto Fu-30\"2(64)",gauge:"24g",section:"Circular"},
-  {erp:"69",id:"Fukahama Auto S/J 30''(7)",retail:"Auto Fu-30\"7(69)",gauge:"24g",section:"Circular"},
-  {erp:"70",id:"Fukahama Auto S/J 30''(8)",retail:"Auto Fu-30\"8(70)",gauge:"24g",section:"Circular"},
+  {erp:"63",id:"Fukahama Auto 30''(1)",retail:"Auto Fu-30\"1(63)",gauge:"24g",section:"Circular"},
+  {erp:"64",id:"Fukahama Auto 30''(2)",retail:"Auto Fu-30\"2(64)",gauge:"24g",section:"Circular"},
+  {erp:"69",id:"Fukahama Auto 30''(7)",retail:"Auto Fu-30\"7(69)",gauge:"24g",section:"Circular"},
+  {erp:"70",id:"Fukahama Auto 30''(8)",retail:"Auto Fu-30\"8(70)",gauge:"24g",section:"Circular"},
   {erp:"71",id:"Fukahama S/J 30''(7)",retail:"Tj-30\"7(71)",gauge:"24g",section:"Circular"},
   {erp:"72",id:"Fukahama S/J 30''(8)",retail:"Tj-30\"8(72)",gauge:"24g",section:"Circular"},
   {erp:"73",id:"Fukahama S/J 30''(9)",retail:"Tj-30\"9(73)",gauge:"24g",section:"Circular"},
@@ -20548,11 +20560,11 @@ const NEEDLE_MACHINES = [
   {erp:"133",id:"Fukuhara Rib 40''(33)",retail:"Fu Rib-40\"33(133)",gauge:"18g",section:"Circular"},
   {erp:"134",id:"Fukuhara Rib 42''(34)",retail:"Fu Rib-42\"34(134)",gauge:"18g",section:"Circular"},
   {erp:"135",id:"Fukuhara Rib 42''(35)",retail:"Fu Rib-42\"35(135)",gauge:"18g",section:"Circular"},
-  {erp:"136",id:"Jacquard Auto 34''(1)",retail:"Jaq Auto 34\"1(136)",gauge:"24g",section:"Circular"},
-  {erp:"137",id:"Jacquard S/J 34''(2)",retail:"Jaq S/J 34\"2(137)",gauge:"24g",section:"Circular"},
-  {erp:"138",id:"Jacquard S/J 34''(3)",retail:"Jaq S/J 34\"3(138)",gauge:"24g",section:"Circular"},
-  {erp:"139",id:"Jacquard Rib 34''(4)",retail:"Jaq Rib 34\"4(139)",gauge:"18g",section:"Circular"},
-  {erp:"140",id:"Jacquard Rib 34''(5)",retail:"Jaq Rib 34\"5(140)",gauge:"18g",section:"Circular"},
+  {erp:"136",id:"Fukuhara Jacquard Auto 34''(1)",retail:"Jaq Auto 34\"1(136)",gauge:"24g",section:"Circular"},
+  {erp:"137",id:"Fukuhara Jacquard S/J 34''(2)",retail:"Jaq S/J 34\"2(137)",gauge:"24g",section:"Circular"},
+  {erp:"138",id:"Fukuhara Jacquard S/J 34''(3)",retail:"Jaq S/J 34\"3(138)",gauge:"24g",section:"Circular"},
+  {erp:"139",id:"Fukuhara Jacquard Rib 34''(4)",retail:"Jaq Rib 34\"4(139)",gauge:"18g",section:"Circular"},
+  {erp:"140",id:"Fukuhara Jacquard Rib 34''(5)",retail:"Jaq Rib 34\"5(140)",gauge:"18g",section:"Circular"},
   {erp:"",id:"Shima Seiki ( 1 )",retail:"Shima(1)",gauge:"60",section:"Flat Knit"},
   {erp:"",id:"Shima Seiki ( 2 )",retail:"Shima(2)",gauge:"60",section:"Flat Knit"},
   {erp:"",id:"Shima Seiki ( 3 )",retail:"Shima(3)",gauge:"60",section:"Flat Knit"},
@@ -20584,13 +20596,13 @@ const NEEDLE_MACHINES = [
   {erp:"40",id:"Msj 30''(3)",retail:"Msj 30\"3(40)",gauge:"30",section:"Circular"},
   {erp:"41",id:"Msj 30''(4)",retail:"Msj 30\"4(41)",gauge:"30",section:"Circular"},
   {erp:"42",id:"Fsj 30''(1)",retail:"Fsj 30\"1(42)",gauge:"30",section:"Circular"},
-  {erp:"55",id:"Mr 30''(1)",retail:"Mr 30\"1(55)",gauge:"30",section:"Circular"},
-  {erp:"56",id:"Mr 30''(2)",retail:"Mr 30\"2(56)",gauge:"30",section:"Circular"},
-  {erp:"59",id:"Mr 30''(5)",retail:"Mr 30\"5(59)",gauge:"30",section:"Circular"},
-  {erp:"65",id:"F Est 30''(3)",retail:"F Est 30\"3(65)",gauge:"30",section:"Circular"},
-  {erp:"66",id:"F Est 30''(4)",retail:"F Est 30\"4(66)",gauge:"30",section:"Circular"},
-  {erp:"67",id:"F Est 30''(5)",retail:"F Est 30\"5(67)",gauge:"30",section:"Circular"},
-  {erp:"68",id:"F Est 30''(6)",retail:"F Est 30\"6(68)",gauge:"30",section:"Circular"}
+  {erp:"55",id:"Mayer & Cie Rib 30''(1)",retail:"Mr 30\"1(55)",gauge:"30",section:"Circular"},
+  {erp:"56",id:"Mayer & Cie Rib 30''(2)",retail:"Mr 30\"2(56)",gauge:"30",section:"Circular"},
+  {erp:"59",id:"Mayer & Cie Rib 30''(5)",retail:"Mr 30\"5(59)",gauge:"30",section:"Circular"},
+  {erp:"65",id:"Fukahama Auto 30''(3)",retail:"F Est 30\"3(65)",gauge:"30",section:"Circular"},
+  {erp:"66",id:"Fukahama Auto 30''(4)",retail:"F Est 30\"4(66)",gauge:"30",section:"Circular"},
+  {erp:"67",id:"Fukahama Auto 30''(5)",retail:"F Est 30\"5(67)",gauge:"30",section:"Circular"},
+  {erp:"68",id:"Fukahama Auto 30''(6)",retail:"F Est 30\"6(68)",gauge:"30",section:"Circular"}
 ];
 
 // —— Needle Machine Master: single source of truth = igl_retail_machines ——
@@ -21678,6 +21690,156 @@ function _mmpFmtDate(d) {
   var p = d.split('-');
   var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return Number(p[2]) + '-' + names[Number(p[1])-1] + '-' + p[0].slice(2);
+}
+
+// =====================================================================
+//  মেশিন নাম মাইগ্রেশন — ১৬টা মেশিনের নাম বদলের সাথে সাথে তাদের সব পুরনো
+//  Firebase ডাটা (Set Change রেকর্ড, Running Date, বেজলাইন, মাসিক Production)
+//  নতুন নামে সরিয়ে নেয়, যাতে ইতিহাস না হারায়। একবার চালানোর জন্য বানানো —
+//  প্রতিটা ধাপ লিখে আবার পড়ে যাচাই করে নেয়।
+// =====================================================================
+var MNM_RENAME_MAP = {
+  "Mr 30''(1)": "Mayer & Cie Rib 30''(1)",
+  "Mr 30''(2)": "Mayer & Cie Rib 30''(2)",
+  "Mr 30''(5)": "Mayer & Cie Rib 30''(5)",
+  "Fukahama Auto S/J 30''(1)": "Fukahama Auto 30''(1)",
+  "Fukahama Auto S/J 30''(2)": "Fukahama Auto 30''(2)",
+  "F Est 30''(3)": "Fukahama Auto 30''(3)",
+  "F Est 30''(4)": "Fukahama Auto 30''(4)",
+  "F Est 30''(5)": "Fukahama Auto 30''(5)",
+  "F Est 30''(6)": "Fukahama Auto 30''(6)",
+  "Fukahama Auto S/J 30''(7)": "Fukahama Auto 30''(7)",
+  "Fukahama Auto S/J 30''(8)": "Fukahama Auto 30''(8)",
+  "Jacquard Auto 34''(1)": "Fukuhara Jacquard Auto 34''(1)",
+  "Jacquard S/J 34''(2)": "Fukuhara Jacquard S/J 34''(2)",
+  "Jacquard S/J 34''(3)": "Fukuhara Jacquard S/J 34''(3)",
+  "Jacquard Rib 34''(4)": "Fukuhara Jacquard Rib 34''(4)",
+  "Jacquard Rib 34''(5)": "Fukuhara Jacquard Rib 34''(5)"
+};
+
+function mnmRunMigration() {
+  var mapEntries = Object.keys(MNM_RENAME_MAP);
+  if (!confirm('মোট '+mapEntries.length+'টা মেশিনের নাম বদলের পুরনো ডাটা (Set Change, Running Date, বেজলাইন, মাসিক Production) migrate করা হবে। এটা একবারই চালানো উচিত। এগোবেন?')) return;
+  if (typeof firebase === 'undefined' || !firebase.database) { toast('❌ Firebase সংযোগ পাওয়া যায়নি', 'error'); return; }
+
+  var log = { needles: 0, rundates: 0, baselines: 0, prodMonths: 0, prodEntries: 0 };
+  toast('⏳ মাইগ্রেশন শুরু হয়েছে — বন্ধ করবেন না...', 'warning');
+
+  var fb = firebase.database();
+
+  // ধাপ ১: Set Change (needle) রেকর্ড — igl_erp/ndb/needles
+  var stepNeedles = fb.ref('igl_erp/ndb/needles').once('value').then(function(snap){
+    var arr = snap.val();
+    if (!Array.isArray(arr)) return;
+    var changed = false;
+    arr.forEach(function(n){
+      if (n && n.machine && MNM_RENAME_MAP.hasOwnProperty(n.machine)) {
+        n.machine = MNM_RENAME_MAP[n.machine];
+        log.needles++;
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    return fb.ref('igl_erp/ndb/needles').set(arr).then(function(){
+      return fb.ref('igl_erp/ndb/needles').once('value');
+    }).then(function(verifySnap){
+      var verifyArr = verifySnap.val() || [];
+      var stillOld = verifyArr.some(function(n){ return n && n.machine && MNM_RENAME_MAP.hasOwnProperty(n.machine); });
+      if (stillOld) throw new Error('needles যাচাই ব্যর্থ');
+    });
+  });
+
+  // ধাপ ২: Running Date — igl_machine_rundate_v2
+  var stepRunDates = fb.ref('igl_machine_rundate_v2').once('value').then(function(snap){
+    var obj = snap.val() || {};
+    var changed = false;
+    mapEntries.forEach(function(oldName){
+      var oldKey = _mpKeyEncode(oldName);
+      var newKey = _mpKeyEncode(MNM_RENAME_MAP[oldName]);
+      if (obj.hasOwnProperty(oldKey)) {
+        obj[newKey] = obj[oldKey];
+        delete obj[oldKey];
+        log.rundates++;
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    return fb.ref('igl_machine_rundate_v2').set(obj);
+  });
+
+  // ধাপ ৩: বেজলাইন — igl_machine_baseline_v2
+  var stepBaselines = fb.ref('igl_machine_baseline_v2').once('value').then(function(snap){
+    var obj = snap.val() || {};
+    var changed = false;
+    mapEntries.forEach(function(oldName){
+      var oldKey = _mpKeyEncode(oldName);
+      var newKey = _mpKeyEncode(MNM_RENAME_MAP[oldName]);
+      if (obj.hasOwnProperty(oldKey)) {
+        obj[newKey] = obj[oldKey];
+        delete obj[oldKey];
+        log.baselines++;
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    return fb.ref('igl_machine_baseline_v2').set(obj);
+  });
+
+  // ধাপ ৪: মাসিক Production — igl_machprod_v2/{year_month}/{encodedMachineId}
+  var stepProd = fb.ref('igl_machprod_v2').once('value').then(function(snap){
+    var allMonths = snap.val() || {};
+    var monthWrites = [];
+    Object.keys(allMonths).forEach(function(monthKey){
+      var monthObj = allMonths[monthKey] || {};
+      var changed = false;
+      mapEntries.forEach(function(oldName){
+        var oldKey = _mpKeyEncode(oldName);
+        var newKey = _mpKeyEncode(MNM_RENAME_MAP[oldName]);
+        if (monthObj.hasOwnProperty(oldKey)) {
+          monthObj[newKey] = monthObj[oldKey];
+          delete monthObj[oldKey];
+          log.prodEntries++;
+          changed = true;
+        }
+      });
+      if (changed) {
+        log.prodMonths++;
+        monthWrites.push(fb.ref('igl_machprod_v2/' + monthKey).set(monthObj));
+      }
+    });
+    return Promise.all(monthWrites);
+  });
+
+  Promise.all([stepNeedles, stepRunDates, stepBaselines, stepProd]).then(function(){
+    // লোকাল/ইন-মেমরি ক্যাশ রিফ্রেশ — যাতে এই সেশনেও সাথে সাথে নতুন নাম দেখায়
+    window._machRunDateCache = null;
+    window._machProdCache = {};
+    try {
+      var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
+      rms.forEach(function(rm){ if (rm && MNM_RENAME_MAP.hasOwnProperty(rm.name)) rm.name = MNM_RENAME_MAP[rm.name]; });
+      localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+    } catch(e){}
+    try {
+      var lsNeedles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
+      lsNeedles.forEach(function(n){ if (n && MNM_RENAME_MAP.hasOwnProperty(n.machine)) n.machine = MNM_RENAME_MAP[n.machine]; });
+      localStorage.setItem('igl_needles', JSON.stringify(lsNeedles));
+    } catch(e){}
+    if (typeof window._ndlFullCache !== 'undefined' && Array.isArray(window._ndlFullCache)) {
+      window._ndlFullCache.forEach(function(n){ if (n && MNM_RENAME_MAP.hasOwnProperty(n.machine)) n.machine = MNM_RENAME_MAP[n.machine]; });
+    }
+    if (typeof window.fbLoadAll === 'function') window.fbLoadAll();
+
+    toast('✅ মাইগ্রেশন সম্পন্ন — Set Change: '+log.needles+', Running Date: '+log.rundates+', বেজলাইন: '+log.baselines+', Production মাস: '+log.prodMonths+' ('+log.prodEntries+' এন্ট্রি)', 'success');
+    alert('✅ মাইগ্রেশন সফল হয়েছে:\n\n'
+      + '• Set Change রেকর্ড আপডেট: ' + log.needles + 'টা\n'
+      + '• Running Date সরানো: ' + log.rundates + 'টা\n'
+      + '• বেজলাইন সরানো: ' + log.baselines + 'টা\n'
+      + '• Production ডাটা সরানো: ' + log.prodMonths + ' মাস (' + log.prodEntries + ' এন্ট্রি)\n\n'
+      + 'এখন Machine Set Summary রিফ্রেশ করে মিলিয়ে দেখুন।');
+  }).catch(function(err){
+    console.error('mnmRunMigration error', err);
+    toast('❌ মাইগ্রেশন চলাকালীন সমস্যা হয়েছে: '+(err&&err.message?err.message:err)+' — আবার চেষ্টা করুন', 'error');
+  });
 }
 
 function mmpOpenReport() {
@@ -33281,23 +33443,23 @@ function pqbDoPrint() {
 
   // ERP 136-140 এর সব সম্ভাব্য পুরনো নাম → নতুন সঠিক নাম
   var nameMap = [
-    { match: /Jaq.*Auto.*34|Jacquard.*Auto.*34/i,          newName: 'Jacquard Auto 34" (1)', erp: '136' },
-    { match: /Jaq.*S\/J.*34.*2|Jacquard.*S\/J.*34.*2/i,  newName: 'Jacquard S/J 34" (2)',  erp: '137' },
-    { match: /Jaq.*S\/J.*34.*3|Jacquard.*S\/J.*34.*3/i,  newName: 'Jacquard S/J 34" (3)',  erp: '138' },
-    { match: /Jaq.*Rib.*34.*4|Jacquard.*Rib.*34.*4/i,      newName: 'Jacquard Rib 34" (4)',  erp: '139' },
-    { match: /Jaq.*Rib.*34.*5|Jacquard.*Rib.*34.*5/i,      newName: 'Jacquard Rib 34" (5)',  erp: '140' },
+    { match: /Jaq.*Auto.*34|Jacquard.*Auto.*34/i,          newName: 'Fukuhara Jacquard Auto 34" (1)', erp: '136' },
+    { match: /Jaq.*S\/J.*34.*2|Jacquard.*S\/J.*34.*2/i,  newName: 'Fukuhara Jacquard S/J 34" (2)',  erp: '137' },
+    { match: /Jaq.*S\/J.*34.*3|Jacquard.*S\/J.*34.*3/i,  newName: 'Fukuhara Jacquard S/J 34" (3)',  erp: '138' },
+    { match: /Jaq.*Rib.*34.*4|Jacquard.*Rib.*34.*4/i,      newName: 'Fukuhara Jacquard Rib 34" (4)',  erp: '139' },
+    { match: /Jaq.*Rib.*34.*5|Jacquard.*Rib.*34.*5/i,      newName: 'Fukuhara Jacquard Rib 34" (5)',  erp: '140' },
     // ERP দিয়ে match না হলে, সব Jaq S/J 34 → 137, সব Jaq Rib 34 (no number) → 139
-    { match: /Jaq.*S\/J.*34|Jacquard.*S\/J.*34/i,        newName: 'Jacquard S/J 34" (2)',  erp: '137' },
-    { match: /Jaq.*Rib.*34|Jacquard.*Rib.*34/i,            newName: 'Jacquard Rib 34" (4)',  erp: '139' },
+    { match: /Jaq.*S\/J.*34|Jacquard.*S\/J.*34/i,        newName: 'Fukuhara Jacquard S/J 34" (2)',  erp: '137' },
+    { match: /Jaq.*Rib.*34|Jacquard.*Rib.*34/i,            newName: 'Fukuhara Jacquard Rib 34" (4)',  erp: '139' },
   ];
 
   // ERP → নতুন নাম
   var erpMap = {
-    '136': 'Jacquard Auto 34" (1)',
-    '137': 'Jacquard S/J 34" (2)',
-    '138': 'Jacquard S/J 34" (3)',
-    '139': 'Jacquard Rib 34" (4)',
-    '140': 'Jacquard Rib 34" (5)'
+    '136': 'Fukuhara Jacquard Auto 34" (1)',
+    '137': 'Fukuhara Jacquard S/J 34" (2)',
+    '138': 'Fukuhara Jacquard S/J 34" (3)',
+    '139': 'Fukuhara Jacquard Rib 34" (4)',
+    '140': 'Fukuhara Jacquard Rib 34" (5)'
   };
 
   // 1. retail_machines fix
