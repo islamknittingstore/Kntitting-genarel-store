@@ -25841,7 +25841,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }catch(e){}
     return base;
   }
-  function ndlSetMaster(v){try{localStorage.setItem('igl_ndl_master',JSON.stringify(v));}catch(e){}}
+  function ndlSetMaster(v){
+    try{localStorage.setItem('igl_ndl_master',JSON.stringify(v));}catch(e){}
+    // ✅ Needle-Machine mapping change সাথে সাথে Firebase-এ push করো, যাতে অন্য ডিভাইসেও
+    // সাথে সাথে sync হয় (আগে শুধু localStorage-এ থাকতো, অন্য কোনো action না করলে Firebase-এ যেত না)
+    try{ if(typeof triggerAutoSave==='function') triggerAutoSave(); }catch(e){}
+  }
   function ndlGetRcv(){try{return JSON.parse(localStorage.getItem('igl_ndl_rcv')||'[]');}catch(e){return[];}}
   function ndlSetRcv(v){try{localStorage.setItem('igl_ndl_rcv',JSON.stringify(v));}catch(e){}}
 
