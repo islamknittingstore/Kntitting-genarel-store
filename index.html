@@ -4738,6 +4738,7 @@ function ok(msg) {
           </div>
           <button onclick="updateLSMeter()" style="background:#2980b9;color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:12px;cursor:pointer;">🔄 Refresh</button>
           <button onclick="manualMonthlyBackup()" style="background:#117a65;color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:12px;cursor:pointer;">📦 এখনই Backup নিন</button>
+          <button onclick="mpCleanOldCache()" style="background:#e67e22;color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:12px;cursor:pointer;" title="পুরনো মাসের Production ডাটা শুধু এই ডিভাইসের localStorage থেকে সরাবে — Firebase-এ কিছু মুছবে না, দরকার হলে আবার লোড হয়ে যাবে">🧹 পুরনো Cache পরিষ্কার করুন</button>
         </div>
         <div id="lsMeterDetail" style="margin-top:12px;font-size:11px;color:#666;line-height:2;"></div>
       </div>
@@ -21478,6 +21479,9 @@ function mpSaveMonth(year, month, dataObj) {
   _fbDb.ref('igl_machprod_v2/' + key).set(encoded).then(function(){
     console.log('machProd saved to Firebase:', key);
     if (typeof fbStatus === 'function') fbStatus('saved', '✅ Production Synced');
+    // Firebase-এ নিশ্চিতভাবে সেভ হয়ে গেলে, এই ডিভাইসের পুরনো (৬ মাসের বেশি আগের) local cache নিঃশব্দে পরিষ্কার করে দাও —
+    // যাতে localStorage বছরের পর বছর জমে ভরে না যায় (Firebase-এ ডাটা তো থেকেই যাচ্ছে)
+    try { if (typeof mpCleanOldCache === 'function') mpCleanOldCache(6, true); } catch(e){}
   }).catch(function(err){
     console.error('machProd save error', err);
     if (typeof fbStatus === 'function') fbStatus('error', '❌ Production sync failed');
@@ -31231,6 +31235,38 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     setInterval(updateLSMeter, 15000);
     // checkMonthlyAutoBackup() — login এর পরে call হবে, এখানে না
   });
+
+  // ── পুরনো মাসের Production ডাটা localStorage থেকে পরিষ্কার করা ──
+  // (mpSaveMonth() প্রতি মাস সেভ করার সময় সেই মাসের ডাটা স্থায়ীভাবে localStorage-এ রেখে দেয়, অফলাইন fallback হিসেবে।
+  //  কিন্তু ২০২২ সাল থেকে আজ পর্যন্ত সব মাস জমতে জমতে localStorage ভরে যাচ্ছে। Firebase-এ পুরো ডাটা এমনিতেই আছে
+  //  (mpLoadMonth() দরকার হলে সেখান থেকে আবার লোড করে নেয়) — তাই পুরনো মাসগুলো লোকালি না রাখলেও কোনো ডাটা হারাবে না।)
+  function mpCleanOldCache(monthsToKeep, silent) {
+    monthsToKeep = monthsToKeep || 6;
+    var now = new Date();
+    var cutoff = now.getFullYear() * 12 + now.getMonth() - monthsToKeep; // "year*12+monthIndex" স্কেলে cutoff
+    var removed = 0, freedBytes = 0;
+    var keysToRemove = [];
+    for (var k in localStorage) {
+      if (!localStorage.hasOwnProperty(k)) continue;
+      var m = k.match(/^igl_machprod_(\d{4})_(\d{1,2})$/);
+      if (!m) continue;
+      var y = Number(m[1]), mo = Number(m[2]);
+      var scale = y * 12 + (mo - 1);
+      if (scale < cutoff) keysToRemove.push(k);
+    }
+    keysToRemove.forEach(function(k){
+      freedBytes += (localStorage[k].length + k.length) * 2;
+      localStorage.removeItem(k);
+      removed++;
+    });
+    updateLSMeter();
+    if (silent) return;
+    if (removed === 0) {
+      toast('✅ পরিষ্কার করার মতো পুরনো Cache নেই — সব ঠিক আছে', 'success');
+    } else {
+      toast('🧹 '+removed+'টা পুরনো মাসের Cache মুছে ('+(freedBytes/1024).toFixed(1)+' KB ফাঁকা হয়েছে) — Firebase-এ ডাটা অক্ষত আছে, দরকার হলে আবার লোড হয়ে যাবে', 'success');
+    }
+  }
 
   // ── Monthly Auto JSON Backup ──
   function checkMonthlyAutoBackup() {
