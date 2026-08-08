@@ -24289,8 +24289,21 @@ function stnRenderDeptList(){
   }).join('');
   var fromSel=document.getElementById('stn-merge-from'), intoSel=document.getElementById('stn-merge-into');
   if(fromSel && intoSel){
-    var opts=depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join('');
-    fromSel.innerHTML=opts; intoSel.innerHTML=opts;
+    // ✅ "From" dropdown-এ শুধু বর্তমান Department লিস্টই না, পুরনো Issue রেকর্ডে থাকা কিন্তু এখন
+    // Department লিস্ট থেকে মুছে যাওয়া নামও (যেমন আগে যোগ করে পরে ডিলিট করা "F. Delivery") দেখাবে —
+    // কারণ সেগুলোর পুরনো রেকর্ড এখনো DB.issues-এ পড়ে আছে, merge করার দরকার হতে পারে
+    var stnItemNames = (DB.stnItems||[]).map(function(i){ return i.name; });
+    var histSet = {};
+    (DB.issues||[]).forEach(function(r){
+      if(r.machineId && stnItemNames.indexOf(r.item)!==-1) histSet[r.machineId]=true;
+    });
+    var orphanDepts = Object.keys(histSet).filter(function(d){ return depts.indexOf(d)===-1; });
+
+    var fromOpts = depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; })
+      .concat(orphanDepts.map(function(d){ return '<option value="'+d+'">'+d+' (পুরনো — লিস্টে নেই)</option>'; }))
+      .join('');
+    var intoOpts = depts.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join('');
+    fromSel.innerHTML=fromOpts; intoSel.innerHTML=intoOpts;
     if(depts.length>1) intoSel.selectedIndex=1;
   }
 }
@@ -24301,7 +24314,11 @@ async function stnModalMergeDept(){
   if(!oldName || !newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ দুইটা Department সিলেক্ট করুন!</span>'; return; }
   if(oldName===newName){ msg.innerHTML='<span style="color:#e74c3c">⚠️ একই Department সিলেক্ট করা যাবে না!</span>'; return; }
   var affected=(DB.issues||[]).filter(function(r){ return r.machineId===oldName; }).length;
-  var ok=await igl_confirm('"'+oldName+'" এর সব ('+affected+'টা) Issue রেকর্ড "'+newName+'"-এ merge হবে, এবং "'+oldName+'" Department লিস্ট থেকে মুছে যাবে। এগোবেন?','','🔀');
+  var stillInList = stnGetDepts().indexOf(oldName)!==-1;
+  var confirmMsg = '"'+oldName+'" এর সব ('+affected+'টা) Issue রেকর্ড "'+newName+'"-এ merge হবে'
+    + (stillInList ? ', এবং "'+oldName+'" Department লিস্ট থেকে মুছে যাবে।' : ' (এটা এমনিতেই Department লিস্টে নেই)।')
+    + ' এগোবেন?';
+  var ok=await igl_confirm(confirmMsg,'','🔀');
   if(!ok) return;
   DB.issues = (DB.issues||[]).map(function(r){
     if(r.machineId!==oldName) return r;
