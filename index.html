@@ -5254,6 +5254,7 @@ function ok(msg) {
           <button class="btn btn-sm no-print admin-only-action" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpExportTemplate()">📥 Excel Template Export</button>
           <button class="btn btn-sm no-print admin-only-action" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
           <button class="btn btn-sm no-print admin-only-action" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="smpOpenModal()" title="একটা নির্দিষ্ট মেশিনের ১-২ বছরের পুরনো Production একসাথে Import করুন">📅 একটি মেশিনের বহু বছরের ডাটা Import</button>
+          <button class="btn btn-sm no-print" style="background:#117864;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpOpenYearCheckModal()" title="একটা বছরের কোন মাসে Production ডাটা Import করা আছে আর কোন মাসে নেই তা এক নজরে দেখুন">🔍 বছর-ভিত্তিক Import চেক</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
@@ -5300,6 +5301,20 @@ function ok(msg) {
         <button class="btn btn-primary" onclick="smpImport()" style="flex:1;">📤 Import করুন</button>
         <button class="btn btn-outline" onclick="smpCloseModal()" style="flex:1;">বাতিল</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Yearly Production Import Check Modal -->
+  <div id="mpYearCheckModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:8px;max-width:480px;width:92%;padding:20px;max-height:85vh;overflow-y:auto;">
+      <h3 style="margin:0 0 6px;color:#117864;">🔍 বছর-ভিত্তিক Import চেক</h3>
+      <p style="font-size:12px;color:#666;margin:0 0 14px;">একটা বছর দিন — জানুয়ারি থেকে ডিসেম্বর পর্যন্ত কোন মাসে কত কেজি Production Import করা আছে (সব মেশিন মিলিয়ে মোট) তা দেখাবে, যাতে কোনো মাস Import করতে বাদ পড়েছে কিনা সহজে বোঝা যায়।</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <input type="number" class="form-control" id="myc-year" style="width:110px;" min="2015" max="2050">
+        <button class="btn btn-primary btn-sm" onclick="mpYearCheckRun()">চেক করুন</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mpYearCheckModal').style.display='none';" style="margin-left:auto;">✕ বন্ধ</button>
+      </div>
+      <div id="myc-results"></div>
     </div>
   </div>
 
@@ -21413,6 +21428,62 @@ function _mpKeyEncode(k) {
 }
 function _mpKeyDecode(k) {
   return String(k).replace(/~(\d+)~/g, function(_, code){ return String.fromCharCode(Number(code)); });
+}
+
+// ── বছর-ভিত্তিক Import চেক — কোন মাসে কত কেজি Production ইনপুট করা আছে (সব মেশিন মিলিয়ে) —
+// Firebase থেকেই লোড হয় (mpLoadMonth দিয়ে), যাতে কোনো মাস Import করতে বাদ পড়লে সহজে ধরা যায়
+function mpOpenYearCheckModal(){
+  var yEl = document.getElementById('myc-year');
+  if (yEl && !yEl.value) yEl.value = new Date().getFullYear();
+  document.getElementById('myc-results').innerHTML = '';
+  document.getElementById('mpYearCheckModal').style.display = 'flex';
+}
+function mpYearCheckRun(){
+  var year = parseInt((document.getElementById('myc-year')||{}).value) || new Date().getFullYear();
+  var body = document.getElementById('myc-results');
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:12px;">⏳ Firebase থেকে লোড হচ্ছে...</div>';
+  var mNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var results = new Array(12).fill(null);
+  var loaded = 0;
+  for (var m = 1; m <= 12; m++) {
+    (function(mo){
+      mpLoadMonth(year, mo, function(data){
+        var total = 0;
+        var hasData = data && Object.keys(data).length > 0;
+        Object.keys(data || {}).forEach(function(mid){
+          Object.keys(data[mid] || {}).forEach(function(day){
+            total += parseFloat(data[mid][day]) || 0;
+          });
+        });
+        results[mo-1] = { total: total, hasData: hasData && total > 0 };
+        loaded++;
+        if (loaded === 12) renderYearCheckResults();
+      });
+    })(m);
+  }
+  function renderYearCheckResults(){
+    var now = new Date();
+    var rows = results.map(function(r, i){
+      var mo = i + 1;
+      var isFuture = (year > now.getFullYear()) || (year === now.getFullYear() && mo > now.getMonth() + 1);
+      var bg, statusHtml;
+      if (isFuture) {
+        bg = '#f8f9fa';
+        statusHtml = '<span style="color:#aaa;">— ভবিষ্যৎ —</span>';
+      } else if (r.hasData) {
+        bg = '#eafaf1';
+        statusHtml = '<span style="color:#1e8449;font-weight:700;">✅ ' + r.total.toLocaleString('en-US',{maximumFractionDigits:1}) + ' kg</span>';
+      } else {
+        bg = '#fdecea';
+        statusHtml = '<span style="color:#c0392b;font-weight:700;">❌ ডাটা নেই</span>';
+      }
+      return '<tr style="background:'+bg+';"><td style="padding:7px 12px;border-bottom:1px solid #eee;font-weight:600;">'+mNames[i]+' '+year+'</td>'
+        + '<td style="padding:7px 12px;border-bottom:1px solid #eee;text-align:right;">'+statusHtml+'</td></tr>';
+    }).join('');
+    body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+      + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:7px 12px;text-align:left;">মাস</th><th style="padding:7px 12px;text-align:right;">মোট Production (সব মেশিন)</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table>';
+  }
 }
 
 function mpLoadMonth(year, month, cb) {
