@@ -32084,6 +32084,18 @@ function showNdlStockRegister(mode) {
   document.getElementById('ndlStockRegModal').style.display='flex';
 }
 
+// ── Stock Register-এর একটা লাইনে ক্লিক করলে সবুজ করে মার্ক/আনমার্ক হয় —
+// শুধু চোখের মার্কিং, খাতায় লেখার সুবিধার জন্য, কোনো ডাটা/হিসাব বদলায় না, সেভও হয় না
+function ndlSrToggleRow(tr){
+  if(!tr) return;
+  if(tr.classList.contains('ndl-sr-marked')){
+    tr.classList.remove('ndl-sr-marked');
+    tr.style.background = tr.getAttribute('data-bg') || '';
+  } else {
+    tr.classList.add('ndl-sr-marked');
+    tr.style.background = '#7dcea0';
+  }
+}
 function renderNdlStockRegister() {
   var ndlId  = (document.getElementById('ndl-sr-needle')||{}).value||'';
   var month  = parseInt((document.getElementById('ndl-sr-month')||{}).value||(new Date().getMonth()+1));
@@ -32132,7 +32144,7 @@ function renderNdlStockRegister() {
     var hasAct=totRcv>0||totIss>0;
     var rowBg=hasAct?(d%2===0?'#fef9e7':'#fffde7'):(d%2===0?'#f8f9fa':'#ffffff');
     rows.push(
-      '<tr style="background:'+rowBg+';">'
+      '<tr data-bg="'+rowBg+'" style="background:'+rowBg+';cursor:pointer;" onclick="ndlSrToggleRow(this)" title="ক্লিক করে সবুজ করে মার্ক করুন (খাতায় লেখা হয়ে গেলে)">'
       +C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>','min-width:90px;font-size:12px;')
       +C('<span style="color:'+(hasAct?'#6c3483':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+dayBF+'</span>','min-width:65px;')
       +C(totRcv>0?'<span style="color:#117a65;font-weight:700;">'+totRcv+'</span>':'','min-width:65px;')
