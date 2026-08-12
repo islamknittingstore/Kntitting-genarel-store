@@ -2947,6 +2947,7 @@ window.iglSaveNavVisibility = function() {
           <div style="font-size:11px;color:#7d6608;">"Date Wise Item Receive Issue Report" ফরম্যাটের Excel (.xls/.xlsx) থেকে একসাথে Receive ও Issue রেকর্ড Import করুন</div>
         </div>
         <button class="btn btn-sm" style="background:#b7950b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="document.getElementById('gs-bulk-import-file').click()">📤 Excel বাছাই করুন</button>
+        <button class="btn btn-sm" style="background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="gsBulkImportUndo()" title="আগে Bulk Import করা সব রেকর্ড মুছে ফেলুন (টেস্ট করে দেখার পর দরকার হলে)">🗑️ Undo শেষ Import</button>
         <input type="file" id="gs-bulk-import-file" accept=".xlsx,.xls" style="display:none;" onchange="gsBulkImportHandleFile(event)">
       </div>
     </div>
@@ -9737,7 +9738,7 @@ function gsBulkImportConfirm(){
     if (!itemObj){
       // নতুন আইটেম তৈরি
       var grp = _giGuessGroup(p.category);
-      itemObj = { id: 'gi_'+Date.now()+'_'+Math.floor(Math.random()*10000), name: p.desc, group: grp, category: p.category||'Others', minStock: 0 };
+      itemObj = { id: 'gi_'+Date.now()+'_'+Math.floor(Math.random()*10000), name: p.desc, group: grp, category: p.category||'Others', minStock: 0, autoCreated: true };
       itemsArr.push(itemObj);
       newItemCount++;
     }
@@ -9774,6 +9775,36 @@ function gsBulkImportConfirm(){
   document.getElementById('gs-bulk-import-modal').style.display = 'none';
   window._giParsedRows = null;
   toast('✅ Import সম্পন্ন! Receive: '+recvCount+', Issue: '+issCount+(newItemCount?(', নতুন আইটেম: '+newItemCount):''), 'success');
+  try { renderDashboard(); } catch(e){}
+  try { renderStock(); } catch(e){}
+  try { renderReceiveLog(); } catch(e){}
+  try { renderIssueLog(); } catch(e){}
+}
+
+// ── Bulk Import বাতিল/Undo — টেস্ট করে দেখার পর ভুল হলে পুরোটা এক ক্লিকে মুছে ফেলার জন্য ──
+async function gsBulkImportUndo(){
+  var recvCount = (DB.receives||[]).filter(function(r){return r.importedFromOldSystem;}).length;
+  var issCount  = (DB.issues||[]).filter(function(i){return i.importedFromOldSystem;}).length;
+  if (!recvCount && !issCount){ toast('কোনো Bulk-Imported রেকর্ড পাওয়া যায়নি', 'warning'); return; }
+
+  var ok = await igl_confirm('Bulk Import করা সব রেকর্ড ('+recvCount+' Receive + '+issCount+' Issue) মুছে ফেলা হবে। এই মুহূর্তে Import করা নতুন আইটেমও (যদি অন্য কোথাও ব্যবহার না হয়ে থাকে) মুছে যাবে। এগোবেন?', '', '🗑️');
+  if (!ok) return;
+
+  DB.receives = (DB.receives||[]).filter(function(r){return !r.importedFromOldSystem;});
+  DB.issues   = (DB.issues||[]).filter(function(i){return !i.importedFromOldSystem;});
+
+  // যেই নতুন আইটেমগুলো এই Import-এই তৈরি হয়েছিল (autoCreated), এখন যদি সেগুলোর আর কোনো Receive/Issue না থাকে, সেগুলোও মুছে দাও
+  var usedNames = {};
+  (DB.receives||[]).forEach(function(r){ usedNames[r.item]=true; });
+  (DB.issues||[]).forEach(function(i){ usedNames[i.item]=true; });
+  var removedItems = 0;
+  DB.items = (DB.items||[]).filter(function(it){
+    if (it.autoCreated && !usedNames[it.name]) { removedItems++; return false; }
+    return true;
+  });
+
+  triggerAutoSave();
+  toast('✅ Undo সম্পন্ন — '+recvCount+' Receive, '+issCount+' Issue'+(removedItems?(', '+removedItems+'টা অটো-তৈরি আইটেম'):'')+' মুছে ফেলা হয়েছে', 'success');
   try { renderDashboard(); } catch(e){}
   try { renderStock(); } catch(e){}
   try { renderReceiveLog(); } catch(e){}
