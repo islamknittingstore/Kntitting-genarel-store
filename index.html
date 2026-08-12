@@ -2940,6 +2940,16 @@ window.iglSaveNavVisibility = function() {
       <h2>Receive Goods - Entry</h2>
       <p>Enter new goods received into the store</p>
     </div>
+    <div class="card admin-only-action" style="background:#fef9e7;border:1px solid #f7dc6f;">
+      <div class="card-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;">
+        <div style="flex:1;min-width:200px;">
+          <b style="color:#7d6608;">📤 পুরনো সিস্টেম থেকে Bulk Import</b>
+          <div style="font-size:11px;color:#7d6608;">"Date Wise Item Receive Issue Report" ফরম্যাটের Excel (.xls/.xlsx) থেকে একসাথে Receive ও Issue রেকর্ড Import করুন</div>
+        </div>
+        <button class="btn btn-sm" style="background:#b7950b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="document.getElementById('gs-bulk-import-file').click()">📤 Excel বাছাই করুন</button>
+        <input type="file" id="gs-bulk-import-file" accept=".xlsx,.xls" style="display:none;" onchange="gsBulkImportHandleFile(event)">
+      </div>
+    </div>
     <div class="card">
       <div class="card-header">📥 Receive Form</div>
       <div class="card-body">
@@ -2979,7 +2989,15 @@ window.iglSaveNavVisibility = function() {
             </div>
             <div class="form-group">
               <label>Quantity *</label>
-              <input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1">
+              <input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()">
+            </div>
+            <div class="form-group">
+              <label>Rate (Unit Price)</label>
+              <input type="number" class="form-control" id="r-rate" placeholder="প্রতি ইউনিট দাম (ঐচ্ছিক)" min="0" step="0.01" oninput="rCalcAmount()">
+            </div>
+            <div class="form-group">
+              <label>Amount (মোট টাকা)</label>
+              <input type="number" class="form-control" id="r-amount" placeholder="Rate x Qty (auto, চাইলে বদলাতে পারবেন)" min="0" step="0.01">
             </div>
             <div class="form-group">
               <label>Current Stock</label>
@@ -2999,6 +3017,22 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!--  ISSUE  -->
+  <!-- Bulk Import Preview Modal -->
+  <div id="gs-bulk-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:8px;max-width:900px;width:95%;max-height:88vh;display:flex;flex-direction:column;">
+      <div style="padding:16px 20px;border-bottom:1px solid #eee;">
+        <h3 style="margin:0;color:#b7950b;">📤 Bulk Import — Preview</h3>
+        <p style="margin:4px 0 0;font-size:12px;color:#666;">নিচে যা পাওয়া গেছে দেখে নিন, তারপর নিশ্চিত হলে Import করুন। এখনো কিছু সেভ হয়নি।</p>
+      </div>
+      <div id="gs-bulk-import-summary" style="padding:12px 20px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:13px;"></div>
+      <div id="gs-bulk-import-body" style="padding:12px 20px;overflow-y:auto;flex:1;"></div>
+      <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="gsBulkImportConfirm()">✅ Import নিশ্চিত করুন</button>
+        <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('gs-bulk-import-modal').style.display='none';window._giParsedRows=null;">✕ বাতিল</button>
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="page-issue">
     <div class="page-header">
       <h2>Issue Goods - Entry</h2>
@@ -3037,7 +3071,15 @@ window.iglSaveNavVisibility = function() {
             </div>
             <div class="form-group">
               <label>Quantity *</label>
-              <input type="number" class="form-control" id="i-qty" placeholder="Enter quantity" min="1">
+              <input type="number" class="form-control" id="i-qty" placeholder="Enter quantity" min="1" oninput="iCalcAmount()">
+            </div>
+            <div class="form-group">
+              <label>Rate (Unit Price)</label>
+              <input type="number" class="form-control" id="i-rate" placeholder="প্রতি ইউনিট দাম (ঐচ্ছিক)" min="0" step="0.01" oninput="iCalcAmount()">
+            </div>
+            <div class="form-group">
+              <label>Amount (মোট টাকা)</label>
+              <input type="number" class="form-control" id="i-amount" placeholder="Rate x Qty (auto, চাইলে বদলাতে পারবেন)" min="0" step="0.01">
             </div>
           </div>
           <div>
@@ -9290,6 +9332,13 @@ function fillMachineByCat() {
 // 
 //  SAVE RECEIVE
 // 
+function rCalcAmount() {
+  var rate = parseFloat(document.getElementById('r-rate').value) || 0;
+  var qty = parseFloat(document.getElementById('r-qty').value) || 0;
+  if (rate > 0 && qty > 0) {
+    document.getElementById('r-amount').value = (rate * qty).toFixed(2);
+  }
+}
 function saveReceive() {
   const date = document.getElementById('r-date').value;
   const group = document.getElementById('r-group').value;
@@ -9298,6 +9347,8 @@ function saveReceive() {
   const chalan = document.getElementById('r-chalan').value;
   const supplier = document.getElementById('r-supplier') ? document.getElementById('r-supplier').value : '';
   const qty = document.getElementById('r-qty').value;
+  const rate = parseFloat(document.getElementById('r-rate').value) || 0;
+  const amount = parseFloat(document.getElementById('r-amount').value) || (rate * Number(qty)) || 0;
 
   if (!date) { toast('Please enter a date!', 'warning'); return; }
   var _bdErr1 = window.iglCheckBackdate(date);
@@ -9306,7 +9357,7 @@ function saveReceive() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  const rec = { id: Date.now(), date, group, category, item, chalan, supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const rec = { id: Date.now(), date, group, category, item, chalan, supplier, qty: Number(qty), rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -9330,6 +9381,8 @@ function clearReceiveForm() {
   document.getElementById('r-chalan').value = '';
   if (document.getElementById('r-supplier')) document.getElementById('r-supplier').value = '';
   document.getElementById('r-qty').value = '';
+  document.getElementById('r-rate').value = '';
+  document.getElementById('r-amount').value = '';
   document.getElementById('r-stock-badge').innerHTML = '';
 
   // Re-populate Group and Category (to retain value)
@@ -9352,6 +9405,13 @@ function clearReceiveForm() {
 // 
 //  SAVE ISSUE
 // 
+function iCalcAmount() {
+  var rate = parseFloat(document.getElementById('i-rate').value) || 0;
+  var qty = parseFloat(document.getElementById('i-qty').value) || 0;
+  if (rate > 0 && qty > 0) {
+    document.getElementById('i-amount').value = (rate * qty).toFixed(2);
+  }
+}
 async function saveIssue() {
   const date = document.getElementById('i-date').value;
   const slip = document.getElementById('i-slip').value.trim();
@@ -9359,6 +9419,8 @@ async function saveIssue() {
   const category = document.getElementById('i-category').value;
   const item = document.getElementById('i-item').value;
   const qty = Number(document.getElementById('i-qty').value);
+  const rate = parseFloat(document.getElementById('i-rate').value) || 0;
+  const amount = parseFloat(document.getElementById('i-amount').value) || (rate * qty) || 0;
   const machineNo = document.getElementById('i-machine-no').value;
   const machineCat = document.getElementById('i-machine-cat').value;
   const machineId = document.getElementById('i-machine-id').value;
@@ -9391,7 +9453,7 @@ async function saveIssue() {
     if (!ok) return;
   }
 
-  const iss = { id: Date.now(), date, slip, group, category, item, qty, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const iss = { id: Date.now(), date, slip, group, category, item, qty, rate, amount, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -9413,6 +9475,8 @@ function clearIssueForm() {
 
   document.getElementById('i-item').innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('i-qty').value = '';
+  document.getElementById('i-rate').value = '';
+  document.getElementById('i-amount').value = '';
   document.getElementById('i-machine-id').value = '';
   document.getElementById('i-machine-no').value = '';
   document.getElementById('i-machine-cat').value = '';
@@ -9433,6 +9497,287 @@ function clearIssueForm() {
   if (!document.getElementById('i-date').value) {
     document.getElementById('i-date').value = todayStr();
   }
+}
+
+// =====================================================================
+//  Bulk Import — পুরনো সিস্টেমের "Date Wise Item Receive Issue Report" Excel
+// =====================================================================
+
+// ── নাম মিলানোর জন্য হেল্পার ──
+function _giNormalize(s){
+  return String(s||'').toLowerCase().replace(/[\-_.,()"'′″\/]/g,' ').replace(/\s+/g,' ').trim();
+}
+function _giLevenshtein(a,b){
+  if(a===b) return 0;
+  var al=a.length, bl=b.length;
+  if(al===0) return bl;
+  if(bl===0) return al;
+  var prev = new Array(bl+1);
+  for(var j=0;j<=bl;j++) prev[j]=j;
+  for(var i=1;i<=al;i++){
+    var cur=[i];
+    for(var j=1;j<=bl;j++){
+      var cost = a[i-1]===b[j-1] ? 0 : 1;
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost);
+    }
+    prev=cur;
+  }
+  return prev[bl];
+}
+function _giSimilarity(a,b){
+  a=_giNormalize(a); b=_giNormalize(b);
+  if(!a || !b) return 0;
+  if(a===b) return 1;
+  var dist = _giLevenshtein(a,b);
+  var maxLen = Math.max(a.length,b.length);
+  return 1 - (dist/maxLen);
+}
+// Excel এর "Item Description" নাম দিয়ে DB.items এ সবচেয়ে কাছের মিল খোঁজে
+function _giFindMatchingItem(name){
+  var items = DB.items || [];
+  var norm = _giNormalize(name);
+  // ১) হুবহু normalized মিল
+  for (var i=0;i<items.length;i++){
+    if (_giNormalize(items[i].name) === norm) return {item: items[i], score: 1, type:'exact'};
+  }
+  // ২) সবচেয়ে কাছের fuzzy মিল
+  var best=null, bestScore=0;
+  items.forEach(function(it){
+    var s = _giSimilarity(name, it.name);
+    if (s > bestScore) { bestScore = s; best = it; }
+  });
+  if (best && bestScore >= 0.5) return {item: best, score: bestScore, type:'fuzzy'};
+  return {item: null, score: bestScore, type:'new'};
+}
+// Excel এর "Item Group" কলাম (যেমন "Tape[Pcs]") থেকে বন্ধনী বাদ দিয়ে ক্যাটেগরি বের করে
+function _giParseCategory(itemGroupRaw){
+  var s = String(itemGroupRaw||'').trim();
+  var m = s.match(/^(.*?)\s*\[/);
+  return (m ? m[1] : s).trim();
+}
+// নতুন আইটেমের জন্য, একই ক্যাটেগরির অন্য কোনো আইটেম থেকে group অনুমান করে
+function _giGuessGroup(category){
+  var items = DB.items || [];
+  var found = items.find(function(it){ return _giNormalize(it.category)===_giNormalize(category); });
+  return found ? found.group : 'Electrical';
+}
+// Excel তারিখ "DD-MM-YYYY" → "YYYY-MM-DD"
+function _giParseDate(raw){
+  if(!raw) return '';
+  var s = String(raw).trim();
+  var m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if(m) return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  // Excel serial date number হলে
+  if(!isNaN(raw) && Number(raw) > 10000){
+    var d = new Date(Math.round((Number(raw)-25569)*86400*1000));
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  return '';
+}
+// Excel এর "Machine No" (ERP নাম্বার) দিয়ে DB.machines এ মেশিন খোঁজে
+function _giFindMachine(machineNoRaw){
+  var no = String(machineNoRaw||'').trim();
+  if(!no) return null;
+  return (DB.machines||[]).find(function(m){ return String(m.no).trim()===no; }) || null;
+}
+
+function gsBulkImportHandleFile(evt){
+  var file = evt.target.files[0];
+  if(!file) return;
+  function afterLibLoaded(){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+        // হেডার রো খুঁজে বের করা (SL, Trans. Date, Item Description ইত্যাদি থাকা রো)
+        var headerIdx = -1, header = null;
+        for (var i=0;i<rows.length;i++){
+          var r = rows[i]||[];
+          var joined = r.map(function(c){return String(c||'').toLowerCase();}).join('|');
+          if (joined.indexOf('trans. date')!==-1 && joined.indexOf('item description')!==-1){
+            headerIdx = i; header = r; break;
+          }
+        }
+        if (headerIdx < 0){ toast('❌ পরিচিত ফরম্যাট পাওয়া যায়নি — "Trans. Date" ও "Item Description" কলাম খুঁজে পাইনি','error'); if(evt&&evt.target) evt.target.value=''; return; }
+
+        function colIdx(nameParts){
+          for (var c=0;c<header.length;c++){
+            var h = String(header[c]||'').toLowerCase();
+            if (nameParts.every(function(p){ return h.indexOf(p)!==-1; })) return c;
+          }
+          return -1;
+        }
+        var cDate    = colIdx(['trans','date']);
+        var cRef     = colIdx(['trans','ref']);
+        var cGroup   = colIdx(['item','group']);
+        var cDesc    = colIdx(['item','description']);
+        var cMachCat = colIdx(['machine','category']);
+        var cMachNo  = colIdx(['machine','no']);
+        var cRate    = colIdx(['actual','rate']);
+        var cRecvQty = colIdx(['receive','qty']);
+        var cAmt     = colIdx(['actual','amt']);
+        var cIssQty  = colIdx(['issue','qty']);
+
+        var parsed = [];
+        for (var i=headerIdx+1;i<rows.length;i++){
+          var r = rows[i];
+          if (!r || !r[cDesc]) continue;
+          var desc = String(r[cDesc]).trim();
+          if (!desc) continue;
+          var date = _giParseDate(r[cDate]);
+          if (!date) continue;
+          var recvQty = cRecvQty>=0 ? (parseFloat(r[cRecvQty])||0) : 0;
+          var issQty  = cIssQty>=0  ? (parseFloat(r[cIssQty])||0)  : 0;
+          if (recvQty<=0 && issQty<=0) continue;
+
+          var match = _giFindMatchingItem(desc);
+          var category = _giParseCategory(cGroup>=0 ? r[cGroup] : '');
+          var rate = cRate>=0 ? (parseFloat(r[cRate])||0) : 0;
+          var amt  = cAmt>=0  ? (parseFloat(r[cAmt])||0)  : 0;
+          var ref  = cRef>=0 ? String(r[cRef]||'').trim() : '';
+
+          if (recvQty > 0){
+            parsed.push({
+              rowType:'receive', date:date, desc:desc, match:match, category:category,
+              qty:recvQty, rate:rate, amount: amt || (rate*recvQty), ref:ref
+            });
+          }
+          if (issQty > 0){
+            var machNo = cMachNo>=0 ? r[cMachNo] : '';
+            var machCatRaw = cMachCat>=0 ? String(r[cMachCat]||'').trim() : '';
+            var mach = _giFindMachine(machNo);
+            parsed.push({
+              rowType:'issue', date:date, desc:desc, match:match, category:category,
+              qty:issQty, rate:rate, amount: amt || (rate*issQty), ref:ref,
+              machine: mach, machCatRaw: machCatRaw
+            });
+          }
+        }
+
+        if (!parsed.length){ toast('❌ কোনো valid Receive/Issue সারি পাওয়া যায়নি','error'); if(evt&&evt.target) evt.target.value=''; return; }
+
+        window._giParsedRows = parsed;
+        gsBulkImportShowPreview(parsed);
+      } catch(err){
+        console.error(err);
+        toast('❌ ফাইল পড়তে সমস্যা হয়েছে: '+(err&&err.message?err.message:err), 'error');
+      }
+      if (evt && evt.target) evt.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  if (typeof XLSX === 'undefined'){
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = afterLibLoaded;
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+  } else {
+    afterLibLoaded();
+  }
+}
+
+function gsBulkImportShowPreview(parsed){
+  var _esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var recvRows = parsed.filter(function(p){return p.rowType==='receive';});
+  var issRows  = parsed.filter(function(p){return p.rowType==='issue';});
+  var newItems = parsed.filter(function(p){return p.match.type==='new';});
+  var fuzzyItems = parsed.filter(function(p){return p.match.type==='fuzzy';});
+  var noMachine = issRows.filter(function(p){return !p.machine;});
+
+  var summary = '<b>মোট '+parsed.length+'টা সারি</b> — 📥 Receive: '+recvRows.length+' | 📤 Issue: '+issRows.length+'<br>'
+    + '<span style="color:'+(fuzzyItems.length?'#b7950b':'#888')+';">🔶 Fuzzy Match (নাম কাছাকাছি মিলেছে): '+fuzzyItems.length+'</span> | '
+    + '<span style="color:'+(newItems.length?'#c0392b':'#888')+';">🆕 নতুন আইটেম (মিলেনি, তৈরি হবে): '+newItems.length+'</span> | '
+    + '<span style="color:'+(noMachine.length?'#c0392b':'#888')+';">⚙️ মেশিন পাওয়া যায়নি (General/Non-Machine এ যাবে): '+noMachine.length+'</span>';
+  document.getElementById('gs-bulk-import-summary').innerHTML = summary;
+
+  var rowsHtml = parsed.slice(0, 300).map(function(p){
+    var matchLabel = p.match.type==='exact' ? '<span style="color:#1e8449;">✅ '+_esc(p.match.item.name)+'</span>'
+      : p.match.type==='fuzzy' ? '<span style="color:#b7950b;">🔶 '+_esc(p.match.item.name)+'</span>'
+      : '<span style="color:#c0392b;">🆕 নতুন: '+_esc(p.desc)+'</span>';
+    var extra = p.rowType==='issue'
+      ? (p.machine ? ('মেশিন: '+_esc(p.machine.id)) : '<span style="color:#c0392b;">General/Non-Machine'+(p.machCatRaw?(' ('+_esc(p.machCatRaw)+')'):'')+'</span>')
+      : (p.ref ? ('Ref: '+_esc(p.ref)) : '');
+    return '<tr style="border-bottom:1px solid #eee;">'
+      + '<td style="padding:5px 8px;font-size:12px;">'+p.date+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px;">'+(p.rowType==='receive'?'📥 Receive':'📤 Issue')+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px;">'+matchLabel+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px;text-align:right;">'+p.qty+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px;">'+extra+'</td>'
+      + '</tr>';
+  }).join('');
+  var moreNote = parsed.length>300 ? '<p style="color:#888;font-size:11px;">...আরও '+(parsed.length-300)+'টা সারি আছে (দেখানো হয়নি, তবে Import এ যোগ হবে)</p>' : '';
+
+  document.getElementById('gs-bulk-import-body').innerHTML =
+    '<table style="width:100%;border-collapse:collapse;">'
+    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:6px 8px;text-align:left;font-size:12px;">তারিখ</th><th style="padding:6px 8px;text-align:left;font-size:12px;">ধরন</th><th style="padding:6px 8px;text-align:left;font-size:12px;">আইটেম</th><th style="padding:6px 8px;text-align:right;font-size:12px;">Qty</th><th style="padding:6px 8px;text-align:left;font-size:12px;">বিস্তারিত</th></tr></thead>'
+    + '<tbody>'+rowsHtml+'</tbody></table>' + moreNote;
+
+  document.getElementById('gs-bulk-import-modal').style.display = 'flex';
+}
+
+function gsBulkImportConfirm(){
+  var parsed = window._giParsedRows;
+  if (!parsed || !parsed.length){ toast('❌ কোনো ডাটা নেই','error'); return; }
+
+  var itemsArr = DB.items.slice();
+  var recvArr = DB.receives.slice();
+  var issArr = DB.issues.slice();
+  var newItemCount = 0, recvCount = 0, issCount = 0;
+
+  parsed.forEach(function(p){
+    var itemObj = p.match.item;
+    if (!itemObj){
+      // নতুন আইটেম তৈরি
+      var grp = _giGuessGroup(p.category);
+      itemObj = { id: 'gi_'+Date.now()+'_'+Math.floor(Math.random()*10000), name: p.desc, group: grp, category: p.category||'Others', minStock: 0 };
+      itemsArr.push(itemObj);
+      newItemCount++;
+    }
+    if (p.rowType === 'receive'){
+      recvArr.push({
+        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, group: itemObj.group, category: itemObj.category,
+        item: itemObj.name, chalan: p.ref, supplier: '', qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
+        userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
+        importedFromOldSystem: true
+      });
+      recvCount++;
+    } else {
+      var mach = p.machine;
+      var machineId = mach ? mach.id : 'General / Non-Machine Use';
+      var machineNo = mach ? mach.no : '';
+      var machineCat = mach ? mach.cat : 'General';
+      var remarks = p.machCatRaw ? ('(পুরনো সিস্টেম) '+p.machCatRaw) : '(পুরনো সিস্টেম থেকে Import করা)';
+      issArr.push({
+        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, slip: p.ref || ('OLD-'+p.date), group: itemObj.group,
+        category: itemObj.category, item: itemObj.name, qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
+        machineId: machineId, machineNo: machineNo, machineCat: machineCat, remarks: remarks,
+        userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
+        importedFromOldSystem: true
+      });
+      issCount++;
+    }
+  });
+
+  DB.items = itemsArr;
+  DB.receives = recvArr;
+  DB.issues = issArr;
+  triggerAutoSave();
+
+  document.getElementById('gs-bulk-import-modal').style.display = 'none';
+  window._giParsedRows = null;
+  toast('✅ Import সম্পন্ন! Receive: '+recvCount+', Issue: '+issCount+(newItemCount?(', নতুন আইটেম: '+newItemCount):''), 'success');
+  try { renderDashboard(); } catch(e){}
+  try { renderStock(); } catch(e){}
+  try { renderReceiveLog(); } catch(e){}
+  try { renderIssueLog(); } catch(e){}
 }
 
 // 
