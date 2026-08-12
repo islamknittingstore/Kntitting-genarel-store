@@ -9593,6 +9593,33 @@ function _giFindMachine(machineNoRaw){
   return (DB.machines||[]).find(function(m){ return String(m.no).trim()===no; }) || null;
 }
 
+// HTML দিয়ে বানানো ".xls" রিপোর্ট (অনেক পুরনো ERP এভাবেই "Excel Export" করে) থেকে
+// হেডার ও ডাটা রো বের করে — table_header_1/table_body id থাকলে সেটাই ব্যবহার করে,
+// না থাকলে সাধারণভাবে <th>/<tr><td> খুঁজে বের করে
+function _giParseHtmlReport(text){
+  var doc = new DOMParser().parseFromString(text, 'text/html');
+  var clean = function(s){ return String(s||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(); };
+
+  var headerTable = doc.getElementById('table_header_1');
+  var ths = headerTable ? headerTable.querySelectorAll('th') : doc.querySelectorAll('thead th, th');
+  var header = Array.prototype.map.call(ths, function(th){ return clean(th.textContent); });
+
+  var bodyTable = doc.getElementById('table_body');
+  var trs = [];
+  if (bodyTable) {
+    trs = Array.prototype.filter.call(bodyTable.querySelectorAll('tr'), function(tr){ return tr.querySelector('td'); });
+  }
+  if (!trs.length) {
+    trs = Array.prototype.filter.call(doc.querySelectorAll('tr'), function(tr){
+      return tr.querySelector('td') && !tr.closest('thead');
+    });
+  }
+  var rows = trs.map(function(tr){
+    return Array.prototype.map.call(tr.querySelectorAll('td'), function(td){ return clean(td.textContent); });
+  });
+  return { header: header, rows: rows };
+}
+
 function gsBulkImportHandleFile(evt){
   var file = evt.target.files[0];
   if(!file) return;
@@ -9600,23 +9627,26 @@ function gsBulkImportHandleFile(evt){
     var reader = new FileReader();
     reader.onload = function(e){
       try {
-        var data = new Uint8Array(e.target.result);
-        var wb = XLSX.read(data, {type:'array'});
+        var buf = e.target.result;
+        var bytes = new Uint8Array(buf);
+        var preview = new TextDecoder('utf-8').decode(bytes.slice(0, 4000));
+        var isHtml = /<table|<html|<!doctype html/i.test(preview);
 
         // ── ডায়নামিক কলাম শনাক্তকরণ ──
-        // শুধু আসলেই দরকারি কলামগুলো খোঁজা হয়: Date, Item Group (Category/Search-এ কাজে লাগবে),
-        // Item Description (=আইটেম নাম), Machine No, Rate, Receive Qty, Amount, Issue Qty
-        // (SL, Prod.Id, Store Name, Trans Ref, Pur.Reqsn, Item Sub-Group, Item Code, Machine Category,
-        //  Floor, Currency, Size — এগুলো ব্যবহার করা হয় না, ইচ্ছাকৃতভাবে বাদ)
+        // শুধু আসলেই দরকারি কলামগুলো খোঁজা হয়: Date, Item Group, Item Description (=নাম),
+        // Machine No, Issue To, Receive Qty/Rate/Amt, Issue Qty/Rate(TK)/Amount(TK)
         var FIELD_DEFS = {
-          date:    [['trans','date'],['transaction','date'],['date']],
-          group:   [['item','group']],
-          desc:    [['item','desc'],['item','name'],['description']],
-          machNo:  [['machine','no']],
-          rate:    [['actual','rate'],['rate']],
-          recvQty: [['receive','qty'],['rcv','qty'],['recv','qty']],
-          amt:     [['actual','amt'],['amount']],
-          issQty:  [['issue','qty'],['iss','qty']]
+          date:     [['trans','date'],['transaction','date'],['date']],
+          group:    [['item','group']],
+          desc:     [['item','desc'],['item','name'],['description']],
+          machNo:   [['machine','no']],
+          issueTo:  [['issue','to']],
+          recvQty:  [['receive','qty'],['rcv','qty'],['recv','qty']],
+          rateRecv: [['actual','rate']],
+          amtRecv:  [['actual','amt']],
+          issQty:   [['issue','qty'],['iss','qty']],
+          rateIss:  [['rate','tk'],['rate(tk)']],
+          amtIss:   [['amount','tk'],['amount(tk)']]
         };
         function cellMatchesField(cellText, fieldKey){
           var h = String(cellText||'').toLowerCase();
@@ -9624,93 +9654,109 @@ function gsBulkImportHandleFile(evt){
             return tokens.every(function(t){ return h.indexOf(t)!==-1; });
           });
         }
-        // প্রতিটা শীটের প্রথম ২৫ রো ঘুরে দেখে, যেই রো-তে সবচেয়ে বেশি ফিল্ড মিলে (এবং অন্তত date+desc থাকে)
-        // সেটাকেই হেডার রো ধরে নেওয়া হয়
-        var bestRow = -1, bestSheet = null, bestScore = -1, bestMap = null;
-        var scannedPreview = [];
-        for (var si=0; si<wb.SheetNames.length; si++){
-          var wsTry = wb.Sheets[wb.SheetNames[si]];
-          var rowsTry = XLSX.utils.sheet_to_json(wsTry, {header:1});
-          if (si===0) scannedPreview = rowsTry.slice(0,6);
-          for (var i=0;i<Math.min(rowsTry.length,25);i++){
-            var r = rowsTry[i]||[];
-            var map = {}, score = 0;
-            Object.keys(FIELD_DEFS).forEach(function(fk){
-              for (var c=0;c<r.length;c++){
-                if (cellMatchesField(r[c], fk)) { map[fk]=c; score++; break; }
+        function buildColMap(headerRow){
+          var map = {};
+          Object.keys(FIELD_DEFS).forEach(function(fk){
+            for (var c=0;c<headerRow.length;c++){
+              if (cellMatchesField(headerRow[c], fk)) { map[fk]=c; break; }
+            }
+          });
+          return map;
+        }
+
+        var header, rows, scannedPreview;
+
+        if (isHtml){
+          var fullText = new TextDecoder('utf-8').decode(bytes);
+          var parsedHtml = _giParseHtmlReport(fullText);
+          header = parsedHtml.header;
+          rows = parsedHtml.rows;
+          scannedPreview = [header].concat(rows.slice(0,5));
+        } else {
+          var wb = XLSX.read(bytes, {type:'array'});
+          var bestRow = -1, bestSheet = null, bestScore = -1, bestMap = null;
+          scannedPreview = [];
+          for (var si=0; si<wb.SheetNames.length; si++){
+            var wsTry = wb.Sheets[wb.SheetNames[si]];
+            var rowsTry = XLSX.utils.sheet_to_json(wsTry, {header:1});
+            if (si===0) scannedPreview = rowsTry.slice(0,6);
+            for (var i=0;i<Math.min(rowsTry.length,25);i++){
+              var r = rowsTry[i]||[];
+              var map = buildColMap(r);
+              var score = Object.keys(map).length;
+              if (map.date!==undefined && map.desc!==undefined && score > bestScore){
+                bestScore = score; bestRow = i; bestSheet = wsTry; bestMap = map;
               }
-            });
-            if (map.date!==undefined && map.desc!==undefined && score > bestScore){
-              bestScore = score; bestRow = i; bestSheet = wsTry; bestMap = map;
             }
           }
+          if (bestRow < 0){
+            var previewTxt = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,6).join(' | '); }).join('\n');
+            toast('❌ কোনো শীটে "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt, 'error');
+            if(evt&&evt.target) evt.target.value='';
+            return;
+          }
+          header = wb.Sheets[wb.SheetNames[0]] ? XLSX.utils.sheet_to_json(bestSheet, {header:1})[bestRow] : [];
+          var allRows = XLSX.utils.sheet_to_json(bestSheet, {header:1});
+          header = allRows[bestRow];
+          rows = allRows.slice(bestRow+1);
         }
-        if (bestRow < 0){
-          var previewTxt = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,6).join(' | '); }).join('\n');
-          toast('❌ কোনো শীটে "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt, 'error');
+
+        var colMap = buildColMap(header);
+        if (colMap.date===undefined || colMap.desc===undefined){
+          var previewTxt2 = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,8).join(' | '); }).join('\n');
+          toast('❌ "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt2, 'error');
           if(evt&&evt.target) evt.target.value='';
           return;
         }
-        var ws = bestSheet, headerIdx = bestRow;
-        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
-
-        var cDate    = bestMap.date;
-        var cGroup   = bestMap.group>=0 ? bestMap.group : -1;
-        var cDesc    = bestMap.desc;
-        var cMachNo  = bestMap.machNo>=0 ? bestMap.machNo : -1;
-        var cRate    = bestMap.rate>=0 ? bestMap.rate : -1;
-        var cRecvQty = bestMap.recvQty>=0 ? bestMap.recvQty : -1;
-        var cAmt     = bestMap.amt>=0 ? bestMap.amt : -1;
-        var cIssQty  = bestMap.issQty>=0 ? bestMap.issQty : -1;
-        if (cGroup===undefined) cGroup=-1;
-        if (cMachNo===undefined) cMachNo=-1;
-        if (cRate===undefined) cRate=-1;
-        if (cRecvQty===undefined) cRecvQty=-1;
-        if (cAmt===undefined) cAmt=-1;
-        if (cIssQty===undefined) cIssQty=-1;
-        if (cRecvQty<0 && cIssQty<0){
+        if (colMap.recvQty===undefined && colMap.issQty===undefined){
           toast('❌ "Receive Qty" বা "Issue Qty" ধরনের কোনো কলামই পাওয়া যায়নি — অন্তত একটা লাগবে','error');
           if(evt&&evt.target) evt.target.value='';
           return;
         }
+
         window._giDetectedFields = {
-          date: cDate>=0, group: cGroup>=0, desc: cDesc>=0,
-          machNo: cMachNo>=0, rate: cRate>=0,
-          recvQty: cRecvQty>=0, amt: cAmt>=0, issQty: cIssQty>=0
+          date: colMap.date!==undefined, group: colMap.group!==undefined, desc: colMap.desc!==undefined,
+          machNo: colMap.machNo!==undefined, issueTo: colMap.issueTo!==undefined,
+          recvQty: colMap.recvQty!==undefined, rateRecv: colMap.rateRecv!==undefined, amtRecv: colMap.amtRecv!==undefined,
+          issQty: colMap.issQty!==undefined, rateIss: colMap.rateIss!==undefined, amtIss: colMap.amtIss!==undefined
         };
 
+        var get = function(r, key){ return colMap[key]!==undefined ? r[colMap[key]] : undefined; };
+
         var parsed = [];
-        for (var i=headerIdx+1;i<rows.length;i++){
+        for (var i=0;i<rows.length;i++){
           var r = rows[i];
-          if (!r || !r[cDesc]) continue;
-          var desc = String(r[cDesc]).trim();
+          if (!r) continue;
+          var desc = String(get(r,'desc')||'').trim();
           if (!desc) continue;
-          var date = _giParseDate(r[cDate]);
+          var date = _giParseDate(get(r,'date'));
           if (!date) continue;
-          var recvQty = cRecvQty>=0 ? (parseFloat(r[cRecvQty])||0) : 0;
-          var issQty  = cIssQty>=0  ? (parseFloat(r[cIssQty])||0)  : 0;
+          var recvQty = colMap.recvQty!==undefined ? (parseFloat(get(r,'recvQty'))||0) : 0;
+          var issQty  = colMap.issQty!==undefined  ? (parseFloat(get(r,'issQty'))||0)  : 0;
           if (recvQty<=0 && issQty<=0) continue;
 
-          var category = _giParseCategory(cGroup>=0 ? r[cGroup] : '');
-          // Item Group (category) দিয়ে আগে একই ক্যাটেগরির মধ্যে মিল খোঁজে — যাতে ভিন্ন গ্রুপের
-          // কাছাকাছি নামের আইটেমের সাথে ভুল করে না মিলে যায়, তারপর দরকার হলে পুরো লিস্টে খোঁজে
+          var category = _giParseCategory(get(r,'group'));
+          // Item Group (category) দিয়ে আগে একই ক্যাটেগরির মধ্যে মিল খোঁজে
           var match = _giFindMatchingItem(desc, category);
-          var rate = cRate>=0 ? (parseFloat(r[cRate])||0) : 0;
-          var amt  = cAmt>=0  ? (parseFloat(r[cAmt])||0)  : 0;
 
           if (recvQty > 0){
+            var rateR = colMap.rateRecv!==undefined ? (parseFloat(get(r,'rateRecv'))||0) : 0;
+            var amtR  = colMap.amtRecv!==undefined  ? (parseFloat(get(r,'amtRecv'))||0)  : 0;
             parsed.push({
               rowType:'receive', date:date, desc:desc, match:match, category:category,
-              qty:recvQty, rate:rate, amount: amt || (rate*recvQty)
+              qty:recvQty, rate:rateR, amount: amtR || (rateR*recvQty)
             });
           }
           if (issQty > 0){
-            var machNo = cMachNo>=0 ? r[cMachNo] : '';
-            var mach = _giFindMachine(machNo);
+            var rateI = colMap.rateIss!==undefined ? (parseFloat(get(r,'rateIss'))||0) : 0;
+            var amtI  = colMap.amtIss!==undefined  ? (parseFloat(get(r,'amtIss'))||0)  : 0;
+            var machNoVal = colMap.machNo!==undefined ? get(r,'machNo') : '';
+            var issueToVal = colMap.issueTo!==undefined ? String(get(r,'issueTo')||'').trim() : '';
+            var mach = _giFindMachine(machNoVal);
             parsed.push({
               rowType:'issue', date:date, desc:desc, match:match, category:category,
-              qty:issQty, rate:rate, amount: amt || (rate*issQty),
-              machine: mach
+              qty:issQty, rate:rateI, amount: amtI || (rateI*issQty),
+              machine: mach, issueTo: issueToVal
             });
           }
         }
@@ -9741,7 +9787,7 @@ function gsBulkImportHandleFile(evt){
 
 function gsBulkImportShowPreview(parsed){
   var _esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var fieldLabels = {date:'তারিখ', group:'Item Group', desc:'Item নাম', machNo:'Machine No', rate:'Rate', recvQty:'Receive Qty', amt:'Amount', issQty:'Issue Qty'};
+  var fieldLabels = {date:'তারিখ', group:'Item Group', desc:'Item নাম', machNo:'Machine No', issueTo:'Issue To', recvQty:'Receive Qty', rateRecv:'Receive Rate', amtRecv:'Receive Amt', issQty:'Issue Qty', rateIss:'Issue Rate', amtIss:'Issue Amt'};
   var df = window._giDetectedFields || {};
   var foundList = Object.keys(fieldLabels).filter(function(k){return df[k];}).map(function(k){return fieldLabels[k];});
   var missingList = Object.keys(fieldLabels).filter(function(k){return !df[k];}).map(function(k){return fieldLabels[k];});
@@ -9766,7 +9812,7 @@ function gsBulkImportShowPreview(parsed){
       : p.match.type==='fuzzy' ? '<span style="color:#b7950b;">🔶 '+_esc(p.match.item.name)+'</span>'
       : '<span style="color:#c0392b;">🆕 নতুন: '+_esc(p.desc)+'</span>';
     var extra = p.rowType==='issue'
-      ? (p.machine ? ('মেশিন: '+_esc(p.machine.id)) : '<span style="color:#c0392b;">General/Non-Machine</span>')
+      ? (p.machine ? ('মেশিন: '+_esc(p.machine.id)) : '<span style="color:#c0392b;">General/Non-Machine'+(p.issueTo?(' ('+_esc(p.issueTo)+')'):'')+'</span>')
       : (p.category ? ('গ্রুপ: '+_esc(p.category)) : '');
     return '<tr style="border-bottom:1px solid #eee;">'
       + '<td style="padding:5px 8px;font-size:12px;">'+p.date+'</td>'
@@ -9818,7 +9864,7 @@ function gsBulkImportConfirm(){
       var machineId = mach ? mach.id : 'General / Non-Machine Use';
       var machineNo = mach ? mach.no : '';
       var machineCat = mach ? mach.cat : 'General';
-      var remarks = '(পুরনো সিস্টেম থেকে Import করা)';
+      var remarks = p.issueTo ? ('Issue To: '+p.issueTo+' (পুরনো সিস্টেম থেকে Import করা)') : '(পুরনো সিস্টেম থেকে Import করা)';
       slipCounters[p.date] = (slipCounters[p.date]||0) + 1;
       issArr.push({
         id: Date.now()+Math.floor(Math.random()*10000), date: p.date, slip: 'OLD-'+p.date+'-'+slipCounters[p.date], group: itemObj.group,
