@@ -9593,19 +9593,26 @@ function gsBulkImportHandleFile(evt){
       try {
         var data = new Uint8Array(e.target.result);
         var wb = XLSX.read(data, {type:'array'});
-        var ws = wb.Sheets[wb.SheetNames[0]];
-        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
-        // হেডার রো খুঁজে বের করা (SL, Trans. Date, Item Description ইত্যাদি থাকা রো)
-        var headerIdx = -1, header = null;
-        for (var i=0;i<rows.length;i++){
-          var r = rows[i]||[];
-          var joined = r.map(function(c){return String(c||'').toLowerCase();}).join('|');
-          if (joined.indexOf('trans. date')!==-1 && joined.indexOf('item description')!==-1){
-            headerIdx = i; header = r; break;
+        // হেডার রো খুঁজে বের করা — সব শীট চেক করবে, এবং exact ফ্রেজের বদলে token-based ম্যাচ
+        // ব্যবহার করবে (স্পেস/পাংচুয়েশনের ছোটখাটো ভিন্নতাতেও যেন ধরতে পারে)
+        function hasTokens(cellText, tokens){
+          var h = String(cellText||'').toLowerCase();
+          return tokens.every(function(t){ return h.indexOf(t)!==-1; });
+        }
+        var headerIdx = -1, header = null, ws = null;
+        for (var si=0; si<wb.SheetNames.length && headerIdx<0; si++){
+          var wsTry = wb.Sheets[wb.SheetNames[si]];
+          var rowsTry = XLSX.utils.sheet_to_json(wsTry, {header:1});
+          for (var i=0;i<rowsTry.length;i++){
+            var r = rowsTry[i]||[];
+            var hasDateCol = r.some(function(c){ return hasTokens(c, ['trans','date']); });
+            var hasDescCol = r.some(function(c){ return hasTokens(c, ['item','desc']); });
+            if (hasDateCol && hasDescCol){ headerIdx = i; header = r; ws = wsTry; break; }
           }
         }
-        if (headerIdx < 0){ toast('❌ পরিচিত ফরম্যাট পাওয়া যায়নি — "Trans. Date" ও "Item Description" কলাম খুঁজে পাইনি','error'); if(evt&&evt.target) evt.target.value=''; return; }
+        var rows = ws ? XLSX.utils.sheet_to_json(ws, {header:1}) : [];
+        if (headerIdx < 0){ toast('❌ পরিচিত ফরম্যাট পাওয়া যায়নি — "Trans. Date" ও "Item Description" ধরনের কলাম কোনো শীটে খুঁজে পাইনি', 'error'); if(evt&&evt.target) evt.target.value=''; return; }
 
         function colIdx(nameParts){
           for (var c=0;c<header.length;c++){
@@ -9617,7 +9624,7 @@ function gsBulkImportHandleFile(evt){
         var cDate    = colIdx(['trans','date']);
         var cRef     = colIdx(['trans','ref']);
         var cGroup   = colIdx(['item','group']);
-        var cDesc    = colIdx(['item','description']);
+        var cDesc    = colIdx(['item','desc']);
         var cMachCat = colIdx(['machine','category']);
         var cMachNo  = colIdx(['machine','no']);
         var cRate    = colIdx(['actual','rate']);
