@@ -9594,43 +9594,86 @@ function gsBulkImportHandleFile(evt){
         var data = new Uint8Array(e.target.result);
         var wb = XLSX.read(data, {type:'array'});
 
-        // হেডার রো খুঁজে বের করা — সব শীট চেক করবে, এবং exact ফ্রেজের বদলে token-based ম্যাচ
-        // ব্যবহার করবে (স্পেস/পাংচুয়েশনের ছোটখাটো ভিন্নতাতেও যেন ধরতে পারে)
-        function hasTokens(cellText, tokens){
+        // ── ডায়নামিক কলাম শনাক্তকরণ ──
+        // প্রতিটা দরকারি ফিল্ডের জন্য একাধিক সম্ভাব্য নাম-প্যাটার্ন রাখা হয়েছে, যাতে
+        // ফাইলে যেভাবেই কলাম নাম লেখা থাকুক (স্পেস/সংক্ষিপ্ত রূপ) খুঁজে বের করতে পারে।
+        // শুধু "Trans. Date" ও "Item Description" পাওয়া গেলেই যথেষ্ট, বাকি কলাম না থাকলেও চলবে।
+        var FIELD_DEFS = {
+          date:    [['trans','date'],['transaction','date'],['date']],
+          ref:     [['trans','ref'],['reference']],
+          group:   [['item','group']],
+          desc:    [['item','desc'],['item','name'],['description']],
+          machCat: [['machine','cat']],
+          machNo:  [['machine','no']],
+          rate:    [['actual','rate'],['rate']],
+          recvQty: [['receive','qty'],['rcv','qty'],['recv','qty']],
+          amt:     [['actual','amt'],['amount']],
+          issQty:  [['issue','qty'],['iss','qty']]
+        };
+        function cellMatchesField(cellText, fieldKey){
           var h = String(cellText||'').toLowerCase();
-          return tokens.every(function(t){ return h.indexOf(t)!==-1; });
+          return FIELD_DEFS[fieldKey].some(function(tokens){
+            return tokens.every(function(t){ return h.indexOf(t)!==-1; });
+          });
         }
-        var headerIdx = -1, header = null, ws = null;
-        for (var si=0; si<wb.SheetNames.length && headerIdx<0; si++){
+        // প্রতিটা শীটের প্রথম ২৫ রো ঘুরে দেখে, যেই রো-তে সবচেয়ে বেশি ফিল্ড মিলে (এবং অন্তত date+desc থাকে)
+        // সেটাকেই হেডার রো ধরে নেওয়া হয়
+        var bestRow = -1, bestSheet = null, bestScore = -1, bestMap = null;
+        var scannedPreview = [];
+        for (var si=0; si<wb.SheetNames.length; si++){
           var wsTry = wb.Sheets[wb.SheetNames[si]];
           var rowsTry = XLSX.utils.sheet_to_json(wsTry, {header:1});
-          for (var i=0;i<rowsTry.length;i++){
+          if (si===0) scannedPreview = rowsTry.slice(0,6);
+          for (var i=0;i<Math.min(rowsTry.length,25);i++){
             var r = rowsTry[i]||[];
-            var hasDateCol = r.some(function(c){ return hasTokens(c, ['trans','date']); });
-            var hasDescCol = r.some(function(c){ return hasTokens(c, ['item','desc']); });
-            if (hasDateCol && hasDescCol){ headerIdx = i; header = r; ws = wsTry; break; }
+            var map = {}, score = 0;
+            Object.keys(FIELD_DEFS).forEach(function(fk){
+              for (var c=0;c<r.length;c++){
+                if (cellMatchesField(r[c], fk)) { map[fk]=c; score++; break; }
+              }
+            });
+            if (map.date!==undefined && map.desc!==undefined && score > bestScore){
+              bestScore = score; bestRow = i; bestSheet = wsTry; bestMap = map;
+            }
           }
         }
-        var rows = ws ? XLSX.utils.sheet_to_json(ws, {header:1}) : [];
-        if (headerIdx < 0){ toast('❌ পরিচিত ফরম্যাট পাওয়া যায়নি — "Trans. Date" ও "Item Description" ধরনের কলাম কোনো শীটে খুঁজে পাইনি', 'error'); if(evt&&evt.target) evt.target.value=''; return; }
+        if (bestRow < 0){
+          var previewTxt = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,6).join(' | '); }).join('\n');
+          toast('❌ কোনো শীটে "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt, 'error');
+          if(evt&&evt.target) evt.target.value='';
+          return;
+        }
+        var ws = bestSheet, headerIdx = bestRow;
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
-        function colIdx(nameParts){
-          for (var c=0;c<header.length;c++){
-            var h = String(header[c]||'').toLowerCase();
-            if (nameParts.every(function(p){ return h.indexOf(p)!==-1; })) return c;
-          }
-          return -1;
+        var cDate    = bestMap.date;
+        var cRef     = bestMap.ref>=0 ? bestMap.ref : -1;
+        var cGroup   = bestMap.group>=0 ? bestMap.group : -1;
+        var cDesc    = bestMap.desc;
+        var cMachCat = bestMap.machCat>=0 ? bestMap.machCat : -1;
+        var cMachNo  = bestMap.machNo>=0 ? bestMap.machNo : -1;
+        var cRate    = bestMap.rate>=0 ? bestMap.rate : -1;
+        var cRecvQty = bestMap.recvQty>=0 ? bestMap.recvQty : -1;
+        var cAmt     = bestMap.amt>=0 ? bestMap.amt : -1;
+        var cIssQty  = bestMap.issQty>=0 ? bestMap.issQty : -1;
+        if (cRef===undefined) cRef=-1;
+        if (cGroup===undefined) cGroup=-1;
+        if (cMachCat===undefined) cMachCat=-1;
+        if (cMachNo===undefined) cMachNo=-1;
+        if (cRate===undefined) cRate=-1;
+        if (cRecvQty===undefined) cRecvQty=-1;
+        if (cAmt===undefined) cAmt=-1;
+        if (cIssQty===undefined) cIssQty=-1;
+        if (cRecvQty<0 && cIssQty<0){
+          toast('❌ "Receive Qty" বা "Issue Qty" ধরনের কোনো কলামই পাওয়া যায়নি — অন্তত একটা লাগবে','error');
+          if(evt&&evt.target) evt.target.value='';
+          return;
         }
-        var cDate    = colIdx(['trans','date']);
-        var cRef     = colIdx(['trans','ref']);
-        var cGroup   = colIdx(['item','group']);
-        var cDesc    = colIdx(['item','desc']);
-        var cMachCat = colIdx(['machine','category']);
-        var cMachNo  = colIdx(['machine','no']);
-        var cRate    = colIdx(['actual','rate']);
-        var cRecvQty = colIdx(['receive','qty']);
-        var cAmt     = colIdx(['actual','amt']);
-        var cIssQty  = colIdx(['issue','qty']);
+        window._giDetectedFields = {
+          date: cDate>=0, ref: cRef>=0, group: cGroup>=0, desc: cDesc>=0,
+          machCat: cMachCat>=0, machNo: cMachNo>=0, rate: cRate>=0,
+          recvQty: cRecvQty>=0, amt: cAmt>=0, issQty: cIssQty>=0
+        };
 
         var parsed = [];
         for (var i=headerIdx+1;i<rows.length;i++){
@@ -9694,6 +9737,14 @@ function gsBulkImportHandleFile(evt){
 
 function gsBulkImportShowPreview(parsed){
   var _esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var fieldLabels = {date:'তারিখ', ref:'Reference/Challan', group:'Item Group', desc:'Item নাম', machCat:'Machine Category', machNo:'Machine No', rate:'Rate', recvQty:'Receive Qty', amt:'Amount', issQty:'Issue Qty'};
+  var df = window._giDetectedFields || {};
+  var foundList = Object.keys(fieldLabels).filter(function(k){return df[k];}).map(function(k){return fieldLabels[k];});
+  var missingList = Object.keys(fieldLabels).filter(function(k){return !df[k];}).map(function(k){return fieldLabels[k];});
+  var colInfo = '<div style="font-size:11px;color:#555;margin-bottom:8px;">'
+    + '<b style="color:#1e8449;">✅ পাওয়া গেছে:</b> '+(foundList.join(', ')||'—')
+    + (missingList.length ? '<br><b style="color:#999;">➖ পাওয়া যায়নি (বাদ দেওয়া হয়েছে):</b> '+missingList.join(', ') : '')
+    + '</div>';
   var recvRows = parsed.filter(function(p){return p.rowType==='receive';});
   var issRows  = parsed.filter(function(p){return p.rowType==='issue';});
   var newItems = parsed.filter(function(p){return p.match.type==='new';});
@@ -9704,7 +9755,7 @@ function gsBulkImportShowPreview(parsed){
     + '<span style="color:'+(fuzzyItems.length?'#b7950b':'#888')+';">🔶 Fuzzy Match (নাম কাছাকাছি মিলেছে): '+fuzzyItems.length+'</span> | '
     + '<span style="color:'+(newItems.length?'#c0392b':'#888')+';">🆕 নতুন আইটেম (মিলেনি, তৈরি হবে): '+newItems.length+'</span> | '
     + '<span style="color:'+(noMachine.length?'#c0392b':'#888')+';">⚙️ মেশিন পাওয়া যায়নি (General/Non-Machine এ যাবে): '+noMachine.length+'</span>';
-  document.getElementById('gs-bulk-import-summary').innerHTML = summary;
+  document.getElementById('gs-bulk-import-summary').innerHTML = colInfo + summary;
 
   var rowsHtml = parsed.slice(0, 300).map(function(p){
     var matchLabel = p.match.type==='exact' ? '<span style="color:#1e8449;">✅ '+_esc(p.match.item.name)+'</span>'
