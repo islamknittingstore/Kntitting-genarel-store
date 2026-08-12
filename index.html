@@ -9534,21 +9534,30 @@ function _giSimilarity(a,b){
   return 1 - (dist/maxLen);
 }
 // Excel এর "Item Description" নাম দিয়ে DB.items এ সবচেয়ে কাছের মিল খোঁজে
-function _giFindMatchingItem(name){
+// (categoryHint দেওয়া থাকলে আগে সেই একই ক্যাটেগরির মধ্যেই মিল খোঁজে — Item Group সক্রিয়ভাবে ব্যবহার,
+//  যাতে ভিন্ন গ্রুপের কাছাকাছি নামের আইটেমের সাথে ভুল করে না মিলে যায়)
+function _giFindMatchingItem(name, categoryHint){
   var items = DB.items || [];
   var norm = _giNormalize(name);
-  // ১) হুবহু normalized মিল
-  for (var i=0;i<items.length;i++){
-    if (_giNormalize(items[i].name) === norm) return {item: items[i], score: 1, type:'exact'};
+  var normCat = categoryHint ? _giNormalize(categoryHint) : '';
+
+  // ১) হুবহু normalized মিল (আগে একই ক্যাটেগরির মধ্যে, তারপর পুরো লিস্টে)
+  var pools = normCat ? [items.filter(function(it){return _giNormalize(it.category)===normCat;}), items] : [items];
+  for (var p=0;p<pools.length;p++){
+    for (var i=0;i<pools[p].length;i++){
+      if (_giNormalize(pools[p][i].name) === norm) return {item: pools[p][i], score: 1, type:'exact'};
+    }
   }
-  // ২) সবচেয়ে কাছের fuzzy মিল
-  var best=null, bestScore=0;
-  items.forEach(function(it){
-    var s = _giSimilarity(name, it.name);
-    if (s > bestScore) { bestScore = s; best = it; }
-  });
-  if (best && bestScore >= 0.5) return {item: best, score: bestScore, type:'fuzzy'};
-  return {item: null, score: bestScore, type:'new'};
+  // ২) সবচেয়ে কাছের fuzzy মিল — আগে একই ক্যাটেগরির মধ্যে চেষ্টা করবে
+  for (var p=0;p<pools.length;p++){
+    var best=null, bestScore=0;
+    pools[p].forEach(function(it){
+      var s = _giSimilarity(name, it.name);
+      if (s > bestScore) { bestScore = s; best = it; }
+    });
+    if (best && bestScore >= 0.5) return {item: best, score: bestScore, type:'fuzzy'};
+  }
+  return {item: null, score: 0, type:'new'};
 }
 // Excel এর "Item Group" কলাম (যেমন "Tape[Pcs]") থেকে বন্ধনী বাদ দিয়ে ক্যাটেগরি বের করে
 function _giParseCategory(itemGroupRaw){
@@ -9595,15 +9604,14 @@ function gsBulkImportHandleFile(evt){
         var wb = XLSX.read(data, {type:'array'});
 
         // ── ডায়নামিক কলাম শনাক্তকরণ ──
-        // প্রতিটা দরকারি ফিল্ডের জন্য একাধিক সম্ভাব্য নাম-প্যাটার্ন রাখা হয়েছে, যাতে
-        // ফাইলে যেভাবেই কলাম নাম লেখা থাকুক (স্পেস/সংক্ষিপ্ত রূপ) খুঁজে বের করতে পারে।
-        // শুধু "Trans. Date" ও "Item Description" পাওয়া গেলেই যথেষ্ট, বাকি কলাম না থাকলেও চলবে।
+        // শুধু আসলেই দরকারি কলামগুলো খোঁজা হয়: Date, Item Group (Category/Search-এ কাজে লাগবে),
+        // Item Description (=আইটেম নাম), Machine No, Rate, Receive Qty, Amount, Issue Qty
+        // (SL, Prod.Id, Store Name, Trans Ref, Pur.Reqsn, Item Sub-Group, Item Code, Machine Category,
+        //  Floor, Currency, Size — এগুলো ব্যবহার করা হয় না, ইচ্ছাকৃতভাবে বাদ)
         var FIELD_DEFS = {
           date:    [['trans','date'],['transaction','date'],['date']],
-          ref:     [['trans','ref'],['reference']],
           group:   [['item','group']],
           desc:    [['item','desc'],['item','name'],['description']],
-          machCat: [['machine','cat']],
           machNo:  [['machine','no']],
           rate:    [['actual','rate'],['rate']],
           recvQty: [['receive','qty'],['rcv','qty'],['recv','qty']],
@@ -9647,18 +9655,14 @@ function gsBulkImportHandleFile(evt){
         var rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
         var cDate    = bestMap.date;
-        var cRef     = bestMap.ref>=0 ? bestMap.ref : -1;
         var cGroup   = bestMap.group>=0 ? bestMap.group : -1;
         var cDesc    = bestMap.desc;
-        var cMachCat = bestMap.machCat>=0 ? bestMap.machCat : -1;
         var cMachNo  = bestMap.machNo>=0 ? bestMap.machNo : -1;
         var cRate    = bestMap.rate>=0 ? bestMap.rate : -1;
         var cRecvQty = bestMap.recvQty>=0 ? bestMap.recvQty : -1;
         var cAmt     = bestMap.amt>=0 ? bestMap.amt : -1;
         var cIssQty  = bestMap.issQty>=0 ? bestMap.issQty : -1;
-        if (cRef===undefined) cRef=-1;
         if (cGroup===undefined) cGroup=-1;
-        if (cMachCat===undefined) cMachCat=-1;
         if (cMachNo===undefined) cMachNo=-1;
         if (cRate===undefined) cRate=-1;
         if (cRecvQty===undefined) cRecvQty=-1;
@@ -9670,8 +9674,8 @@ function gsBulkImportHandleFile(evt){
           return;
         }
         window._giDetectedFields = {
-          date: cDate>=0, ref: cRef>=0, group: cGroup>=0, desc: cDesc>=0,
-          machCat: cMachCat>=0, machNo: cMachNo>=0, rate: cRate>=0,
+          date: cDate>=0, group: cGroup>=0, desc: cDesc>=0,
+          machNo: cMachNo>=0, rate: cRate>=0,
           recvQty: cRecvQty>=0, amt: cAmt>=0, issQty: cIssQty>=0
         };
 
@@ -9687,26 +9691,26 @@ function gsBulkImportHandleFile(evt){
           var issQty  = cIssQty>=0  ? (parseFloat(r[cIssQty])||0)  : 0;
           if (recvQty<=0 && issQty<=0) continue;
 
-          var match = _giFindMatchingItem(desc);
           var category = _giParseCategory(cGroup>=0 ? r[cGroup] : '');
+          // Item Group (category) দিয়ে আগে একই ক্যাটেগরির মধ্যে মিল খোঁজে — যাতে ভিন্ন গ্রুপের
+          // কাছাকাছি নামের আইটেমের সাথে ভুল করে না মিলে যায়, তারপর দরকার হলে পুরো লিস্টে খোঁজে
+          var match = _giFindMatchingItem(desc, category);
           var rate = cRate>=0 ? (parseFloat(r[cRate])||0) : 0;
           var amt  = cAmt>=0  ? (parseFloat(r[cAmt])||0)  : 0;
-          var ref  = cRef>=0 ? String(r[cRef]||'').trim() : '';
 
           if (recvQty > 0){
             parsed.push({
               rowType:'receive', date:date, desc:desc, match:match, category:category,
-              qty:recvQty, rate:rate, amount: amt || (rate*recvQty), ref:ref
+              qty:recvQty, rate:rate, amount: amt || (rate*recvQty)
             });
           }
           if (issQty > 0){
             var machNo = cMachNo>=0 ? r[cMachNo] : '';
-            var machCatRaw = cMachCat>=0 ? String(r[cMachCat]||'').trim() : '';
             var mach = _giFindMachine(machNo);
             parsed.push({
               rowType:'issue', date:date, desc:desc, match:match, category:category,
-              qty:issQty, rate:rate, amount: amt || (rate*issQty), ref:ref,
-              machine: mach, machCatRaw: machCatRaw
+              qty:issQty, rate:rate, amount: amt || (rate*issQty),
+              machine: mach
             });
           }
         }
@@ -9737,7 +9741,7 @@ function gsBulkImportHandleFile(evt){
 
 function gsBulkImportShowPreview(parsed){
   var _esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var fieldLabels = {date:'তারিখ', ref:'Reference/Challan', group:'Item Group', desc:'Item নাম', machCat:'Machine Category', machNo:'Machine No', rate:'Rate', recvQty:'Receive Qty', amt:'Amount', issQty:'Issue Qty'};
+  var fieldLabels = {date:'তারিখ', group:'Item Group', desc:'Item নাম', machNo:'Machine No', rate:'Rate', recvQty:'Receive Qty', amt:'Amount', issQty:'Issue Qty'};
   var df = window._giDetectedFields || {};
   var foundList = Object.keys(fieldLabels).filter(function(k){return df[k];}).map(function(k){return fieldLabels[k];});
   var missingList = Object.keys(fieldLabels).filter(function(k){return !df[k];}).map(function(k){return fieldLabels[k];});
@@ -9762,8 +9766,8 @@ function gsBulkImportShowPreview(parsed){
       : p.match.type==='fuzzy' ? '<span style="color:#b7950b;">🔶 '+_esc(p.match.item.name)+'</span>'
       : '<span style="color:#c0392b;">🆕 নতুন: '+_esc(p.desc)+'</span>';
     var extra = p.rowType==='issue'
-      ? (p.machine ? ('মেশিন: '+_esc(p.machine.id)) : '<span style="color:#c0392b;">General/Non-Machine'+(p.machCatRaw?(' ('+_esc(p.machCatRaw)+')'):'')+'</span>')
-      : (p.ref ? ('Ref: '+_esc(p.ref)) : '');
+      ? (p.machine ? ('মেশিন: '+_esc(p.machine.id)) : '<span style="color:#c0392b;">General/Non-Machine</span>')
+      : (p.category ? ('গ্রুপ: '+_esc(p.category)) : '');
     return '<tr style="border-bottom:1px solid #eee;">'
       + '<td style="padding:5px 8px;font-size:12px;">'+p.date+'</td>'
       + '<td style="padding:5px 8px;font-size:12px;">'+(p.rowType==='receive'?'📥 Receive':'📤 Issue')+'</td>'
@@ -9790,6 +9794,7 @@ function gsBulkImportConfirm(){
   var recvArr = DB.receives.slice();
   var issArr = DB.issues.slice();
   var newItemCount = 0, recvCount = 0, issCount = 0;
+  var slipCounters = {};
 
   parsed.forEach(function(p){
     var itemObj = p.match.item;
@@ -9803,7 +9808,7 @@ function gsBulkImportConfirm(){
     if (p.rowType === 'receive'){
       recvArr.push({
         id: Date.now()+Math.floor(Math.random()*10000), date: p.date, group: itemObj.group, category: itemObj.category,
-        item: itemObj.name, chalan: p.ref, supplier: '', qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
+        item: itemObj.name, chalan: '', supplier: '', qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
         userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
         importedFromOldSystem: true
       });
@@ -9813,9 +9818,10 @@ function gsBulkImportConfirm(){
       var machineId = mach ? mach.id : 'General / Non-Machine Use';
       var machineNo = mach ? mach.no : '';
       var machineCat = mach ? mach.cat : 'General';
-      var remarks = p.machCatRaw ? ('(পুরনো সিস্টেম) '+p.machCatRaw) : '(পুরনো সিস্টেম থেকে Import করা)';
+      var remarks = '(পুরনো সিস্টেম থেকে Import করা)';
+      slipCounters[p.date] = (slipCounters[p.date]||0) + 1;
       issArr.push({
-        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, slip: p.ref || ('OLD-'+p.date), group: itemObj.group,
+        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, slip: 'OLD-'+p.date+'-'+slipCounters[p.date], group: itemObj.group,
         category: itemObj.category, item: itemObj.name, qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
         machineId: machineId, machineNo: machineNo, machineCat: machineCat, remarks: remarks,
         userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
