@@ -9744,7 +9744,9 @@ function _giGuessGroup(category){
 function _giParseDate(raw){
   if(!raw) return '';
   var s = String(raw).trim();
-  // DD-MM-YYYY বা MM-DD-YYYY — দুই ফরম্যাটই হতে পারে ফাইলভেদে, তাই month>12 হলে (অচল) স্বয়ংক্রিয়ভাবে সোয়াপ করে
+  // এই পুরনো সিস্টেমের এক্সপোর্ট DD-MM-YYYY (দিন আগে, মাস পরে) — আসল ফাইল থেকে যাচাই করে
+  // নিশ্চিত হওয়া হয়েছে (সব তারিখ "DD-01-2026" প্যাটার্নে ছিল)। এটাই ডিফল্ট ধরা হয়,
+  // শুধু "মাস" ১২-এর বেশি (অচল) হলে MM-DD-YYYY হিসেবে সোয়াপ করে নেয় (safety fallback)
   var m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if(m){
     var a = parseInt(m[1],10), b = parseInt(m[2],10), y = m[3];
