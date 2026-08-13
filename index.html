@@ -3347,6 +3347,27 @@ window.iglSaveNavVisibility = function() {
       <p>Monthly report by group and machine</p>
     </div>
     <div class="card">
+      <div class="card-header" style="background:#eafaf1;">
+        <span>📥 Group-wise Monthly Excel Report (Summary + Ledger)</span>
+      </div>
+      <div class="card-body no-print">
+        <p style="font-size:12px;color:#666;margin-top:0;">আপনার দেওয়া নমুনা ফরম্যাট অনুযায়ী (Summary + Rcv &amp; Issue + প্রতি ক্যাটেগরির লেজার + Requisition) — একই স্টাইলে প্রতি মাসে গ্রুপ বেছে ডাউনলোড করুন।</p>
+        <div class="month-select">
+          <select class="form-control" id="gmr-group"></select>
+          <select class="form-control" id="gmr-month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="gmr-year" value="2026" min="2020" max="2050">
+          <button class="btn btn-primary" onclick="gsExportGroupMonthlyExcel()" style="background:#1e8449;">📥 Excel Download</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Select Month & Year</span>
         <div style="margin-left:auto;" class="no-print">
@@ -9048,6 +9069,9 @@ function showPage(name, el) {
       var now = new Date();
       document.getElementById('m-month').value = now.getMonth()+1;
       document.getElementById('m-year').value = now.getFullYear();
+      populateLogFilters();
+      document.getElementById('gmr-month').value = now.getMonth()+1;
+      document.getElementById('gmr-year').value = now.getFullYear();
       renderMonthly();
     }
     else if (name === 'packaging_dashboard') {
@@ -9491,8 +9515,163 @@ function clearIssueForm() {
 }
 
 // =====================================================================
-//  Bulk Import — পুরনো সিস্টেমের "Date Wise Item Receive Issue Report" Excel
+//  Group-wise Monthly Excel Report (Summary + Rcv&Issue + Ledger + Requisition)
+//  — আপনার দেওয়া নমুনা ফাইলের স্টাইলে
 // =====================================================================
+function gsExportGroupMonthlyExcel(){
+  if (typeof XLSX === 'undefined'){
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = function(){ _gsDoExportGroupMonthly(); };
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  _gsDoExportGroupMonthly();
+}
+
+function _gsDoExportGroupMonthly(){
+  var group = (document.getElementById('gmr-group')||{}).value;
+  var month = Number((document.getElementById('gmr-month')||{}).value || new Date().getMonth()+1);
+  var year  = Number((document.getElementById('gmr-year')||{}).value  || new Date().getFullYear());
+  if (!group){ toast('❌ একটা Group সিলেক্ট করুন','error'); return; }
+
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
+  var monthEnd   = year+'-'+String(month).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+
+  var items = (DB.items||[]).filter(function(it){ return it.group === group; });
+  if (!items.length){ toast('❌ এই Group-এ কোনো আইটেম নেই','error'); return; }
+
+  function bfOf(itemName){
+    var r = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+    var i = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+    return r - i;
+  }
+  function lastRate(itemName){
+    var recs = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.rate>0 && x.date<=monthEnd; }).sort(function(a,b){ return a.date<b.date?1:-1; });
+    return recs.length ? recs[0].rate : 0;
+  }
+
+  var categories = Array.from(new Set(items.map(function(it){return it.category||'Others';}))).sort();
+
+  // ===== Summary Sheet =====
+  var sumRows = [
+    ['Islam Garments Ltd.'],
+    [group+' Account — '+monthNames[month-1]+' '+year],
+    [],
+    ['Category','Item','Unit','B/F','Received','Issued','Balance','Rate','Amount']
+  ];
+  categories.forEach(function(cat){
+    items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
+      var bf = bfOf(it.name);
+      var recv = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).reduce(function(s,x){return s+Number(x.qty);},0);
+      var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).reduce(function(s,x){return s+Number(x.qty);},0);
+      var bal = bf+recv-iss;
+      var rate = lastRate(it.name);
+      sumRows.push([cat, it.name, it.unit||'Pcs', bf, recv, iss, bal, rate, Math.round((bal*rate)*100)/100]);
+    });
+  });
+
+  // ===== Rcv & Issue Sheet (দৈনিক টোটাল, পুরো গ্রুপ মিলিয়ে) =====
+  var riRows = [
+    ['Islam Garments Ltd.'],
+    [group+' — Daily Receive & Issue — '+monthNames[month-1]+' '+year],
+    [],
+    ['Date','Opening','Received','Issued','Closing']
+  ];
+  var itemNameSet = {}; items.forEach(function(it){ itemNameSet[it.name]=true; });
+  var running = items.reduce(function(s,it){return s+bfOf(it.name);},0);
+  var totalRecv=0, totalIss=0;
+  for (var d=1; d<=daysInMonth; d++){
+    var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var rQty = (DB.receives||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
+    var iQty = (DB.issues||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
+    var opening = running;
+    running = running + rQty - iQty;
+    totalRecv += rQty; totalIss += iQty;
+    riRows.push([dayStr, opening, rQty, iQty, running]);
+  }
+  riRows.push(['Total:', '', totalRecv, totalIss, running]);
+
+  // ===== প্রতি ক্যাটেগরির Ledger শীট =====
+  var catSheets = [];
+  var usedNames = {};
+  categories.forEach(function(cat){
+    var catItems = items.filter(function(it){ return (it.category||'Others')===cat; });
+    var rows = [
+      ['Islam Garments Ltd.'],
+      [cat+' Ledger — '+monthNames[month-1]+' '+year],
+      []
+    ];
+    catItems.forEach(function(it){
+      var bf = bfOf(it.name);
+      rows.push(['Item:', it.name]);
+      rows.push(['Date','Type','Ref (Challan/Slip)','Party/Machine','Qty In','Qty Out','Balance']);
+      var bal = bf;
+      rows.push(['', 'B/F', '', '', '', '', bal]);
+      var recs = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
+      var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
+      var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
+      all.forEach(function(e){
+        if (e.t==='receive'){
+          bal += Number(e.d.qty);
+          rows.push([e.d.date, 'Receive', e.d.chalan||'', e.d.supplier||'', e.d.qty, '', bal]);
+        } else {
+          bal -= Number(e.d.qty);
+          rows.push([e.d.date, 'Issue', e.d.slip||'', e.d.machineId||'', '', e.d.qty, bal]);
+        }
+      });
+      rows.push(['','Total','','',
+        recs.reduce(function(s,e){return s+Number(e.d.qty);},0),
+        iss.reduce(function(s,e){return s+Number(e.d.qty);},0),
+        bal]);
+      rows.push([]);
+    });
+    var sheetName = cat.substring(0,31).replace(/[:\\/?*\[\]]/g,'-');
+    while (usedNames[sheetName]) sheetName = sheetName.substring(0,28)+'_'+Math.floor(Math.random()*90+10);
+    usedNames[sheetName] = true;
+    catSheets.push({name: sheetName, rows: rows});
+  });
+
+  // ===== Requisition Sheet (খালি টেমপ্লেট) =====
+  var reqRows = [
+    ['Islam Garments Ltd. — Requisition Slip'],
+    [group+' — '+monthNames[month-1]+' '+year],
+    [],
+    ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks']
+  ];
+  for (var k=1;k<=15;k++) reqRows.push([k,'','','','','','','']);
+
+  // ===== Workbook বানানো =====
+  var wb = XLSX.utils.book_new();
+
+  var wsSum = XLSX.utils.aoa_to_sheet(sumRows);
+  wsSum['!cols'] = [{wch:16},{wch:28},{wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
+
+  var wsRI = XLSX.utils.aoa_to_sheet(riRows);
+  wsRI['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsRI, 'Rcv & Issue');
+
+  catSheets.forEach(function(cs){
+    var ws = XLSX.utils.aoa_to_sheet(cs.rows);
+    ws['!cols'] = [{wch:12},{wch:10},{wch:16},{wch:22},{wch:8},{wch:8},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, cs.name);
+  });
+
+  var wsReq = XLSX.utils.aoa_to_sheet(reqRows);
+  wsReq['!cols'] = [{wch:5},{wch:26},{wch:16},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsReq, 'Requisition');
+
+  var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monthNames[month-1].substring(0,3)+'-'+String(year).slice(-2)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('✅ '+fname+' ডাউনলোড হয়েছে', 'success');
+}
+
+
 
 // ── নাম মিলানোর জন্য হেল্পার ──
 function _giNormalize(s){
@@ -9565,8 +9744,15 @@ function _giGuessGroup(category){
 function _giParseDate(raw){
   if(!raw) return '';
   var s = String(raw).trim();
+  // DD-MM-YYYY বা MM-DD-YYYY — দুই ফরম্যাটই হতে পারে ফাইলভেদে, তাই month>12 হলে (অচল) স্বয়ংক্রিয়ভাবে সোয়াপ করে
   var m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if(m) return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+  if(m){
+    var a = parseInt(m[1],10), b = parseInt(m[2],10), y = m[3];
+    var day = a, month = b; // ডিফল্ট ধরে নেয় DD-MM-YYYY
+    if (month > 12 && day <= 12) { day = b; month = a; } // অচল হলে MM-DD-YYYY হিসেবে সোয়াপ
+    if (month > 12 || day > 31) return '';
+    return y+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  }
   m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
   // Excel serial date number হলে
@@ -19635,6 +19821,13 @@ function populateLogFilters() {
     el.value = cur;
   });
   ilogPopulateCategoryFilter();
+  // Group-wise Monthly Excel Report ড্রপডাউনও একই লিস্ট দিয়ে ভরে দেওয়া
+  var gmrEl = document.getElementById('gmr-group');
+  if (gmrEl) {
+    var curG = gmrEl.value;
+    gmrEl.innerHTML = gsGroups.map(function(g){ return '<option value="'+g+'">'+g+'</option>'; }).join('');
+    if (gsGroups.indexOf(curG) !== -1) gmrEl.value = curG;
+  }
 }
 
 // ── Issue Log: Group সিলেক্ট অনুযায়ী Category ড্রপডাউন আপডেট ──
@@ -19814,7 +20007,7 @@ function renderIssueLog() {
   if (q) {
     var searchMode = window._ilogSearchMode || 'item';
     if (searchMode === 'slip') {
-      data = data.filter(r => (r.slip||'').toLowerCase().includes(q));
+      data = data.filter(r => (r.slip||'').toLowerCase() === q);
     } else {
       data = data.filter(r => (r.item||'').toLowerCase().includes(q));
     }
