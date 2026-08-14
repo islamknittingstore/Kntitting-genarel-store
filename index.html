@@ -9538,9 +9538,12 @@ function _gsDoExportGroupMonthly(){
   if (!group){ toast('❌ একটা Group সিলেক্ট করুন','error'); return; }
 
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var monShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var daysInMonth = new Date(year, month, 0).getDate();
   var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
   var monthEnd   = year+'-'+String(month).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+  var monthLabel = monShort[month-1]+'-'+String(year).slice(-2);
+  function dmy(dateStr){ if(!dateStr) return ''; var p=dateStr.split('-'); return p[2]+'-'+monShort[Number(p[1])-1]+'-'+p[0].slice(-2); }
 
   var items = (DB.items||[]).filter(function(it){ return it.group === group; });
   if (!items.length){ toast('❌ এই Group-এ কোনো আইটেম নেই','error'); return; }
@@ -9550,125 +9553,204 @@ function _gsDoExportGroupMonthly(){
     var i = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
     return r - i;
   }
-  function lastRate(itemName){
-    var recs = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.rate>0 && x.date<=monthEnd; }).sort(function(a,b){ return a.date<b.date?1:-1; });
-    return recs.length ? recs[0].rate : 0;
-  }
 
   var categories = Array.from(new Set(items.map(function(it){return it.category||'Others';}))).sort();
+  var C = XLSX.utils.encode_cell; // {r, c} 0-indexed -> "A1" ঠিকানা
 
-  // ===== Summary Sheet =====
-  var sumRows = [
-    ['Islam Garments Ltd.'],
-    [group+' Account — '+monthNames[month-1]+' '+year],
-    [],
-    ['Category','Item','Unit','B/F','Received','Issued','Balance','Rate','Amount']
-  ];
+  // ===================================================================
+  // Sheet 3+: প্রতি Category-র Ledger — আগে বানানো হচ্ছে, যাতে Summary শীট
+  // এই শীটগুলোর নির্দিষ্ট সেল থেকে cross-sheet formula দিয়ে টানতে পারে
+  // (ঠিক আপনার আসল ফাইলের মতো — Summary নিজে হিসাব করে না, Ledger শীট থেকে রেফারেন্স নেয়)
+  // ===================================================================
+  var catSheets = [];
+  var usedNames = {};
+  var itemRowInfo = {}; // itemName -> {sheet, bfRow, totalRow} (Excel 1-indexed row)
   categories.forEach(function(cat){
-    items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
+    var catItems = items.filter(function(it){ return (it.category||'Others')===cat; });
+    var sheetName = cat.substring(0,31).replace(/[:\\/?*\[\]]/g,'-');
+    while (usedNames[sheetName]) sheetName = sheetName.substring(0,28)+'_'+Math.floor(Math.random()*90+10);
+    usedNames[sheetName] = true;
+
+    var ledAoa = [
+      [cat+' Account'],
+      [monthLabel],
+      [],
+      [cat+' Item Details','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Remarks'],
+      ['','','Supplier','Challan No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs','']
+    ];
+    var ledFormulas = [];
+    var ledMerges = [
+      {s:{r:3,c:0},e:{r:4,c:0}}, {s:{r:3,c:1},e:{r:4,c:1}},
+      {s:{r:3,c:2},e:{r:3,c:5}}, {s:{r:3,c:6},e:{r:3,c:8}},
+      {s:{r:3,c:9},e:{r:4,c:9}}, {s:{r:3,c:10},e:{r:4,c:10}}
+    ];
+    catItems.forEach(function(it){
       var bf = bfOf(it.name);
-      var recv = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).reduce(function(s,x){return s+Number(x.qty);},0);
-      var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).reduce(function(s,x){return s+Number(x.qty);},0);
-      var bal = bf+recv-iss;
-      var rate = lastRate(it.name);
-      sumRows.push([cat, it.name, it.unit||'Pcs', bf, recv, iss, bal, rate, Math.round((bal*rate)*100)/100]);
+      ledAoa.push([it.name]);
+      var bfRowIdx = ledAoa.length;
+      ledAoa.push(['B/F','','','','','','','','', bf, '']);
+      var bfRowExcel = bfRowIdx + 1; // B/F লাইনের Excel row নাম্বার (1-indexed)
+      var prevBalRow = bfRowExcel;
+
+      var recs = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
+      var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
+      var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
+      var firstTxnRow = -1, lastTxnRow = -1;
+      all.forEach(function(e){
+        var rIdx = ledAoa.length;
+        if (firstTxnRow<0) firstTxnRow = rIdx;
+        lastTxnRow = rIdx;
+        if (e.t==='receive'){
+          ledAoa.push(['', dmy(e.d.date), e.d.supplier||'', e.d.chalan||'', e.d.qty, '', '', '', '', null, '']);
+          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+E'+(rIdx+1)});
+        } else {
+          ledAoa.push(['', dmy(e.d.date), '', '', '', '', e.d.slip||'', e.d.machineId||'', e.d.qty, null, e.d.remarks||'']);
+          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'-I'+(rIdx+1)});
+        }
+        prevBalRow = rIdx+1; // পরের রো-এর ফর্মুলার জন্য (1-indexed)
+      });
+      var totRowIdx = ledAoa.length;
+      if (firstTxnRow>=0){
+        ledFormulas.push({addr:C({r:totRowIdx,c:4}), f:'SUM(E'+(firstTxnRow+1)+':E'+(lastTxnRow+1)+')'});
+        ledFormulas.push({addr:C({r:totRowIdx,c:8}), f:'SUM(I'+(firstTxnRow+1)+':I'+(lastTxnRow+1)+')'});
+        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
+      } else {
+        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
+      }
+      var totRowExcel = totRowIdx + 1;
+      ledAoa.push(['Total','','','',null,'','','',null,null,'']);
+      ledAoa.push([]);
+
+      itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRowExcel, totalRow: totRowExcel };
     });
+    catSheets.push({name: sheetName, aoa: ledAoa, formulas: ledFormulas, merges: ledMerges});
   });
 
-  // ===== Rcv & Issue Sheet (দৈনিক টোটাল, পুরো গ্রুপ মিলিয়ে) =====
-  var riRows = [
-    ['Islam Garments Ltd.'],
-    [group+' — Daily Receive & Issue — '+monthNames[month-1]+' '+year],
+  // ===================================================================
+  // Sheet 1: Summary  —  "Group Name & Item Description | B/F | Rcvd pcs | Issued pcs | Balance | Unit"
+  // প্রতিটা আইটেমের B/F, Rcvd, Issued, Balance — নিজে হিসাব না করে, সংশ্লিষ্ট Ledger শীটের
+  // B/F রো ও Total রো থেকে সরাসরি cross-sheet formula দিয়ে টেনে আনা হয় (আপনার আসল ফাইলের মতো)
+  // ===================================================================
+  var sumAoa = [
+    ['Summary of '+group+' Account'],
+    [monthLabel],
     [],
-    ['Date','Opening','Received','Issued','Closing']
+    ['Grope Name & Item Description', 'B/F\n'+dmy(monthStart)+' এর আগে', 'Rcvd\npcs', 'Issued\npcs', 'Balance\n'+dmy(monthEnd), 'Unit']
   ];
+  var sumFormulas = []; // {addr, f}
+  categories.forEach(function(cat){
+    sumAoa.push([cat]);
+    var catFirstItemRow = -1, catLastItemRow = -1;
+    items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
+      var info = itemRowInfo[it.name];
+      var rIdx = sumAoa.length; // এই আইটেম রো-এর 0-indexed position
+      if (catFirstItemRow<0) catFirstItemRow = rIdx;
+      catLastItemRow = rIdx;
+      sumAoa.push([it.name, null, null, null, null, it.unit||'Pcs']);
+      if (info){
+        var sref = "'"+info.sheet+"'!";
+        sumFormulas.push({addr: C({r:rIdx, c:1}), f: sref+'J'+info.bfRow});     // B/F
+        sumFormulas.push({addr: C({r:rIdx, c:2}), f: sref+'F'+info.totalRow}); // Rcvd
+        sumFormulas.push({addr: C({r:rIdx, c:3}), f: sref+'I'+info.totalRow}); // Issued
+        sumFormulas.push({addr: C({r:rIdx, c:4}), f: sref+'J'+info.totalRow}); // Balance
+      }
+    });
+    if (catFirstItemRow>=0){
+      var totRowIdx = sumAoa.length;
+      sumFormulas.push({addr: C({r:totRowIdx,c:1}), f:'SUM(B'+(catFirstItemRow+1)+':B'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:2}), f:'SUM(C'+(catFirstItemRow+1)+':C'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:3}), f:'SUM(D'+(catFirstItemRow+1)+':D'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:4}), f:'SUM(E'+(catFirstItemRow+1)+':E'+(catLastItemRow+1)+')'});
+      sumAoa.push(['Total', null, null, null, null, '']);
+    }
+    sumAoa.push([]);
+  });
+
+  // ===================================================================
+  // Sheet 2: Rcv & Issue  —  "Date | Opening stock | Received qty (pc) | Issued for qty (pc) | Total issue | Closing stock"
+  // ===================================================================
+  var riAoa = [
+    ['Date wise total receive & issue'],
+    [monthLabel],
+    [],
+    ['Date','Opening','Received','Issued for','Total','Closing'],
+    ['','stock','qty (pc)','qty (pc)','issue','stock']
+  ];
+  var riFormulas = [];
   var itemNameSet = {}; items.forEach(function(it){ itemNameSet[it.name]=true; });
-  var running = items.reduce(function(s,it){return s+bfOf(it.name);},0);
-  var totalRecv=0, totalIss=0;
+  var opening0 = items.reduce(function(s,it){return s+bfOf(it.name);},0);
+  var firstDataRow = riAoa.length; // এখান থেকে দিন-ভিত্তিক রো শুরু হবে (0-indexed)
   for (var d=1; d<=daysInMonth; d++){
     var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var rQty = (DB.receives||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
     var iQty = (DB.issues||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
-    var opening = running;
-    running = running + rQty - iQty;
-    totalRecv += rQty; totalIss += iQty;
-    riRows.push([dayStr, opening, rQty, iQty, running]);
+    var rIdx = riAoa.length;
+    riAoa.push([dmy(dayStr), null, rQty, iQty, null, null]);
+    if (rIdx === firstDataRow){
+      riFormulas.push({addr:C({r:rIdx,c:1}), v: opening0}); // প্রথম দিনের Opening = আগের মাস পর্যন্ত ব্যালেন্স
+    } else {
+      riFormulas.push({addr:C({r:rIdx,c:1}), f:'F'+rIdx}); // এই দিনের Opening = আগের দিনের Closing
+    }
+    riFormulas.push({addr:C({r:rIdx,c:4}), f:'D'+(rIdx+1)}); // Total issue = Issued for qty
+    riFormulas.push({addr:C({r:rIdx,c:5}), f:'B'+(rIdx+1)+'+C'+(rIdx+1)+'-E'+(rIdx+1)}); // Closing = Open+Rcv-Iss
   }
-  riRows.push(['Total:', '', totalRecv, totalIss, running]);
-
-  // ===== প্রতি ক্যাটেগরির Ledger শীট =====
-  var catSheets = [];
-  var usedNames = {};
-  categories.forEach(function(cat){
-    var catItems = items.filter(function(it){ return (it.category||'Others')===cat; });
-    var rows = [
-      ['Islam Garments Ltd.'],
-      [cat+' Ledger — '+monthNames[month-1]+' '+year],
-      []
-    ];
-    catItems.forEach(function(it){
-      var bf = bfOf(it.name);
-      rows.push(['Item:', it.name]);
-      rows.push(['Date','Type','Ref (Challan/Slip)','Party/Machine','Qty In','Qty Out','Balance']);
-      var bal = bf;
-      rows.push(['', 'B/F', '', '', '', '', bal]);
-      var recs = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
-      var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
-      var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
-      all.forEach(function(e){
-        if (e.t==='receive'){
-          bal += Number(e.d.qty);
-          rows.push([e.d.date, 'Receive', e.d.chalan||'', e.d.supplier||'', e.d.qty, '', bal]);
-        } else {
-          bal -= Number(e.d.qty);
-          rows.push([e.d.date, 'Issue', e.d.slip||'', e.d.machineId||'', '', e.d.qty, bal]);
-        }
-      });
-      rows.push(['','Total','','',
-        recs.reduce(function(s,e){return s+Number(e.d.qty);},0),
-        iss.reduce(function(s,e){return s+Number(e.d.qty);},0),
-        bal]);
-      rows.push([]);
-    });
-    var sheetName = cat.substring(0,31).replace(/[:\\/?*\[\]]/g,'-');
-    while (usedNames[sheetName]) sheetName = sheetName.substring(0,28)+'_'+Math.floor(Math.random()*90+10);
-    usedNames[sheetName] = true;
-    catSheets.push({name: sheetName, rows: rows});
-  });
+  var lastDataRow = riAoa.length-1;
+  var totRowIdxRI = riAoa.length;
+  riAoa.push(['Total','', null, null, null, null]);
+  riFormulas.push({addr:C({r:totRowIdxRI,c:2}), f:'SUM(C'+(firstDataRow+1)+':C'+(lastDataRow+1)+')'});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:3}), f:'SUM(D'+(firstDataRow+1)+':D'+(lastDataRow+1)+')'});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:4}), f:'SUM(E'+(firstDataRow+1)+':E'+(lastDataRow+1)+')'});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:5}), f:'F'+(lastDataRow+1)});
 
   // ===== Requisition Sheet (খালি টেমপ্লেট) =====
-  var reqRows = [
+  var reqAoa = [
     ['Islam Garments Ltd. — Requisition Slip'],
-    [group+' — '+monthNames[month-1]+' '+year],
+    [group+' — '+monthLabel],
     [],
     ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks']
   ];
-  for (var k=1;k<=15;k++) reqRows.push([k,'','','','','','','']);
+  for (var k=1;k<=15;k++) reqAoa.push([k,'','','','','','','']);
 
-  // ===== Workbook বানানো =====
+  // ===================================================================
+  // Workbook বানানো — aoa দিয়ে বেস শীট, তারপর formulas array দিয়ে সেই নির্দিষ্ট
+  // সেলগুলোতে সত্যিকারের Excel ফর্মুলা বসিয়ে দেওয়া হয় (Excel-এ খুললে ফর্মুলা হিসেবেই দেখাবে)
+  // ===================================================================
+  function applyFormulas(ws, list){
+    list.forEach(function(item){
+      if (item.f !== undefined) ws[item.addr] = { t:'n', f: item.f };
+      else if (item.v !== undefined) ws[item.addr] = { t:'n', v: item.v };
+    });
+  }
+
   var wb = XLSX.utils.book_new();
 
-  var wsSum = XLSX.utils.aoa_to_sheet(sumRows);
-  wsSum['!cols'] = [{wch:16},{wch:28},{wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:10}];
+  var wsSum = XLSX.utils.aoa_to_sheet(sumAoa);
+  applyFormulas(wsSum, sumFormulas);
+  wsSum['!cols'] = [{wch:30},{wch:10},{wch:8},{wch:8},{wch:10},{wch:8}];
+  wsSum['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}}];
   XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
 
-  var wsRI = XLSX.utils.aoa_to_sheet(riRows);
-  wsRI['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:10}];
+  var wsRI = XLSX.utils.aoa_to_sheet(riAoa);
+  applyFormulas(wsRI, riFormulas);
+  wsRI['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10}];
+  wsRI['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},{s:{r:3,c:0},e:{r:4,c:0}}];
   XLSX.utils.book_append_sheet(wb, wsRI, 'Rcv & Issue');
 
   catSheets.forEach(function(cs){
-    var ws = XLSX.utils.aoa_to_sheet(cs.rows);
-    ws['!cols'] = [{wch:12},{wch:10},{wch:16},{wch:22},{wch:8},{wch:8},{wch:8}];
+    var ws = XLSX.utils.aoa_to_sheet(cs.aoa);
+    applyFormulas(ws, cs.formulas);
+    ws['!cols'] = [{wch:22},{wch:11},{wch:16},{wch:12},{wch:9},{wch:2},{wch:9},{wch:20},{wch:9},{wch:9},{wch:16}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:10}},{s:{r:1,c:0},e:{r:1,c:10}}].concat(cs.merges);
     XLSX.utils.book_append_sheet(wb, ws, cs.name);
   });
 
-  var wsReq = XLSX.utils.aoa_to_sheet(reqRows);
+  var wsReq = XLSX.utils.aoa_to_sheet(reqAoa);
   wsReq['!cols'] = [{wch:5},{wch:26},{wch:16},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18}];
   XLSX.utils.book_append_sheet(wb, wsReq, 'Requisition');
 
-  var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monthNames[month-1].substring(0,3)+'-'+String(year).slice(-2)+'.xlsx';
+  var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'.xlsx';
   XLSX.writeFile(wb, fname);
-  toast('✅ '+fname+' ডাউনলোড হয়েছে', 'success');
+  toast('✅ '+fname+' ডাউনলোড হয়েছে (real formula সহ)', 'success');
 }
 
 
