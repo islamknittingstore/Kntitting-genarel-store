@@ -9559,9 +9559,8 @@ function _gsDoExportGroupMonthly(){
 
   // ===================================================================
   // Sheet 3+: প্রতি Category-র Ledger — আগে বানানো হচ্ছে, যাতে Summary শীট
-  // এই শীটগুলোর নির্দিষ্ট সেল থেকে cross-sheet formula দিয়ে টানতে পারে।
-  // কলাম: Item | Date | Supplier | Challan No. | Bill No. | Qty(Rcv) | Slip No. | Machine particular | Qty(Iss) | Balance | Current/page no | Remarks
-  // (আপনার দেওয়া Belt_Bearing__Ac_July26.xlsx-এর Ledger শীটের কলাম কাঠামো অনুযায়ী)
+  // এই শীটগুলোর নির্দিষ্ট সেল থেকে cross-sheet formula দিয়ে টানতে পারে
+  // (ঠিক আপনার আসল ফাইলের মতো — Summary নিজে হিসাব করে না, Ledger শীট থেকে রেফারেন্স নেয়)
   // ===================================================================
   var catSheets = [];
   var usedNames = {};
@@ -9573,23 +9572,23 @@ function _gsDoExportGroupMonthly(){
     usedNames[sheetName] = true;
 
     var ledAoa = [
-      [cat+' No &'],
+      [cat+' Account'],
       [monthLabel],
       [],
-      ['Machine specification','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Current','Remarks'],
-      ['','','Supplier','Challan No.','Bill No.','Quantity Pcs','Slip No.','Machine particular','Quantity Pcs','Pcs','page no','']
+      [cat+' Item Details','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Remarks'],
+      ['','','Supplier','Challan No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs','']
     ];
     var ledFormulas = [];
     var ledMerges = [
       {s:{r:3,c:0},e:{r:4,c:0}}, {s:{r:3,c:1},e:{r:4,c:1}},
       {s:{r:3,c:2},e:{r:3,c:5}}, {s:{r:3,c:6},e:{r:3,c:8}},
-      {s:{r:3,c:9},e:{r:4,c:9}}, {s:{r:3,c:10},e:{r:4,c:10}}, {s:{r:3,c:11},e:{r:4,c:11}}
+      {s:{r:3,c:9},e:{r:4,c:9}}, {s:{r:3,c:10},e:{r:4,c:10}}
     ];
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
       ledAoa.push([it.name]);
       var bfRowIdx = ledAoa.length;
-      ledAoa.push(['B/F','','','','','','','','', bf, '', '']);
+      ledAoa.push(['B/F','','','','','','','','', bf, '']);
       var bfRowExcel = bfRowIdx + 1; // B/F লাইনের Excel row নাম্বার (1-indexed)
       var prevBalRow = bfRowExcel;
 
@@ -9602,25 +9601,24 @@ function _gsDoExportGroupMonthly(){
         if (firstTxnRow<0) firstTxnRow = rIdx;
         lastTxnRow = rIdx;
         if (e.t==='receive'){
-          // Item | Date | Supplier | Challan No. | Bill No.(blank) | Qty | Slip | MachinePart | Qty | Balance | page no(blank) | Remarks
-          ledAoa.push(['', dmy(e.d.date), e.d.supplier||'', e.d.chalan||'', '', e.d.qty, '', '', '', null, '', '']);
-          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+F'+(rIdx+1)});
+          ledAoa.push(['', dmy(e.d.date), e.d.supplier||'', e.d.chalan||'', e.d.qty, '', '', '', '', null, '']);
+          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+E'+(rIdx+1)});
         } else {
-          ledAoa.push(['', dmy(e.d.date), '', '', '', '', e.d.slip||'', e.d.machineId||'', e.d.qty, null, '', e.d.remarks||'']);
+          ledAoa.push(['', dmy(e.d.date), '', '', '', '', e.d.slip||'', e.d.machineId||'', e.d.qty, null, e.d.remarks||'']);
           ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'-I'+(rIdx+1)});
         }
         prevBalRow = rIdx+1; // পরের রো-এর ফর্মুলার জন্য (1-indexed)
       });
       var totRowIdx = ledAoa.length;
       if (firstTxnRow>=0){
-        ledFormulas.push({addr:C({r:totRowIdx,c:5}), f:'SUM(F'+(firstTxnRow+1)+':F'+(lastTxnRow+1)+')'});
+        ledFormulas.push({addr:C({r:totRowIdx,c:4}), f:'SUM(E'+(firstTxnRow+1)+':E'+(lastTxnRow+1)+')'});
         ledFormulas.push({addr:C({r:totRowIdx,c:8}), f:'SUM(I'+(firstTxnRow+1)+':I'+(lastTxnRow+1)+')'});
         ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
       } else {
         ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
       }
       var totRowExcel = totRowIdx + 1;
-      ledAoa.push(['Total','','','','',null,'','',null,null,'','']);
+      ledAoa.push(['Total','','','',null,'','','',null,null,'']);
       ledAoa.push([]);
 
       itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRowExcel, totalRow: totRowExcel };
@@ -9629,19 +9627,15 @@ function _gsDoExportGroupMonthly(){
   });
 
   // ===================================================================
-  // Sheet 1: Summary  —  "Item | Gauge | Machine Specifications | Currently using in M/c | Page no |
-  //                        B/F | Rcvd | Issued | Balance | Rate/pc | Amount in taka | Unit | Target Unit"
+  // Sheet 1: Summary  —  "Group Name & Item Description | B/F | Rcvd pcs | Issued pcs | Balance | Unit"
   // প্রতিটা আইটেমের B/F, Rcvd, Issued, Balance — নিজে হিসাব না করে, সংশ্লিষ্ট Ledger শীটের
   // B/F রো ও Total রো থেকে সরাসরি cross-sheet formula দিয়ে টেনে আনা হয় (আপনার আসল ফাইলের মতো)
-  // Gauge/Machine Specifications/Currently using/Page no/Rate/Amount/Target — এই ডাটাগুলো আমাদের
-  // সিস্টেমে সংরক্ষিত হয় না বলে খালি থাকবে (কলাম/হেডার ঠিকই থাকছে, ফাইলের সাথে মেলানোর জন্য)
   // ===================================================================
   var sumAoa = [
     ['Summary of '+group+' Account'],
     [monthLabel],
     [],
-    ['Grope Name & Item Deccription','Gauge','Machine  ','Currently using in M/c','Page','B/F','Rcvd','Issued','Balance','Rate/','Amount in','Unit','Target'],
-    ['','','Specifications','','no', dmy(monthStart), 'pcs','pcs', dmy(monthEnd),'pc','taka of','','Unit']
+    ['Grope Name & Item Description', 'B/F\n'+dmy(monthStart)+' এর আগে', 'Rcvd\npcs', 'Issued\npcs', 'Balance\n'+dmy(monthEnd), 'Unit']
   ];
   var sumFormulas = []; // {addr, f}
   categories.forEach(function(cat){
@@ -9652,22 +9646,22 @@ function _gsDoExportGroupMonthly(){
       var rIdx = sumAoa.length; // এই আইটেম রো-এর 0-indexed position
       if (catFirstItemRow<0) catFirstItemRow = rIdx;
       catLastItemRow = rIdx;
-      sumAoa.push([it.name, '', '', '', '', null, null, null, null, '', '', it.unit||'Pcs', '']);
+      sumAoa.push([it.name, null, null, null, null, it.unit||'Pcs']);
       if (info){
         var sref = "'"+info.sheet+"'!";
-        sumFormulas.push({addr: C({r:rIdx, c:5}), f: sref+'J'+info.bfRow});     // B/F
-        sumFormulas.push({addr: C({r:rIdx, c:6}), f: sref+'F'+info.totalRow}); // Rcvd
-        sumFormulas.push({addr: C({r:rIdx, c:7}), f: sref+'I'+info.totalRow}); // Issued
-        sumFormulas.push({addr: C({r:rIdx, c:8}), f: sref+'J'+info.totalRow}); // Balance
+        sumFormulas.push({addr: C({r:rIdx, c:1}), f: sref+'J'+info.bfRow});     // B/F
+        sumFormulas.push({addr: C({r:rIdx, c:2}), f: sref+'F'+info.totalRow}); // Rcvd
+        sumFormulas.push({addr: C({r:rIdx, c:3}), f: sref+'I'+info.totalRow}); // Issued
+        sumFormulas.push({addr: C({r:rIdx, c:4}), f: sref+'J'+info.totalRow}); // Balance
       }
     });
     if (catFirstItemRow>=0){
       var totRowIdx = sumAoa.length;
-      sumFormulas.push({addr: C({r:totRowIdx,c:5}), f:'SUM(F'+(catFirstItemRow+1)+':F'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:6}), f:'SUM(G'+(catFirstItemRow+1)+':G'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:7}), f:'SUM(H'+(catFirstItemRow+1)+':H'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:8}), f:'SUM(I'+(catFirstItemRow+1)+':I'+(catLastItemRow+1)+')'});
-      sumAoa.push(['Total', '', '', '', '', null, null, null, null, '', '', '', '']);
+      sumFormulas.push({addr: C({r:totRowIdx,c:1}), f:'SUM(B'+(catFirstItemRow+1)+':B'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:2}), f:'SUM(C'+(catFirstItemRow+1)+':C'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:3}), f:'SUM(D'+(catFirstItemRow+1)+':D'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:4}), f:'SUM(E'+(catFirstItemRow+1)+':E'+(catLastItemRow+1)+')'});
+      sumAoa.push(['Total', null, null, null, null, '']);
     }
     sumAoa.push([]);
   });
@@ -9708,8 +9702,7 @@ function _gsDoExportGroupMonthly(){
   riFormulas.push({addr:C({r:totRowIdxRI,c:4}), f:'SUM(E'+(firstDataRow+1)+':E'+(lastDataRow+1)+')'});
   riFormulas.push({addr:C({r:totRowIdxRI,c:5}), f:'F'+(lastDataRow+1)});
 
-  // ===== Requisition Sheet (খালি টেমপ্লেট — আসল ফাইলের Requisition শীটের কলামগুলো
-  //        (Item Type, Target Price, Available Stock, ইত্যাদি) আমাদের ডাটায় নেই, তাই সরল টেমপ্লেট) =====
+  // ===== Requisition Sheet (খালি টেমপ্লেট) =====
   var reqAoa = [
     ['Islam Garments Ltd. — Requisition Slip'],
     [group+' — '+monthLabel],
@@ -9733,21 +9726,24 @@ function _gsDoExportGroupMonthly(){
 
   var wsSum = XLSX.utils.aoa_to_sheet(sumAoa);
   applyFormulas(wsSum, sumFormulas);
-  wsSum['!cols'] = [{wch:32},{wch:8},{wch:20},{wch:25},{wch:7},{wch:10},{wch:8},{wch:8},{wch:10},{wch:8},{wch:12},{wch:8},{wch:12}];
-  wsSum['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+  wsSum['!cols'] = [{wch:30},{wch:10},{wch:8},{wch:8},{wch:10},{wch:8}];
+  wsSum['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}}];
+  wsSum['!freeze'] = { xSplit: 0, ySplit: 4, topLeftCell: 'A5', activePane: 'bottomLeft', state: 'frozen' };
   XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
 
   var wsRI = XLSX.utils.aoa_to_sheet(riAoa);
   applyFormulas(wsRI, riFormulas);
   wsRI['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10}];
   wsRI['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},{s:{r:3,c:0},e:{r:4,c:0}}];
+  wsRI['!freeze'] = { xSplit: 0, ySplit: 5, topLeftCell: 'A6', activePane: 'bottomLeft', state: 'frozen' };
   XLSX.utils.book_append_sheet(wb, wsRI, 'Rcv & Issue');
 
   catSheets.forEach(function(cs){
     var ws = XLSX.utils.aoa_to_sheet(cs.aoa);
     applyFormulas(ws, cs.formulas);
-    ws['!cols'] = [{wch:22},{wch:11},{wch:16},{wch:10},{wch:9},{wch:9},{wch:9},{wch:20},{wch:9},{wch:9},{wch:10},{wch:16}];
-    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:11}},{s:{r:1,c:0},e:{r:1,c:11}}].concat(cs.merges);
+    ws['!cols'] = [{wch:22},{wch:11},{wch:16},{wch:12},{wch:9},{wch:2},{wch:9},{wch:20},{wch:9},{wch:9},{wch:16}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:10}},{s:{r:1,c:0},e:{r:1,c:10}}].concat(cs.merges);
+    ws['!freeze'] = { xSplit: 0, ySplit: 5, topLeftCell: 'A6', activePane: 'bottomLeft', state: 'frozen' };
     XLSX.utils.book_append_sheet(wb, ws, cs.name);
   });
 
