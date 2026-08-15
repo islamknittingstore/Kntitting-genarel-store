@@ -3364,7 +3364,31 @@ window.iglSaveNavVisibility = function() {
           </select>
           <input type="number" class="form-control" id="gmr-year" value="2026" min="2020" max="2050">
           <button class="btn btn-primary" onclick="gsExportGroupMonthlyExcel()" style="background:#1e8449;">📥 Excel Download</button>
+          <button class="btn btn-outline" onclick="gsPreviewGroupMonthly()">👁️ পেজেই দেখুন (Preview)</button>
         </div>
+      </div>
+    </div>
+    <div class="card" id="gmr-preview-card" style="display:none;">
+      <div class="card-header" style="background:#eaf2f8;">
+        <span>👁️ Preview</span>
+      </div>
+      <div class="card-body" style="overflow-x:auto;">
+        <div id="gmr-preview-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" class="no-print"></div>
+        <div id="gmr-preview-content"></div>
+      </div>
+    </div>
+    <div class="card admin-only-action">
+      <div class="card-header" style="background:#fef9e7;">
+        <span>📁 আপনার নিজস্ব Excel Template আপলোড করুন (Border/Style সহ হুবহু মিলানোর জন্য)</span>
+      </div>
+      <div class="card-body no-print">
+        <p style="font-size:12px;color:#666;margin-top:0;">Template থাকলে Excel Download বাটন সেই টেমপ্লেটেই (আপনার আসল বর্ডার/স্টাইল সহ) ডাটা বসিয়ে দেবে। না থাকলে সাধারণ (স্টাইল ছাড়া) ফরম্যাটে জেনারেট হবে।</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <select class="form-control" id="gmr-tmpl-group" style="width:200px;"></select>
+          <button class="btn btn-sm" style="background:#b7950b;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;" onclick="document.getElementById('gmr-tmpl-file').click()">📤 Template Excel বাছাই করুন</button>
+          <input type="file" id="gmr-tmpl-file" accept=".xlsx" style="display:none;" onchange="gsUploadTemplateFile(event)">
+        </div>
+        <div id="gmr-tmpl-list"></div>
       </div>
     </div>
     <div class="card">
@@ -9072,6 +9096,9 @@ function showPage(name, el) {
       populateLogFilters();
       document.getElementById('gmr-month').value = now.getMonth()+1;
       document.getElementById('gmr-year').value = now.getFullYear();
+      var tmplGroupEl = document.getElementById('gmr-tmpl-group');
+      if (tmplGroupEl) tmplGroupEl.innerHTML = document.getElementById('gmr-group').innerHTML;
+      gsLoadTemplatesFromFirebase(function(){ gsRenderTemplateList(); });
       renderMonthly();
     }
     else if (name === 'packaging_dashboard') {
@@ -9515,21 +9542,307 @@ function clearIssueForm() {
 }
 
 // =====================================================================
-//  Group-wise Monthly Excel Report (Summary + Rcv&Issue + Ledger + Requisition)
-//  — আপনার দেওয়া নমুনা ফাইলের স্টাইলে
+//  Group-wise Excel Template (আপনার আসল ফাইলকেই টেমপ্লেট হিসেবে ব্যবহার)
+//  — আলাদা Firebase path-এ সেভ হয় (igl_gs_templates), যাতে প্রতিটা সাধারণ
+//  Save/Autosave-এর সাথে বারবার বড় ফাইল push না হয়
 // =====================================================================
+function gsGetTemplates(){
+  try { return JSON.parse(localStorage.getItem('igl_gs_templates') || '{}'); } catch(e){ return {}; }
+}
+function gsSaveTemplatesLocal(obj){
+  localStorage.setItem('igl_gs_templates', JSON.stringify(obj));
+}
+function gsLoadTemplatesFromFirebase(cb){
+  if (typeof firebase === 'undefined' || !firebase.database) { if(cb) cb(gsGetTemplates()); return; }
+  _fbDb.ref('igl_gs_templates').once('value').then(function(snap){
+    var val = snap.val() || {};
+    gsSaveTemplatesLocal(val);
+    if (cb) cb(val);
+  }).catch(function(){ if(cb) cb(gsGetTemplates()); });
+}
+function gsUploadTemplateFile(evt){
+  var group = (document.getElementById('gmr-tmpl-group')||{}).value;
+  var file = evt.target.files[0];
+  if (!group){ toast('❌ আগে একটা Group সিলেক্ট করুন','error'); if(evt&&evt.target) evt.target.value=''; return; }
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var base64 = e.target.result.split(',')[1]; // data:...;base64,XXXX থেকে শুধু XXXX অংশ
+    var templates = gsGetTemplates();
+    templates[group] = { data: base64, fileName: file.name, uploadedAt: new Date().toISOString() };
+    gsSaveTemplatesLocal(templates);
+    if (typeof firebase !== 'undefined' && firebase.database){
+      _fbDb.ref('igl_gs_templates/'+group).set(templates[group]).then(function(){
+        toast('✅ "'+group+'" এর জন্য Template সেভ হয়েছে (Firebase-এও)', 'success');
+      }).catch(function(err){
+        toast('⚠️ Local এ সেভ হয়েছে, Firebase এ সমস্যা: '+(err&&err.message?err.message:err), 'warning');
+      });
+    } else {
+      toast('✅ "'+group+'" এর জন্য Template লোকালি সেভ হয়েছে', 'success');
+    }
+    gsRenderTemplateList();
+  };
+  reader.readAsDataURL(file);
+  if (evt && evt.target) evt.target.value = '';
+}
+function gsDeleteTemplate(group){
+  var templates = gsGetTemplates();
+  delete templates[group];
+  gsSaveTemplatesLocal(templates);
+  if (typeof firebase !== 'undefined' && firebase.database){
+    _fbDb.ref('igl_gs_templates/'+group).remove();
+  }
+  toast('🗑️ "'+group+'" এর Template মুছে ফেলা হয়েছে', 'success');
+  gsRenderTemplateList();
+}
+function gsRenderTemplateList(){
+  var el = document.getElementById('gmr-tmpl-list');
+  if (!el) return;
+  var templates = gsGetTemplates();
+  var keys = Object.keys(templates);
+  if (!keys.length){ el.innerHTML = '<span style="color:#888;font-size:12px;">এখনো কোনো Group-এর জন্য Template আপলোড করা হয়নি — উপরে Group সিলেক্ট করে আপনার খালি (ব্লাংক ডাটা) ফাইল আপলোড করুন</span>'; return; }
+  el.innerHTML = keys.map(function(g){
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#eafaf1;border:1px solid #a9dfbf;border-radius:14px;padding:3px 10px;margin:3px 4px 3px 0;font-size:12px;">'
+      + '📁 <b>'+g+'</b> <span style="color:#888;">('+_esc(templates[g].fileName||'')+')</span>'
+      + ' <a href="#" onclick="gsDeleteTemplate(\''+g+'\');return false;" style="color:#c0392b;margin-left:4px;">✕</a></span>';
+  }).join('');
+  function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+}
+
+
 function gsExportGroupMonthlyExcel(){
+  window._gsExportMode = 'download';
   if (typeof XLSX === 'undefined'){
     var s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = function(){ _gsDoExportGroupMonthly(); };
+    s.onload = function(){ _gsExportRouter(); };
     s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
     document.head.appendChild(s);
     toast('📦 Loading Excel engine...','warning');
     return;
   }
-  _gsDoExportGroupMonthly();
+  _gsExportRouter();
 }
+function gsPreviewGroupMonthly(){
+  window._gsExportMode = 'preview';
+  if (typeof XLSX === 'undefined'){
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = function(){ _gsExportRouter(); };
+    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+    document.head.appendChild(s);
+    toast('📦 Loading Excel engine...','warning');
+    return;
+  }
+  _gsExportRouter();
+}
+// পেজেই দেখানোর জন্য — workbook-এর প্রতিটা শীট ট্যাব আকারে HTML টেবিল হিসেবে রেন্ডার করে
+function gsRenderPreview(wb){
+  var card = document.getElementById('gmr-preview-card');
+  var tabsEl = document.getElementById('gmr-preview-tabs');
+  var contentEl = document.getElementById('gmr-preview-content');
+  if (!card || !tabsEl || !contentEl) return;
+
+  var sheetHtmls = {};
+  wb.SheetNames.forEach(function(name){
+    try {
+      sheetHtmls[name] = XLSX.utils.sheet_to_html(wb.Sheets[name], {editable:false});
+    } catch(e){ sheetHtmls[name] = '<p style="color:#c0392b;">এই শীট প্রিভিউ করা যায়নি</p>'; }
+  });
+
+  function showTab(name){
+    contentEl.innerHTML = '<div style="font-size:12px;">'+sheetHtmls[name]+'</div>';
+    Array.prototype.forEach.call(tabsEl.children, function(btn){
+      btn.style.background = (btn.dataset.name===name) ? '#2c3e50' : '#eee';
+      btn.style.color = (btn.dataset.name===name) ? '#fff' : '#333';
+    });
+  }
+
+  tabsEl.innerHTML = '';
+  wb.SheetNames.forEach(function(name, i){
+    var btn = document.createElement('button');
+    btn.textContent = name;
+    btn.dataset.name = name;
+    btn.className = 'btn btn-sm';
+    btn.style.cssText = 'border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;';
+    btn.onclick = function(){ showTab(name); };
+    tabsEl.appendChild(btn);
+  });
+
+  card.style.display = '';
+  showTab(wb.SheetNames[0]);
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+// Template থাকলে সেটা দিয়ে (বর্ডার/স্টাইল সহ), না থাকলে সাধারণ ফরম্যাটে জেনারেট করে
+function _gsExportRouter(){
+  var group = (document.getElementById('gmr-group')||{}).value;
+  var month = Number((document.getElementById('gmr-month')||{}).value || new Date().getMonth()+1);
+  var year  = Number((document.getElementById('gmr-year')||{}).value  || new Date().getFullYear());
+  if (!group){ toast('❌ একটা Group সিলেক্ট করুন','error'); return; }
+  var templates = gsGetTemplates();
+  if (templates[group]){
+    gsFillTemplateAndExport(group, month, year, templates[group]);
+  } else {
+    _gsDoExportGroupMonthly();
+  }
+}
+
+// =====================================================================
+//  Template থেকে ভরে Export — আসল ফাইলের বর্ডার/স্টাইল/মার্জ অক্ষত রেখে শুধু ডাটা বসিয়ে দেওয়া
+// =====================================================================
+function gsDetectTemplateColumns(ws, r0, r1, c0, c1){
+  // হেডার এলাকায় (r0-r1 রো) কলাম-লেবেল (Supplier/Challan/Slip/Machine/Balance/Quantity ইত্যাদি) খুঁজে বের করে
+  var labels = []; // {col, text}
+  for (var r=r0; r<=r1; r++){
+    for (var c=c0; c<=c1; c++){
+      var cell = ws[XLSX.utils.encode_cell({r:r,c:c})];
+      if (!cell || cell.v===undefined || cell.v===null || cell.v==='') continue;
+      labels.push({col:c, text:String(cell.v).toLowerCase()});
+    }
+  }
+  var cols = {};
+  labels.forEach(function(l){
+    if (l.text.indexOf('date')!==-1 && cols.date===undefined) cols.date=l.col;
+    if (l.text.indexOf('supplier')!==-1) cols.supplier=l.col;
+    if (l.text.indexOf('challan')!==-1) cols.challan=l.col;
+    if (l.text.indexOf('slip')!==-1) cols.slip=l.col;
+    if (l.text.indexOf('machine')!==-1 && l.text.indexOf('categ')===-1) cols.machine=l.col;
+    if (l.text.indexOf('balance')!==-1) cols.balance=l.col;
+    if (l.text.indexOf('remark')!==-1) cols.remarks=l.col;
+  });
+  // Quantity/Pcs কলাম দুইটা থাকে (Receive-এর, Issue-এর) — Slip কলামের আগে হলে Receive Qty, পরে হলে Issue Qty
+  labels.forEach(function(l){
+    if (l.text.indexOf('quantity')!==-1 || l.text==='pcs' || l.text.indexOf('qty')!==-1){
+      if (cols.slip!==undefined && l.col > cols.slip) { if(cols.issQty===undefined) cols.issQty=l.col; }
+      else { if(cols.recvQty===undefined) cols.recvQty=l.col; }
+    }
+  });
+  return cols;
+}
+
+function gsFillTemplateAndExport(group, month, year, tmplObj){
+  var monShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
+  var monthEnd   = year+'-'+String(month).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+  function dmy(dateStr){ if(!dateStr) return ''; var p=dateStr.split('-'); return p[2]+'-'+monShort[Number(p[1])-1]+'-'+p[0].slice(-2); }
+
+  function bfOf(itemName){
+    var r = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+    var i = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+    return r - i;
+  }
+
+  var bytes;
+  try {
+    var bin = atob(tmplObj.data);
+    bytes = new Uint8Array(bin.length);
+    for (var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  } catch(err){ toast('❌ Template ফাইল পড়তে সমস্যা হয়েছে','error'); return; }
+
+  var wb;
+  try { wb = XLSX.read(bytes, {type:'array', cellStyles:true, cellDates:true}); }
+  catch(err){ toast('❌ Template ফাইল লোড করা যায়নি: '+(err&&err.message?err.message:err),'error'); return; }
+
+  var items = (DB.items||[]).filter(function(it){ return it.group === group; });
+  var itemByNorm = {};
+  items.forEach(function(it){ itemByNorm[_giNormalize(it.name)] = it; });
+
+  var unmatched = [], overflow = [], filled = 0;
+
+  wb.SheetNames.forEach(function(sheetName){
+    if (['Summary','Rcv & Issue','Requisition'].indexOf(sheetName) !== -1) return; // এগুলো fill করা হয় না — টেমপ্লেটের নিজস্ব cross-ref/ফর্মুলা যা আছে তাই থাকবে
+    var ws = wb.Sheets[sheetName];
+    if (!ws['!ref']) return;
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var cols = gsDetectTemplateColumns(ws, range.s.r, Math.min(range.s.r+8, range.e.r), range.s.c, range.e.c);
+    if (cols.date===undefined || cols.balance===undefined) return; // এই শীট চেনা ফরম্যাটের না, বাদ
+
+    // প্রতিটা "B/F" রো খুঁজে, তার ঠিক উপরের রো-কে item header ধরা হয়
+    for (var r=range.s.r; r<=range.e.r; r++){
+      var aCell = ws[XLSX.utils.encode_cell({r:r,c:0})];
+      if (!aCell || String(aCell.v).trim()!=='B/F') continue;
+      var headerRow = r-1;
+      var hCell = ws[XLSX.utils.encode_cell({r:headerRow,c:0})];
+      if (!hCell || !hCell.v) continue;
+      var itemName = String(hCell.v).trim();
+
+      // Total রো খুঁজে বের করা (এই আইটেম ব্লকের শেষ)
+      var totalRow = -1;
+      for (var tr=r+1; tr<=range.e.r; tr++){
+        var tCell = ws[XLSX.utils.encode_cell({r:tr,c:0})];
+        if (tCell && String(tCell.v).trim()==='Total'){ totalRow = tr; break; }
+        if (tCell && tCell.v && String(tCell.v).trim() !== ''){ break; } // পরের item header পেয়ে গেলে থামো
+      }
+      if (totalRow<0) continue;
+
+      var match = itemByNorm[_giNormalize(itemName)];
+      if (!match){ unmatched.push(itemName); continue; }
+
+      // B/F বসানো (আগের মতো ফর্মুলা/স্টাইল যা আছে সেটা বদলাবে না, শুধু value বসাবে)
+      var bf = bfOf(match.name);
+      var bfAddr = XLSX.utils.encode_cell({r:r, c:cols.balance});
+      if (!ws[bfAddr]) ws[bfAddr] = {t:'n'};
+      ws[bfAddr].v = bf; ws[bfAddr].t = 'n'; if(ws[bfAddr].f) delete ws[bfAddr].f;
+
+      // এই মাসের Receive+Issue এন্ট্রি, তারিখ অনুযায়ী সাজানো
+      var recs = (DB.receives||[]).filter(function(x){return x.item===match.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
+      var iss  = (DB.issues||[]).filter(function(x){return x.item===match.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
+      var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
+
+      var availableRows = totalRow - (r+1);
+      if (all.length > availableRows){
+        overflow.push(itemName+' ('+all.length+'টা লেনদেন, কিন্তু টেমপ্লেটে জায়গা আছে মাত্র '+availableRows+' সারির)');
+        all = all.slice(0, availableRows); // যতটুকু জায়গা আছে ততটুকুই বসবে, বাকিটা বাদ পড়বে
+      }
+
+      all.forEach(function(e, idx){
+        var rowNum = r+1+idx;
+        function setCell(colIdx, val, isText){
+          if (colIdx===undefined) return;
+          var addr = XLSX.utils.encode_cell({r:rowNum, c:colIdx});
+          if (!ws[addr]) ws[addr] = {};
+          ws[addr].v = val; ws[addr].t = isText ? 's' : (typeof val==='number' ? 'n' : 's');
+          if (ws[addr].f) delete ws[addr].f;
+        }
+        setCell(cols.date, dmy(e.d.date), true);
+        if (e.t==='receive'){
+          setCell(cols.supplier, e.d.supplier||'', true);
+          setCell(cols.challan, e.d.chalan||'', true);
+          setCell(cols.recvQty, Number(e.d.qty));
+        } else {
+          setCell(cols.slip, e.d.slip||'', true);
+          setCell(cols.machine, e.d.machineId||'', true);
+          setCell(cols.issQty, Number(e.d.qty));
+          if (cols.remarks!==undefined) setCell(cols.remarks, e.d.remarks||'', true);
+        }
+      });
+      filled++;
+    }
+  });
+
+  if (!filled){
+    toast('❌ Template-এ কোনো পরিচিত আইটেম ব্লক (Item নাম → B/F → ... → Total প্যাটার্ন) খুঁজে পাওয়া যায়নি','error');
+    return;
+  }
+
+  var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'_filled.xlsx';
+  if (window._gsExportMode === 'preview'){
+    gsRenderPreview(wb);
+  } else {
+    XLSX.writeFile(wb, fname);
+  }
+
+  var msg = (window._gsExportMode==='preview' ? '👁️ Preview তৈরি হয়েছে' : '✅ '+fname+' ডাউনলোড হয়েছে')+' (আপনার টেমপ্লেট থেকে, '+filled+'টা আইটেম ভরা হয়েছে)';
+  if (unmatched.length) msg += ' | ⚠️ '+unmatched.length+'টা আইটেম ERP-তে খুঁজে পাওয়া যায়নি: '+unmatched.slice(0,5).join(', ')+(unmatched.length>5?'...':'');
+  toast(msg, unmatched.length||overflow.length ? 'warning' : 'success');
+  if (overflow.length){
+    setTimeout(function(){
+      toast('⚠️ এই আইটেমগুলোতে টেমপ্লেটের রিজার্ভড সারির চেয়ে বেশি লেনদেন ছিল, কিছু বাদ পড়েছে: '+overflow.join(' | '), 'error');
+    }, 1200);
+  }
+}
+
 
 function _gsDoExportGroupMonthly(){
   var group = (document.getElementById('gmr-group')||{}).value;
@@ -9591,37 +9904,41 @@ function _gsDoExportGroupMonthly(){
       ledAoa.push(['B/F','','','','','','','','', bf, '']);
       var bfRowExcel = bfRowIdx + 1; // B/F লাইনের Excel row নাম্বার (1-indexed)
       var prevBalRow = bfRowExcel;
+      var runningBal = bf; // preview-এর জন্য আসল সংখ্যা ট্র্যাক করা (Excel-এ ফর্মুলা যা করবে, তার সমান)
 
       var recs = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
       var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
       var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
       var firstTxnRow = -1, lastTxnRow = -1;
+      var sumRecvQty = 0, sumIssQty = 0;
       all.forEach(function(e){
         var rIdx = ledAoa.length;
         if (firstTxnRow<0) firstTxnRow = rIdx;
         lastTxnRow = rIdx;
         if (e.t==='receive'){
           ledAoa.push(['', dmy(e.d.date), e.d.supplier||'', e.d.chalan||'', e.d.qty, '', '', '', '', null, '']);
-          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+E'+(rIdx+1)});
+          runningBal += Number(e.d.qty); sumRecvQty += Number(e.d.qty);
+          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+E'+(rIdx+1), v: runningBal});
         } else {
           ledAoa.push(['', dmy(e.d.date), '', '', '', '', e.d.slip||'', e.d.machineId||'', e.d.qty, null, e.d.remarks||'']);
-          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'-I'+(rIdx+1)});
+          runningBal -= Number(e.d.qty); sumIssQty += Number(e.d.qty);
+          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'-I'+(rIdx+1), v: runningBal});
         }
         prevBalRow = rIdx+1; // পরের রো-এর ফর্মুলার জন্য (1-indexed)
       });
       var totRowIdx = ledAoa.length;
       if (firstTxnRow>=0){
-        ledFormulas.push({addr:C({r:totRowIdx,c:4}), f:'SUM(E'+(firstTxnRow+1)+':E'+(lastTxnRow+1)+')'});
-        ledFormulas.push({addr:C({r:totRowIdx,c:8}), f:'SUM(I'+(firstTxnRow+1)+':I'+(lastTxnRow+1)+')'});
-        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
+        ledFormulas.push({addr:C({r:totRowIdx,c:4}), f:'SUM(E'+(firstTxnRow+1)+':E'+(lastTxnRow+1)+')', v: sumRecvQty});
+        ledFormulas.push({addr:C({r:totRowIdx,c:8}), f:'SUM(I'+(firstTxnRow+1)+':I'+(lastTxnRow+1)+')', v: sumIssQty});
+        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow, v: runningBal});
       } else {
-        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow});
+        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow, v: runningBal});
       }
       var totRowExcel = totRowIdx + 1;
       ledAoa.push(['Total','','','',null,'','','',null,null,'']);
       ledAoa.push([]);
 
-      itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRowExcel, totalRow: totRowExcel };
+      itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRowExcel, totalRow: totRowExcel, bf: bf, recv: sumRecvQty, iss: sumIssQty, bal: runningBal };
     });
     catSheets.push({name: sheetName, aoa: ledAoa, formulas: ledFormulas, merges: ledMerges});
   });
@@ -9649,18 +9966,23 @@ function _gsDoExportGroupMonthly(){
       sumAoa.push([it.name, null, null, null, null, it.unit||'Pcs']);
       if (info){
         var sref = "'"+info.sheet+"'!";
-        sumFormulas.push({addr: C({r:rIdx, c:1}), f: sref+'J'+info.bfRow});     // B/F
-        sumFormulas.push({addr: C({r:rIdx, c:2}), f: sref+'F'+info.totalRow}); // Rcvd
-        sumFormulas.push({addr: C({r:rIdx, c:3}), f: sref+'I'+info.totalRow}); // Issued
-        sumFormulas.push({addr: C({r:rIdx, c:4}), f: sref+'J'+info.totalRow}); // Balance
+        sumFormulas.push({addr: C({r:rIdx, c:1}), f: sref+'J'+info.bfRow,     v: info.bf});   // B/F
+        sumFormulas.push({addr: C({r:rIdx, c:2}), f: sref+'F'+info.totalRow, v: info.recv});  // Rcvd
+        sumFormulas.push({addr: C({r:rIdx, c:3}), f: sref+'I'+info.totalRow, v: info.iss});   // Issued
+        sumFormulas.push({addr: C({r:rIdx, c:4}), f: sref+'J'+info.totalRow, v: info.bal});   // Balance
       }
     });
     if (catFirstItemRow>=0){
+      var catBf=0, catRecv=0, catIss=0, catBal=0;
+      items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
+        var info = itemRowInfo[it.name];
+        if (info){ catBf+=info.bf; catRecv+=info.recv; catIss+=info.iss; catBal+=info.bal; }
+      });
       var totRowIdx = sumAoa.length;
-      sumFormulas.push({addr: C({r:totRowIdx,c:1}), f:'SUM(B'+(catFirstItemRow+1)+':B'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:2}), f:'SUM(C'+(catFirstItemRow+1)+':C'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:3}), f:'SUM(D'+(catFirstItemRow+1)+':D'+(catLastItemRow+1)+')'});
-      sumFormulas.push({addr: C({r:totRowIdx,c:4}), f:'SUM(E'+(catFirstItemRow+1)+':E'+(catLastItemRow+1)+')'});
+      sumFormulas.push({addr: C({r:totRowIdx,c:1}), f:'SUM(B'+(catFirstItemRow+1)+':B'+(catLastItemRow+1)+')', v: catBf});
+      sumFormulas.push({addr: C({r:totRowIdx,c:2}), f:'SUM(C'+(catFirstItemRow+1)+':C'+(catLastItemRow+1)+')', v: catRecv});
+      sumFormulas.push({addr: C({r:totRowIdx,c:3}), f:'SUM(D'+(catFirstItemRow+1)+':D'+(catLastItemRow+1)+')', v: catIss});
+      sumFormulas.push({addr: C({r:totRowIdx,c:4}), f:'SUM(E'+(catFirstItemRow+1)+':E'+(catLastItemRow+1)+')', v: catBal});
       sumAoa.push(['Total', null, null, null, null, '']);
     }
     sumAoa.push([]);
@@ -9680,27 +10002,32 @@ function _gsDoExportGroupMonthly(){
   var itemNameSet = {}; items.forEach(function(it){ itemNameSet[it.name]=true; });
   var opening0 = items.reduce(function(s,it){return s+bfOf(it.name);},0);
   var firstDataRow = riAoa.length; // এখান থেকে দিন-ভিত্তিক রো শুরু হবে (0-indexed)
+  var runningOpen = opening0, totalRecvSum=0, totalIssSum=0;
   for (var d=1; d<=daysInMonth; d++){
     var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var rQty = (DB.receives||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
     var iQty = (DB.issues||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
     var rIdx = riAoa.length;
     riAoa.push([dmy(dayStr), null, rQty, iQty, null, null]);
+    var openingVal = runningOpen;
+    var closingVal = openingVal + rQty - iQty;
     if (rIdx === firstDataRow){
       riFormulas.push({addr:C({r:rIdx,c:1}), v: opening0}); // প্রথম দিনের Opening = আগের মাস পর্যন্ত ব্যালেন্স
     } else {
-      riFormulas.push({addr:C({r:rIdx,c:1}), f:'F'+rIdx}); // এই দিনের Opening = আগের দিনের Closing
+      riFormulas.push({addr:C({r:rIdx,c:1}), f:'F'+rIdx, v: openingVal}); // এই দিনের Opening = আগের দিনের Closing
     }
-    riFormulas.push({addr:C({r:rIdx,c:4}), f:'D'+(rIdx+1)}); // Total issue = Issued for qty
-    riFormulas.push({addr:C({r:rIdx,c:5}), f:'B'+(rIdx+1)+'+C'+(rIdx+1)+'-E'+(rIdx+1)}); // Closing = Open+Rcv-Iss
+    riFormulas.push({addr:C({r:rIdx,c:4}), f:'D'+(rIdx+1), v: iQty}); // Total issue = Issued for qty
+    riFormulas.push({addr:C({r:rIdx,c:5}), f:'B'+(rIdx+1)+'+C'+(rIdx+1)+'-E'+(rIdx+1), v: closingVal}); // Closing = Open+Rcv-Iss
+    runningOpen = closingVal; totalRecvSum += rQty; totalIssSum += iQty;
   }
   var lastDataRow = riAoa.length-1;
   var totRowIdxRI = riAoa.length;
   riAoa.push(['Total','', null, null, null, null]);
-  riFormulas.push({addr:C({r:totRowIdxRI,c:2}), f:'SUM(C'+(firstDataRow+1)+':C'+(lastDataRow+1)+')'});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:3}), f:'SUM(D'+(firstDataRow+1)+':D'+(lastDataRow+1)+')'});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:4}), f:'SUM(E'+(firstDataRow+1)+':E'+(lastDataRow+1)+')'});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:5}), f:'F'+(lastDataRow+1)});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:2}), f:'SUM(C'+(firstDataRow+1)+':C'+(lastDataRow+1)+')', v: totalRecvSum});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:3}), f:'SUM(D'+(firstDataRow+1)+':D'+(lastDataRow+1)+')', v: totalIssSum});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:4}), f:'SUM(E'+(firstDataRow+1)+':E'+(lastDataRow+1)+')', v: totalIssSum});
+  riFormulas.push({addr:C({r:totRowIdxRI,c:5}), f:'F'+(lastDataRow+1), v: runningOpen});
+
 
   // ===== Requisition Sheet (খালি টেমপ্লেট) =====
   var reqAoa = [
@@ -9717,7 +10044,7 @@ function _gsDoExportGroupMonthly(){
   // ===================================================================
   function applyFormulas(ws, list){
     list.forEach(function(item){
-      if (item.f !== undefined) ws[item.addr] = { t:'n', f: item.f };
+      if (item.f !== undefined) ws[item.addr] = { t:'n', f: item.f, v: (item.v!==undefined?item.v:0) };
       else if (item.v !== undefined) ws[item.addr] = { t:'n', v: item.v };
     });
   }
@@ -9752,8 +10079,13 @@ function _gsDoExportGroupMonthly(){
   XLSX.utils.book_append_sheet(wb, wsReq, 'Requisition');
 
   var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'.xlsx';
-  XLSX.writeFile(wb, fname);
-  toast('✅ '+fname+' ডাউনলোড হয়েছে (real formula সহ)', 'success');
+  if (window._gsExportMode === 'preview'){
+    gsRenderPreview(wb);
+    toast('👁️ Preview তৈরি হয়েছে (real formula সহ)', 'success');
+  } else {
+    XLSX.writeFile(wb, fname);
+    toast('✅ '+fname+' ডাউনলোড হয়েছে (real formula সহ)', 'success');
+  }
 }
 
 
