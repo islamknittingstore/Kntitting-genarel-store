@@ -9777,6 +9777,9 @@ function gsFillTemplateAndExport(group, month, year, tmplObj){
     var cols = gsDetectTemplateColumns(ws, range.s.r, Math.min(range.s.r+8, range.e.r), range.s.c, range.e.c);
     if (cols.date===undefined || cols.balance===undefined) return; // এই শীট চেনা ফরম্যাটের না, বাদ
 
+    var catTotalRows = []; // এই শীটের প্রতিটা আইটেমের Total রো ট্র্যাক করা, শেষে Grand Total-এর জন্য
+    var lastUsedRow = range.s.r;
+
     // প্রতিটা "B/F" রো খুঁজে, তার ঠিক উপরের রো-কে item header ধরা হয়
     for (var r=range.s.r; r<=range.e.r; r++){
       var aCell = ws[XLSX.utils.encode_cell({r:r,c:0})];
@@ -9849,6 +9852,35 @@ function gsFillTemplateAndExport(group, month, year, tmplObj){
         }
       });
       filled++;
+
+      // এই আইটেমের Total রো-এর যোগফল হিসাব করা (Grand Total-এর জন্য) — টেমপ্লেটের
+      // নিজস্ব SUM ফর্মুলা যা আছে তা স্পর্শ করা হয় না, শুধু মান নোট রাখা হয়
+      var itemSumRecv = all.reduce(function(s,e){return s + (e.t==='receive'?Number(e.d.qty):0);},0);
+      var itemSumIss  = all.reduce(function(s,e){return s + (e.t==='issue'?Number(e.d.qty):0);},0);
+      var itemFinalBal = bf + itemSumRecv - itemSumIss;
+      catTotalRows.push({ row: totalRow+1, recv: itemSumRecv, iss: itemSumIss, bal: itemFinalBal }); // +1 কারণ Excel 1-indexed
+      if (totalRow > lastUsedRow) lastUsedRow = totalRow;
+    }
+
+    // ── এই Category শীটের একদম নিচে (শেষ আইটেমের পরের একটা খালি রো-তে) Grand Total ──
+    if (catTotalRows.length){
+      var gtRow = lastUsedRow + 2; // 0-indexed; শেষ Total রো-এর ২ রো পরে (মাঝে একটা ফাঁকা জায়গা রেখে)
+      var gtRecv = catTotalRows.reduce(function(s,x){return s+x.recv;},0);
+      var gtIss  = catTotalRows.reduce(function(s,x){return s+x.iss;},0);
+      var gtBal  = catTotalRows.reduce(function(s,x){return s+x.bal;},0);
+      var gtFormulaRecv = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.recvQty)+x.row;}).join('+');
+      var gtFormulaIss  = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.issQty)+x.row;}).join('+');
+      var gtFormulaBal  = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.balance)+x.row;}).join('+');
+      var labelAddr = XLSX.utils.encode_cell({r:gtRow, c:0});
+      ws[labelAddr] = { t:'s', v: sheetName+' — Grand Total' };
+      if (cols.recvQty!==undefined) ws[XLSX.utils.encode_cell({r:gtRow,c:cols.recvQty})] = { t:'n', f: gtFormulaRecv, v: gtRecv };
+      if (cols.issQty!==undefined) ws[XLSX.utils.encode_cell({r:gtRow,c:cols.issQty})] = { t:'n', f: gtFormulaIss, v: gtIss };
+      ws[XLSX.utils.encode_cell({r:gtRow,c:cols.balance})] = { t:'n', f: gtFormulaBal, v: gtBal };
+      // শীটের range-এ এই নতুন রো অন্তর্ভুক্ত করা দরকার, নাহলে কিছু ভিউয়ারে দেখা যাবে না
+      if (gtRow > range.e.r){
+        range.e.r = gtRow;
+        ws['!ref'] = XLSX.utils.encode_range(range);
+      }
     }
   });
 
@@ -9958,6 +9990,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
     ws.views = [{state:'frozen', ySplit:5}];
 
     var rowNum = 6;
+    var catTotalRows = []; // এই ক্যাটেগরির প্রতিটা আইটেমের Total রো ট্র্যাক করা হয়, শেষে Grand Total-এর জন্য
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
       ws.getCell(rowNum,1).value = it.name;
@@ -10013,10 +10046,29 @@ function _gsDoExportGroupMonthlyExcelJS(){
       }
       ws.getRow(rowNum).font = {bold:true};
       styleDataRow(ws.getRow(rowNum), 11);
+      catTotalRows.push({row: totalRow, recv: sumRecv, iss: sumIss, bal: runningBal});
       rowNum += 2; // পরের আইটেমের আগে ফাঁকা লাইন
 
       itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRow, totalRow: totalRow, bf: bf, recv: sumRecv, iss: sumIss, bal: runningBal };
     });
+
+    // ── এই Category শীটের একদম নিচে Grand Total ──
+    if (catTotalRows.length){
+      var gtRecv = catTotalRows.reduce(function(s,x){return s+x.recv;},0);
+      var gtIss  = catTotalRows.reduce(function(s,x){return s+x.iss;},0);
+      var gtBal  = catTotalRows.reduce(function(s,x){return s+x.bal;},0);
+      var gtFormulaRecv = catTotalRows.map(function(x){return 'E'+x.row;}).join('+');
+      var gtFormulaIss  = catTotalRows.map(function(x){return 'I'+x.row;}).join('+');
+      var gtFormulaBal  = catTotalRows.map(function(x){return 'J'+x.row;}).join('+');
+      ws.getCell(rowNum,1).value = cat+' — Grand Total';
+      ws.getCell(rowNum,5).value = { formula: gtFormulaRecv, result: gtRecv };
+      ws.getCell(rowNum,9).value = { formula: gtFormulaIss, result: gtIss };
+      ws.getCell(rowNum,10).value = { formula: gtFormulaBal, result: gtBal };
+      ws.getRow(rowNum).font = {bold:true, size:12};
+      ws.getRow(rowNum).eachCell({includeEmpty:true}, function(cell){ cell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFDEBD0'}}; });
+      styleDataRow(ws.getRow(rowNum), 11);
+      rowNum += 1;
+    }
   });
 
   // ===================================================================
@@ -10036,6 +10088,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   wsSum.views = [{state:'frozen', ySplit:4}];
 
   var sr = 5;
+  var sumCatTotalRows = []; // প্রতিটা ক্যাটেগরির Total রো ট্র্যাক করা, শেষে Grand Total-এর জন্য
   categories.forEach(function(cat){
     wsSum.getCell(sr,1).value = cat;
     wsSum.getCell(sr,1).font = {bold:true, underline:true};
@@ -10066,10 +10119,28 @@ function _gsDoExportGroupMonthlyExcelJS(){
       wsSum.getCell(sr,5).value = { formula:'SUM(E'+catFirstRow+':E'+catLastRow+')', result: catBal };
       wsSum.getRow(sr).font = {bold:true};
       styleDataRow(wsSum.getRow(sr), 6);
+      sumCatTotalRows.push({row: sr, bf: catBf, recv: catRecv, iss: catIss, bal: catBal});
       sr++;
     }
     sr++; // ফাঁকা লাইন
   });
+
+  // ── Summary শীটের একদম নিচে Grand Total (সব Category মিলিয়ে) ──
+  if (sumCatTotalRows.length){
+    var sgtBf = sumCatTotalRows.reduce(function(s,x){return s+x.bf;},0);
+    var sgtRecv = sumCatTotalRows.reduce(function(s,x){return s+x.recv;},0);
+    var sgtIss  = sumCatTotalRows.reduce(function(s,x){return s+x.iss;},0);
+    var sgtBal  = sumCatTotalRows.reduce(function(s,x){return s+x.bal;},0);
+    wsSum.getCell(sr,1).value = 'GRAND TOTAL';
+    wsSum.getCell(sr,2).value = { formula: sumCatTotalRows.map(function(x){return 'B'+x.row;}).join('+'), result: sgtBf };
+    wsSum.getCell(sr,3).value = { formula: sumCatTotalRows.map(function(x){return 'C'+x.row;}).join('+'), result: sgtRecv };
+    wsSum.getCell(sr,4).value = { formula: sumCatTotalRows.map(function(x){return 'D'+x.row;}).join('+'), result: sgtIss };
+    wsSum.getCell(sr,5).value = { formula: sumCatTotalRows.map(function(x){return 'E'+x.row;}).join('+'), result: sgtBal };
+    wsSum.getRow(sr).font = {bold:true, size:12};
+    wsSum.getRow(sr).eachCell({includeEmpty:true}, function(cell){ cell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFDEBD0'}}; });
+    styleDataRow(wsSum.getRow(sr), 6);
+    sr++;
+  }
 
   // ===================================================================
   // Rcv & Issue শীট — দৈনিক Opening/Received/Issued/Closing (চেইনড ফর্মুলা)
