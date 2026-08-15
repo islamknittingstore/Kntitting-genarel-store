@@ -9750,6 +9750,25 @@ function gsFillTemplateAndExport(group, month, year, tmplObj){
 
   var unmatched = [], overflow = [], filled = 0;
 
+  var monthLabelNew = monShort[month-1]+'-'+String(year).slice(-2);
+  var monthLabelPattern = /^[A-Za-z]{3}-\d{2}$/;
+  wb.SheetNames.forEach(function(sheetName){
+    var ws0 = wb.Sheets[sheetName];
+    if (!ws0['!ref']) return;
+    var range0 = XLSX.utils.decode_range(ws0['!ref']);
+    // ⚠️ টেমপ্লেটের উপরের টাইটেল এলাকায় (প্রথম ৫ রো) "Jan-26" স্টাইলের পুরনো মাস-লেবেল থাকলে
+    // সেটা বদলে বর্তমান সিলেক্ট করা মাসে আপডেট করে দেওয়া হয় — নাহলে ডাটা ঠিক থাকলেও উপরে
+    // পুরনো মাসের নাম লেখা থেকে যেত, মনে হতো "মাস পাল্টায়নি"
+    for (var rr=range0.s.r; rr<=Math.min(range0.s.r+5, range0.e.r); rr++){
+      for (var cc=range0.s.c; cc<=range0.e.c; cc++){
+        var cell0 = ws0[XLSX.utils.encode_cell({r:rr,c:cc})];
+        if (cell0 && typeof cell0.v === 'string' && monthLabelPattern.test(cell0.v.trim())){
+          cell0.v = monthLabelNew;
+        }
+      }
+    }
+  });
+
   wb.SheetNames.forEach(function(sheetName){
     if (['Summary','Rcv & Issue','Requisition'].indexOf(sheetName) !== -1) return; // এগুলো fill করা হয় না — টেমপ্লেটের নিজস্ব cross-ref/ফর্মুলা যা আছে তাই থাকবে
     var ws = wb.Sheets[sheetName];
@@ -9791,6 +9810,18 @@ function gsFillTemplateAndExport(group, month, year, tmplObj){
       var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
 
       var availableRows = totalRow - (r+1);
+
+      // ⚠️ গুরুত্বপূর্ণ ফিক্স: নতুন মাসের ডাটা বসানোর আগে এই ব্লকের সব পুরনো ডাটা (আগের মাসের/টেমপ্লেটে
+      // আগে থেকে থাকা এন্ট্রি) পুরোপুরি খালি করে দেওয়া হয় — নাহলে নতুন মাস ছোট হলে পুরনো এন্ট্রি
+      // মিশে থেকে যেত, আর মনে হতো "মাস পাল্টালেও আগের মাসই দেখাচ্ছে"
+      for (var clearRow = r+1; clearRow < totalRow; clearRow++){
+        [cols.date, cols.supplier, cols.challan, cols.slip, cols.machine, cols.recvQty, cols.issQty, cols.remarks].forEach(function(colIdx){
+          if (colIdx===undefined) return;
+          var addr = XLSX.utils.encode_cell({r:clearRow, c:colIdx});
+          if (ws[addr]) { ws[addr].v = ''; ws[addr].t = 's'; if(ws[addr].f) delete ws[addr].f; }
+        });
+      }
+
       if (all.length > availableRows){
         overflow.push(itemName+' ('+all.length+'টা লেনদেন, কিন্তু টেমপ্লেটে জায়গা আছে মাত্র '+availableRows+' সারির)');
         all = all.slice(0, availableRows); // যতটুকু জায়গা আছে ততটুকুই বসবে, বাকিটা বাদ পড়বে
@@ -9845,12 +9876,26 @@ function gsFillTemplateAndExport(group, month, year, tmplObj){
 
 
 function _gsDoExportGroupMonthly(){
+  gsLoadExcelJS(function(){ _gsDoExportGroupMonthlyExcelJS(); });
+}
+
+// ── ExcelJS লোডার (বর্ডার/স্টাইল লেখার জন্য — SheetJS ফ্রি ভার্সন এটা পারে না) ──
+function gsLoadExcelJS(cb){
+  if (typeof ExcelJS !== 'undefined'){ cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+  s.onload = cb;
+  s.onerror = function(){ toast('❌ ExcelJS লোড হয়নি, internet check করুন।','error'); };
+  document.head.appendChild(s);
+  toast('📦 Loading Excel styling engine...','warning');
+}
+
+function _gsDoExportGroupMonthlyExcelJS(){
   var group = (document.getElementById('gmr-group')||{}).value;
   var month = Number((document.getElementById('gmr-month')||{}).value || new Date().getMonth()+1);
   var year  = Number((document.getElementById('gmr-year')||{}).value  || new Date().getFullYear());
   if (!group){ toast('❌ একটা Group সিলেক্ট করুন','error'); return; }
 
-  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var monShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var daysInMonth = new Date(year, month, 0).getDate();
   var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
@@ -9868,226 +9913,334 @@ function _gsDoExportGroupMonthly(){
   }
 
   var categories = Array.from(new Set(items.map(function(it){return it.category||'Others';}))).sort();
-  var C = XLSX.utils.encode_cell; // {r, c} 0-indexed -> "A1" ঠিকানা
+
+  // ── স্টাইল হেল্পার ──
+  var thinBorder = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  var headerFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF2C3E50'}};
+  var headerFont = {bold:true, color:{argb:'FFFFFFFF'}, size:11};
+  var titleFont = {bold:true, size:14};
+  function styleHeaderRow(row){ row.eachCell({includeEmpty:true}, function(cell){ cell.font=headerFont; cell.fill=headerFill; cell.border=thinBorder; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true}; }); }
+  function styleDataRow(row, lastCol){ for (var c=1;c<=lastCol;c++){ row.getCell(c).border=thinBorder; } }
+
+  var wb = new ExcelJS.Workbook();
+  wb.creator = 'Islam Garments Ltd. ERP';
+  wb.created = new Date();
 
   // ===================================================================
-  // Sheet 3+: প্রতি Category-র Ledger — আগে বানানো হচ্ছে, যাতে Summary শীট
-  // এই শীটগুলোর নির্দিষ্ট সেল থেকে cross-sheet formula দিয়ে টানতে পারে
-  // (ঠিক আপনার আসল ফাইলের মতো — Summary নিজে হিসাব করে না, Ledger শীট থেকে রেফারেন্স নেয়)
+  // Category Ledger শীটগুলো আগে বানানো হয় (Summary পরে cross-reference করবে)
   // ===================================================================
-  var catSheets = [];
+  var itemRowInfo = {};
   var usedNames = {};
-  var itemRowInfo = {}; // itemName -> {sheet, bfRow, totalRow} (Excel 1-indexed row)
   categories.forEach(function(cat){
     var catItems = items.filter(function(it){ return (it.category||'Others')===cat; });
     var sheetName = cat.substring(0,31).replace(/[:\\/?*\[\]]/g,'-');
     while (usedNames[sheetName]) sheetName = sheetName.substring(0,28)+'_'+Math.floor(Math.random()*90+10);
     usedNames[sheetName] = true;
 
-    var ledAoa = [
-      [cat+' Account'],
-      [monthLabel],
-      [],
-      [cat+' Item Details','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Remarks'],
-      ['','','Supplier','Challan No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs','']
-    ];
-    var ledFormulas = [];
-    var ledMerges = [
-      {s:{r:3,c:0},e:{r:4,c:0}}, {s:{r:3,c:1},e:{r:4,c:1}},
-      {s:{r:3,c:2},e:{r:3,c:5}}, {s:{r:3,c:6},e:{r:3,c:8}},
-      {s:{r:3,c:9},e:{r:4,c:9}}, {s:{r:3,c:10},e:{r:4,c:10}}
-    ];
+    var ws = wb.addWorksheet(sheetName);
+    ws.columns = [{width:24},{width:11},{width:16},{width:12},{width:9},{width:2},{width:9},{width:20},{width:9},{width:9},{width:16}];
+
+    ws.getCell(1,1).value = cat+' Account';
+    ws.mergeCells(1,1,1,11);
+    ws.getCell(1,1).font = titleFont;
+    ws.getCell(2,1).value = monthLabel;
+    ws.mergeCells(2,1,2,11);
+    ws.getCell(2,1).font = {bold:true};
+
+    var h1 = [cat+' Item Details','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Remarks'];
+    h1.forEach(function(v,i){ ws.getCell(4,i+1).value = v; });
+    var h2 = ['','','Supplier','Challan No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs',''];
+    h2.forEach(function(v,i){ ws.getCell(5,i+1).value = v; });
+    ws.mergeCells(4,1,5,1); ws.mergeCells(4,2,5,2);
+    ws.mergeCells(4,3,4,6); ws.mergeCells(4,7,4,9);
+    ws.mergeCells(4,10,5,10); ws.mergeCells(4,11,5,11);
+    styleHeaderRow(ws.getRow(4)); styleHeaderRow(ws.getRow(5));
+    ws.views = [{state:'frozen', ySplit:5}];
+
+    var rowNum = 6;
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
-      ledAoa.push([it.name]);
-      var bfRowIdx = ledAoa.length;
-      ledAoa.push(['B/F','','','','','','','','', bf, '']);
-      var bfRowExcel = bfRowIdx + 1; // B/F লাইনের Excel row নাম্বার (1-indexed)
-      var prevBalRow = bfRowExcel;
-      var runningBal = bf; // preview-এর জন্য আসল সংখ্যা ট্র্যাক করা (Excel-এ ফর্মুলা যা করবে, তার সমান)
+      ws.getCell(rowNum,1).value = it.name;
+      ws.getCell(rowNum,1).font = {bold:true};
+      styleDataRow(ws.getRow(rowNum), 11);
+      rowNum++;
+
+      var bfRow = rowNum;
+      ws.getCell(rowNum,1).value = 'B/F';
+      ws.getCell(rowNum,10).value = bf;
+      styleDataRow(ws.getRow(rowNum), 11);
+      rowNum++;
+
+      var prevBalRow = bfRow;
+      var runningBal = bf;
+      var firstTxnRow=-1, lastTxnRow=-1, sumRecv=0, sumIss=0;
 
       var recs = (DB.receives||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
       var iss  = (DB.issues||[]).filter(function(x){return x.item===it.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
       var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
-      var firstTxnRow = -1, lastTxnRow = -1;
-      var sumRecvQty = 0, sumIssQty = 0;
-      all.forEach(function(e){
-        var rIdx = ledAoa.length;
-        if (firstTxnRow<0) firstTxnRow = rIdx;
-        lastTxnRow = rIdx;
-        if (e.t==='receive'){
-          ledAoa.push(['', dmy(e.d.date), e.d.supplier||'', e.d.chalan||'', e.d.qty, '', '', '', '', null, '']);
-          runningBal += Number(e.d.qty); sumRecvQty += Number(e.d.qty);
-          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'+E'+(rIdx+1), v: runningBal});
-        } else {
-          ledAoa.push(['', dmy(e.d.date), '', '', '', '', e.d.slip||'', e.d.machineId||'', e.d.qty, null, e.d.remarks||'']);
-          runningBal -= Number(e.d.qty); sumIssQty += Number(e.d.qty);
-          ledFormulas.push({addr:C({r:rIdx,c:9}), f:'J'+prevBalRow+'-I'+(rIdx+1), v: runningBal});
-        }
-        prevBalRow = rIdx+1; // পরের রো-এর ফর্মুলার জন্য (1-indexed)
-      });
-      var totRowIdx = ledAoa.length;
-      if (firstTxnRow>=0){
-        ledFormulas.push({addr:C({r:totRowIdx,c:4}), f:'SUM(E'+(firstTxnRow+1)+':E'+(lastTxnRow+1)+')', v: sumRecvQty});
-        ledFormulas.push({addr:C({r:totRowIdx,c:8}), f:'SUM(I'+(firstTxnRow+1)+':I'+(lastTxnRow+1)+')', v: sumIssQty});
-        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow, v: runningBal});
-      } else {
-        ledFormulas.push({addr:C({r:totRowIdx,c:9}), f:'J'+prevBalRow, v: runningBal});
-      }
-      var totRowExcel = totRowIdx + 1;
-      ledAoa.push(['Total','','','',null,'','','',null,null,'']);
-      ledAoa.push([]);
 
-      itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRowExcel, totalRow: totRowExcel, bf: bf, recv: sumRecvQty, iss: sumIssQty, bal: runningBal };
+      all.forEach(function(e){
+        if (firstTxnRow<0) firstTxnRow = rowNum;
+        lastTxnRow = rowNum;
+        ws.getCell(rowNum,2).value = dmy(e.d.date);
+        if (e.t==='receive'){
+          ws.getCell(rowNum,3).value = e.d.supplier||'';
+          ws.getCell(rowNum,4).value = e.d.chalan||'';
+          ws.getCell(rowNum,5).value = Number(e.d.qty);
+          runningBal += Number(e.d.qty); sumRecv += Number(e.d.qty);
+          ws.getCell(rowNum,10).value = { formula: 'J'+prevBalRow+'+E'+rowNum, result: runningBal };
+        } else {
+          ws.getCell(rowNum,7).value = e.d.slip||'';
+          ws.getCell(rowNum,8).value = e.d.machineId||'';
+          ws.getCell(rowNum,9).value = Number(e.d.qty);
+          runningBal -= Number(e.d.qty); sumIss += Number(e.d.qty);
+          ws.getCell(rowNum,10).value = { formula: 'J'+prevBalRow+'-I'+rowNum, result: runningBal };
+          if (e.d.remarks) ws.getCell(rowNum,11).value = e.d.remarks;
+        }
+        styleDataRow(ws.getRow(rowNum), 11);
+        prevBalRow = rowNum;
+        rowNum++;
+      });
+
+      var totalRow = rowNum;
+      ws.getCell(rowNum,1).value = 'Total';
+      if (firstTxnRow>=0){
+        ws.getCell(rowNum,5).value = { formula:'SUM(E'+firstTxnRow+':E'+lastTxnRow+')', result: sumRecv };
+        ws.getCell(rowNum,9).value = { formula:'SUM(I'+firstTxnRow+':I'+lastTxnRow+')', result: sumIss };
+        ws.getCell(rowNum,10).value = { formula:'J'+prevBalRow, result: runningBal };
+      } else {
+        ws.getCell(rowNum,10).value = { formula:'J'+prevBalRow, result: runningBal };
+      }
+      ws.getRow(rowNum).font = {bold:true};
+      styleDataRow(ws.getRow(rowNum), 11);
+      rowNum += 2; // পরের আইটেমের আগে ফাঁকা লাইন
+
+      itemRowInfo[it.name] = { sheet: sheetName, bfRow: bfRow, totalRow: totalRow, bf: bf, recv: sumRecv, iss: sumIss, bal: runningBal };
     });
-    catSheets.push({name: sheetName, aoa: ledAoa, formulas: ledFormulas, merges: ledMerges});
   });
 
   // ===================================================================
-  // Sheet 1: Summary  —  "Group Name & Item Description | B/F | Rcvd pcs | Issued pcs | Balance | Unit"
-  // প্রতিটা আইটেমের B/F, Rcvd, Issued, Balance — নিজে হিসাব না করে, সংশ্লিষ্ট Ledger শীটের
-  // B/F রো ও Total রো থেকে সরাসরি cross-sheet formula দিয়ে টেনে আনা হয় (আপনার আসল ফাইলের মতো)
+  // Summary শীট — cross-sheet formula দিয়ে Ledger শীট থেকে টেনে আনে
   // ===================================================================
-  var sumAoa = [
-    ['Summary of '+group+' Account'],
-    [monthLabel],
-    [],
-    ['Grope Name & Item Description', 'B/F\n'+dmy(monthStart)+' এর আগে', 'Rcvd\npcs', 'Issued\npcs', 'Balance\n'+dmy(monthEnd), 'Unit']
-  ];
-  var sumFormulas = []; // {addr, f}
+  var wsSum = wb.addWorksheet('Summary');
+  wsSum.columns = [{width:30},{width:10},{width:8},{width:8},{width:10},{width:8}];
+  wsSum.getCell(1,1).value = 'Summary of '+group+' Account';
+  wsSum.mergeCells(1,1,1,6);
+  wsSum.getCell(1,1).font = titleFont;
+  wsSum.getCell(2,1).value = monthLabel;
+  wsSum.mergeCells(2,1,2,6);
+  wsSum.getCell(2,1).font = {bold:true};
+  var sumHeader = ['Grope Name & Item Description','B/F','Rcvd pcs','Issued pcs','Balance','Unit'];
+  sumHeader.forEach(function(v,i){ wsSum.getCell(4,i+1).value = v; });
+  styleHeaderRow(wsSum.getRow(4));
+  wsSum.views = [{state:'frozen', ySplit:4}];
+
+  var sr = 5;
   categories.forEach(function(cat){
-    sumAoa.push([cat]);
-    var catFirstItemRow = -1, catLastItemRow = -1;
+    wsSum.getCell(sr,1).value = cat;
+    wsSum.getCell(sr,1).font = {bold:true, underline:true};
+    sr++;
+    var catFirstRow=-1, catLastRow=-1, catBf=0, catRecv=0, catIss=0, catBal=0;
     items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
       var info = itemRowInfo[it.name];
-      var rIdx = sumAoa.length; // এই আইটেম রো-এর 0-indexed position
-      if (catFirstItemRow<0) catFirstItemRow = rIdx;
-      catLastItemRow = rIdx;
-      sumAoa.push([it.name, null, null, null, null, it.unit||'Pcs']);
+      if (catFirstRow<0) catFirstRow = sr;
+      catLastRow = sr;
+      wsSum.getCell(sr,1).value = it.name;
+      wsSum.getCell(sr,6).value = it.unit||'Pcs';
       if (info){
         var sref = "'"+info.sheet+"'!";
-        sumFormulas.push({addr: C({r:rIdx, c:1}), f: sref+'J'+info.bfRow,     v: info.bf});   // B/F
-        sumFormulas.push({addr: C({r:rIdx, c:2}), f: sref+'F'+info.totalRow, v: info.recv});  // Rcvd
-        sumFormulas.push({addr: C({r:rIdx, c:3}), f: sref+'I'+info.totalRow, v: info.iss});   // Issued
-        sumFormulas.push({addr: C({r:rIdx, c:4}), f: sref+'J'+info.totalRow, v: info.bal});   // Balance
+        wsSum.getCell(sr,2).value = { formula: sref+'J'+info.bfRow, result: info.bf };
+        wsSum.getCell(sr,3).value = { formula: sref+'F'+info.totalRow, result: info.recv };
+        wsSum.getCell(sr,4).value = { formula: sref+'I'+info.totalRow, result: info.iss };
+        wsSum.getCell(sr,5).value = { formula: sref+'J'+info.totalRow, result: info.bal };
+        catBf+=info.bf; catRecv+=info.recv; catIss+=info.iss; catBal+=info.bal;
       }
+      styleDataRow(wsSum.getRow(sr), 6);
+      sr++;
     });
-    if (catFirstItemRow>=0){
-      var catBf=0, catRecv=0, catIss=0, catBal=0;
-      items.filter(function(it){ return (it.category||'Others')===cat; }).forEach(function(it){
-        var info = itemRowInfo[it.name];
-        if (info){ catBf+=info.bf; catRecv+=info.recv; catIss+=info.iss; catBal+=info.bal; }
-      });
-      var totRowIdx = sumAoa.length;
-      sumFormulas.push({addr: C({r:totRowIdx,c:1}), f:'SUM(B'+(catFirstItemRow+1)+':B'+(catLastItemRow+1)+')', v: catBf});
-      sumFormulas.push({addr: C({r:totRowIdx,c:2}), f:'SUM(C'+(catFirstItemRow+1)+':C'+(catLastItemRow+1)+')', v: catRecv});
-      sumFormulas.push({addr: C({r:totRowIdx,c:3}), f:'SUM(D'+(catFirstItemRow+1)+':D'+(catLastItemRow+1)+')', v: catIss});
-      sumFormulas.push({addr: C({r:totRowIdx,c:4}), f:'SUM(E'+(catFirstItemRow+1)+':E'+(catLastItemRow+1)+')', v: catBal});
-      sumAoa.push(['Total', null, null, null, null, '']);
+    if (catFirstRow>=0){
+      wsSum.getCell(sr,1).value = 'Total';
+      wsSum.getCell(sr,2).value = { formula:'SUM(B'+catFirstRow+':B'+catLastRow+')', result: catBf };
+      wsSum.getCell(sr,3).value = { formula:'SUM(C'+catFirstRow+':C'+catLastRow+')', result: catRecv };
+      wsSum.getCell(sr,4).value = { formula:'SUM(D'+catFirstRow+':D'+catLastRow+')', result: catIss };
+      wsSum.getCell(sr,5).value = { formula:'SUM(E'+catFirstRow+':E'+catLastRow+')', result: catBal };
+      wsSum.getRow(sr).font = {bold:true};
+      styleDataRow(wsSum.getRow(sr), 6);
+      sr++;
     }
-    sumAoa.push([]);
+    sr++; // ফাঁকা লাইন
   });
 
   // ===================================================================
-  // Sheet 2: Rcv & Issue  —  "Date | Opening stock | Received qty (pc) | Issued for qty (pc) | Total issue | Closing stock"
+  // Rcv & Issue শীট — দৈনিক Opening/Received/Issued/Closing (চেইনড ফর্মুলা)
   // ===================================================================
-  var riAoa = [
-    ['Date wise total receive & issue'],
-    [monthLabel],
-    [],
-    ['Date','Opening','Received','Issued for','Total','Closing'],
-    ['','stock','qty (pc)','qty (pc)','issue','stock']
-  ];
-  var riFormulas = [];
+  var wsRI = wb.addWorksheet('Rcv & Issue');
+  wsRI.columns = [{width:12},{width:10},{width:10},{width:10},{width:8},{width:10}];
+  wsRI.getCell(1,1).value = 'Date wise total receive & issue';
+  wsRI.mergeCells(1,1,1,6);
+  wsRI.getCell(1,1).font = titleFont;
+  wsRI.getCell(2,1).value = monthLabel;
+  wsRI.mergeCells(2,1,2,6);
+  wsRI.getCell(2,1).font = {bold:true};
+  var riH1 = ['Date','Opening','Received','Issued for','Total','Closing'];
+  var riH2 = ['','stock','qty (pc)','qty (pc)','issue','stock'];
+  riH1.forEach(function(v,i){ wsRI.getCell(4,i+1).value = v; });
+  riH2.forEach(function(v,i){ wsRI.getCell(5,i+1).value = v; });
+  wsRI.mergeCells(4,1,5,1);
+  styleHeaderRow(wsRI.getRow(4)); styleHeaderRow(wsRI.getRow(5));
+  wsRI.views = [{state:'frozen', ySplit:5}];
+
   var itemNameSet = {}; items.forEach(function(it){ itemNameSet[it.name]=true; });
   var opening0 = items.reduce(function(s,it){return s+bfOf(it.name);},0);
-  var firstDataRow = riAoa.length; // এখান থেকে দিন-ভিত্তিক রো শুরু হবে (0-indexed)
+  var riRow = 6;
+  var firstDataRow = riRow;
   var runningOpen = opening0, totalRecvSum=0, totalIssSum=0;
   for (var d=1; d<=daysInMonth; d++){
     var dayStr = year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var rQty = (DB.receives||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
     var iQty = (DB.issues||[]).filter(function(x){return itemNameSet[x.item] && x.date===dayStr;}).reduce(function(s,x){return s+Number(x.qty);},0);
-    var rIdx = riAoa.length;
-    riAoa.push([dmy(dayStr), null, rQty, iQty, null, null]);
     var openingVal = runningOpen;
     var closingVal = openingVal + rQty - iQty;
-    if (rIdx === firstDataRow){
-      riFormulas.push({addr:C({r:rIdx,c:1}), v: opening0}); // প্রথম দিনের Opening = আগের মাস পর্যন্ত ব্যালেন্স
-    } else {
-      riFormulas.push({addr:C({r:rIdx,c:1}), f:'F'+rIdx, v: openingVal}); // এই দিনের Opening = আগের দিনের Closing
-    }
-    riFormulas.push({addr:C({r:rIdx,c:4}), f:'D'+(rIdx+1), v: iQty}); // Total issue = Issued for qty
-    riFormulas.push({addr:C({r:rIdx,c:5}), f:'B'+(rIdx+1)+'+C'+(rIdx+1)+'-E'+(rIdx+1), v: closingVal}); // Closing = Open+Rcv-Iss
+    wsRI.getCell(riRow,1).value = dmy(dayStr);
+    if (riRow === firstDataRow){ wsRI.getCell(riRow,2).value = opening0; }
+    else { wsRI.getCell(riRow,2).value = { formula:'F'+(riRow-1), result: openingVal }; }
+    wsRI.getCell(riRow,3).value = rQty;
+    wsRI.getCell(riRow,4).value = iQty;
+    wsRI.getCell(riRow,5).value = { formula:'D'+riRow, result: iQty };
+    wsRI.getCell(riRow,6).value = { formula:'B'+riRow+'+C'+riRow+'-E'+riRow, result: closingVal };
+    styleDataRow(wsRI.getRow(riRow), 6);
     runningOpen = closingVal; totalRecvSum += rQty; totalIssSum += iQty;
+    riRow++;
   }
-  var lastDataRow = riAoa.length-1;
-  var totRowIdxRI = riAoa.length;
-  riAoa.push(['Total','', null, null, null, null]);
-  riFormulas.push({addr:C({r:totRowIdxRI,c:2}), f:'SUM(C'+(firstDataRow+1)+':C'+(lastDataRow+1)+')', v: totalRecvSum});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:3}), f:'SUM(D'+(firstDataRow+1)+':D'+(lastDataRow+1)+')', v: totalIssSum});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:4}), f:'SUM(E'+(firstDataRow+1)+':E'+(lastDataRow+1)+')', v: totalIssSum});
-  riFormulas.push({addr:C({r:totRowIdxRI,c:5}), f:'F'+(lastDataRow+1), v: runningOpen});
-
-
-  // ===== Requisition Sheet (খালি টেমপ্লেট) =====
-  var reqAoa = [
-    ['Islam Garments Ltd. — Requisition Slip'],
-    [group+' — '+monthLabel],
-    [],
-    ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks']
-  ];
-  for (var k=1;k<=15;k++) reqAoa.push([k,'','','','','','','']);
+  var lastDataRow = riRow-1;
+  wsRI.getCell(riRow,1).value = 'Total';
+  wsRI.getCell(riRow,3).value = { formula:'SUM(C'+firstDataRow+':C'+lastDataRow+')', result: totalRecvSum };
+  wsRI.getCell(riRow,4).value = { formula:'SUM(D'+firstDataRow+':D'+lastDataRow+')', result: totalIssSum };
+  wsRI.getCell(riRow,5).value = { formula:'SUM(E'+firstDataRow+':E'+lastDataRow+')', result: totalIssSum };
+  wsRI.getCell(riRow,6).value = { formula:'F'+lastDataRow, result: runningOpen };
+  wsRI.getRow(riRow).font = {bold:true};
+  styleDataRow(wsRI.getRow(riRow), 6);
 
   // ===================================================================
-  // Workbook বানানো — aoa দিয়ে বেস শীট, তারপর formulas array দিয়ে সেই নির্দিষ্ট
-  // সেলগুলোতে সত্যিকারের Excel ফর্মুলা বসিয়ে দেওয়া হয় (Excel-এ খুললে ফর্মুলা হিসেবেই দেখাবে)
+  // Requisition শীট — খালি টেমপ্লেট
   // ===================================================================
-  function applyFormulas(ws, list){
-    list.forEach(function(item){
-      if (item.f !== undefined) ws[item.addr] = { t:'n', f: item.f, v: (item.v!==undefined?item.v:0) };
-      else if (item.v !== undefined) ws[item.addr] = { t:'n', v: item.v };
-    });
+  var wsReq = wb.addWorksheet('Requisition');
+  wsReq.columns = [{width:5},{width:26},{width:16},{width:12},{width:14},{width:12},{width:16},{width:18}];
+  wsReq.getCell(1,1).value = 'Islam Garments Ltd. — Requisition Slip';
+  wsReq.mergeCells(1,1,1,8);
+  wsReq.getCell(1,1).font = titleFont;
+  wsReq.getCell(2,1).value = group+' — '+monthLabel;
+  wsReq.mergeCells(2,1,2,8);
+  var reqH = ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks'];
+  reqH.forEach(function(v,i){ wsReq.getCell(4,i+1).value = v; });
+  styleHeaderRow(wsReq.getRow(4));
+  for (var k=1;k<=15;k++){
+    wsReq.getCell(4+k,1).value = k;
+    styleDataRow(wsReq.getRow(4+k), 8);
   }
-
-  var wb = XLSX.utils.book_new();
-
-  var wsSum = XLSX.utils.aoa_to_sheet(sumAoa);
-  applyFormulas(wsSum, sumFormulas);
-  wsSum['!cols'] = [{wch:30},{wch:10},{wch:8},{wch:8},{wch:10},{wch:8}];
-  wsSum['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}}];
-  wsSum['!freeze'] = { xSplit: 0, ySplit: 4, topLeftCell: 'A5', activePane: 'bottomLeft', state: 'frozen' };
-  XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
-
-  var wsRI = XLSX.utils.aoa_to_sheet(riAoa);
-  applyFormulas(wsRI, riFormulas);
-  wsRI['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10}];
-  wsRI['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},{s:{r:3,c:0},e:{r:4,c:0}}];
-  wsRI['!freeze'] = { xSplit: 0, ySplit: 5, topLeftCell: 'A6', activePane: 'bottomLeft', state: 'frozen' };
-  XLSX.utils.book_append_sheet(wb, wsRI, 'Rcv & Issue');
-
-  catSheets.forEach(function(cs){
-    var ws = XLSX.utils.aoa_to_sheet(cs.aoa);
-    applyFormulas(ws, cs.formulas);
-    ws['!cols'] = [{wch:22},{wch:11},{wch:16},{wch:12},{wch:9},{wch:2},{wch:9},{wch:20},{wch:9},{wch:9},{wch:16}];
-    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:10}},{s:{r:1,c:0},e:{r:1,c:10}}].concat(cs.merges);
-    ws['!freeze'] = { xSplit: 0, ySplit: 5, topLeftCell: 'A6', activePane: 'bottomLeft', state: 'frozen' };
-    XLSX.utils.book_append_sheet(wb, ws, cs.name);
-  });
-
-  var wsReq = XLSX.utils.aoa_to_sheet(reqAoa);
-  wsReq['!cols'] = [{wch:5},{wch:26},{wch:16},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18}];
-  XLSX.utils.book_append_sheet(wb, wsReq, 'Requisition');
 
   var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'.xlsx';
+
   if (window._gsExportMode === 'preview'){
-    gsRenderPreview(wb);
-    toast('👁️ Preview তৈরি হয়েছে (real formula সহ)', 'success');
+    gsRenderPreviewExcelJS(wb);
+    toast('👁️ Preview তৈরি হয়েছে (real formula ও বর্ডার সহ)', 'success');
   } else {
-    XLSX.writeFile(wb, fname);
-    toast('✅ '+fname+' ডাউনলোড হয়েছে (real formula সহ)', 'success');
+    wb.xlsx.writeBuffer().then(function(buffer){
+      var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      toast('✅ '+fname+' ডাউনলোড হয়েছে (real formula ও বর্ডার সহ)', 'success');
+    }).catch(function(err){
+      toast('❌ ফাইল বানাতে সমস্যা হয়েছে: '+(err&&err.message?err.message:err), 'error');
+    });
   }
 }
 
+// ── ExcelJS ওয়ার্কবুক পেজেই প্রিভিউ করার জন্য (বর্ডার/কালার সহ HTML রেন্ডার) ──
+function gsRenderPreviewExcelJS(wb){
+  var card = document.getElementById('gmr-preview-card');
+  var tabsEl = document.getElementById('gmr-preview-tabs');
+  var contentEl = document.getElementById('gmr-preview-content');
+  if (!card || !tabsEl || !contentEl) return;
+
+  function argbToCss(argb){
+    if (!argb) return '';
+    var hex = argb.length===8 ? argb.substring(2) : argb;
+    return '#'+hex;
+  }
+  function sheetToHtml(ws){
+    var html = '<table style="border-collapse:collapse;font-family:Arial;">';
+    // ExcelJS worksheet.mergeCells টা internally _merges এ রাখে; সরাসরি ব্যবহার করি
+    var merges = [];
+    try {
+      Object.keys(ws._merges||{}).forEach(function(key){
+        var mc = ws._merges[key];
+        merges.push({top:mc.top, left:mc.left, bottom:mc.bottom, right:mc.right});
+      });
+    } catch(e){}
+    function findMergeStart(r,c){ return merges.find(function(m){ return r===m.top && c===m.left; }); }
+    function isMergedNonStart(r,c){ return merges.some(function(m){ return r>=m.top && r<=m.bottom && c>=m.left && c<=m.right && !(r===m.top && c===m.left); }); }
+
+    var maxCol = ws.columnCount || 12;
+    for (var r=1; r<=ws.rowCount; r++){
+      var row = ws.getRow(r);
+      html += '<tr>';
+      for (var c=1; c<=maxCol; c++){
+        if (isMergedNonStart(r,c)) continue;
+        var cell = row.getCell(c);
+        var mStart = findMergeStart(r,c);
+        var rowspan = mStart ? (mStart.bottom-mStart.top+1) : 1;
+        var colspan = mStart ? (mStart.right-mStart.left+1) : 1;
+        var val = cell.value;
+        if (val && typeof val==='object' && val.result!==undefined) val = val.result;
+        if (val && typeof val==='object' && val.formula!==undefined) val = val.result!==undefined?val.result:'';
+        var text = (val===null||val===undefined) ? '' : String(val);
+        var style = 'padding:4px 8px;font-size:12px;white-space:nowrap;';
+        if (cell.border && cell.border.top) style += 'border:1px solid #999;';
+        if (cell.font && cell.font.bold) style += 'font-weight:bold;';
+        if (cell.fill && cell.fill.fgColor) style += 'background:'+argbToCss(cell.fill.fgColor.argb)+';';
+        if (cell.font && cell.font.color) style += 'color:'+argbToCss(cell.font.color.argb)+';';
+        var tag = (cell.font && cell.font.bold) ? 'td' : 'td';
+        html += '<'+tag+' style="'+style+'"'+(rowspan>1?' rowspan="'+rowspan+'"':'')+(colspan>1?' colspan="'+colspan+'"':'')+'>'+text+'</'+tag+'>';
+      }
+      html += '</tr>';
+    }
+    html += '</table>';
+    return html;
+  }
+
+  var sheetHtmls = {};
+  wb.worksheets.forEach(function(ws){
+    try { sheetHtmls[ws.name] = sheetToHtml(ws); }
+    catch(e){ sheetHtmls[ws.name] = '<p style="color:#c0392b;">এই শীট প্রিভিউ করা যায়নি</p>'; }
+  });
+
+  function showTab(name){
+    contentEl.innerHTML = sheetHtmls[name];
+    Array.prototype.forEach.call(tabsEl.children, function(btn){
+      btn.style.background = (btn.dataset.name===name) ? '#2c3e50' : '#eee';
+      btn.style.color = (btn.dataset.name===name) ? '#fff' : '#333';
+    });
+  }
+
+  tabsEl.innerHTML = '';
+  wb.worksheets.forEach(function(ws){
+    var btn = document.createElement('button');
+    btn.textContent = ws.name;
+    btn.dataset.name = ws.name;
+    btn.className = 'btn btn-sm';
+    btn.style.cssText = 'border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;';
+    btn.onclick = function(){ showTab(ws.name); };
+    tabsEl.appendChild(btn);
+  });
+
+  card.style.display = '';
+  showTab(wb.worksheets[0].name);
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
 
 
 // ── নাম মিলানোর জন্য হেল্পার ──
