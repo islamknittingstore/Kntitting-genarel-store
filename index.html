@@ -9710,7 +9710,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var categories = Array.from(new Set(items.map(function(it){return it.category||'Others';}))).sort();
 
   // ── স্টাইল হেল্পার ──
-  var thinBorder = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  var thinBorder = {top:{style:'thin',color:{argb:'FFD5D8DC'}},left:{style:'thin',color:{argb:'FFD5D8DC'}},bottom:{style:'thin',color:{argb:'FFD5D8DC'}},right:{style:'thin',color:{argb:'FFD5D8DC'}}};
   var headerFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF2C3E50'}};
   var headerFont = {bold:true, color:{argb:'FFFFFFFF'}, size:11};
   var titleFont = {bold:true, size:14};
@@ -9721,15 +9721,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
   function applyBlockOuterBorder(ws, topRow, bottomRow, leftCol, rightCol){
     for (var c=leftCol; c<=rightCol; c++){
       var topCell = ws.getRow(topRow).getCell(c);
-      topCell.border = Object.assign({}, topCell.border, {top:{style:'medium'}});
+      topCell.border = Object.assign({}, topCell.border, {top:{style:'thick',color:{argb:'FF1C2833'}}});
       var botCell = ws.getRow(bottomRow).getCell(c);
-      botCell.border = Object.assign({}, botCell.border, {bottom:{style:'medium'}});
+      botCell.border = Object.assign({}, botCell.border, {bottom:{style:'thick',color:{argb:'FF1C2833'}}});
     }
     for (var r=topRow; r<=bottomRow; r++){
       var leftCell = ws.getRow(r).getCell(leftCol);
-      leftCell.border = Object.assign({}, leftCell.border, {left:{style:'medium'}});
+      leftCell.border = Object.assign({}, leftCell.border, {left:{style:'thick',color:{argb:'FF1C2833'}}});
       var rightCell = ws.getRow(r).getCell(rightCol);
-      rightCell.border = Object.assign({}, rightCell.border, {right:{style:'medium'}});
+      rightCell.border = Object.assign({}, rightCell.border, {right:{style:'thick',color:{argb:'FF1C2833'}}});
     }
   }
 
@@ -10061,7 +10061,22 @@ function gsRenderPreviewExcelJS(wb){
         if (val && typeof val==='object' && val.formula!==undefined) val = val.result!==undefined?val.result:'';
         var text = (val===null||val===undefined) ? '' : String(val);
         var style = 'padding:4px 8px;font-size:12px;white-space:nowrap;';
-        if (cell.border && cell.border.top) style += 'border:1px solid #999;';
+        // ExcelJS border style অনুযায়ী প্রতিটা পাশের thickness আলাদাভাবে বসানো হয় —
+        // thin ভিতরের লাইনের জন্য, medium/thick ব্লকের বাইরের চারপাশের মোটা বর্ডারের জন্য
+        function borderWidth(sty){
+          if (sty==='thick') return '2.5px';
+          if (sty==='medium') return '2px';
+          return '1px';
+        }
+        if (cell.border){
+          ['top','right','bottom','left'].forEach(function(side){
+            var b = cell.border[side];
+            if (b && b.style){
+              var col = (b.color && b.color.argb) ? argbToCss(b.color.argb) : '#999';
+              style += 'border-'+side+':'+borderWidth(b.style)+' solid '+col+';';
+            }
+          });
+        }
         if (cell.font && cell.font.bold) style += 'font-weight:bold;';
         if (cell.fill && cell.fill.fgColor) style += 'background:'+argbToCss(cell.fill.fgColor.argb)+';';
         if (cell.font && cell.font.color) style += 'color:'+argbToCss(cell.font.color.argb)+';';
