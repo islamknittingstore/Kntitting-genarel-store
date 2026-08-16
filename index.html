@@ -4835,7 +4835,7 @@ function ok(msg) {
         </div>
         <div class="card-body" style="padding:0; max-height:400px; overflow-y:auto;">
           <table>
-            <thead><tr><th class="admin-only-action" style="width:30px;"><input type="checkbox" id="chk-all-items" onchange="toggleAllItems(this)"></th><th>SL</th><th>Group</th><th>Category</th><th>Item Name</th><th style="width:80px;text-align:center;">Min Stock</th><th style="width:60px;text-align:center;">Hide</th><th class="admin-only-action"></th></tr></thead>
+            <thead><tr><th class="admin-only-action" style="width:30px;"><input type="checkbox" id="chk-all-items" onchange="toggleAllItems(this)"></th><th>SL</th><th>Group</th><th>Category</th><th>Item Name</th><th style="width:70px;text-align:center;">B/F</th><th style="width:80px;text-align:center;">Min Stock</th><th style="width:60px;text-align:center;">Hide</th><th class="admin-only-action"></th></tr></thead>
             <tbody id="masterItemTable"></tbody>
           </table>
         </div>
@@ -4925,6 +4925,36 @@ function ok(msg) {
         </div>
       </div>
     </div>
+
+    <!-- B/F EXCEL IMPORT CARD -->
+    <div class="card admin-only-action">
+      <div class="card-header" style="background:#f8f0ff; color:#6c3483;">📅 B/F (Opening Balance) Import — General Store</div>
+      <div class="card-body">
+        <div style="background:#fdf6ff;border:1px solid #e1bee7;border-radius:8px;padding:12px;margin-bottom:14px;">
+          <p style="font-size:12px;font-weight:700;color:#6c3483;margin:0 0 6px;">📄 Option A — নিজের "Closing Stock" রিপোর্ট (.xls) সরাসরি Import</p>
+          <p style="font-size:12px; color:var(--text-light); margin:0 0 10px;">
+            আপনার সফটওয়্যার থেকে এক্সপোর্ট করা "Closing Stock" রিপোর্ট (.xls) ফাইলটা সরাসরি দিন — কোনো টেমপ্লেট লাগবে না। ফাইলের <b>Item Description</b> ও <b>Closing Stock</b> কলাম পড়ে, নাম মিলিয়ে সেই Closing Stock-টাই প্রতিটা আইটেমের B/F হিসেবে বসে যাবে।
+          </p>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="file" id="gsBFClosingStockInput" accept=".xls,.xlsx,.html" style="display:none;" onchange="gsBFHandleClosingStockFile(event)">
+            <button class="btn btn-success btn-sm" onclick="gsBFImportClosingStockXls()">📤 Closing Stock (.xls) Import</button>
+          </div>
+        </div>
+        <div>
+          <p style="font-size:12px;font-weight:700;color:#555;margin:0 0 6px;">📄 Option B — খালি Template ডাউনলোড করে হাতে পূরণ</p>
+          <p style="font-size:12px; color:var(--text-light); margin:0 0 10px;">
+            প্রথমে "Sample Excel" ডাউনলোড করুন — সেখানে আপনার সব বর্তমান আইটেমের নাম দেওয়া থাকবে। B/F কলামে বর্তমান স্টক লিখে সেই ফাইলটাই আবার Upload করুন।
+          </p>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" onclick="gsBFDownloadSample()">📥 Sample Excel Download</button>
+            <input type="file" id="gsBFExcelInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="gsBFHandleImportFile(event)">
+            <button class="btn btn-outline btn-sm" onclick="gsBFImportExcel()">📤 Excel থেকে B/F Import</button>
+          </div>
+        </div>
+        <div style="margin-top:10px;"><span id="gsBFImportStatus" style="font-size:12px; color:var(--text-light);"></span></div>
+      </div>
+    </div>
+
 
     <!-- BULK MACHINE IMPORT CARD -->
     <div class="card">
@@ -8832,7 +8862,11 @@ function getStock(itemName) {
   }
   if (!foundInStn && typeof DB !== 'undefined' && DB.pkgItems) {
     var itP = DB.pkgItems.find(function(x){ return x.name === itemName; });
-    if (itP) bf = Number(itP.bf) || 0;
+    if (itP) { bf = Number(itP.bf) || 0; foundInStn = true; }
+  }
+  if (!foundInStn && typeof DB !== 'undefined' && DB.items) {
+    var itG = DB.items.find(function(x){ return x.name === itemName; });
+    if (itG) bf = Number(itG.bf) || 0;
   }
   const rec = DB.receives.filter(r => r.item === itemName).reduce((s,r) => s + Number(r.qty), 0);
   const iss = DB.issues.filter(i => i.item === itemName).reduce((s,i) => s + Number(i.qty), 0);
@@ -9665,9 +9699,12 @@ function _gsDoExportGroupMonthlyExcelJS(){
   if (!items.length){ toast('❌ এই Group-এ কোনো আইটেম নেই','error'); return; }
 
   function bfOf(itemName){
+    var baseBf = 0;
+    var itObj = items.find(function(x){ return x.name===itemName; });
+    if (itObj) baseBf = Number(itObj.bf)||0;
     var r = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
     var i = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
-    return r - i;
+    return baseBf + r - i;
   }
 
   var categories = Array.from(new Set(items.map(function(it){return it.category||'Others';}))).sort();
@@ -9699,6 +9736,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var wb = new ExcelJS.Workbook();
   wb.creator = 'Islam Garments Ltd. ERP';
   wb.created = new Date();
+
+  // ===================================================================
+  // Summary ও Rcv & Issue শীট আগে তৈরি করা হয় শুধু ট্যাব-অর্ডারের জন্য
+  // (Summary → Rcv & Issue → প্রতিটা Category Ledger → Requisition)
+  // এদের ডেটা এখনো বসানো হয়নি — সেটা নিচে যথাস্থানে করা হবে,
+  // কারণ Summary-এর ডেটা Category loop শেষ না হলে জানা যায় না।
+  // ===================================================================
+  var wsSum = wb.addWorksheet('Summary');
+  var wsRI = wb.addWorksheet('Rcv & Issue');
 
   // ===================================================================
   // Category Ledger শীটগুলো আগে বানানো হয় (Summary পরে cross-reference করবে)
@@ -9819,7 +9865,6 @@ function _gsDoExportGroupMonthlyExcelJS(){
   // ===================================================================
   // Summary শীট — cross-sheet formula দিয়ে Ledger শীট থেকে টেনে আনে
   // ===================================================================
-  var wsSum = wb.addWorksheet('Summary');
   wsSum.columns = [{width:30},{width:10},{width:8},{width:8},{width:10},{width:8}];
   wsSum.getCell(1,1).value = 'Summary of '+group+' Account';
   wsSum.mergeCells(1,1,1,6);
@@ -9892,7 +9937,6 @@ function _gsDoExportGroupMonthlyExcelJS(){
   // ===================================================================
   // Rcv & Issue শীট — দৈনিক Opening/Received/Issued/Closing (চেইনড ফর্মুলা)
   // ===================================================================
-  var wsRI = wb.addWorksheet('Rcv & Issue');
   wsRI.columns = [{width:12},{width:10},{width:10},{width:10},{width:8},{width:10}];
   wsRI.getCell(1,1).value = 'Date wise total receive & issue';
   wsRI.mergeCells(1,1,1,6);
@@ -19990,7 +20034,7 @@ function renderStock(){
       if(dateTo&&i.date>dateTo)return false;
       return true;
     }).reduce(function(s,i){return s+i.qty;},0);
-    return{item:item,rec:rcv,iss:iss,stk:rcv-iss};
+    return{item:item,rec:rcv,iss:iss,stk:(Number(item.bf)||0)+rcv-iss};
   });
   if(!rows.length){tbody.innerHTML='<tr><td colspan=7 class=no-data>No items</td></tr>';
     if(statsEl)statsEl.style.display='none';if(infoEl)infoEl.textContent='';return;}
@@ -20589,7 +20633,13 @@ function renderMaster() {
     <td>${i+1}</td>
     <td><span style="background:${colorMap[item.group]||'#eee'};color:#1c2833;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">${item.group}</span></td>
     <td><span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:12px;font-size:11px;">${item.category||'-'}</span></td>
-    <td><b>${item.name}</b></td>
+    <td><input class="editable-input" value="${item.name}" placeholder="Item Name..." onchange="updateItemName(${i}, this.value)"></td>
+    <td style="text-align:center;">
+      <input type="number" min="0" value="${item.bf||0}"
+        style="width:60px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;font-weight:700;color:#6c3483;"
+        onchange="updateItemBF(${i}, this.value)"
+        title="Brought Forward / বর্তমান স্টক">
+    </td>
     <td style="text-align:center;" class="admin-only-action">
       <input type="number" min="0" value="${item.minStock||0}"
         style="width:60px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;font-weight:700;color:#1c2833;"
@@ -20604,7 +20654,7 @@ function renderMaster() {
       </button>
     </td>
     <td class="admin-only-action"><button class="btn-del" onclick="deleteItem(${i})">✕</button></td>
-  </tr>`).join('') || '<tr><td colspan="8" class="no-data">No items found</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="9" class="no-data">No items found</td></tr>';
 
   // Also refresh form dropdowns so Receive/Issue pages stay in sync
   _refreshAllGroupDropdowns();
@@ -20631,6 +20681,41 @@ function toggleItemHidden(idx) {
   renderStock();
   if (typeof updateDashboard === 'function') updateDashboard();
   triggerAutoSave();
+}
+
+// ── Update item name ──
+function updateItemName(idx, val) {
+  const newName = (val || '').trim();
+  if (!newName) { toast('আইটেমের নাম খালি রাখা যাবে না!', 'warning'); renderMaster(); return; }
+  const items = DB.items;
+  const oldName = items[idx].name;
+  if (newName === oldName) return;
+  // Duplicate check within same group
+  const dup = items.find((it, j) => j !== idx && it.name === newName && it.group === items[idx].group);
+  if (dup) { toast('এই নামে একটি আইটেম আগে থেকেই আছে!', 'warning'); renderMaster(); return; }
+  items[idx].name = newName;
+  DB.items = items;
+  renderMaster();
+  renderStock();
+  populateMasterDataLists();
+  _refreshAllGroupDropdowns();
+  if (typeof updateDashboard === 'function') updateDashboard();
+  triggerAutoSave();
+  toast(`✅ "${oldName}" → "${newName}" আপডেট হয়েছে`, 'success');
+}
+
+// ── Update item B/F (Brought Forward / opening balance) ──
+function updateItemBF(idx, val) {
+  const items = DB.items;
+  const newBf = Number(val) || 0;
+  if (items[idx].bf === newBf) return;
+  items[idx].bf = newBf;
+  DB.items = items;
+  renderMaster();
+  renderStock();
+  if (typeof updateDashboard === 'function') updateDashboard();
+  triggerAutoSave();
+  toast(`✅ "${items[idx].name}" এর B/F আপডেট হয়েছে`, 'success');
 }
 
 // ── Update item minStock ──
@@ -20909,6 +20994,207 @@ async function deleteSelectedMachines() {
   triggerAutoSave();
   renderMaster();
   toast(toDelete.length + ' machine(s) deleted.', 'warning');
+}
+
+// 
+//  GENERAL STORE — B/F EXCEL IMPORT/EXPORT
+// 
+function gsBFLoadXLSXLib(cb){
+  if (typeof XLSX !== 'undefined'){ cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb;
+  s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
+  document.head.appendChild(s);
+  toast('📦 Loading Excel engine...','warning');
+}
+
+function gsBFDownloadSample(){
+  gsBFLoadXLSXLib(function(){
+    var rows = [['Group','Item Name','B/F']];
+    (DB.items||[]).forEach(function(it){
+      rows.push([it.group||'', it.name||'', Number(it.bf)||0]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:20},{wch:30},{wch:10}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'BF');
+    XLSX.writeFile(wb, 'General_Store_BF_Template.xlsx');
+    toast('✅ Sample Excel ডাউনলোড হয়েছে — B/F কলামে মান দিয়ে আবার Upload করুন', 'success');
+  });
+}
+
+function gsBFImportExcel(){
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return; }
+  document.getElementById('gsBFExcelInput').click();
+}
+
+function gsBFHandleImportFile(evt){
+  var file = evt.target.files[0];
+  if (!file) return;
+  var statusEl = document.getElementById('gsBFImportStatus');
+  gsBFLoadXLSXLib(function(){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1});
+        if (!rows.length){ toast('❌ ফাইলে কোনো ডেটা পাওয়া যায়নি', 'error'); return; }
+
+        // হেডার রো খুঁজে বের করা — "Item Name" ও "B/F" কলাম কোথায় আছে সেটা বের করি
+        var headerIdx = 0;
+        var nameCol = -1, bfCol = -1;
+        for (var h = 0; h < Math.min(rows.length, 5); h++){
+          var r = rows[h] || [];
+          for (var c = 0; c < r.length; c++){
+            var cell = String(r[c]||'').trim().toLowerCase();
+            if (cell === 'item name' || cell === 'item' || cell === 'name') nameCol = c;
+            if (cell === 'b/f' || cell === 'bf' || cell === 'brought forward') bfCol = c;
+          }
+          if (nameCol >= 0 && bfCol >= 0) { headerIdx = h; break; }
+        }
+        if (nameCol < 0 || bfCol < 0) { toast('❌ ফাইলে "Item Name" ও "B/F" কলাম পাওয়া যায়নি। Sample Excel Template ব্যবহার করুন।', 'error'); if(evt.target) evt.target.value=''; return; }
+
+        var items = DB.items;
+        var byName = {};
+        items.forEach(function(it, idx){ byName[String(it.name||'').trim().toLowerCase()] = idx; });
+
+        var updated = 0, unmatched = [];
+        for (var i = headerIdx+1; i < rows.length; i++){
+          var row = rows[i];
+          if (!row || row[nameCol]===undefined || row[nameCol]===null || String(row[nameCol]).trim()==='') continue;
+          var nm = String(row[nameCol]).trim();
+          var bfVal = row[bfCol];
+          if (bfVal === undefined || bfVal === null || String(bfVal).trim()==='') continue;
+          var num = Number(bfVal);
+          if (isNaN(num)) continue;
+          var idx2 = byName[nm.toLowerCase()];
+          if (idx2 === undefined) { unmatched.push(nm); continue; }
+          items[idx2].bf = num;
+          updated++;
+        }
+        DB.items = items;
+        triggerAutoSave();
+        renderMaster();
+        renderStock();
+        if (typeof updateDashboard === 'function') updateDashboard();
+
+        var msg = '✅ ' + updated + ' টি আইটেমের B/F আপডেট হয়েছে';
+        toast(msg, 'success');
+        if (statusEl){
+          statusEl.textContent = msg + (unmatched.length ? (' | মিলেনি: ' + unmatched.length + ' টি (' + unmatched.slice(0,5).join(', ') + (unmatched.length>5?'...':'') + ')') : '');
+          statusEl.style.color = unmatched.length ? '#c0392b' : '#117a65';
+        }
+      } catch(err){
+        console.error(err);
+        toast('❌ ফাইল পড়তে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error');
+      } finally {
+        if (evt.target) evt.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── নিজের "Closing Stock" রিপোর্ট (.xls, HTML ফরম্যাট) থেকে সরাসরি B/F Import ──
+function gsBFImportClosingStockXls(){
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return; }
+  document.getElementById('gsBFClosingStockInput').click();
+}
+
+// নাম মেলানোর জন্য normalize — quote/ইঞ্চি চিহ্ন, ড্যাশ, ব্র্যাকেট, extra স্পেস ইত্যাদির
+// পার্থক্য উপেক্ষা করে যাতে সামান্য লেখার ভিন্নতা থাকলেও মিল খুঁজে পায়
+function gsNormItemName(s){
+  return String(s||'').toLowerCase()
+    .replace(/["'’‘]/g, ' ')
+    .replace(/[\[\]\(\)]/g, ' ')
+    .replace(/[\-–—_,]/g, ' ')
+    .replace(/\binch(es)?\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function gsBFHandleClosingStockFile(evt){
+  var file = evt.target.files[0];
+  if (!file) return;
+  var statusEl = document.getElementById('gsBFImportStatus');
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      var text = e.target.result || '';
+      if (text.toLowerCase().indexOf('closing stock') === -1) {
+        toast('❌ এটা "Closing Stock" রিপোর্ট ফরম্যাট বলে মনে হচ্ছে না', 'error');
+        if (evt.target) evt.target.value = '';
+        return;
+      }
+      var doc = new DOMParser().parseFromString(text, 'text/html');
+      var trs = doc.querySelectorAll('tr');
+      var dataRows = [];
+      trs.forEach(function(tr){
+        var tds = tr.querySelectorAll('td');
+        if (tds.length !== 26) return; // শুধু আসল ডেটা রো — হেডার/ক্যাপশন/গ্র্যান্ড টোটাল রো বাদ পড়ে যাবে
+        var cells = [];
+        tds.forEach(function(td){ cells.push((td.textContent||'').replace(/\s+/g,' ').trim()); });
+        if (!/^\d+$/.test(cells[0])) return; // SL কলাম প্লেইন সংখ্যা হতেই হবে
+        dataRows.push(cells);
+      });
+      if (!dataRows.length) { toast('❌ কোনো আইটেম রো পাওয়া যায়নি — ফাইলের ফরম্যাট মিলছে না', 'error'); if(evt.target) evt.target.value=''; return; }
+
+      var items = DB.items;
+      var exactMap = {};
+      var normMap = {};
+      items.forEach(function(it, idx){
+        var raw = String(it.name||'').trim().toLowerCase();
+        exactMap[raw] = idx;
+        var norm = gsNormItemName(it.name);
+        if (!normMap[norm]) normMap[norm] = [];
+        normMap[norm].push(idx);
+      });
+
+      var updated = 0, unmatched = [], ambiguous = [];
+      dataRows.forEach(function(cells){
+        var desc = cells[7];          // Item Description
+        var closing = Number(String(cells[21]).replace(/,/g,'')); // Closing Stock
+        if (!desc || isNaN(closing)) return;
+
+        var idx = exactMap[desc.trim().toLowerCase()];
+        if (idx === undefined) {
+          var norm = gsNormItemName(desc);
+          var candidates = normMap[norm] || [];
+          if (candidates.length === 1) idx = candidates[0];
+          else if (candidates.length > 1) { ambiguous.push(desc); return; }
+        }
+        if (idx === undefined) { unmatched.push(desc); return; }
+
+        items[idx].bf = closing;
+        updated++;
+      });
+
+      DB.items = items;
+      triggerAutoSave();
+      renderMaster();
+      renderStock();
+      if (typeof updateDashboard === 'function') updateDashboard();
+
+      var msg = '✅ ' + updated + ' টি আইটেমের B/F (Closing Stock থেকে) আপডেট হয়েছে';
+      toast(msg, 'success');
+      if (statusEl){
+        var extra = [];
+        if (unmatched.length) extra.push('মিলেনি: ' + unmatched.length + ' টি (' + unmatched.slice(0,5).join(', ') + (unmatched.length>5?'...':'') + ')');
+        if (ambiguous.length) extra.push('একাধিক আইটেমের সাথে মিলেছে: ' + ambiguous.length + ' টি');
+        statusEl.textContent = msg + (extra.length ? ' | ' + extra.join(' | ') : '');
+        statusEl.style.color = (unmatched.length || ambiguous.length) ? '#c0392b' : '#117a65';
+      }
+    } catch(err){
+      console.error(err);
+      toast('❌ ফাইল পড়তে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error');
+    } finally {
+      if (evt.target) evt.target.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 
 // 
