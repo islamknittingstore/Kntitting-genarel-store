@@ -3020,6 +3020,25 @@ window.iglSaveNavVisibility = function() {
         </div>
       </div>
     </div>
+
+    <!-- বিল বাকি আছে — এমন Receive এন্ট্রিগুলোর তালিকা, এখানেই দ্রুত বিল নং/এমাউন্ট বসানো যায় -->
+    <div class="card">
+      <div class="card-header" style="background:#fef9e7;color:#7d6608;display:flex;align-items:center;gap:8px;">
+        <span>⏳ বিল বাকি আছে এমন Receive</span>
+        <span id="rg-pending-bill-count" style="background:#e67e22;color:#fff;border-radius:12px;padding:1px 9px;font-size:11px;font-weight:700;"></span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">
+          চালান দিয়ে সেভ করা হয়েছে কিন্তু এখনো বিল নং/এমাউন্ট বসানো হয়নি — এমন এন্ট্রিগুলো এখানে দেখাবে। বিল আসলে সরাসরি এখানেই বসিয়ে "💾 Save" চাপুন।
+        </p>
+        <div style="overflow-x:auto;">
+          <table class="table">
+            <thead><tr><th>Date</th><th>Group</th><th>Item</th><th>চালান নং</th><th>Qty</th><th style="width:130px;">বিল নং</th><th style="width:120px;">বিল এমাউন্ট</th><th style="width:70px;"></th></tr></thead>
+            <tbody id="rg-pending-bill-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!--  ISSUE  -->
@@ -3219,11 +3238,7 @@ window.iglSaveNavVisibility = function() {
           </select>
           <input type="date" class="form-control" style="width:140px;" id="rlog-from" onchange="renderReceiveLog()" title="From Date">
           <input type="date" class="form-control" style="width:140px;" id="rlog-to" onchange="renderReceiveLog()" title="To Date">
-          <label style="display:flex;align-items:center;gap:6px;padding:0 10px;border:1.5px solid #f5b041;border-radius:6px;background:#fef9e7;font-size:12px;font-weight:700;color:#9c640c;cursor:pointer;white-space:nowrap;">
-            <input type="checkbox" id="rlog-pending-bill" onchange="renderReceiveLog()" style="width:15px;height:15px;accent-color:#e67e22;cursor:pointer;">
-            🧾 শুধু Bill বাকি আছে
-          </label>
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('rlog-search').value='';document.getElementById('rlog-user').value='';document.getElementById('rlog-from').value='';document.getElementById('rlog-to').value='';document.getElementById('rlog-pending-bill').checked=false;renderReceiveLog();" title="Clear search">✕ Clear</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('rlog-search').value='';document.getElementById('rlog-user').value='';document.getElementById('rlog-from').value='';document.getElementById('rlog-to').value='';renderReceiveLog();" title="Clear search">✕ Clear</button>
         </div>
         <div id="rlog-search-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"></div>
       </div>
@@ -9144,6 +9159,7 @@ function showPage(name, el) {
       populateFormDropdowns();
       // Set date only on first load
       if (!document.getElementById('r-date').value) document.getElementById('r-date').value = todayStr();
+      renderPendingBillList();
     }
     else if (name === 'issue') {
       populateFormDropdowns();
@@ -9540,6 +9556,62 @@ function saveReceive() {
   try { renderDashboard(); } catch(e) {}
   try { renderStock(); } catch(e) {}
   try { renderReceiveLog(); } catch(e) {}
+  try { renderPendingBillList(); } catch(e) {}
+}
+
+// ── বিল বাকি আছে এমন Receive এন্ট্রির লিস্ট — Receive Goods পেজের নিচে দেখানোর জন্য ──
+function renderPendingBillList() {
+  var tbody = document.getElementById('rg-pending-bill-table');
+  var countEl = document.getElementById('rg-pending-bill-count');
+  if (!tbody) return;
+
+  var data = (DB.receives||[]).filter(function(r){
+    return ['Stationery','Packaging','Needle'].indexOf(r.group) === -1 && (!r.bill || !String(r.bill).trim());
+  });
+  data.sort(function(a,b){ return new Date(a.date) - new Date(b.date); }); // পুরনোটা আগে
+
+  if (countEl) countEl.textContent = data.length ? data.length : '';
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">🎉 সব এন্ট্রির বিল বসানো আছে</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(function(r){
+    return '<tr>'
+      + '<td>' + fmtDate(r.date) + '</td>'
+      + '<td>' + (r.group||'-') + '</td>'
+      + '<td><b>' + (r.item||'-') + '</b></td>'
+      + '<td><span style="font-weight:600;color:#1a5276;">' + (r.chalan||'-') + '</span></td>'
+      + '<td><b style="color:#1a5276;">' + r.qty + '</b></td>'
+      + '<td><input type="text" class="form-control" id="pb-bill-'+r.id+'" placeholder="Bill No." style="padding:5px 8px;font-size:12px;"></td>'
+      + '<td><input type="number" min="0" step="0.01" class="form-control" id="pb-amount-'+r.id+'" placeholder="Amount" style="padding:5px 8px;font-size:12px;"></td>'
+      + '<td><button class="btn btn-sm" style="background:#1e8449;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:700;" onclick="savePendingBillRow('+r.id+')">💾</button></td>'
+      + '</tr>';
+  }).join('');
+}
+
+// ── পেন্ডিং লিস্ট থেকে সরাসরি বিল নং/এমাউন্ট সেভ করা ──
+function savePendingBillRow(id) {
+  var billEl = document.getElementById('pb-bill-'+id);
+  var amtEl = document.getElementById('pb-amount-'+id);
+  var bill = billEl ? billEl.value.trim() : '';
+  var amount = amtEl ? (parseFloat(amtEl.value)||0) : 0;
+
+  if (!bill) { toast('বিল নং লিখুন!', 'warning'); return; }
+
+  var arr = DB.receives;
+  var idx = arr.findIndex(function(r){ return r.id === id; });
+  if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+
+  var rate = arr[idx].qty ? (amount / arr[idx].qty) : (arr[idx].rate||0);
+  arr[idx] = Object.assign({}, arr[idx], { bill: bill, amount: amount || arr[idx].amount || 0, rate: amount ? rate : (arr[idx].rate||0), editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+  DB.receives = arr;
+  triggerAutoSave();
+  renderPendingBillList();
+  try { renderReceiveLog(); } catch(e){}
+  try { renderDashboard(); } catch(e){}
+  toast('✅ "'+arr[idx].item+'" এর বিল আপডেট হয়েছে', 'success');
 }
 
 function clearReceiveForm() {
@@ -20374,8 +20446,6 @@ function renderReceiveLog() {
   if (userFilter) data = data.filter(r => (r.userId || '') === userFilter);
   if (dateFrom) data = data.filter(r => r.date >= dateFrom);
   if (dateTo) data = data.filter(r => r.date <= dateTo);
-  var pendingBillOnly = (document.getElementById('rlog-pending-bill')||{}).checked || false;
-  if (pendingBillOnly) data = data.filter(r => !r.bill || !String(r.bill).trim());
   if (q) data = data.filter(r =>
     (r.item||'').toLowerCase().includes(q) ||
     (r.date||'').includes(q) ||
@@ -20474,6 +20544,7 @@ async function deleteReceive(id) {
   iglDelIdsAdd('rcv', id);
   DB.receives = DB.receives.filter(r => r.id !== id);
   renderReceiveLog();
+  try { renderPendingBillList(); } catch(e){}
   updateDashboard && updateDashboard();
   clearTimeout(window._fbSaveTimer);
   if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
@@ -20678,6 +20749,7 @@ function renderMonthly() {
 //  MASTER DATA
 // 
 function renderMaster() {
+  var isAdminMaster = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
   // Items table — group by group with color coding
   const items = DB.items;
   const tbody = document.getElementById('masterItemTable');
@@ -20728,8 +20800,8 @@ function renderMaster() {
   mtbody.innerHTML = machines.map((m,i) => `<tr>
     <td class="admin-only-action"><input type="checkbox" class="machine-chk" data-idx="${i}"></td>
     <td>${i+1}</td>
-    <td style="text-align:center;font-weight:700;">${m.no}</td>
-    <td>${m.id}</td>
+    <td style="text-align:center;font-weight:700;"><input class="editable-input" style="text-align:center;font-weight:700;" value="${m.no}" ${isAdminMaster?'':'readonly'} onchange="updateMachineNo(${i}, this.value)"></td>
+    <td><input class="editable-input" value="${m.id}" ${isAdminMaster?'':'readonly'} onchange="updateMachineId(${i}, this.value)"></td>
     <td><input class="editable-input" value="${m.cat}" placeholder="Enter Category..." onchange="updateMachineCat(${i}, this.value)"></td>
     <td class="admin-only-action"><button class="btn-del" onclick="deleteMachine(${i})">X</button></td>
   </tr>`).join('') || '<tr><td colspan="6" class="no-data">No machines found</td></tr>';
@@ -21017,6 +21089,77 @@ async function deleteMachine(i) {
   triggerAutoSave();
   renderMaster();
   toast('Machine deleted', 'warning');
+}
+
+// ── ERP No. (Machine নাম্বার) নিরাপদে এডিট করা — পুরনো সব Issue রেকর্ডেও একই সাথে
+// আপডেট হয়, যাতে মেশিন-ভিত্তিক হিসাব/রিপোর্ট আগের মতোই সঠিক থাকে ──
+async function updateMachineNo(i, val) {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); renderMaster(); return; }
+  var arr = DB.machines;
+  var oldVal = arr[i].no;
+  var newVal = (val||'').trim();
+  if (!newVal) { toast('ERP No. খালি রাখা যাবে না!', 'warning'); renderMaster(); return; }
+  if (newVal === oldVal) return;
+  var dup = arr.find(function(m,j){ return j!==i && m.no === newVal; });
+  if (dup) { toast('❌ এই ERP No. আগে থেকেই আরেকটা মেশিনে আছে!', 'warning'); renderMaster(); return; }
+
+  var oldId = arr[i].id;
+  var affected = (DB.issues||[]).filter(function(x){ return x.machineNo===oldVal && x.machineId===oldId; });
+
+  var ok = await igl_confirm(
+    'ERP No. "'+oldVal+'" → "'+newVal+'" পরিবর্তন করবেন?',
+    affected.length ? ('এই মেশিনের পুরনো '+affected.length+' টি Issue রেকর্ডও স্বয়ংক্রিয়ভাবে নতুন নাম্বারে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে।') : 'এই মেশিনের নামে এখনো কোনো Issue রেকর্ড নেই।',
+    '✏️'
+  );
+  if (!ok) { renderMaster(); return; }
+
+  arr[i].no = newVal;
+  DB.machines = arr;
+  if (affected.length) {
+    var issArr = DB.issues;
+    issArr.forEach(function(x){ if (x.machineNo===oldVal && x.machineId===oldId) x.machineNo = newVal; });
+    DB.issues = issArr;
+  }
+  triggerAutoSave();
+  renderMaster();
+  try { renderIssueLog(); } catch(e){}
+  try { renderDashboard(); } catch(e){}
+  toast('✅ ERP No. আপডেট হয়েছে' + (affected.length ? (' ('+affected.length+' টি পুরনো রেকর্ডসহ)') : ''), 'success');
+}
+
+// ── Machine ID নিরাপদে এডিট করা — পুরনো সব Issue রেকর্ডেও একই সাথে আপডেট হয় ──
+async function updateMachineId(i, val) {
+  if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) { toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); renderMaster(); return; }
+  var arr = DB.machines;
+  var oldVal = arr[i].id;
+  var newVal = (val||'').trim();
+  if (!newVal) { toast('Machine ID খালি রাখা যাবে না!', 'warning'); renderMaster(); return; }
+  if (newVal === oldVal) return;
+  var dup = arr.find(function(m,j){ return j!==i && m.id === newVal; });
+  if (dup) { toast('❌ এই Machine ID আগে থেকেই আরেকটা মেশিনে আছে!', 'warning'); renderMaster(); return; }
+
+  var oldNo = arr[i].no;
+  var affected = (DB.issues||[]).filter(function(x){ return x.machineNo===oldNo && x.machineId===oldVal; });
+
+  var ok = await igl_confirm(
+    'Machine ID "'+oldVal+'" → "'+newVal+'" পরিবর্তন করবেন?',
+    affected.length ? ('এই মেশিনের পুরনো '+affected.length+' টি Issue রেকর্ডও স্বয়ংক্রিয়ভাবে নতুন ID-তে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে।') : 'এই মেশিনের নামে এখনো কোনো Issue রেকর্ড নেই।',
+    '✏️'
+  );
+  if (!ok) { renderMaster(); return; }
+
+  arr[i].id = newVal;
+  DB.machines = arr;
+  if (affected.length) {
+    var issArr = DB.issues;
+    issArr.forEach(function(x){ if (x.machineNo===oldNo && x.machineId===oldVal) x.machineId = newVal; });
+    DB.issues = issArr;
+  }
+  triggerAutoSave();
+  renderMaster();
+  try { renderIssueLog(); } catch(e){}
+  try { renderDashboard(); } catch(e){}
+  toast('✅ Machine ID আপডেট হয়েছে' + (affected.length ? (' ('+affected.length+' টি পুরনো রেকর্ডসহ)') : ''), 'success');
 }
 
 function updateMachineCat(i, val) {
@@ -34878,6 +35021,7 @@ async function saveEditEntry() {
     try { renderReceiveLog(); } catch(e){}
     try { renderDashboard(); } catch(e){}
     try { renderStock(); } catch(e){}
+    try { renderPendingBillList(); } catch(e){}
     closeEditModal();
     toast('✅ Receive এন্ট্রি আপডেট হয়েছে!', 'success');
 
