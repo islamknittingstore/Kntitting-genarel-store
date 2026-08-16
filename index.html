@@ -23277,7 +23277,7 @@ function mmpPrint(includePrev) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Month Wise Production</title><style>'
     + '@page{size:A4 portrait;margin:14mm;}body{font-family:Arial,sans-serif;color:#000;margin:0;}'
-    + 'table{border-collapse:collapse;width:100%;max-width:480px;}th,td{border:1px solid #000;}'
+    + 'table{border-collapse:collapse;width:100%;max-width:320px;}th,td{border:1px solid #000;}'
     + 'th{background:#eaeaea;padding:8px 12px;}'
     + '</style></head><body>'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+'</div>'
@@ -23288,7 +23288,7 @@ function mmpPrint(includePrev) {
     + '<tbody>'+rowsHtml+'</tbody>'
     + '<tfoot><tr style="background:#eaeaea;font-weight:700;"><td style="padding:8px 12px;text-align:center;">Total-</td><td style="padding:8px 12px;text-align:center;">'+Math.round(rep.total).toLocaleString()+'</td></tr></tfoot>'
     + '</table>'
-    + '<div style="margin-top:90px;display:flex;justify-content:space-between;">'
+    + '<div style="margin-top:180px;display:flex;justify-content:space-between;">'
     + '<div style="text-align:center;min-width:180px;"><div style="border-top:1px solid #000;padding-top:6px;font-size:12px;">Manager</div></div>'
     + '<div style="text-align:center;min-width:180px;"><div style="border-top:1px solid #000;padding-top:6px;font-size:12px;">Approved By</div></div>'
     + '</div>'
