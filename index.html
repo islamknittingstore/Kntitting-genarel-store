@@ -2985,8 +2985,13 @@ window.iglSaveNavVisibility = function() {
               <input type="text" class="form-control" id="r-chalan" placeholder="Challan number (optional)">
             </div>
             <div class="form-group">
+              <label>Bill No.</label>
+              <input type="text" class="form-control" id="r-bill" placeholder="Bill number (optional)">
+            </div>
+            <div class="form-group">
               <label>Supplier Name</label>
-              <input type="text" class="form-control" id="r-supplier" placeholder="Supplier name (optional)">
+              <input type="text" class="form-control" id="r-supplier" placeholder="Supplier name (optional)" autocomplete="off" list="r-supplier-list" oninput="gsSaveSupplierName(this.value)">
+              <datalist id="r-supplier-list"></datalist>
             </div>
             <div class="form-group">
               <label>Quantity *</label>
@@ -3094,7 +3099,8 @@ window.iglSaveNavVisibility = function() {
             </div>
             <div class="form-group">
               <label>Remarks</label>
-              <input type="text" class="form-control" id="i-remarks" placeholder="Any remarks (optional)">
+              <input type="text" class="form-control" id="i-remarks" placeholder="Any remarks (optional)" list="i-remarks-datalist">
+              <datalist id="i-remarks-datalist"></datalist>
             </div>
             <div class="form-group">
               <label>Current Stock</label>
@@ -3231,7 +3237,7 @@ window.iglSaveNavVisibility = function() {
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Quantity</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Bill No.</th><th>Quantity</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="receiveLogTable"></tbody>
           </table>
@@ -8781,6 +8787,37 @@ function seedData() {
       {id:'Yonthin Collar/Jacquard ( 2 )', no:'16', cat:'Flat Knit', name:''}
     ];
   }
+  // ── Merge-in fix: এর আগে সেভ করা DB.machines-এ যদি Flat Knit-এর কিছু মেশিন মিসিং থাকে
+  //    (কারণ উপরের seed শুধু প্রথমবার/পুরনো ফরম্যাটে চলে), সেগুলো এখানে যোগ হবে —
+  //    বাকি ডেটা/মেশিন অপরিবর্তিত থাকবে।
+  (function ensureFlatKnitMachines(){
+    var flatKnitDefaults = [
+      {id:'Shima Seiki ( 1 )', no:'1', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 2 )', no:'2', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 3 )', no:'3', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 4 )', no:'4', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 5 )', no:'5', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 6 )', no:'6', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 7 )', no:'7', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 11 )', no:'8', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 15 )', no:'9', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 16 )', no:'10', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 17 )', no:'11', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 18 )', no:'12', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 19 )', no:'13', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 20 )', no:'14', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 1 )', no:'15', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 2 )', no:'16', cat:'Flat Knit', name:''}
+    ];
+    if (!DB.machines) DB.machines = [];
+    var existingIds = {};
+    DB.machines.forEach(function(m){ existingIds[m.id] = true; });
+    var added = false;
+    flatKnitDefaults.forEach(function(m){
+      if (!existingIds[m.id]) { DB.machines.push(m); added = true; }
+    });
+    if (added) console.log('Flat Knit: missing machines merged into DB.machines');
+  })();
 }
 
 // 
@@ -9255,6 +9292,66 @@ function populateFormDropdowns() {
     const uniqueCats = [...new Set(DB.machines.map(m => m.cat))];
     uniqueCats.forEach(c => imCat.innerHTML += `<option value="${c}">${c}</option>`);
   }
+
+  // Issue Remarks — পূর্বে লেখা remarks মনে রেখে দেখানো (datalist)
+  gsPopulateIssueRemarksList();
+  gsPopulateSupplierDatalist();
+}
+
+// ── General Store Receive: Supplier Name মনে রাখা (datalist) ────────
+function gsGetSuppliers() {
+  try { return JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'); } catch(e) { return []; }
+}
+function gsSaveSupplierName(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  var list = gsGetSuppliers();
+  if (list.indexOf(name) === -1) {
+    list.unshift(name);
+    if (list.length > 50) list = list.slice(0, 50);
+    try { localStorage.setItem('igl_gs_suppliers', JSON.stringify(list)); } catch(e) {}
+    gsPopulateSupplierDatalist();
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  }
+}
+function gsPopulateSupplierDatalist() {
+  var dl = document.getElementById('r-supplier-list');
+  if (!dl) return;
+  var list = gsGetSuppliers();
+  dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
+}
+
+// ── Issue Goods Remarks memory (মেশিন নাম্বার ছাড়া ইস্যুর জন্য) ─────
+function gsGetIssueRemarks() {
+  try {
+    var stored = localStorage.getItem('igl_store_issue_remarks');
+    if (stored) { var arr = JSON.parse(stored); if (Array.isArray(arr)) return arr; }
+  } catch(e) {}
+  return [];
+}
+
+function gsSaveIssueRemark(text) {
+  text = (text || '').trim();
+  if (!text) return;
+  var list = gsGetIssueRemarks();
+  var idx = list.indexOf(text);
+  if (idx !== -1) list.splice(idx, 1); // move to front (most recent first)
+  list.unshift(text);
+  if (list.length > 50) list = list.slice(0, 50); // cap history size
+  try { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(list)); } catch(e) {}
+  gsPopulateIssueRemarksList();
+}
+
+function gsPopulateIssueRemarksList() {
+  var dl = document.getElementById('i-remarks-datalist');
+  if (!dl) return;
+  var list = gsGetIssueRemarks();
+  dl.innerHTML = '';
+  list.forEach(function(text) {
+    var opt = document.createElement('option');
+    opt.value = text;
+    dl.appendChild(opt);
+  });
 }
 
 // ── Receive: Group → Category → Item ────────────────────────
@@ -9379,6 +9476,7 @@ function saveReceive() {
   const category = document.getElementById('r-category').value;
   const item = document.getElementById('r-item').value;
   const chalan = document.getElementById('r-chalan').value;
+  const bill = document.getElementById('r-bill') ? document.getElementById('r-bill').value : '';
   const supplier = document.getElementById('r-supplier') ? document.getElementById('r-supplier').value : '';
   const qty = document.getElementById('r-qty').value;
   const rate = parseFloat(document.getElementById('r-rate').value) || 0;
@@ -9391,10 +9489,11 @@ function saveReceive() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  const rec = { id: Date.now(), date, group, category, item, chalan, supplier, qty: Number(qty), rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const rec = { id: Date.now(), date, group, category, item, chalan, bill, supplier, qty: Number(qty), rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
+  gsSaveSupplierName(supplier);
 
   gsAutoSyncRow('receive', rec);
   toast(`✅ Receive saved! ${item} - Qty: ${qty}`, 'success');
@@ -9413,6 +9512,7 @@ function clearReceiveForm() {
 
   document.getElementById('r-item').innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('r-chalan').value = '';
+  if (document.getElementById('r-bill')) document.getElementById('r-bill').value = '';
   if (document.getElementById('r-supplier')) document.getElementById('r-supplier').value = '';
   document.getElementById('r-qty').value = '';
   document.getElementById('r-rate').value = '';
@@ -9460,7 +9560,7 @@ async function saveIssue() {
   if (!group) { toast('Please select an item group!', 'warning'); return; }
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
-  if (!machineNo) { toast('Please select a machine number!', 'warning'); return; }
+  if (!machineNo && !remarks.trim()) { toast('মেশিন নাম্বার সিলেক্ট করুন, অথবা রিমার্কস-এ কিছু লিখুন!', 'warning'); return; }
 
   const stock = getStock(item);
   var _isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
@@ -9484,6 +9584,7 @@ async function saveIssue() {
   const arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
+  gsSaveIssueRemark(remarks);
 
   gsAutoSyncRow('issue', iss);
   toast(`✅ Issue saved! Slip: ${slip} | ${item} - Qty: ${qty}`, 'success');
@@ -9611,22 +9712,22 @@ function _gsDoExportGroupMonthlyExcelJS(){
     usedNames[sheetName] = true;
 
     var ws = wb.addWorksheet(sheetName);
-    ws.columns = [{width:24},{width:11},{width:16},{width:12},{width:9},{width:2},{width:9},{width:20},{width:9},{width:9},{width:16}];
+    ws.columns = [{width:24},{width:11},{width:16},{width:12},{width:12},{width:9},{width:2},{width:9},{width:20},{width:9},{width:9},{width:16}];
 
     ws.getCell(1,1).value = cat+' Account';
-    ws.mergeCells(1,1,1,11);
+    ws.mergeCells(1,1,1,12);
     ws.getCell(1,1).font = titleFont;
     ws.getCell(2,1).value = monthLabel;
-    ws.mergeCells(2,1,2,11);
+    ws.mergeCells(2,1,2,12);
     ws.getCell(2,1).font = {bold:true};
 
-    var h1 = [cat+' Item Details','Date','ReceiveDetail','','','','Issue Detail','','','Balance','Remarks'];
+    var h1 = [cat+' Item Details','Date','ReceiveDetail','','','','','Issue Detail','','','Balance','Remarks'];
     h1.forEach(function(v,i){ ws.getCell(4,i+1).value = v; });
-    var h2 = ['','','Supplier','Challan No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs',''];
+    var h2 = ['','','Supplier','Challan No.','Bill No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs',''];
     h2.forEach(function(v,i){ ws.getCell(5,i+1).value = v; });
     ws.mergeCells(4,1,5,1); ws.mergeCells(4,2,5,2);
-    ws.mergeCells(4,3,4,6); ws.mergeCells(4,7,4,9);
-    ws.mergeCells(4,10,5,10); ws.mergeCells(4,11,5,11);
+    ws.mergeCells(4,3,4,7); ws.mergeCells(4,8,4,10);
+    ws.mergeCells(4,11,5,11); ws.mergeCells(4,12,5,12);
     styleHeaderRow(ws.getRow(4)); styleHeaderRow(ws.getRow(5));
     ws.views = [{state:'frozen', ySplit:5}];
 
@@ -9637,13 +9738,13 @@ function _gsDoExportGroupMonthlyExcelJS(){
       var itemHeaderRow = rowNum;
       ws.getCell(rowNum,1).value = it.name;
       ws.getCell(rowNum,1).font = {bold:true};
-      styleDataRow(ws.getRow(rowNum), 11);
+      styleDataRow(ws.getRow(rowNum), 12);
       rowNum++;
 
       var bfRow = rowNum;
       ws.getCell(rowNum,1).value = 'B/F';
-      ws.getCell(rowNum,10).value = bf;
-      styleDataRow(ws.getRow(rowNum), 11);
+      ws.getCell(rowNum,11).value = bf;
+      styleDataRow(ws.getRow(rowNum), 12);
       rowNum++;
 
       var prevBalRow = bfRow;
@@ -9661,18 +9762,19 @@ function _gsDoExportGroupMonthlyExcelJS(){
         if (e.t==='receive'){
           ws.getCell(rowNum,3).value = e.d.supplier||'';
           ws.getCell(rowNum,4).value = e.d.chalan||'';
-          ws.getCell(rowNum,5).value = Number(e.d.qty);
+          ws.getCell(rowNum,5).value = e.d.bill||'';
+          ws.getCell(rowNum,6).value = Number(e.d.qty);
           runningBal += Number(e.d.qty); sumRecv += Number(e.d.qty);
-          ws.getCell(rowNum,10).value = { formula: 'J'+prevBalRow+'+E'+rowNum, result: runningBal };
+          ws.getCell(rowNum,11).value = { formula: 'K'+prevBalRow+'+F'+rowNum, result: runningBal };
         } else {
-          ws.getCell(rowNum,7).value = e.d.slip||'';
-          ws.getCell(rowNum,8).value = e.d.machineId||'';
-          ws.getCell(rowNum,9).value = Number(e.d.qty);
+          ws.getCell(rowNum,8).value = e.d.slip||'';
+          ws.getCell(rowNum,9).value = e.d.machineId||'';
+          ws.getCell(rowNum,10).value = Number(e.d.qty);
           runningBal -= Number(e.d.qty); sumIss += Number(e.d.qty);
-          ws.getCell(rowNum,10).value = { formula: 'J'+prevBalRow+'-I'+rowNum, result: runningBal };
-          if (e.d.remarks) ws.getCell(rowNum,11).value = e.d.remarks;
+          ws.getCell(rowNum,11).value = { formula: 'K'+prevBalRow+'-J'+rowNum, result: runningBal };
+          if (e.d.remarks) ws.getCell(rowNum,12).value = e.d.remarks;
         }
-        styleDataRow(ws.getRow(rowNum), 11);
+        styleDataRow(ws.getRow(rowNum), 12);
         prevBalRow = rowNum;
         rowNum++;
       });
@@ -9680,15 +9782,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
       var totalRow = rowNum;
       ws.getCell(rowNum,1).value = 'Total';
       if (firstTxnRow>=0){
-        ws.getCell(rowNum,5).value = { formula:'SUM(E'+firstTxnRow+':E'+lastTxnRow+')', result: sumRecv };
-        ws.getCell(rowNum,9).value = { formula:'SUM(I'+firstTxnRow+':I'+lastTxnRow+')', result: sumIss };
-        ws.getCell(rowNum,10).value = { formula:'J'+prevBalRow, result: runningBal };
+        ws.getCell(rowNum,6).value = { formula:'SUM(F'+firstTxnRow+':F'+lastTxnRow+')', result: sumRecv };
+        ws.getCell(rowNum,10).value = { formula:'SUM(J'+firstTxnRow+':J'+lastTxnRow+')', result: sumIss };
+        ws.getCell(rowNum,11).value = { formula:'K'+prevBalRow, result: runningBal };
       } else {
-        ws.getCell(rowNum,10).value = { formula:'J'+prevBalRow, result: runningBal };
+        ws.getCell(rowNum,11).value = { formula:'K'+prevBalRow, result: runningBal };
       }
       ws.getRow(rowNum).font = {bold:true};
-      styleDataRow(ws.getRow(rowNum), 11);
-      applyBlockOuterBorder(ws, itemHeaderRow, totalRow, 1, 11);
+      styleDataRow(ws.getRow(rowNum), 12);
+      applyBlockOuterBorder(ws, itemHeaderRow, totalRow, 1, 12);
       catTotalRows.push({row: totalRow, recv: sumRecv, iss: sumIss, bal: runningBal});
       rowNum += 2; // পরের আইটেমের আগে ফাঁকা লাইন
 
@@ -9700,16 +9802,16 @@ function _gsDoExportGroupMonthlyExcelJS(){
       var gtRecv = catTotalRows.reduce(function(s,x){return s+x.recv;},0);
       var gtIss  = catTotalRows.reduce(function(s,x){return s+x.iss;},0);
       var gtBal  = catTotalRows.reduce(function(s,x){return s+x.bal;},0);
-      var gtFormulaRecv = catTotalRows.map(function(x){return 'E'+x.row;}).join('+');
-      var gtFormulaIss  = catTotalRows.map(function(x){return 'I'+x.row;}).join('+');
-      var gtFormulaBal  = catTotalRows.map(function(x){return 'J'+x.row;}).join('+');
+      var gtFormulaRecv = catTotalRows.map(function(x){return 'F'+x.row;}).join('+');
+      var gtFormulaIss  = catTotalRows.map(function(x){return 'J'+x.row;}).join('+');
+      var gtFormulaBal  = catTotalRows.map(function(x){return 'K'+x.row;}).join('+');
       ws.getCell(rowNum,1).value = cat+' — Grand Total';
-      ws.getCell(rowNum,5).value = { formula: gtFormulaRecv, result: gtRecv };
-      ws.getCell(rowNum,9).value = { formula: gtFormulaIss, result: gtIss };
-      ws.getCell(rowNum,10).value = { formula: gtFormulaBal, result: gtBal };
+      ws.getCell(rowNum,6).value = { formula: gtFormulaRecv, result: gtRecv };
+      ws.getCell(rowNum,10).value = { formula: gtFormulaIss, result: gtIss };
+      ws.getCell(rowNum,11).value = { formula: gtFormulaBal, result: gtBal };
       ws.getRow(rowNum).font = {bold:true, size:12};
       ws.getRow(rowNum).eachCell({includeEmpty:true}, function(cell){ cell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFDEBD0'}}; });
-      styleDataRow(ws.getRow(rowNum), 11);
+      styleDataRow(ws.getRow(rowNum), 12);
       rowNum += 1;
     }
   });
@@ -9746,10 +9848,10 @@ function _gsDoExportGroupMonthlyExcelJS(){
       wsSum.getCell(sr,6).value = it.unit||'Pcs';
       if (info){
         var sref = "'"+info.sheet+"'!";
-        wsSum.getCell(sr,2).value = { formula: sref+'J'+info.bfRow, result: info.bf };
+        wsSum.getCell(sr,2).value = { formula: sref+'K'+info.bfRow, result: info.bf };
         wsSum.getCell(sr,3).value = { formula: sref+'F'+info.totalRow, result: info.recv };
-        wsSum.getCell(sr,4).value = { formula: sref+'I'+info.totalRow, result: info.iss };
-        wsSum.getCell(sr,5).value = { formula: sref+'J'+info.totalRow, result: info.bal };
+        wsSum.getCell(sr,4).value = { formula: sref+'J'+info.totalRow, result: info.iss };
+        wsSum.getCell(sr,5).value = { formula: sref+'K'+info.totalRow, result: info.bal };
         catBf+=info.bf; catRecv+=info.recv; catIss+=info.iss; catBal+=info.bal;
       }
       styleDataRow(wsSum.getRow(sr), 6);
@@ -20171,6 +20273,7 @@ function renderReceiveLog() {
     (r.item||'').toLowerCase().includes(q) ||
     (r.date||'').includes(q) ||
     (r.chalan||'').toLowerCase().includes(q) ||
+    (r.bill||'').toLowerCase().includes(q) ||
     (r.category||'').toLowerCase().includes(q) ||
     (r.group||'').toLowerCase().includes(q)
   );
@@ -20191,7 +20294,7 @@ function renderReceiveLog() {
   document.getElementById('print-date-receive').textContent = 'Print Date: ' + fmtDate(todayStr());
   const tbody = document.getElementById('receiveLogTable');
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="no-data">
+    tbody.innerHTML = `<tr><td colspan="9" class="no-data">
       ${q ? `No records found for "${q}"` : 'No records found'}
     </td></tr>`;
     document.getElementById('receiveLogSummary').textContent = '';
@@ -20217,6 +20320,7 @@ function renderReceiveLog() {
     <td><span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${hl(r.category||'-', q)}</span></td>
     <td><b>${hl(r.item, q)}</b></td>
     <td><span style="font-weight:600;color:#1a5276;">${hl(r.chalan||'-', q)}</span></td>
+    <td><span style="font-weight:600;color:#1a5276;">${hl(r.bill||'-', q)}</span></td>
     <td><b style="color:#1a5276;">${r.qty}</b></td>
     ${entryByCell}
     ${isAdmin ? `<td class="no-print admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:4px 6px;">${r.entryTime ? (new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})) : '—'}</td>` : ''}
@@ -34173,6 +34277,10 @@ function buildReceiveEditForm(e) {
         +'<input type="text" id="edit-r-chalan" value="'+(e.chalan||'')+'" class="form-control" placeholder="Challan No."></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🧾 বিল নং</label>'
+        +'<input type="text" id="edit-r-bill" value="'+(e.bill||'')+'" class="form-control" placeholder="Bill No."></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏷️ Group *</label>'
         +'<select id="edit-r-group" class="form-control" onchange="editFilterRCat()"><option value="">-- Select --</option>'+gOpts+'</select></div>'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📂 Category</label>'
@@ -34353,6 +34461,7 @@ async function saveEditEntry() {
     var item     = (document.getElementById('edit-r-item')||{}).value||'';
     var qty      = Number((document.getElementById('edit-r-qty')||{}).value||0);
     var chalan   = (document.getElementById('edit-r-chalan')||{}).value||'';
+    var bill     = (document.getElementById('edit-r-bill')||{}).value||'';
     var supplier = (document.getElementById('edit-r-supplier')||{}).value||'';
 
     if (!date)  { toast('তারিখ দিন!','warning'); return; }
@@ -34367,8 +34476,9 @@ async function saveEditEntry() {
     var ok = await igl_confirm('Receive এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
 
-    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, chalan, supplier, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, chalan, bill, supplier, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     DB.receives = arr;
+    gsSaveSupplierName(supplier);
     triggerAutoSave();
     try { renderReceiveLog(); } catch(e){}
     try { renderDashboard(); } catch(e){}
