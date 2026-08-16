@@ -3219,7 +3219,11 @@ window.iglSaveNavVisibility = function() {
           </select>
           <input type="date" class="form-control" style="width:140px;" id="rlog-from" onchange="renderReceiveLog()" title="From Date">
           <input type="date" class="form-control" style="width:140px;" id="rlog-to" onchange="renderReceiveLog()" title="To Date">
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('rlog-search').value='';document.getElementById('rlog-user').value='';document.getElementById('rlog-from').value='';document.getElementById('rlog-to').value='';renderReceiveLog();" title="Clear search">✕ Clear</button>
+          <label style="display:flex;align-items:center;gap:6px;padding:0 10px;border:1.5px solid #f5b041;border-radius:6px;background:#fef9e7;font-size:12px;font-weight:700;color:#9c640c;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="rlog-pending-bill" onchange="renderReceiveLog()" style="width:15px;height:15px;accent-color:#e67e22;cursor:pointer;">
+            🧾 শুধু Bill বাকি আছে
+          </label>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('rlog-search').value='';document.getElementById('rlog-user').value='';document.getElementById('rlog-from').value='';document.getElementById('rlog-to').value='';document.getElementById('rlog-pending-bill').checked=false;renderReceiveLog();" title="Clear search">✕ Clear</button>
         </div>
         <div id="rlog-search-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"></div>
       </div>
@@ -10047,8 +10051,24 @@ function gsRenderPreviewExcelJS(wb){
     function isMergedNonStart(r,c){ return merges.some(function(m){ return r>=m.top && r<=m.bottom && c>=m.left && c<=m.right && !(r===m.top && c===m.left); }); }
 
     var maxCol = ws.columnCount || 12;
+
+    // ── কোন রো-গুলো কলাম-হেডার (নেভি রঙের ফিল) সেটা আগে থেকে বের করা হয় —
+    // যাতে স্ক্রল করলেও Item Details / Challan / Bill / Receive / Issue হেডার উপরে আটকে থাকে
+    var headerRowNums = [];
+    for (var rr=1; rr<=ws.rowCount; rr++){
+      var rowObj = ws.getRow(rr);
+      var isHead = false;
+      for (var cc=1; cc<=maxCol; cc++){
+        var cellObj = rowObj.getCell(cc);
+        if (cellObj.fill && cellObj.fill.fgColor && cellObj.fill.fgColor.argb === 'FF2C3E50'){ isHead = true; break; }
+      }
+      if (isHead) headerRowNums.push(rr);
+      else if (headerRowNums.length) break; // প্রথম হেডার-ব্লকটা পাওয়ার পর বন্ধ করি
+    }
+
     for (var r=1; r<=ws.rowCount; r++){
       var row = ws.getRow(r);
+      var headerLevel = headerRowNums.indexOf(r); // -1 হলে হেডার না, নাহলে 0-based লেভেল
       html += '<tr>';
       for (var c=1; c<=maxCol; c++){
         if (isMergedNonStart(r,c)) continue;
@@ -10081,7 +10101,8 @@ function gsRenderPreviewExcelJS(wb){
         if (cell.fill && cell.fill.fgColor) style += 'background:'+argbToCss(cell.fill.fgColor.argb)+';';
         if (cell.font && cell.font.color) style += 'color:'+argbToCss(cell.font.color.argb)+';';
         var tag = (cell.font && cell.font.bold) ? 'td' : 'td';
-        html += '<'+tag+' style="'+style+'"'+(rowspan>1?' rowspan="'+rowspan+'"':'')+(colspan>1?' colspan="'+colspan+'"':'')+'>'+text+'</'+tag+'>';
+        var cls = headerLevel >= 0 ? ' class="gmr-sh gmr-sh-lvl'+(headerLevel+1)+'"' : '';
+        html += '<'+tag+cls+' style="'+style+'"'+(rowspan>1?' rowspan="'+rowspan+'"':'')+(colspan>1?' colspan="'+colspan+'"':'')+'>'+text+'</'+tag+'>';
       }
       html += '</tr>';
     }
@@ -10095,12 +10116,37 @@ function gsRenderPreviewExcelJS(wb){
     catch(e){ sheetHtmls[ws.name] = '<p style="color:#c0392b;">এই শীট প্রিভিউ করা যায়নি</p>'; }
   });
 
+  // স্ক্রল করলেও কলাম-হেডার (Challan/Bill/Receive/Issue ইত্যাদি) উপরে আটকে থাকে —
+  // অ্যাপের ফিক্সড টপ-বার-এর ঠিক নিচে বসে; দুই লেভেলের হেডার থাকলে (item + sub-column)
+  // দ্বিতীয় লেভেলটা প্রথম লেভেলের প্রকৃত উচ্চতা মেপে তার নিচে বসানো হয়
+  function stickifyHeaders(root){
+    var navOffset = 60; // var(--navbar-h)
+    var lvl1 = root.querySelectorAll('.gmr-sh-lvl1');
+    var lvl2 = root.querySelectorAll('.gmr-sh-lvl2');
+    lvl1.forEach(function(el){
+      el.style.position = 'sticky';
+      el.style.top = navOffset + 'px';
+      el.style.zIndex = '6';
+    });
+    if (lvl2.length){
+      var lvl2Row = lvl2[0].closest('tr');
+      var lvl1Row = lvl2Row ? lvl2Row.previousElementSibling : null;
+      var h = lvl1Row ? lvl1Row.getBoundingClientRect().height : 30;
+      lvl2.forEach(function(el){
+        el.style.position = 'sticky';
+        el.style.top = (navOffset + h) + 'px';
+        el.style.zIndex = '5';
+      });
+    }
+  }
+
   function showTab(name){
     contentEl.innerHTML = sheetHtmls[name];
     Array.prototype.forEach.call(tabsEl.children, function(btn){
       btn.style.background = (btn.dataset.name===name) ? '#2c3e50' : '#eee';
       btn.style.color = (btn.dataset.name===name) ? '#fff' : '#333';
     });
+    stickifyHeaders(contentEl);
   }
 
   tabsEl.innerHTML = '';
@@ -20328,6 +20374,8 @@ function renderReceiveLog() {
   if (userFilter) data = data.filter(r => (r.userId || '') === userFilter);
   if (dateFrom) data = data.filter(r => r.date >= dateFrom);
   if (dateTo) data = data.filter(r => r.date <= dateTo);
+  var pendingBillOnly = (document.getElementById('rlog-pending-bill')||{}).checked || false;
+  if (pendingBillOnly) data = data.filter(r => !r.bill || !String(r.bill).trim());
   if (q) data = data.filter(r =>
     (r.item||'').toLowerCase().includes(q) ||
     (r.date||'').includes(q) ||
@@ -20379,7 +20427,7 @@ function renderReceiveLog() {
     <td><span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${hl(r.category||'-', q)}</span></td>
     <td><b>${hl(r.item, q)}</b></td>
     <td><span style="font-weight:600;color:#1a5276;">${hl(r.chalan||'-', q)}</span></td>
-    <td><span style="font-weight:600;color:#1a5276;">${hl(r.bill||'-', q)}</span></td>
+    <td>${(r.bill && String(r.bill).trim()) ? `<span style="font-weight:600;color:#1a5276;">${hl(r.bill, q)}</span>` : `<span style="background:#fef5e7;color:#b9770e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ বিল বাকি</span>`}</td>
     <td><b style="color:#1a5276;">${r.qty}</b></td>
     ${entryByCell}
     ${isAdmin ? `<td class="no-print admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:4px 6px;">${r.entryTime ? (new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})) : '—'}</td>` : ''}
@@ -34610,6 +34658,12 @@ function buildReceiveEditForm(e) {
         +'<input type="text" id="edit-r-bill" value="'+(e.bill||'')+'" class="form-control" placeholder="Bill No."></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">💰 রেট (প্রতি ইউনিট)</label>'
+        +'<input type="number" id="edit-r-rate" value="'+(e.rate||'')+'" class="form-control" min="0" step="0.01" placeholder="Rate" oninput="editRCalcAmount()"></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🧮 বিল এমাউন্ট</label>'
+        +'<input type="number" id="edit-r-amount" value="'+(e.amount||'')+'" class="form-control" min="0" step="0.01" placeholder="Bill Amount"></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏷️ Group *</label>'
         +'<select id="edit-r-group" class="form-control" onchange="editFilterRCat()"><option value="">-- Select --</option>'+gOpts+'</select></div>'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📂 Category</label>'
@@ -34654,6 +34708,16 @@ function editFilterRItems(selectVal) {
   var items = DB.items.filter(function(i){ return i.group===g; });
   if (cat) items = items.filter(function(i){ return i.category===cat; });
   items.forEach(function(i){ iSel.innerHTML += '<option value="'+i.name+'"'+(i.name===(selectVal||'')?' selected':'')+'>'+i.name+'</option>'; });
+}
+
+function editRCalcAmount() {
+  var rateEl = document.getElementById('edit-r-rate');
+  var qtyEl = document.getElementById('edit-r-qty');
+  var amtEl = document.getElementById('edit-r-amount');
+  if (!rateEl || !qtyEl || !amtEl) return;
+  var rate = parseFloat(rateEl.value) || 0;
+  var qty = parseFloat(qtyEl.value) || 0;
+  if (rate > 0 && qty > 0) amtEl.value = (rate * qty).toFixed(2);
 }
 
 // ── Issue Form ────────────────────────────────────
@@ -34792,6 +34856,8 @@ async function saveEditEntry() {
     var chalan   = (document.getElementById('edit-r-chalan')||{}).value||'';
     var bill     = (document.getElementById('edit-r-bill')||{}).value||'';
     var supplier = (document.getElementById('edit-r-supplier')||{}).value||'';
+    var rate     = parseFloat((document.getElementById('edit-r-rate')||{}).value) || 0;
+    var amount   = parseFloat((document.getElementById('edit-r-amount')||{}).value) || (rate * qty) || 0;
 
     if (!date)  { toast('তারিখ দিন!','warning'); return; }
     if (!group) { toast('Group সিলেক্ট করুন!','warning'); return; }
@@ -34805,7 +34871,7 @@ async function saveEditEntry() {
     var ok = await igl_confirm('Receive এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
 
-    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, chalan, bill, supplier, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, chalan, bill, supplier, rate, amount, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     DB.receives = arr;
     gsSaveSupplierName(supplier);
     triggerAutoSave();
