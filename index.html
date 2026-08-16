@@ -3377,20 +3377,6 @@ window.iglSaveNavVisibility = function() {
         <div id="gmr-preview-content"></div>
       </div>
     </div>
-    <div class="card admin-only-action">
-      <div class="card-header" style="background:#fef9e7;">
-        <span>📁 আপনার নিজস্ব Excel Template আপলোড করুন (Border/Style সহ হুবহু মিলানোর জন্য)</span>
-      </div>
-      <div class="card-body no-print">
-        <p style="font-size:12px;color:#666;margin-top:0;">Template থাকলে Excel Download বাটন সেই টেমপ্লেটেই (আপনার আসল বর্ডার/স্টাইল সহ) ডাটা বসিয়ে দেবে। না থাকলে সাধারণ (স্টাইল ছাড়া) ফরম্যাটে জেনারেট হবে।</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-          <select class="form-control" id="gmr-tmpl-group" style="width:200px;"></select>
-          <button class="btn btn-sm" style="background:#b7950b;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;" onclick="document.getElementById('gmr-tmpl-file').click()">📤 Template Excel বাছাই করুন</button>
-          <input type="file" id="gmr-tmpl-file" accept=".xlsx" style="display:none;" onchange="gsUploadTemplateFile(event)">
-        </div>
-        <div id="gmr-tmpl-list"></div>
-      </div>
-    </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Select Month & Year</span>
@@ -9096,9 +9082,6 @@ function showPage(name, el) {
       populateLogFilters();
       document.getElementById('gmr-month').value = now.getMonth()+1;
       document.getElementById('gmr-year').value = now.getFullYear();
-      var tmplGroupEl = document.getElementById('gmr-tmpl-group');
-      if (tmplGroupEl) tmplGroupEl.innerHTML = document.getElementById('gmr-group').innerHTML;
-      gsLoadTemplatesFromFirebase(function(){ gsRenderTemplateList(); });
       renderMonthly();
     }
     else if (name === 'packaging_dashboard') {
@@ -9541,372 +9524,14 @@ function clearIssueForm() {
   }
 }
 
-// =====================================================================
-//  Group-wise Excel Template (আপনার আসল ফাইলকেই টেমপ্লেট হিসেবে ব্যবহার)
-//  — আলাদা Firebase path-এ সেভ হয় (igl_gs_templates), যাতে প্রতিটা সাধারণ
-//  Save/Autosave-এর সাথে বারবার বড় ফাইল push না হয়
-// =====================================================================
-function gsGetTemplates(){
-  try { return JSON.parse(localStorage.getItem('igl_gs_templates') || '{}'); } catch(e){ return {}; }
-}
-function gsSaveTemplatesLocal(obj){
-  localStorage.setItem('igl_gs_templates', JSON.stringify(obj));
-}
-function gsLoadTemplatesFromFirebase(cb){
-  if (typeof firebase === 'undefined' || !firebase.database) { if(cb) cb(gsGetTemplates()); return; }
-  _fbDb.ref('igl_gs_templates').once('value').then(function(snap){
-    var val = snap.val() || {};
-    gsSaveTemplatesLocal(val);
-    if (cb) cb(val);
-  }).catch(function(){ if(cb) cb(gsGetTemplates()); });
-}
-function gsUploadTemplateFile(evt){
-  var group = (document.getElementById('gmr-tmpl-group')||{}).value;
-  var file = evt.target.files[0];
-  if (!group){ toast('❌ আগে একটা Group সিলেক্ট করুন','error'); if(evt&&evt.target) evt.target.value=''; return; }
-  if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var base64 = e.target.result.split(',')[1]; // data:...;base64,XXXX থেকে শুধু XXXX অংশ
-    var templates = gsGetTemplates();
-    templates[group] = { data: base64, fileName: file.name, uploadedAt: new Date().toISOString() };
-    gsSaveTemplatesLocal(templates);
-    if (typeof firebase !== 'undefined' && firebase.database){
-      _fbDb.ref('igl_gs_templates/'+group).set(templates[group]).then(function(){
-        toast('✅ "'+group+'" এর জন্য Template সেভ হয়েছে (Firebase-এও)', 'success');
-      }).catch(function(err){
-        toast('⚠️ Local এ সেভ হয়েছে, Firebase এ সমস্যা: '+(err&&err.message?err.message:err), 'warning');
-      });
-    } else {
-      toast('✅ "'+group+'" এর জন্য Template লোকালি সেভ হয়েছে', 'success');
-    }
-    gsRenderTemplateList();
-  };
-  reader.readAsDataURL(file);
-  if (evt && evt.target) evt.target.value = '';
-}
-function gsDeleteTemplate(group){
-  var templates = gsGetTemplates();
-  delete templates[group];
-  gsSaveTemplatesLocal(templates);
-  if (typeof firebase !== 'undefined' && firebase.database){
-    _fbDb.ref('igl_gs_templates/'+group).remove();
-  }
-  toast('🗑️ "'+group+'" এর Template মুছে ফেলা হয়েছে', 'success');
-  gsRenderTemplateList();
-}
-function gsRenderTemplateList(){
-  var el = document.getElementById('gmr-tmpl-list');
-  if (!el) return;
-  var templates = gsGetTemplates();
-  var keys = Object.keys(templates);
-  if (!keys.length){ el.innerHTML = '<span style="color:#888;font-size:12px;">এখনো কোনো Group-এর জন্য Template আপলোড করা হয়নি — উপরে Group সিলেক্ট করে আপনার খালি (ব্লাংক ডাটা) ফাইল আপলোড করুন</span>'; return; }
-  el.innerHTML = keys.map(function(g){
-    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#eafaf1;border:1px solid #a9dfbf;border-radius:14px;padding:3px 10px;margin:3px 4px 3px 0;font-size:12px;">'
-      + '📁 <b>'+g+'</b> <span style="color:#888;">('+_esc(templates[g].fileName||'')+')</span>'
-      + ' <a href="#" onclick="gsDeleteTemplate(\''+g+'\');return false;" style="color:#c0392b;margin-left:4px;">✕</a></span>';
-  }).join('');
-  function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-}
-
-
 function gsExportGroupMonthlyExcel(){
   window._gsExportMode = 'download';
-  if (typeof XLSX === 'undefined'){
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = function(){ _gsExportRouter(); };
-    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
-    document.head.appendChild(s);
-    toast('📦 Loading Excel engine...','warning');
-    return;
-  }
-  _gsExportRouter();
+  _gsDoExportGroupMonthly();
 }
 function gsPreviewGroupMonthly(){
   window._gsExportMode = 'preview';
-  if (typeof XLSX === 'undefined'){
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = function(){ _gsExportRouter(); };
-    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
-    document.head.appendChild(s);
-    toast('📦 Loading Excel engine...','warning');
-    return;
-  }
-  _gsExportRouter();
+  _gsDoExportGroupMonthly();
 }
-// পেজেই দেখানোর জন্য — workbook-এর প্রতিটা শীট ট্যাব আকারে HTML টেবিল হিসেবে রেন্ডার করে
-function gsRenderPreview(wb){
-  var card = document.getElementById('gmr-preview-card');
-  var tabsEl = document.getElementById('gmr-preview-tabs');
-  var contentEl = document.getElementById('gmr-preview-content');
-  if (!card || !tabsEl || !contentEl) return;
-
-  var sheetHtmls = {};
-  wb.SheetNames.forEach(function(name){
-    try {
-      sheetHtmls[name] = XLSX.utils.sheet_to_html(wb.Sheets[name], {editable:false});
-    } catch(e){ sheetHtmls[name] = '<p style="color:#c0392b;">এই শীট প্রিভিউ করা যায়নি</p>'; }
-  });
-
-  function showTab(name){
-    contentEl.innerHTML = '<div style="font-size:12px;">'+sheetHtmls[name]+'</div>';
-    Array.prototype.forEach.call(tabsEl.children, function(btn){
-      btn.style.background = (btn.dataset.name===name) ? '#2c3e50' : '#eee';
-      btn.style.color = (btn.dataset.name===name) ? '#fff' : '#333';
-    });
-  }
-
-  tabsEl.innerHTML = '';
-  wb.SheetNames.forEach(function(name, i){
-    var btn = document.createElement('button');
-    btn.textContent = name;
-    btn.dataset.name = name;
-    btn.className = 'btn btn-sm';
-    btn.style.cssText = 'border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;';
-    btn.onclick = function(){ showTab(name); };
-    tabsEl.appendChild(btn);
-  });
-
-  card.style.display = '';
-  showTab(wb.SheetNames[0]);
-  card.scrollIntoView({behavior:'smooth', block:'start'});
-}
-// Template থাকলে সেটা দিয়ে (বর্ডার/স্টাইল সহ), না থাকলে সাধারণ ফরম্যাটে জেনারেট করে
-function _gsExportRouter(){
-  var group = (document.getElementById('gmr-group')||{}).value;
-  var month = Number((document.getElementById('gmr-month')||{}).value || new Date().getMonth()+1);
-  var year  = Number((document.getElementById('gmr-year')||{}).value  || new Date().getFullYear());
-  if (!group){ toast('❌ একটা Group সিলেক্ট করুন','error'); return; }
-  var templates = gsGetTemplates();
-  if (templates[group]){
-    gsFillTemplateAndExport(group, month, year, templates[group]);
-  } else {
-    _gsDoExportGroupMonthly();
-  }
-}
-
-// =====================================================================
-//  Template থেকে ভরে Export — আসল ফাইলের বর্ডার/স্টাইল/মার্জ অক্ষত রেখে শুধু ডাটা বসিয়ে দেওয়া
-// =====================================================================
-function gsDetectTemplateColumns(ws, r0, r1, c0, c1){
-  // হেডার এলাকায় (r0-r1 রো) কলাম-লেবেল (Supplier/Challan/Slip/Machine/Balance/Quantity ইত্যাদি) খুঁজে বের করে
-  var labels = []; // {col, text}
-  for (var r=r0; r<=r1; r++){
-    for (var c=c0; c<=c1; c++){
-      var cell = ws[XLSX.utils.encode_cell({r:r,c:c})];
-      if (!cell || cell.v===undefined || cell.v===null || cell.v==='') continue;
-      labels.push({col:c, text:String(cell.v).toLowerCase()});
-    }
-  }
-  var cols = {};
-  labels.forEach(function(l){
-    if (l.text.indexOf('date')!==-1 && cols.date===undefined) cols.date=l.col;
-    if (l.text.indexOf('supplier')!==-1) cols.supplier=l.col;
-    if (l.text.indexOf('challan')!==-1) cols.challan=l.col;
-    if (l.text.indexOf('slip')!==-1) cols.slip=l.col;
-    if (l.text.indexOf('machine')!==-1 && l.text.indexOf('categ')===-1) cols.machine=l.col;
-    if (l.text.indexOf('balance')!==-1) cols.balance=l.col;
-    if (l.text.indexOf('remark')!==-1) cols.remarks=l.col;
-  });
-  // Quantity/Pcs কলাম দুইটা থাকে (Receive-এর, Issue-এর) — Slip কলামের আগে হলে Receive Qty, পরে হলে Issue Qty
-  labels.forEach(function(l){
-    if (l.text.indexOf('quantity')!==-1 || l.text==='pcs' || l.text.indexOf('qty')!==-1){
-      if (cols.slip!==undefined && l.col > cols.slip) { if(cols.issQty===undefined) cols.issQty=l.col; }
-      else { if(cols.recvQty===undefined) cols.recvQty=l.col; }
-    }
-  });
-  return cols;
-}
-
-function gsFillTemplateAndExport(group, month, year, tmplObj){
-  var monShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var daysInMonth = new Date(year, month, 0).getDate();
-  var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
-  var monthEnd   = year+'-'+String(month).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
-  function dmy(dateStr){ if(!dateStr) return ''; var p=dateStr.split('-'); return p[2]+'-'+monShort[Number(p[1])-1]+'-'+p[0].slice(-2); }
-
-  function bfOf(itemName){
-    var r = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
-    var i = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
-    return r - i;
-  }
-
-  var bytes;
-  try {
-    var bin = atob(tmplObj.data);
-    bytes = new Uint8Array(bin.length);
-    for (var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  } catch(err){ toast('❌ Template ফাইল পড়তে সমস্যা হয়েছে','error'); return; }
-
-  var wb;
-  try { wb = XLSX.read(bytes, {type:'array', cellStyles:true, cellDates:true}); }
-  catch(err){ toast('❌ Template ফাইল লোড করা যায়নি: '+(err&&err.message?err.message:err),'error'); return; }
-
-  var items = (DB.items||[]).filter(function(it){ return it.group === group; });
-  var itemByNorm = {};
-  items.forEach(function(it){ itemByNorm[_giNormalize(it.name)] = it; });
-
-  var unmatched = [], overflow = [], filled = 0;
-
-  var monthLabelNew = monShort[month-1]+'-'+String(year).slice(-2);
-  var monthLabelPattern = /^[A-Za-z]{3}-\d{2}$/;
-  wb.SheetNames.forEach(function(sheetName){
-    var ws0 = wb.Sheets[sheetName];
-    if (!ws0['!ref']) return;
-    var range0 = XLSX.utils.decode_range(ws0['!ref']);
-    // ⚠️ টেমপ্লেটের উপরের টাইটেল এলাকায় (প্রথম ৫ রো) "Jan-26" স্টাইলের পুরনো মাস-লেবেল থাকলে
-    // সেটা বদলে বর্তমান সিলেক্ট করা মাসে আপডেট করে দেওয়া হয় — নাহলে ডাটা ঠিক থাকলেও উপরে
-    // পুরনো মাসের নাম লেখা থেকে যেত, মনে হতো "মাস পাল্টায়নি"
-    for (var rr=range0.s.r; rr<=Math.min(range0.s.r+5, range0.e.r); rr++){
-      for (var cc=range0.s.c; cc<=range0.e.c; cc++){
-        var cell0 = ws0[XLSX.utils.encode_cell({r:rr,c:cc})];
-        if (cell0 && typeof cell0.v === 'string' && monthLabelPattern.test(cell0.v.trim())){
-          cell0.v = monthLabelNew;
-        }
-      }
-    }
-  });
-
-  wb.SheetNames.forEach(function(sheetName){
-    if (['Summary','Rcv & Issue','Requisition'].indexOf(sheetName) !== -1) return; // এগুলো fill করা হয় না — টেমপ্লেটের নিজস্ব cross-ref/ফর্মুলা যা আছে তাই থাকবে
-    var ws = wb.Sheets[sheetName];
-    if (!ws['!ref']) return;
-    var range = XLSX.utils.decode_range(ws['!ref']);
-    var cols = gsDetectTemplateColumns(ws, range.s.r, Math.min(range.s.r+8, range.e.r), range.s.c, range.e.c);
-    if (cols.date===undefined || cols.balance===undefined) return; // এই শীট চেনা ফরম্যাটের না, বাদ
-
-    var catTotalRows = []; // এই শীটের প্রতিটা আইটেমের Total রো ট্র্যাক করা, শেষে Grand Total-এর জন্য
-    var lastUsedRow = range.s.r;
-
-    // প্রতিটা "B/F" রো খুঁজে, তার ঠিক উপরের রো-কে item header ধরা হয়
-    for (var r=range.s.r; r<=range.e.r; r++){
-      var aCell = ws[XLSX.utils.encode_cell({r:r,c:0})];
-      if (!aCell || String(aCell.v).trim()!=='B/F') continue;
-      var headerRow = r-1;
-      var hCell = ws[XLSX.utils.encode_cell({r:headerRow,c:0})];
-      if (!hCell || !hCell.v) continue;
-      var itemName = String(hCell.v).trim();
-
-      // Total রো খুঁজে বের করা (এই আইটেম ব্লকের শেষ)
-      var totalRow = -1;
-      for (var tr=r+1; tr<=range.e.r; tr++){
-        var tCell = ws[XLSX.utils.encode_cell({r:tr,c:0})];
-        if (tCell && String(tCell.v).trim()==='Total'){ totalRow = tr; break; }
-        if (tCell && tCell.v && String(tCell.v).trim() !== ''){ break; } // পরের item header পেয়ে গেলে থামো
-      }
-      if (totalRow<0) continue;
-
-      var match = itemByNorm[_giNormalize(itemName)];
-      if (!match){ unmatched.push(itemName); continue; }
-
-      // B/F বসানো (আগের মতো ফর্মুলা/স্টাইল যা আছে সেটা বদলাবে না, শুধু value বসাবে)
-      var bf = bfOf(match.name);
-      var bfAddr = XLSX.utils.encode_cell({r:r, c:cols.balance});
-      if (!ws[bfAddr]) ws[bfAddr] = {t:'n'};
-      ws[bfAddr].v = bf; ws[bfAddr].t = 'n'; if(ws[bfAddr].f) delete ws[bfAddr].f;
-
-      // এই মাসের Receive+Issue এন্ট্রি, তারিখ অনুযায়ী সাজানো
-      var recs = (DB.receives||[]).filter(function(x){return x.item===match.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'receive', d:x};});
-      var iss  = (DB.issues||[]).filter(function(x){return x.item===match.name && x.date>=monthStart && x.date<=monthEnd;}).map(function(x){return {t:'issue', d:x};});
-      var all = recs.concat(iss).sort(function(a,b){ return a.d.date < b.d.date ? -1 : (a.d.date > b.d.date ? 1 : 0); });
-
-      var availableRows = totalRow - (r+1);
-
-      // ⚠️ গুরুত্বপূর্ণ ফিক্স: নতুন মাসের ডাটা বসানোর আগে এই ব্লকের সব পুরনো ডাটা (আগের মাসের/টেমপ্লেটে
-      // আগে থেকে থাকা এন্ট্রি) পুরোপুরি খালি করে দেওয়া হয় — নাহলে নতুন মাস ছোট হলে পুরনো এন্ট্রি
-      // মিশে থেকে যেত, আর মনে হতো "মাস পাল্টালেও আগের মাসই দেখাচ্ছে"
-      for (var clearRow = r+1; clearRow < totalRow; clearRow++){
-        [cols.date, cols.supplier, cols.challan, cols.slip, cols.machine, cols.recvQty, cols.issQty, cols.remarks].forEach(function(colIdx){
-          if (colIdx===undefined) return;
-          var addr = XLSX.utils.encode_cell({r:clearRow, c:colIdx});
-          if (ws[addr]) { ws[addr].v = ''; ws[addr].t = 's'; if(ws[addr].f) delete ws[addr].f; }
-        });
-      }
-
-      if (all.length > availableRows){
-        overflow.push(itemName+' ('+all.length+'টা লেনদেন, কিন্তু টেমপ্লেটে জায়গা আছে মাত্র '+availableRows+' সারির)');
-        all = all.slice(0, availableRows); // যতটুকু জায়গা আছে ততটুকুই বসবে, বাকিটা বাদ পড়বে
-      }
-
-      all.forEach(function(e, idx){
-        var rowNum = r+1+idx;
-        function setCell(colIdx, val, isText){
-          if (colIdx===undefined) return;
-          var addr = XLSX.utils.encode_cell({r:rowNum, c:colIdx});
-          if (!ws[addr]) ws[addr] = {};
-          ws[addr].v = val; ws[addr].t = isText ? 's' : (typeof val==='number' ? 'n' : 's');
-          if (ws[addr].f) delete ws[addr].f;
-        }
-        setCell(cols.date, dmy(e.d.date), true);
-        if (e.t==='receive'){
-          setCell(cols.supplier, e.d.supplier||'', true);
-          setCell(cols.challan, e.d.chalan||'', true);
-          setCell(cols.recvQty, Number(e.d.qty));
-        } else {
-          setCell(cols.slip, e.d.slip||'', true);
-          setCell(cols.machine, e.d.machineId||'', true);
-          setCell(cols.issQty, Number(e.d.qty));
-          if (cols.remarks!==undefined) setCell(cols.remarks, e.d.remarks||'', true);
-        }
-      });
-      filled++;
-
-      // এই আইটেমের Total রো-এর যোগফল হিসাব করা (Grand Total-এর জন্য) — টেমপ্লেটের
-      // নিজস্ব SUM ফর্মুলা যা আছে তা স্পর্শ করা হয় না, শুধু মান নোট রাখা হয়
-      var itemSumRecv = all.reduce(function(s,e){return s + (e.t==='receive'?Number(e.d.qty):0);},0);
-      var itemSumIss  = all.reduce(function(s,e){return s + (e.t==='issue'?Number(e.d.qty):0);},0);
-      var itemFinalBal = bf + itemSumRecv - itemSumIss;
-      catTotalRows.push({ row: totalRow+1, recv: itemSumRecv, iss: itemSumIss, bal: itemFinalBal }); // +1 কারণ Excel 1-indexed
-      if (totalRow > lastUsedRow) lastUsedRow = totalRow;
-    }
-
-    // ── এই Category শীটের একদম নিচে (শেষ আইটেমের পরের একটা খালি রো-তে) Grand Total ──
-    if (catTotalRows.length){
-      var gtRow = lastUsedRow + 2; // 0-indexed; শেষ Total রো-এর ২ রো পরে (মাঝে একটা ফাঁকা জায়গা রেখে)
-      var gtRecv = catTotalRows.reduce(function(s,x){return s+x.recv;},0);
-      var gtIss  = catTotalRows.reduce(function(s,x){return s+x.iss;},0);
-      var gtBal  = catTotalRows.reduce(function(s,x){return s+x.bal;},0);
-      var gtFormulaRecv = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.recvQty)+x.row;}).join('+');
-      var gtFormulaIss  = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.issQty)+x.row;}).join('+');
-      var gtFormulaBal  = catTotalRows.map(function(x){return XLSX.utils.encode_col(cols.balance)+x.row;}).join('+');
-      var labelAddr = XLSX.utils.encode_cell({r:gtRow, c:0});
-      ws[labelAddr] = { t:'s', v: sheetName+' — Grand Total' };
-      if (cols.recvQty!==undefined) ws[XLSX.utils.encode_cell({r:gtRow,c:cols.recvQty})] = { t:'n', f: gtFormulaRecv, v: gtRecv };
-      if (cols.issQty!==undefined) ws[XLSX.utils.encode_cell({r:gtRow,c:cols.issQty})] = { t:'n', f: gtFormulaIss, v: gtIss };
-      ws[XLSX.utils.encode_cell({r:gtRow,c:cols.balance})] = { t:'n', f: gtFormulaBal, v: gtBal };
-      // শীটের range-এ এই নতুন রো অন্তর্ভুক্ত করা দরকার, নাহলে কিছু ভিউয়ারে দেখা যাবে না
-      if (gtRow > range.e.r){
-        range.e.r = gtRow;
-        ws['!ref'] = XLSX.utils.encode_range(range);
-      }
-    }
-  });
-
-  if (!filled){
-    toast('❌ Template-এ কোনো পরিচিত আইটেম ব্লক (Item নাম → B/F → ... → Total প্যাটার্ন) খুঁজে পাওয়া যায়নি','error');
-    return;
-  }
-
-  var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'_filled.xlsx';
-  if (window._gsExportMode === 'preview'){
-    gsRenderPreview(wb);
-  } else {
-    XLSX.writeFile(wb, fname);
-  }
-
-  var msg = (window._gsExportMode==='preview' ? '👁️ Preview তৈরি হয়েছে' : '✅ '+fname+' ডাউনলোড হয়েছে')+' (আপনার টেমপ্লেট থেকে, '+filled+'টা আইটেম ভরা হয়েছে)';
-  if (unmatched.length) msg += ' | ⚠️ '+unmatched.length+'টা আইটেম ERP-তে খুঁজে পাওয়া যায়নি: '+unmatched.slice(0,5).join(', ')+(unmatched.length>5?'...':'');
-  toast(msg, unmatched.length||overflow.length ? 'warning' : 'success');
-  if (overflow.length){
-    setTimeout(function(){
-      toast('⚠️ এই আইটেমগুলোতে টেমপ্লেটের রিজার্ভড সারির চেয়ে বেশি লেনদেন ছিল, কিছু বাদ পড়েছে: '+overflow.join(' | '), 'error');
-    }, 1200);
-  }
-}
-
-
 function _gsDoExportGroupMonthly(){
   gsLoadExcelJS(function(){ _gsDoExportGroupMonthlyExcelJS(); });
 }
@@ -9953,6 +9578,22 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var titleFont = {bold:true, size:14};
   function styleHeaderRow(row){ row.eachCell({includeEmpty:true}, function(cell){ cell.font=headerFont; cell.fill=headerFill; cell.border=thinBorder; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true}; }); }
   function styleDataRow(row, lastCol){ for (var c=1;c<=lastCol;c++){ row.getCell(c).border=thinBorder; } }
+  // প্রতিটা আইটেম ব্লকের (হেডার রো থেকে Total রো পর্যন্ত) চারপাশে মোটা বর্ডার বসায়, ভিতরের
+  // লাইনগুলো পাতলাই থাকে — চোখে ঝলকানি কমিয়ে প্রতিটা আইটেম আলাদাভাবে বোঝার জন্য
+  function applyBlockOuterBorder(ws, topRow, bottomRow, leftCol, rightCol){
+    for (var c=leftCol; c<=rightCol; c++){
+      var topCell = ws.getRow(topRow).getCell(c);
+      topCell.border = Object.assign({}, topCell.border, {top:{style:'medium'}});
+      var botCell = ws.getRow(bottomRow).getCell(c);
+      botCell.border = Object.assign({}, botCell.border, {bottom:{style:'medium'}});
+    }
+    for (var r=topRow; r<=bottomRow; r++){
+      var leftCell = ws.getRow(r).getCell(leftCol);
+      leftCell.border = Object.assign({}, leftCell.border, {left:{style:'medium'}});
+      var rightCell = ws.getRow(r).getCell(rightCol);
+      rightCell.border = Object.assign({}, rightCell.border, {right:{style:'medium'}});
+    }
+  }
 
   var wb = new ExcelJS.Workbook();
   wb.creator = 'Islam Garments Ltd. ERP';
@@ -9993,6 +9634,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
     var catTotalRows = []; // এই ক্যাটেগরির প্রতিটা আইটেমের Total রো ট্র্যাক করা হয়, শেষে Grand Total-এর জন্য
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
+      var itemHeaderRow = rowNum;
       ws.getCell(rowNum,1).value = it.name;
       ws.getCell(rowNum,1).font = {bold:true};
       styleDataRow(ws.getRow(rowNum), 11);
@@ -10046,6 +9688,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
       }
       ws.getRow(rowNum).font = {bold:true};
       styleDataRow(ws.getRow(rowNum), 11);
+      applyBlockOuterBorder(ws, itemHeaderRow, totalRow, 1, 11);
       catTotalRows.push({row: totalRow, recv: sumRecv, iss: sumIss, bal: runningBal});
       rowNum += 2; // পরের আইটেমের আগে ফাঁকা লাইন
 
@@ -10090,6 +9733,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var sr = 5;
   var sumCatTotalRows = []; // প্রতিটা ক্যাটেগরির Total রো ট্র্যাক করা, শেষে Grand Total-এর জন্য
   categories.forEach(function(cat){
+    var catHeaderRow = sr;
     wsSum.getCell(sr,1).value = cat;
     wsSum.getCell(sr,1).font = {bold:true, underline:true};
     sr++;
@@ -10119,6 +9763,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
       wsSum.getCell(sr,5).value = { formula:'SUM(E'+catFirstRow+':E'+catLastRow+')', result: catBal };
       wsSum.getRow(sr).font = {bold:true};
       styleDataRow(wsSum.getRow(sr), 6);
+      applyBlockOuterBorder(wsSum, catHeaderRow, sr, 1, 6);
       sumCatTotalRows.push({row: sr, bf: catBf, recv: catRecv, iss: catIss, bal: catBal});
       sr++;
     }
