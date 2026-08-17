@@ -23884,8 +23884,8 @@ function mmpGenerate() {
           + '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Month Wise production '+_mmpFmtDate(excelStartDate)+' To '+_mmpFmtDate(todayS)+'</div>'
           + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">ERP Machine No: '+_mmpEsc(m.erp||'-')+(usedBaseline?' <span style="font-size:11px;color:#117a65;font-weight:400;">(📝 '+_mmpFmtDate(excelStartDate)+' পর্যন্ত বেজলাইন '+baselineAmount.toLocaleString()+' kg সহ)</span>':'')+'</div>'
           + prevPeriodNote
-          + '<table style="width:100%;border-collapse:collapse;max-width:520px;">'
-          + '<thead><tr style="background:#eaeaea;"><th style="padding:7px 10px;border:1px solid #ccc;">Month</th><th style="padding:7px 10px;border:1px solid #ccc;">'+_mmpEsc(m.id)+'</th></tr></thead>'
+          + '<table style="width:100%;border-collapse:collapse;max-width:600px;">'
+          + '<thead><tr style="background:#eaeaea;"><th style="padding:7px 10px;border:1px solid #ccc;width:90px;">Month</th><th style="padding:10px 12px;border:1px solid #ccc;line-height:1.4;">'+_mmpEsc(m.id)+'</th></tr></thead>'
           + '<tbody>'+rowsHtml+'</tbody>'
           + '<tfoot><tr style="background:#eaeaea;font-weight:700;"><td style="padding:7px 10px;border:1px solid #ccc;text-align:center;">Total-</td><td style="padding:7px 10px;border:1px solid #ccc;text-align:center;">'+Math.round(total).toLocaleString()+'</td></tr></tfoot>'
           + '</table>'
@@ -23913,14 +23913,14 @@ function mmpPrint(includePrev) {
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Month Wise Production</title><style>'
     + '@page{size:A4 portrait;margin:14mm;}body{font-family:Arial,sans-serif;color:#000;margin:0;}'
-    + 'table{border-collapse:collapse;width:100%;max-width:320px;}th,td{border:1px solid #000;}'
-    + 'th{background:#eaeaea;padding:8px 12px;}'
+    + 'table{border-collapse:collapse;width:100%;max-width:460px;}th,td{border:1px solid #000;}'
+    + 'th{background:#eaeaea;padding:10px 12px;line-height:1.4;}'
     + '</style></head><body>'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+'</div>'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:6px;">ERP Machine No: '+_mmpEsc(rep.machine.erp||'-')+'</div>'
     + (includePrev && rep.prevPeriodTotal !== null && rep.prevPeriodTotal !== undefined ? '<div style="font-size:11.5px;margin-bottom:14px;">আগের সেট পিরিয়ড ('+_mmpFmtDate(rep.prevSet)+' থেকে '+_mmpFmtDate(rep.prevEndForCalc||rep.lastSet)+'): <b>'+Math.round(rep.prevPeriodTotal).toLocaleString()+' kg</b>'+(rep.prevEndOverridden?' (ম্যানুয়াল তারিখ)':'')+'</div>' : '<div style="margin-bottom:14px;"></div>')
     + '<table>'
-    + '<thead><tr><th rowspan="2" style="width:110px;">Month</th><th>Machine Name</th></tr><tr><th>'+_mmpEsc(rep.machine.id)+'</th></tr></thead>'
+    + '<thead><tr><th rowspan="2" style="width:90px;">Month</th><th style="width:280px;">Machine Name</th></tr><tr><th style="font-size:12px;">'+_mmpEsc(rep.machine.id)+'</th></tr></thead>'
     + '<tbody>'+rowsHtml+'</tbody>'
     + '<tfoot><tr style="background:#eaeaea;font-weight:700;"><td style="padding:8px 12px;text-align:center;">Total-</td><td style="padding:8px 12px;text-align:center;">'+Math.round(rep.total).toLocaleString()+'</td></tr></tfoot>'
     + '</table>'
