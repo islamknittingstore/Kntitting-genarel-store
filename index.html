@@ -22392,7 +22392,25 @@ function _seedRetailMachinesIfEmpty(){
         }
       }
     });
-    if(changed) localStorage.setItem('igl_retail_machines', JSON.stringify(stored));
+
+    // ── এককালীন সংশোধন: 122/123 নম্বর মেশিন আগের বাগে ভুল করে পুরনো নামে "রিভার্ট" হয়ে
+    // localStorage-এ সেভ হয়ে গিয়েছিল (bug fix করার আগেই) — তাই শুধু এই দুটোকে একবার জোর করে
+    // এখনকার সঠিক (হার্ডকোডেড) নামে মিলিয়ে দেওয়া হচ্ছে ──
+    ['122','123'].forEach(function(erpFix){
+      var nmEntry = NEEDLE_MACHINES.find(function(x){ return x.erp === erpFix; });
+      if (!nmEntry) return;
+      var idx = -1;
+      stored.forEach(function(x, xi){ if (x.erp === erpFix) idx = xi; });
+      if (idx !== -1 && stored[idx].name !== nmEntry.id) {
+        stored[idx].name = nmEntry.id;
+        changed = true;
+      }
+    });
+
+    if(changed) {
+      localStorage.setItem('igl_retail_machines', JSON.stringify(stored));
+      if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    }
   } catch(e){}
 }
 
