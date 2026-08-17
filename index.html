@@ -1378,7 +1378,9 @@ if('serviceWorker' in navigator){
           stnDepts:        JSON.parse(localStorage.getItem('igl_stn_depts') || 'null'),
           stnSuppliers:    JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]'),
           pkgDepts:        JSON.parse(localStorage.getItem('igl_pkg_depts') || 'null'),
-          pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]')
+          pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'),
+          gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
+          gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]')
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -1669,6 +1671,8 @@ if('serviceWorker' in navigator){
           if(data.settings.stnSuppliers && data.settings.stnSuppliers.length) { localStorage.setItem('igl_stn_suppliers', JSON.stringify(data.settings.stnSuppliers)); if(typeof stnPopulateSupplierDatalist==='function') stnPopulateSupplierDatalist(); }
           if(data.settings.pkgDepts && data.settings.pkgDepts.length) { localStorage.setItem('igl_pkg_depts', JSON.stringify(data.settings.pkgDepts)); if(typeof pkgPopulateDeptDropdown==='function') pkgPopulateDeptDropdown(); }
           if(data.settings.pkgSuppliers && data.settings.pkgSuppliers.length) { localStorage.setItem('igl_pkg_suppliers', JSON.stringify(data.settings.pkgSuppliers)); if(typeof pkgPopulateSupplierDatalist==='function') pkgPopulateSupplierDatalist(); }
+          if(data.settings.gsSuppliers && data.settings.gsSuppliers.length) { localStorage.setItem('igl_gs_suppliers', JSON.stringify(data.settings.gsSuppliers)); if(typeof gsPopulateSupplierDatalist==='function') gsPopulateSupplierDatalist(); }
+          if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
             try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
@@ -2990,7 +2994,7 @@ window.iglSaveNavVisibility = function() {
             </div>
             <div class="form-group">
               <label>Supplier Name</label>
-              <input type="text" class="form-control" id="r-supplier" placeholder="Supplier name (optional)" autocomplete="off" list="r-supplier-list" oninput="gsSaveSupplierName(this.value)">
+              <input type="text" class="form-control" id="r-supplier" placeholder="Supplier name (optional)" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)">
               <datalist id="r-supplier-list"></datalist>
             </div>
             <div class="form-group">
@@ -9358,7 +9362,13 @@ function populateFormDropdowns() {
 
 // ── General Store Receive: Supplier Name মনে রাখা (datalist) ────────
 function gsGetSuppliers() {
-  try { return JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'); } catch(e) { return []; }
+  var list;
+  try { list = JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'); } catch(e) { list = []; }
+  var cleaned = (typeof _iglCleanSupplierList === 'function') ? _iglCleanSupplierList(list) : list;
+  if (cleaned.length !== list.length) {
+    try { localStorage.setItem('igl_gs_suppliers', JSON.stringify(cleaned)); } catch(e) {}
+  }
+  return cleaned;
 }
 function gsSaveSupplierName(name) {
   name = (name || '').trim();
@@ -23285,7 +23295,12 @@ function mpSaveMonth(year, month, dataObj) {
 
   var encoded = {};
   Object.keys(dataObj).forEach(function(mid){ encoded[_mpKeyEncode(mid)] = dataObj[mid]; });
-  _fbDb.ref('igl_machprod_v2/' + key).set(encoded).then(function(){
+  // ⚠️ এখানে .set() নয়, .update() ব্যবহার করা জরুরি — .set() পুরো মাসের নোডটাই মুছে নতুন করে বসিয়ে দেয়,
+  // ফলে যদি এই ডিভাইসে (অফলাইন/টাইমআউটের কারণে) ঐ মাসের পুরনো/আংশিক ক্যাশ থাকে আর তার সাথে
+  // মার্জ করে সেভ করা হয়, তাহলে অন্য ডিভাইস থেকে ইতিমধ্যে Import করা অন্য মেশিনের ডাটা মুছে যায়
+  // (যেটাই সম্ভবত জানুয়ারি মাসের ডাটা হারিয়ে যাওয়ার আসল কারণ)। .update() শুধু যেসব মেশিন-কী এখানে
+  // দেওয়া হচ্ছে সেগুলোই বদলায়, বাকি মেশিনের ডাটা Firebase-এ অক্ষত থাকে।
+  _fbDb.ref('igl_machprod_v2/' + key).update(encoded).then(function(){
     console.log('machProd saved to Firebase:', key);
     if (typeof fbStatus === 'function') fbStatus('saved', '✅ Production Synced');
     // Firebase-এ নিশ্চিতভাবে সেভ হয়ে গেলে, এই ডিভাইসের পুরনো (৬ মাসের বেশি আগের) local cache নিঃশব্দে পরিষ্কার করে দাও —
