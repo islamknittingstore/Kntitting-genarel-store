@@ -3491,7 +3491,7 @@ window.iglSaveNavVisibility = function() {
               </div>
               <div class="form-group">
                 <label>Supplier Name</label>
-                <input type="text" class="form-control" id="stn-r-supplier" placeholder="Supplier Name (optional)" autocomplete="off" list="stn-supplier-list" oninput="stnSaveSupplierName(this.value)">
+                <input type="text" class="form-control" id="stn-r-supplier" placeholder="Supplier Name (optional)" autocomplete="off" list="stn-supplier-list" onchange="stnSaveSupplierName(this.value)">
                 <datalist id="stn-supplier-list"></datalist>
               </div>
             </div>
@@ -4023,7 +4023,7 @@ window.iglSaveNavVisibility = function() {
               </div>
               <div class="form-group">
                 <label>Supplier Name</label>
-                <input type="text" class="form-control" id="pkg-r-supplier" placeholder="Supplier Name (optional)" autocomplete="off" list="pkg-supplier-list" oninput="pkgSaveSupplierName(this.value)">
+                <input type="text" class="form-control" id="pkg-r-supplier" placeholder="Supplier Name (optional)" autocomplete="off" list="pkg-supplier-list" onchange="pkgSaveSupplierName(this.value)">
                 <datalist id="pkg-supplier-list"></datalist>
               </div>
             </div>
@@ -34374,7 +34374,30 @@ document.getElementById('stnBFModal').addEventListener('click', function(e){
 // SUPPLIER NAME AUTO-COMPLETE
 // ═══════════════════════════════════════════
 function stnGetSuppliers() {
-  try { return JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]'); } catch(e) { return []; }
+  var list;
+  try { list = JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]'); } catch(e) { list = []; }
+  var cleaned = _iglCleanSupplierList(list);
+  if (cleaned.length !== list.length) {
+    localStorage.setItem('igl_stn_suppliers', JSON.stringify(cleaned));
+  }
+  return cleaned;
+}
+// পুরনো bug-এ প্রতিটা অক্ষর টাইপ করার সাথে সাথে আলাদা এন্ট্রি সেভ হয়ে গিয়েছিল
+// (যেমন "Islam", "Islam C", "Islam Ca" ...) — এই ফাংশন সেগুলো একটার মধ্যে অন্যটা
+// prefix হলে ছোটগুলো বাদ দিয়ে শুধু সবচেয়ে লম্বা/পূর্ণ নামটা রাখে।
+function _iglCleanSupplierList(list) {
+  if (!Array.isArray(list)) return [];
+  var names = list.map(function(n){ return (n||'').trim(); }).filter(Boolean);
+  var result = [];
+  names.forEach(function(name){
+    // এই নামটা যদি ইতিমধ্যে result-এ থাকা কোনো নামের prefix হয়, স্কিপ করো
+    var isPrefixOfExisting = result.some(function(r){ return r !== name && r.indexOf(name) === 0; });
+    if (isPrefixOfExisting) return;
+    // এই নামটা যদি result-এ থাকা কোনো (ছোট) prefix-কে replace করে, সেটা সরিয়ে দাও
+    result = result.filter(function(r){ return !(name !== r && name.indexOf(r) === 0); });
+    if (result.indexOf(name) === -1) result.push(name);
+  });
+  return result;
 }
 function stnSaveSupplierName(name) {
   name = (name || '').trim();
@@ -34610,7 +34633,13 @@ if (_pkgBFModal) _pkgBFModal.addEventListener('click', function(e){
 // SUPPLIER NAME AUTO-COMPLETE
 // ═══════════════════════════════════════════
 function pkgGetSuppliers() {
-  try { return JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'); } catch(e) { return []; }
+  var list;
+  try { list = JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'); } catch(e) { list = []; }
+  var cleaned = _iglCleanSupplierList(list);
+  if (cleaned.length !== list.length) {
+    localStorage.setItem('igl_pkg_suppliers', JSON.stringify(cleaned));
+  }
+  return cleaned;
 }
 function pkgSaveSupplierName(name) {
   name = (name || '').trim();
