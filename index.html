@@ -23688,6 +23688,12 @@ function mmpOpenReport() {
     + '<button onclick="mmpResetPrevEnd()" style="padding:4px 10px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;">↺ ডিফল্টে ফিরুন</button>'
     + '<span style="font-size:10.5px;color:#888;">(ডিফল্ট = আসল সেট চেঞ্জের তারিখ — চাইলে অন্য তারিখ বসিয়ে "আগের সেট পিরিয়ড"-এর হিসাব সেই তারিখ পর্যন্ত করুন)</span>'
     + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;background:#eaf4fb;border:1px solid #cfe4f3;border-radius:7px;padding:7px 10px;">'
+    + '<label style="font-size:11.5px;color:#555;white-space:nowrap;">🗓️ বর্তমান সেট পিরিয়ড (শেষ সেট চেঞ্জ থেকে) শেষ তারিখ:</label>'
+    + '<input type="date" id="mmp-curend-input" class="form-control" style="width:150px;" onchange="mmpGenerate()">'
+    + '<button onclick="mmpResetCurEnd()" style="padding:4px 10px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;">↺ ডিফল্টে ফিরুন</button>'
+    + '<span style="font-size:10.5px;color:#888;">(ডিফল্ট = আজ পর্যন্ত — চাইলে আগের কোনো তারিখ বসিয়ে বর্তমান সেট পিরিয়ডের হিসাব সেই তারিখ পর্যন্ত করুন, যেমন আজ ১৭ হলে ১৫ পর্যন্ত)</span>'
+    + '</div>'
     + '<div id="mmp-report-body"></div>'
     + '</div>';
   document.body.appendChild(overlay);
@@ -23696,6 +23702,12 @@ function mmpOpenReport() {
 
 function mmpResetPrevEnd() {
   var el = document.getElementById('mmp-prevend-input');
+  if (el) { el.value = ''; delete el.dataset.forMachine; }
+  mmpGenerate();
+}
+
+function mmpResetCurEnd() {
+  var el = document.getElementById('mmp-curend-input');
   if (el) { el.value = ''; delete el.dataset.forMachine; }
   mmpGenerate();
 }
@@ -23754,6 +23766,17 @@ function mmpGenerate() {
   var prevEndOverride = (prevEndInput && prevEndInput.value) ? prevEndInput.value : '';
   var prevEndForCalc = (prevSet && prevEndOverride) ? prevEndOverride : lastSet;
   var prevEndOverridden = !!(prevSet && prevEndOverride && prevEndOverride !== lastSet);
+
+  // ── বর্তমান সেট পিরিয়ডের (শেষ সেট চেঞ্জ থেকে আজ পর্যন্ত) শেষ তারিখ ম্যানুয়ালি বসানোর অপশন ──
+  // মেশিন বদলালে ইনপুট খালি থাকে (ডিফল্ট = আজ); একই মেশিনে থাকলে ইউজারের বসানো তারিখ থেকে যায়
+  var curEndInput = document.getElementById('mmp-curend-input');
+  if (curEndInput && curEndInput.dataset.forMachine !== m.id) {
+    curEndInput.value = '';
+    curEndInput.dataset.forMachine = m.id;
+  }
+  var curEndOverride = (curEndInput && curEndInput.value) ? curEndInput.value : '';
+  var curEndOverridden = !!(curEndOverride && curEndOverride < todayS);
+  if (curEndOverridden) { todayS = curEndOverride; }
 
   mrdLoadAll(function(rd){
     var runDates = rd || {};
@@ -23867,7 +23890,7 @@ function mmpGenerate() {
           });
         }
 
-        window._mmpLastReport = { machine: m, monthRows: monthRows, total: total, startDate: excelStartDate, endDate: todayS, usedBaseline: usedBaseline, isNewMachine: isNewMachine, prevSet: prevSet, lastSet: lastSet, prevEndForCalc: prevEndForCalc, prevEndOverridden: prevEndOverridden, prevPeriodTotal: prevPeriodTotal };
+        window._mmpLastReport = { machine: m, monthRows: monthRows, total: total, startDate: excelStartDate, endDate: todayS, usedBaseline: usedBaseline, isNewMachine: isNewMachine, prevSet: prevSet, lastSet: lastSet, prevEndForCalc: prevEndForCalc, prevEndOverridden: prevEndOverridden, prevPeriodTotal: prevPeriodTotal, curEndOverridden: curEndOverridden };
 
         var rowsHtml = monthRows.map(function(r, i){
           return '<tr style="background:'+(i%2===1?'#f9f9f9':'#fff')+';">'
@@ -23881,7 +23904,7 @@ function mmpGenerate() {
           : '';
 
         body.innerHTML = '<div style="border:1px solid #ddd;border-radius:8px;padding:14px;">'
-          + '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Month Wise production '+_mmpFmtDate(excelStartDate)+' To '+_mmpFmtDate(todayS)+'</div>'
+          + '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Month Wise production '+_mmpFmtDate(excelStartDate)+' To '+_mmpFmtDate(todayS)+(curEndOverridden?' <span style="font-size:11px;color:#c0392b;font-weight:400;">(✏️ ম্যানুয়াল তারিখ)</span>':'')+'</div>'
           + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">ERP Machine No: '+_mmpEsc(m.erp||'-')+(usedBaseline?' <span style="font-size:11px;color:#117a65;font-weight:400;">(📝 '+_mmpFmtDate(excelStartDate)+' পর্যন্ত বেজলাইন '+baselineAmount.toLocaleString()+' kg সহ)</span>':'')+'</div>'
           + prevPeriodNote
           + '<table style="width:100%;border-collapse:collapse;max-width:600px;">'
@@ -23916,7 +23939,7 @@ function mmpPrint(includePrev) {
     + 'table{border-collapse:collapse;width:100%;max-width:460px;}th,td{border:1px solid #000;}'
     + 'th{background:#eaeaea;padding:10px 12px;line-height:1.4;}'
     + '</style></head><body>'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+'</div>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:3px;">Month Wise production '+_mmpFmtDate(rep.startDate)+' To '+_mmpFmtDate(rep.endDate)+(rep.curEndOverridden?' <span style="font-size:11px;font-weight:400;">(✏️ ম্যানুয়াল তারিখ)</span>':'')+'</div>'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:6px;">ERP Machine No: '+_mmpEsc(rep.machine.erp||'-')+'</div>'
     + (includePrev && rep.prevPeriodTotal !== null && rep.prevPeriodTotal !== undefined ? '<div style="font-size:11.5px;margin-bottom:14px;">আগের সেট পিরিয়ড ('+_mmpFmtDate(rep.prevSet)+' থেকে '+_mmpFmtDate(rep.prevEndForCalc||rep.lastSet)+'): <b>'+Math.round(rep.prevPeriodTotal).toLocaleString()+' kg</b>'+(rep.prevEndOverridden?' (ম্যানুয়াল তারিখ)':'')+'</div>' : '<div style="margin-bottom:14px;"></div>')
     + '<table>'
