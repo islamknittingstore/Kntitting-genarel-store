@@ -21220,7 +21220,7 @@ async function machineIdRenameCascade(oldId, newId, erpNo) {
       var rmMatches = rm && (rm.erp ? (String(rm.erp)===String(erpNo)) : (rm.name===oldId));
       if (rmMatches){ rm.name=newId; rmsChanged=true; }
     });
-    if (rmsChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+    if (rmsChanged) { localStorage.setItem('igl_retail_machines', JSON.stringify(rms)); if (typeof triggerAutoSave === 'function') triggerAutoSave(); }
   } catch(e){}
 
   if (typeof firebase === 'undefined' || !firebase.database) {
@@ -22282,8 +22282,8 @@ const NEEDLE_MACHINES = [
   {erp:"119",id:"Yonthin Fleece 32''(19)",retail:"Yj-32\"19(119)",gauge:"20g",section:"Circular"},
   {erp:"120",id:"Yonthin Fleece 32''(20)",retail:"Yj-32\"20(120)",gauge:"20g",section:"Circular"},
   {erp:"121",id:"Yonthin Fleece 32''(21)",retail:"Yj-32\"21(121)",gauge:"20g",section:"Circular"},
-  {erp:"122",id:"Yonthin Fleece 36''(22)",retail:"Yj-36\"22(122)",gauge:"20g",section:"Circular"},
-  {erp:"123",id:"Yonthin Fleece 36''(23)",retail:"Yj-36\"23(123)",gauge:"20g",section:"Circular"},
+  {erp:"122",id:"Yonthin S/J 36''(22) Op Dia",retail:"Yj-36\"22(122) Op",gauge:"20g",section:"Circular"},
+  {erp:"123",id:"Yonthin S/J 36''(23) Op Dia",retail:"Yj-36\"23(123) Op",gauge:"20g",section:"Circular"},
   {erp:"124",id:"Yonthin S/J 36''(24) Op Dia",retail:"Yj-36\"24(124) Op",gauge:"20g",section:"Circular"},
   {erp:"125",id:"Yonthin S/J 36''(25) Op Dia",retail:"Yj-36\"25(125) Op",gauge:"20g",section:"Circular"},
   {erp:"126",id:"Yonthin S/J 36''(26) Op Dia",retail:"Yj-36\"26(126) Op",gauge:"24g",section:"Circular"},
@@ -22375,17 +22375,18 @@ function _seedRetailMachinesIfEmpty(){
         stored.push({ id:'rm_seed_'+i+'_'+Date.now(), erp:erpStr, name:m.id||'', retail:m.retail||m.id||'', gauge:m.gauge||'', section:m.section||''});
         changed = true;
       } else {
-        // আছে — শুধু name ভুল থাকলে ঠিক করো, সবসময় না
+        // আছে — name-টা এখানে জোর করে ওভাররাইট করা হয় না, কারণ Master Data থেকে Machine ID
+        // রিনেম করা থাকলে সেটাই আসল/সঠিক নাম — শুধু gauge/section ফাঁকা থাকলে পূরণ করি
         var x = stored[existIdx];
-        if(x.name !== (m.id||'')){
+        if(!x.name){
           stored[existIdx].name = m.id || '';
           changed = true;
         }
-        if(x.gauge !== (m.gauge||'')){
+        if(!x.gauge && m.gauge){
           stored[existIdx].gauge = m.gauge || '';
           changed = true;
         }
-        if(x.section !== (m.section||'')){
+        if(!x.section && m.section){
           stored[existIdx].section = m.section || '';
           changed = true;
         }
@@ -22406,15 +22407,16 @@ function getNeedleMachines(){
     });
     return stored.map(function(m){
       var erpStr = (m.erp||'').toString();
-      // erp match হলে NEEDLE_MACHINES থেকে সঠিক name নাও
       var nm = nmMap[erpStr];
-      var correctName = nm ? (nm.id || m.name || m.id) : (m.name || m.id);
+      // স্টোর করা (Master Data থেকে সম্ভবত রিনেম করা) নাম-ই আসল — শুধু সেটা একদম ফাঁকা
+      // থাকলেই hardcoded NEEDLE_MACHINES থেকে fallback নেওয়া হয়
+      var correctName = m.name || (nm ? nm.id : '') || m.id;
       return {
         id: correctName,
         erp: erpStr,
-        retail: nm ? (nm.retail || nm.id) : (m.retail || m.name || m.id),
-        gauge: nm ? (nm.gauge || m.gauge || '') : (m.gauge || ''),
-        section: nm ? (nm.section || m.section || '') : (m.section || '')
+        retail: (nm && !m.retail) ? (nm.retail || nm.id) : (m.retail || m.name || m.id),
+        gauge: m.gauge || (nm ? nm.gauge : '') || '',
+        section: m.section || (nm ? nm.section : '') || ''
       };
     });
   } catch(e){ return NEEDLE_MACHINES; }
