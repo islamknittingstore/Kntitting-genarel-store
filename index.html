@@ -21142,17 +21142,20 @@ async function updateMachineId(i, val) {
   var dup = arr.find(function(m,j){ return j!==i && m.id === newVal; });
   if (dup) { toast('❌ এই Machine ID আগে থেকেই আরেকটা মেশিনে আছে!', 'warning'); renderMaster(); return; }
 
-  var oldNo = arr[i].no;
-  var affected = (DB.issues||[]).filter(function(x){ return x.machineNo===oldNo && x.machineId===oldVal; });
-  // Needle Section-এর Set Change/Issue রেকর্ডও একই Machine ID স্ট্রিং দিয়ে জোড়া লাগানো —
-  // তাই সেখানেও কতটা রেকর্ড আছে তা আগে থেকেই দেখিয়ে দিচ্ছি
-  var needleCount = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles.filter(function(n){ return n && n.machine === oldVal; }).length : 0;
+  var erpNo = arr[i].no; // ERP No — এটা কখনো বদলায় না, তাই Needle রেকর্ড এটা দিয়েই খুঁজে বের করা হয়
+  var affected = (DB.issues||[]).filter(function(x){ return x.machineNo===erpNo && x.machineId===oldVal; });
+  // Needle Section-এর রেকর্ড মূলত ERP No দিয়ে জোড়া লাগানো থাকে (erp ফিল্ড থাকলে); পুরনো কিছু
+  // রেকর্ডে erp না থাকলে তখনই শুধু আগের নাম দিয়ে মেলানো হয় — একদম app-এর নিজস্ব fix-script এর মতোই
+  var needleCount = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles.filter(function(n){
+    if (!n) return false;
+    return n.erp ? (String(n.erp)===String(erpNo)) : (n.machine === oldVal);
+  }).length : 0;
 
   var noteLines = [];
   if (affected.length) noteLines.push('General Store Issue: ' + affected.length + ' টি');
   if (needleCount) noteLines.push('Needle Section (Set Change/Issue): ' + needleCount + ' টি');
   var note = noteLines.length
-    ? ('এই মেশিনের পুরনো রেকর্ড ('+noteLines.join(', ')+') সহ Running Date, বেজলাইন ও মাসিক Production ডাটাও স্বয়ংক্রিয়ভাবে নতুন ID-তে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে।')
+    ? ('এই মেশিনের পুরনো রেকর্ড ('+noteLines.join(', ')+') সহ Running Date, বেজলাইন ও মাসিক Production ডাটাও স্বয়ংক্রিয়ভাবে নতুন ID-তে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে। (ERP No. — '+erpNo+' — অপরিবর্তিত থাকবে; Needle রেকর্ড এটা দিয়েই মিলিয়ে ঠিক করা হচ্ছে)')
     : 'এই মেশিনের নামে এখনো কোনো Issue/Needle রেকর্ড নেই।';
 
   var ok = await igl_confirm('Machine ID "'+oldVal+'" → "'+newVal+'" পরিবর্তন করবেন?', note, '✏️');
@@ -21162,7 +21165,7 @@ async function updateMachineId(i, val) {
   DB.machines = arr;
   if (affected.length) {
     var issArr = DB.issues;
-    issArr.forEach(function(x){ if (x.machineNo===oldNo && x.machineId===oldVal) x.machineId = newVal; });
+    issArr.forEach(function(x){ if (x.machineNo===erpNo && x.machineId===oldVal) x.machineId = newVal; });
     DB.issues = issArr;
   }
   triggerAutoSave();
@@ -21171,7 +21174,7 @@ async function updateMachineId(i, val) {
   try { renderDashboard(); } catch(e){}
 
   toast('⏳ Needle Section ও Production ডাটা মাইগ্রেট হচ্ছে...', 'warning');
-  var cascadeCounts = await machineIdRenameCascade(oldVal, newVal);
+  var cascadeCounts = await machineIdRenameCascade(oldVal, newVal, erpNo);
   var summary = '✅ Machine ID আপডেট হয়েছে — General Store Issue: ' + affected.length
     + ', Needle: ' + cascadeCounts.needles
     + ', Running Date: ' + cascadeCounts.rundates
@@ -21181,31 +21184,42 @@ async function updateMachineId(i, val) {
 }
 
 // ── Machine ID রিনেম হলে Needle Section + Firebase-direct মেশিন-কী স্টোরগুলোতেও (Running
-// Date, বেজলাইন, মাসিক Production) একই সাথে cascade হয় — আগের একবারের-জন্য-বানানো
-// mnmRunMigration-এর যুক্তিটাই এখানে সাধারণীকরণ করা হলো, যেকোনো নাম পরিবর্তনের জন্য পুনঃব্যবহারযোগ্য ──
-async function machineIdRenameCascade(oldId, newId) {
+// Date, বেজলাইন, মাসিক Production) একই সাথে cascade হয়।
+// Needle Section-এর রেকর্ড (NDB.needles) ERP No (erpNo) দিয়ে ম্যাচ করা হয় — কারণ ERP No কখনো
+// বদলায় না, তাই এটাই সবচেয়ে নির্ভরযোগ্য key (app-এর নিজস্ব পুরনো fix-script এই একই যুক্তি ব্যবহার করে)।
+// যেসব পুরনো রেকর্ডে erp ফিল্ড নেই (legacy ডাটা), শুধু তখনই আগের নাম-টেক্সট দিয়ে মেলানো হয়।
+// Running Date / বেজলাইন / Production — এই তিনটা স্টোরে ERP No সংরক্ষিত থাকে না (শুধু
+// Machine ID টেক্সট-ই key), তাই ওগুলোর জন্য টেক্সট-ভিত্তিক rename-ই একমাত্র উপায় ──
+async function machineIdRenameCascade(oldId, newId, erpNo) {
   var counts = { needles: 0, rundates: 0, baselines: 0, prodMonths: 0 };
+  function needleMatches(n){
+    if (!n) return false;
+    return n.erp ? (String(n.erp)===String(erpNo)) : (n.machine === oldId);
+  }
 
   // লোকাল NDB.needles
   if (typeof NDB !== 'undefined' && NDB.needles) {
     var needles = NDB.needles;
-    needles.forEach(function(n){ if (n && n.machine === oldId) { n.machine = newId; counts.needles++; } });
+    needles.forEach(function(n){ if (needleMatches(n)) { n.machine = newId; if (erpNo) n.erp = erpNo; counts.needles++; } });
     if (counts.needles) NDB.needles = needles;
   }
   // লোকাল ক্যাশ/ব্যাকআপ
   try {
     var lsNeedles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
     var lsChanged = false;
-    lsNeedles.forEach(function(n){ if (n && n.machine===oldId){ n.machine=newId; lsChanged=true; } });
+    lsNeedles.forEach(function(n){ if (needleMatches(n)){ n.machine=newId; if(erpNo) n.erp=erpNo; lsChanged=true; } });
     if (lsChanged) localStorage.setItem('igl_needles', JSON.stringify(lsNeedles));
   } catch(e){}
   if (typeof window._ndlFullCache !== 'undefined' && Array.isArray(window._ndlFullCache)) {
-    window._ndlFullCache.forEach(function(n){ if (n && n.machine===oldId) n.machine=newId; });
+    window._ndlFullCache.forEach(function(n){ if (needleMatches(n)) { n.machine=newId; if(erpNo) n.erp=erpNo; } });
   }
   try {
     var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
     var rmsChanged = false;
-    rms.forEach(function(rm){ if (rm && rm.name===oldId){ rm.name=newId; rmsChanged=true; } });
+    rms.forEach(function(rm){
+      var rmMatches = rm && (rm.erp ? (String(rm.erp)===String(erpNo)) : (rm.name===oldId));
+      if (rmMatches){ rm.name=newId; rmsChanged=true; }
+    });
     if (rmsChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
   } catch(e){}
 
@@ -21222,7 +21236,7 @@ async function machineIdRenameCascade(oldId, newId) {
     var arr = snap.val();
     if (!Array.isArray(arr)) return;
     var changed = false;
-    arr.forEach(function(n){ if (n && n.machine === oldId) { n.machine = newId; changed = true; } });
+    arr.forEach(function(n){ if (needleMatches(n)) { n.machine = newId; if (erpNo) n.erp = erpNo; changed = true; } });
     if (!changed) return;
     return fb.ref('igl_erp/ndb/needles').set(arr);
   });
