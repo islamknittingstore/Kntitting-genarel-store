@@ -5145,12 +5145,16 @@ function ok(msg) {
           <select id="nmi-log-user" style="display:none;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onchange="nmiRenderLog()">
             <option value="">All Users</option>
           </select>
+          <select id="nmi-log-machine" style="padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;min-width:150px;" onchange="nmiRenderLog()">
+            <option value="">সব মেশিন</option>
+          </select>
           <input type="date" class="form-control" id="nmi-log-from" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="From Date">
           <span style="font-size:12px;color:#888;">—</span>
           <input type="date" class="form-control" id="nmi-log-to" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="To Date">
-          <button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="document.getElementById('nmi-log-from').value='';document.getElementById('nmi-log-to').value='';document.getElementById('nmi-log-user').value='';nmiRenderLog()">✕ Clear</button>
+          <button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="document.getElementById('nmi-log-from').value='';document.getElementById('nmi-log-to').value='';document.getElementById('nmi-log-user').value='';document.getElementById('nmi-log-machine').value='';nmiRenderLog()">✕ Clear</button>
         </div>
       </div>
+      <div id="nmi-log-total-bar" style="display:none;background:#fdf2e3;border-bottom:1px solid #f5cba7;padding:8px 14px;font-size:13px;font-weight:700;color:#9c4600;"></div>
       <div class="card-body" style="padding:10px;">
         <!-- New Needle -->
         <div style="margin-bottom:12px;">
@@ -21140,12 +21144,18 @@ async function updateMachineId(i, val) {
 
   var oldNo = arr[i].no;
   var affected = (DB.issues||[]).filter(function(x){ return x.machineNo===oldNo && x.machineId===oldVal; });
+  // Needle Section-এর Set Change/Issue রেকর্ডও একই Machine ID স্ট্রিং দিয়ে জোড়া লাগানো —
+  // তাই সেখানেও কতটা রেকর্ড আছে তা আগে থেকেই দেখিয়ে দিচ্ছি
+  var needleCount = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles.filter(function(n){ return n && n.machine === oldVal; }).length : 0;
 
-  var ok = await igl_confirm(
-    'Machine ID "'+oldVal+'" → "'+newVal+'" পরিবর্তন করবেন?',
-    affected.length ? ('এই মেশিনের পুরনো '+affected.length+' টি Issue রেকর্ডও স্বয়ংক্রিয়ভাবে নতুন ID-তে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে।') : 'এই মেশিনের নামে এখনো কোনো Issue রেকর্ড নেই।',
-    '✏️'
-  );
+  var noteLines = [];
+  if (affected.length) noteLines.push('General Store Issue: ' + affected.length + ' টি');
+  if (needleCount) noteLines.push('Needle Section (Set Change/Issue): ' + needleCount + ' টি');
+  var note = noteLines.length
+    ? ('এই মেশিনের পুরনো রেকর্ড ('+noteLines.join(', ')+') সহ Running Date, বেজলাইন ও মাসিক Production ডাটাও স্বয়ংক্রিয়ভাবে নতুন ID-তে আপডেট হবে, যাতে হিসাব/রিপোর্ট আগের মতোই ঠিক থাকে।')
+    : 'এই মেশিনের নামে এখনো কোনো Issue/Needle রেকর্ড নেই।';
+
+  var ok = await igl_confirm('Machine ID "'+oldVal+'" → "'+newVal+'" পরিবর্তন করবেন?', note, '✏️');
   if (!ok) { renderMaster(); return; }
 
   arr[i].id = newVal;
@@ -21159,7 +21169,107 @@ async function updateMachineId(i, val) {
   renderMaster();
   try { renderIssueLog(); } catch(e){}
   try { renderDashboard(); } catch(e){}
-  toast('✅ Machine ID আপডেট হয়েছে' + (affected.length ? (' ('+affected.length+' টি পুরনো রেকর্ডসহ)') : ''), 'success');
+
+  toast('⏳ Needle Section ও Production ডাটা মাইগ্রেট হচ্ছে...', 'warning');
+  var cascadeCounts = await machineIdRenameCascade(oldVal, newVal);
+  var summary = '✅ Machine ID আপডেট হয়েছে — General Store Issue: ' + affected.length
+    + ', Needle: ' + cascadeCounts.needles
+    + ', Running Date: ' + cascadeCounts.rundates
+    + ', বেজলাইন: ' + cascadeCounts.baselines
+    + ', Production মাস: ' + cascadeCounts.prodMonths;
+  toast(summary, 'success');
+}
+
+// ── Machine ID রিনেম হলে Needle Section + Firebase-direct মেশিন-কী স্টোরগুলোতেও (Running
+// Date, বেজলাইন, মাসিক Production) একই সাথে cascade হয় — আগের একবারের-জন্য-বানানো
+// mnmRunMigration-এর যুক্তিটাই এখানে সাধারণীকরণ করা হলো, যেকোনো নাম পরিবর্তনের জন্য পুনঃব্যবহারযোগ্য ──
+async function machineIdRenameCascade(oldId, newId) {
+  var counts = { needles: 0, rundates: 0, baselines: 0, prodMonths: 0 };
+
+  // লোকাল NDB.needles
+  if (typeof NDB !== 'undefined' && NDB.needles) {
+    var needles = NDB.needles;
+    needles.forEach(function(n){ if (n && n.machine === oldId) { n.machine = newId; counts.needles++; } });
+    if (counts.needles) NDB.needles = needles;
+  }
+  // লোকাল ক্যাশ/ব্যাকআপ
+  try {
+    var lsNeedles = JSON.parse(localStorage.getItem('igl_needles') || '[]');
+    var lsChanged = false;
+    lsNeedles.forEach(function(n){ if (n && n.machine===oldId){ n.machine=newId; lsChanged=true; } });
+    if (lsChanged) localStorage.setItem('igl_needles', JSON.stringify(lsNeedles));
+  } catch(e){}
+  if (typeof window._ndlFullCache !== 'undefined' && Array.isArray(window._ndlFullCache)) {
+    window._ndlFullCache.forEach(function(n){ if (n && n.machine===oldId) n.machine=newId; });
+  }
+  try {
+    var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
+    var rmsChanged = false;
+    rms.forEach(function(rm){ if (rm && rm.name===oldId){ rm.name=newId; rmsChanged=true; } });
+    if (rmsChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+  } catch(e){}
+
+  if (typeof firebase === 'undefined' || !firebase.database) {
+    toast('⚠️ ইন্টারনেট/Firebase সংযোগ নেই — Needle ও Production ডাটা এই মুহূর্তে শুধু লোকালি আপডেট হলো। অনলাইনে এসে আরেকবার এই এডিট রিপিট করুন যাতে সব ডিভাইসে ঠিকভাবে Sync হয়।', 'warning');
+    return counts;
+  }
+
+  var fb = firebase.database();
+  var oldKey = _mpKeyEncode(oldId);
+  var newKey = _mpKeyEncode(newId);
+
+  var stepNeedles = fb.ref('igl_erp/ndb/needles').once('value').then(function(snap){
+    var arr = snap.val();
+    if (!Array.isArray(arr)) return;
+    var changed = false;
+    arr.forEach(function(n){ if (n && n.machine === oldId) { n.machine = newId; changed = true; } });
+    if (!changed) return;
+    return fb.ref('igl_erp/ndb/needles').set(arr);
+  });
+
+  var stepRunDates = fb.ref('igl_machine_rundate_v2').once('value').then(function(snap){
+    var obj = snap.val() || {};
+    if (!obj.hasOwnProperty(oldKey)) return;
+    obj[newKey] = obj[oldKey];
+    delete obj[oldKey];
+    counts.rundates = 1;
+    return fb.ref('igl_machine_rundate_v2').set(obj);
+  });
+
+  var stepBaselines = fb.ref('igl_machine_baseline_v2').once('value').then(function(snap){
+    var obj = snap.val() || {};
+    if (!obj.hasOwnProperty(oldKey)) return;
+    obj[newKey] = obj[oldKey];
+    delete obj[oldKey];
+    counts.baselines = 1;
+    return fb.ref('igl_machine_baseline_v2').set(obj);
+  });
+
+  var stepProd = fb.ref('igl_machprod_v2').once('value').then(function(snap){
+    var allMonths = snap.val() || {};
+    var monthWrites = [];
+    Object.keys(allMonths).forEach(function(monthKey){
+      var monthObj = allMonths[monthKey] || {};
+      if (monthObj.hasOwnProperty(oldKey)) {
+        monthObj[newKey] = monthObj[oldKey];
+        delete monthObj[oldKey];
+        counts.prodMonths++;
+        monthWrites.push(fb.ref('igl_machprod_v2/' + monthKey).set(monthObj));
+      }
+    });
+    return Promise.all(monthWrites);
+  });
+
+  try {
+    await Promise.all([stepNeedles, stepRunDates, stepBaselines, stepProd]);
+  } catch(err) {
+    console.error('machineIdRenameCascade error', err);
+    toast('❌ Needle/Production ডাটা মাইগ্রেট করতে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error');
+  }
+
+  window._machRunDateCache = null;
+  window._machProdCache = {};
+  return counts;
 }
 
 function updateMachineCat(i, val) {
@@ -30616,6 +30726,22 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       el.style.display=isAdmin?'':'none';
     });
 
+    // মেশিন ফিল্টার ড্রপডাউন — একবারই populate করা হয়
+    var machineFilterEl=document.getElementById('nmi-log-machine');
+    if(machineFilterEl && machineFilterEl.options.length<=1){
+      var nmList=getNeedleMachines().slice().sort(function(a,b){
+        var ea=parseInt(a.erp)||0, eb=parseInt(b.erp)||0;
+        return ea-eb;
+      });
+      nmList.forEach(function(m){
+        var opt=document.createElement('option');
+        opt.value=m.id;
+        opt.textContent=(m.erp?('ERP '+m.erp+' - '):'')+m.id;
+        machineFilterEl.appendChild(opt);
+      });
+    }
+    var machineFilter=(document.getElementById('nmi-log-machine')||{}).value||'';
+
     var nm=ndlGetMaster();
 
     // তারিখ ফিল্টার: দুটোই খালি হলে আজকের তারিখ দেখাও
@@ -30624,6 +30750,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if(dateTo && r.date > dateTo) return false;
       if(!dateFrom && !dateTo && r.date !== today) return false;
       if(userFilter && (r.userId||'') !== userFilter) return false;
+      if(machineFilter && r.machine !== machineFilter) return false;
       return true;
     });
     filtered.sort(function(a,b){return b.id-a.id;});
@@ -30666,6 +30793,23 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
     newTbody.innerHTML=newIss.length?newIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো New Needle issue নেই</td></tr>';
     usedTbody.innerHTML=usedIss.length?usedIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো Used Needle issue নেই</td></tr>';
+
+    // মোট (Total) বার — মেশিন ফিল্টার দিলে সেই মেশিনের ডেট-টু-ডেট মোট Issue এখানে দেখাবে
+    var totalBar=document.getElementById('nmi-log-total-bar');
+    if(totalBar){
+      var newQtyTotal=newIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var usedQtyTotal=usedIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var grandTotal=newQtyTotal+usedQtyTotal;
+      if(filtered.length){
+        var rangeLabel = (dateFrom||dateTo) ? ((dateFrom?fmtDate(dateFrom):'শুরু থেকে')+' — '+(dateTo?fmtDate(dateTo):'আজ পর্যন্ত')) : 'আজকের';
+        var machineLabel = machineFilter ? (' | মেশিন: <b>'+machineFilter+'</b>') : '';
+        totalBar.style.display='block';
+        totalBar.innerHTML = '📊 '+rangeLabel+machineLabel
+          +' — মোট Issue: <b>'+grandTotal+'</b> পিস &nbsp; (🆕 New: '+newQtyTotal+' | ♻️ Used: '+usedQtyTotal+' | এন্ট্রি: '+filtered.length+' টি)';
+      } else {
+        totalBar.style.display='none';
+      }
+    }
 
     // User-wise Summary (Admin only)
     var summaryCard=document.getElementById('nmi-user-summary-card');
