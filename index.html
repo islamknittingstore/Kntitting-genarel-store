@@ -5436,7 +5436,7 @@ function ok(msg) {
         </div>
       </div>
       <div class="card-body" style="padding:0;"><div class="table-scroll">
-        <table><thead><tr><th>Date</th><th>Needle/Sinker</th><th>Section</th><th>Needle Type</th><th>Challan</th><th>Qty</th><th class="no-print">Del</th></tr></thead>
+        <table><thead><tr><th>Date</th><th>Needle/Sinker</th><th>Section</th><th>Needle Type</th><th>Challan</th><th>Qty</th><th class="no-print">Action</th></tr></thead>
         <tbody id="needleReceiveLog"></tbody></table>
       </div></div>
     </div>
@@ -30153,9 +30153,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         ?'<span style="background:#e67e22;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;">Used</span>'
         :'<span style="background:#27ae60;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;">New</span>';
       var canDelNR = _isAdminNR || (window.IGL_CURRENT_USER && r.userId === window.IGL_CURRENT_USER.role);
+      var canEditNR = (typeof iglCanEdit === 'function') && iglCanEdit('needle_receive', r);
       return '<tr><td>'+fmtDate(r.date)+'</td><td><b>'+r.needleCode+'</b></td><td>'+r.section+'</td><td>'+stypeBadge+'</td><td>'+(r.challan||'-')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#117a65;">'+r.qty+'</td>'
-        +'<td style="text-align:center;" class="no-print">'+(canDelNR ? '<button onclick="ndlDelRcv('+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">X</button>' : '')+'</td></tr>';
+        +'<td style="text-align:center;white-space:nowrap;" class="no-print">'
+          +(canEditNR ? '<button onclick="openEditModal(\'needle_receive\','+r.id+')" style="background:#117a65;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;margin-right:4px;" title="Edit">✏️</button>' : '')
+          +(canDelNR ? '<button onclick="ndlDelRcv('+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">X</button>' : '')
+        +'</td></tr>';
     }).join('');
   }
 
@@ -35181,12 +35185,13 @@ function openEditPermModal() {
     var up = perms[u.role] || {};
     html += '<div style="border:1px solid #d5e8f7;border-radius:10px;padding:14px 16px;background:#f8fbff;">';
     html += '<div style="font-weight:700;color:#1a5276;font-size:14px;margin-bottom:10px;">👤 ' + u.name + ' <span style="font-size:11px;color:#888;font-weight:400;">('+u.role+')</span></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
 
     var types = [
-      { key:'receive', label:'📥 Receive Edit', color:'#1a5276' },
-      { key:'issue',   label:'📤 Issue Edit',   color:'#7d3c98' },
-      { key:'needle',  label:'🪡 Needle Edit',  color:'#e67e22' }
+      { key:'receive',       label:'📥 Receive Edit',        color:'#1a5276' },
+      { key:'issue',         label:'📤 Issue Edit',          color:'#7d3c98' },
+      { key:'needle',        label:'🪡 Needle Edit',         color:'#e67e22' },
+      { key:'needle_receive',label:'📥 Ndl Receive Edit',    color:'#117a65' }
     ];
     types.forEach(function(t) {
       var checked = up[t.key] === true;
@@ -35257,6 +35262,14 @@ function openEditModal(type, id) {
     header.style.background = 'linear-gradient(135deg,#784212,#e67e22)';
     title.textContent = '✏️ Needle Issue Edit';
     body.innerHTML = buildNeedleEditForm(entry);
+
+  } else if (type === 'needle_receive') {
+    var entry = ndlGetRcv().find(function(r){ return String(r.id) === String(id); });
+    if (!entry) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+    header.style.background = 'linear-gradient(135deg,#117a65,#1abc9c)';
+    title.textContent = '✏️ Needle Receive Edit';
+    body.innerHTML = buildNeedleReceiveEditForm(entry);
+    setTimeout(function(){ editPopulateNeedleReceiveDropdown(entry); }, 50);
   }
 
   modal.style.display = 'flex';
@@ -35468,6 +35481,51 @@ function buildNeedleEditForm(e) {
   +'</div>';
 }
 
+// ── Needle Receive Form ──────────────────────────────
+function buildNeedleReceiveEditForm(e) {
+  var stype = e.needleStockType || 'new';
+  var sections = ['S/J & Fleece','Auto S/J & Rib','Flat Knit'];
+  var secOpts = '<option value="">All Sections</option>' + sections.map(function(s){
+    return '<option value="'+s+'"'+(s===e.section?' selected':'')+'>'+s+'</option>';
+  }).join('');
+
+  return '<div style="display:grid;gap:14px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:#117a65;display:block;margin-bottom:5px;">📅 তারিখ *</label>'
+        +'<input type="date" id="edit-nr-date" value="'+e.date+'" class="form-control" style="font-weight:600;border-color:#117a65;"></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#117a65;display:block;margin-bottom:5px;">📋 Needle Issue Slip No</label>'
+        +'<input type="text" id="edit-nr-challan" value="'+(e.challan||'')+'" class="form-control" placeholder="Slip No..." style="border-color:#117a65;"></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:#117a65;display:block;margin-bottom:5px;">🏷️ Needle Type</label>'
+        +'<select id="edit-nr-needletype" class="form-control" style="border-color:#117a65;"><option value="new"'+(stype==='new'?' selected':'')+'>New Needle</option><option value="used"'+(stype==='used'?' selected':'')+'>Used Needle</option></select></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#117a65;display:block;margin-bottom:5px;">📂 Section</label>'
+        +'<select id="edit-nr-section" class="form-control" onchange="editPopulateNeedleReceiveDropdown()" style="border-color:#117a65;">'+secOpts+'</select></div>'
+    +'</div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#8e44ad;display:block;margin-bottom:5px;">🪡 Needle / Sinker Number *</label>'
+      +'<select id="edit-nr-needleid" class="form-control" style="border-color:#8e44ad;"><option value="">-- Select --</option></select></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#117a65;display:block;margin-bottom:5px;">🔢 পরিমাণ *</label>'
+      +'<input type="number" id="edit-nr-qty" value="'+e.qty+'" class="form-control" min="1" style="font-weight:700;font-size:16px;border-color:#117a65;"></div>'
+  +'</div>';
+}
+
+function editPopulateNeedleReceiveDropdown(e) {
+  var entry = e || (function(){
+    var arr = ndlGetRcv();
+    return arr.find(function(r){ return String(r.id) === String(_editId); }) || {};
+  })();
+  var sec = (document.getElementById('edit-nr-section')||{}).value||'';
+  var nm = (typeof ndlGetMaster === 'function') ? ndlGetMaster() : [];
+  var list = sec ? nm.filter(function(n){ return (n.cat||n.section||'')===sec; }) : nm;
+  var currentNeedleId = entry.needleId || '';
+  var sel = document.getElementById('edit-nr-needleid');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Select --</option>' + list.map(function(n){
+    var selected = (n.id === currentNeedleId || n.code === currentNeedleId) ? ' selected' : '';
+    return '<option value="'+n.id+'"'+selected+'>['+n.type+'] '+(n.name||n.code)+'</option>';
+  }).join('');
+}
+
 // ── Save Edit Entry ──────────────────────────────
 async function saveEditEntry() {
   if (_editType === 'receive') {
@@ -35603,6 +35661,49 @@ async function saveEditEntry() {
     try { renderDashboard(); } catch(e){}
     closeEditModal();
     toast('✅ Needle এন্ট্রি আপডেট হয়েছে!', 'success');
+
+  } else if (_editType === 'needle_receive') {
+    var date         = (document.getElementById('edit-nr-date')||{}).value||'';
+    var challan      = (document.getElementById('edit-nr-challan')||{}).value||'';
+    var needleStockType = (document.getElementById('edit-nr-needletype')||{}).value||'new';
+    var newNeedleId  = (document.getElementById('edit-nr-needleid')||{}).value||'';
+    var qty          = Number((document.getElementById('edit-nr-qty')||{}).value||0);
+
+    if (!date)        { toast('তারিখ দিন!','warning'); return; }
+    if (!newNeedleId) { toast('Needle সিলেক্ট করুন!','warning'); return; }
+    if (!qty || qty <= 0) { toast('সঠিক পরিমাণ দিন!','warning'); return; }
+
+    var arr = ndlGetRcv();
+    var idx = arr.findIndex(function(r){ return String(r.id) === String(_editId); });
+    if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি!','error'); return; }
+
+    var _lkErrENR = window.iglCheckMonthLockEdit('needle', arr[idx].date, date);
+    if (_lkErrENR) { toast(_lkErrENR, 'error'); return; }
+
+    var ok = await igl_confirm('Needle Receive এন্ট্রি আপডেট করবেন?', '', '✏️');
+    if (!ok) return;
+
+    var nm = (typeof ndlGetMaster === 'function') ? ndlGetMaster() : [];
+    var ndlMaster = nm.find(function(n){ return n.id === newNeedleId; }) || {};
+    var needleCode = ndlMaster.code || ndlMaster.name || newNeedleId;
+
+    arr[idx] = Object.assign({}, arr[idx], {
+      date, challan, qty, needleStockType,
+      needleId: newNeedleId,
+      needleCode: needleCode,
+      needleType: ndlMaster.type || arr[idx].needleType,
+      section: ndlMaster.cat || ndlMaster.section || arr[idx].section,
+      editedAt: new Date().toISOString(),
+      editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : ''
+    });
+    ndlSetRcv(arr);
+    triggerAutoSave();
+    try { renderNdlRcvLog(); } catch(e){}
+    try { renderNeedleStock(); } catch(e){}
+    try { renderUsedNeedleStock(); } catch(e){}
+    try { renderDashboard(); } catch(e){}
+    closeEditModal();
+    toast('✅ Needle Receive এন্ট্রি আপডেট হয়েছে!', 'success');
   }
 }
 
