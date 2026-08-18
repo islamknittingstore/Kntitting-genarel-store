@@ -25024,6 +25024,7 @@ function renderMachineSetSummary() {
     t += '<table style="font-size:11px;border-collapse:collapse;width:100%;">';
     t += '<thead><tr style="background:#4a235a;color:#fff;">';
     t += '<th class="no-print" style="padding:6px 4px;width:26px;">✔️</th>';
+    t += '<th style="padding:6px 8px;width:34px;">SL</th>';
     t += '<th style="padding:6px 8px;">ERP</th><th style="padding:6px 8px;text-align:left;">Machine ID</th>';
     t += '<th style="padding:6px 8px;">Gauge</th><th style="padding:6px 8px;">Previous Set Date</th>';
     t += '<th style="padding:6px 8px;">Last Set Date</th><th style="padding:6px 8px;">Production Since Last Set (kg)</th>';
@@ -25088,6 +25089,7 @@ function renderMachineSetSummary() {
       var altBg = (idx%2===1?'#f9f4fc':'#fff');
       t += '<tr class="mss-row" data-mid="'+m.id.replace(/"/g,'&quot;')+'" data-orig-bg="'+altBg+'" onclick="mssToggleRowHighlight(this, event, \''+m.id.replace(/'/g,"\\'")+'\')" style="background:'+rowBg+';cursor:pointer;">';
       t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();" onchange="mssPrintChkChanged(\''+m.id.replace(/'/g,"\\'")+'\', this.checked)" '+(isChecked?'checked':'')+'></td>';
+      t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(idx+1)+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.gauge||'-')+'</td>';
@@ -25239,6 +25241,7 @@ function mssPrintSummary() {
       var hlLevel = (window._mssHighlight && window._mssHighlight[m.id]) || 0;
       var rowBgPrint = hlLevel === 2 ? '#999999' : (hlLevel === 1 ? '#dcdcdc' : (idx%2===1?'#f9f4fc':'#fff'));
       rows += '<tr style="background:'+rowBgPrint+';">'
+        + '<td style="text-align:center;border:1px solid #ddd;color:#555;">'+(idx+1)+'</td>'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.erp||'')+'</td>'
         + '<td style="border:1px solid #ddd;"><b>'+m.id+'</b></td>'
         + '<td style="text-align:center;border:1px solid #ddd;">'+(m.gauge||'-')+'</td>'
@@ -25261,7 +25264,7 @@ function mssPrintSummary() {
     html += '<div style="font-size:14pt;font-weight:800;">Islam Garments Limited — Machine Set & Production Summary</div>';
     html += '<div style="font-size:9pt;color:#555;">'+monthNames[selMonth-1]+' '+selYear+' — '+_fmtDMY(asOfDate)+' পর্যন্ত হিসাব | Print Date: '+fmtDate(todayStr())+'</div></div>';
     html += '<table><thead><tr style="background:'+_pLight('#4a235a')+';color:#000;">';
-    html += '<th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
+    html += '<th>SL</th><th>ERP</th><th style="text-align:left;">Machine ID</th><th>Gauge</th>';
     html += '<th>Previous Set Date</th><th>Last Set Date</th><th>Production Since Last Set (kg)</th>';
     html += '</tr></thead><tbody>'+rows+'</tbody></table>';
     html += '</body></html>';
