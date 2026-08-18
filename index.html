@@ -1380,7 +1380,9 @@ if('serviceWorker' in navigator){
           pkgDepts:        JSON.parse(localStorage.getItem('igl_pkg_depts') || 'null'),
           pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'),
           gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
-          gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]')
+          gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
+          monthLocks:      JSON.parse(localStorage.getItem('igl_month_locks') || '{}'),
+          lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || ''
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -1673,6 +1675,11 @@ if('serviceWorker' in navigator){
           if(data.settings.pkgSuppliers && data.settings.pkgSuppliers.length) { localStorage.setItem('igl_pkg_suppliers', JSON.stringify(data.settings.pkgSuppliers)); if(typeof pkgPopulateSupplierDatalist==='function') pkgPopulateSupplierDatalist(); }
           if(data.settings.gsSuppliers && data.settings.gsSuppliers.length) { localStorage.setItem('igl_gs_suppliers', JSON.stringify(data.settings.gsSuppliers)); if(typeof gsPopulateSupplierDatalist==='function') gsPopulateSupplierDatalist(); }
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
+          // 🔒 Month Lock — এটা কখনো localStorage-এর ফাঁকা/পুরনো ডাটা দিয়ে ওভাররাইট করা যাবে না,
+          // শুধু Firebase-এ আসলেই কিছু লক থাকলে (keys থাকলে) সেটা apply করো। খালি হলে টাচ করো না —
+          // যাতে কোনো ডিভাইসে ভুলবশত লক তথ্য মুছে না যায়।
+          if(data.settings.monthLocks && Object.keys(data.settings.monthLocks).length) { localStorage.setItem('igl_month_locks', JSON.stringify(data.settings.monthLocks)); }
+          if(data.settings.lockPasscode) { localStorage.setItem('igl_lock_unlock_pw', data.settings.lockPasscode); }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
             try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
@@ -2196,6 +2203,171 @@ window.iglCheckBackdate = function(dateStr) {
   }
   return null; // OK
 };
+
+// ══════════════════════════════════════════════════════
+//  MONTH LOCK SYSTEM — Admin চেক করে যে মাস লক করে দেবে,
+//  সেই মাসের ডাটা (Add/Edit/Delete — কারো দ্বারা, Admin সহ) আর
+//  পরিবর্তন করা যাবে না, শুধু view করা যাবে। বাগ বা ফাইল আপডেটেও
+//  এই ডাটা অক্ষত থাকবে, কারণ প্রতিটা save/edit/delete পয়েন্টে এই
+//  চেক থাকে — লক থাকলে সেভ হওয়ার আগেই আটকে যায়।
+// ══════════════════════════════════════════════════════
+var IGL_LOCK_KEY    = 'igl_month_locks';
+var IGL_LOCK_PW_KEY = 'igl_lock_unlock_pw';
+var IGL_LOCK_MODULES = { needle:'🪡 Needle Issue', stn:'📎 Stationery', pkg:'📦 Packaging', gs:'🏬 General Store' };
+
+function iglGetLocks() {
+  try { return JSON.parse(localStorage.getItem(IGL_LOCK_KEY) || '{}'); } catch(e) { return {}; }
+}
+function iglSetLocks(obj) {
+  localStorage.setItem(IGL_LOCK_KEY, JSON.stringify(obj));
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+function iglMonthKeyOf(dateStr) {
+  if (!dateStr) return '';
+  return String(dateStr).slice(0,7); // "YYYY-MM"
+}
+// dateStr লক করা মাসের মধ্যে পড়লে error message রিটার্ন করে, নাহলে null
+// (window.iglCheckBackdate এর মতোই প্যাটার্ন — Admin-কেও ছাড় দেয় না, কারণ ভুলবশত/বাগে ডাটা পরিবর্তন আটকানোই এর কাজ)
+window.iglCheckMonthLock = function(module, dateStr) {
+  if (!dateStr) return null;
+  var mk = iglMonthKeyOf(dateStr);
+  var locks = iglGetLocks();
+  if (locks[module] && locks[module][mk]) {
+    return '🔒 ' + mk + ' মাস লক করা আছে ('+(IGL_LOCK_MODULES[module]||module)+') — এই মাসে কোনো নতুন এন্ট্রি, এডিট বা ডিলিট করা যাবে না। প্রয়োজনে Admin কে মাসটি আনলক করতে বলুন।';
+  }
+  return null;
+};
+// দুটো তারিখ (এডিটের আগের ও পরের) — দুটোর যেকোনো একটা লক থাকলে আটকাও
+window.iglCheckMonthLockEdit = function(module, oldDateStr, newDateStr) {
+  return window.iglCheckMonthLock(module, oldDateStr) || window.iglCheckMonthLock(module, newDateStr);
+};
+// receives/issues array এর একটা entry দেখে সেটা কোন মডিউলের (stn/pkg/gs) তা বের করো
+window.iglModuleOfEntry = function(entry) {
+  if (!entry) return 'gs';
+  if (entry.group === 'Stationery') return 'stn';
+  if (entry.group === 'Packaging')  return 'pkg';
+  return 'gs';
+};
+
+// ── Admin: Lock/Unlock টগল করো ──
+function iglToggleMonthLock(module, monthKey) {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return;
+  }
+  var locks = iglGetLocks();
+  if (!locks[module]) locks[module] = {};
+  var isLocked = !!locks[module][monthKey];
+
+  if (isLocked) {
+    var pw = prompt('🔓 ' + monthKey + ' (' + IGL_LOCK_MODULES[module] + ') আনলক করতে বিশেষ পাসকোড দিন:');
+    if (pw === null) return;
+    var savedPw = localStorage.getItem(IGL_LOCK_PW_KEY) || '';
+    if (!savedPw) { toast('⚠️ কোনো Unlock Passcode সেট করা নেই — প্রথমে সেট করে নিন।', 'warning'); return; }
+    if (pw !== savedPw) { toast('❌ পাসকোড ভুল! আনলক করা যায়নি।', 'error'); return; }
+    delete locks[module][monthKey];
+    iglSetLocks(locks);
+    toast('🔓 ' + monthKey + ' আনলক করা হলো — এখন পরিবর্তনযোগ্য।', 'warning');
+  } else {
+    if (!confirm('🔒 ' + monthKey + ' (' + IGL_LOCK_MODULES[module] + ') মাসের ডাটা স্থায়ীভাবে লক করবেন?\n\nলক করার পর এই মাসের কোনো এন্ট্রি Add/Edit/Delete করা যাবে না (Admin সহ কেউ না), শুধু আনলক পাসকোড দিয়ে আনলক করলেই পরিবর্তন করা যাবে।')) return;
+    locks[module][monthKey] = 1;
+    iglSetLocks(locks);
+    toast('🔒 ' + monthKey + ' লক করা হলো।', 'success');
+  }
+  if (typeof iglRenderMonthLockUI === 'function') iglRenderMonthLockUI(module);
+}
+
+function iglSetUnlockPasscode() {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return;
+  }
+  var cur = localStorage.getItem(IGL_LOCK_PW_KEY) || '';
+  if (cur) {
+    var old = prompt('বর্তমান Passcode দিন (পরিবর্তনের জন্য):');
+    if (old === null) return;
+    if (old !== cur) { toast('❌ বর্তমান পাসকোড ভুল!', 'error'); return; }
+  }
+  var np = prompt('নতুন Unlock Passcode দিন:');
+  if (np === null || !np.trim()) return;
+  localStorage.setItem(IGL_LOCK_PW_KEY, np.trim());
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  toast('✅ Unlock Passcode সেভ হয়েছে।', 'success');
+}
+
+// ── Admin: Month Lock Manage Modal ──
+function iglGetAllMonthsForModule(module) {
+  var months = {};
+  function collect(arr, groupFilter) {
+    (arr || []).forEach(function(e) {
+      if (groupFilter && e.group !== groupFilter && !groupFilter(e)) return;
+      var mk = iglMonthKeyOf(e.date);
+      if (mk) months[mk] = 1;
+    });
+  }
+  if (module === 'gs') {
+    collect(DB.receives, function(e){ return e.group !== 'Stationery' && e.group !== 'Packaging'; });
+    collect(DB.issues,   function(e){ return e.group !== 'Stationery' && e.group !== 'Packaging'; });
+  } else if (module === 'stn') {
+    collect(DB.receives, function(e){ return e.group === 'Stationery'; });
+    collect(DB.issues,   function(e){ return e.group === 'Stationery'; });
+  } else if (module === 'pkg') {
+    collect(DB.receives, function(e){ return e.group === 'Packaging'; });
+    collect(DB.issues,   function(e){ return e.group === 'Packaging'; });
+  } else if (module === 'needle') {
+    (window.NDB && NDB.needles || []).forEach(function(e){ var mk = iglMonthKeyOf(e.date); if(mk) months[mk]=1; });
+    try { JSON.parse(localStorage.getItem('igl_ndl_rcv')||'[]').forEach(function(e){ var mk = iglMonthKeyOf(e.date); if(mk) months[mk]=1; }); } catch(e){}
+  }
+  var mk2 = iglMonthKeyOf(new Date().toISOString().slice(0,10));
+  months[mk2] = 1; // চলতি মাস সবসময় লিস্টে থাকবে
+  return Object.keys(months).sort().reverse();
+}
+
+function openMonthLockModal() {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return;
+  }
+  if (!document.getElementById('iglMonthLockModal')) {
+    var d = document.createElement('div');
+    d.id = 'iglMonthLockModal';
+    d.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:99999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0;';
+    d.innerHTML =
+      '<div style="background:#fff;border-radius:14px;max-width:520px;width:94%;overflow:hidden;">' +
+      '  <div style="background:linear-gradient(135deg,#943126,#c0392b);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;">' +
+      '    <div style="font-size:16px;font-weight:700;">🔒 মাস লক / আনলক</div>' +
+      '    <button onclick="document.getElementById(\'iglMonthLockModal\').style.display=\'none\'" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>' +
+      '  </div>' +
+      '  <div style="padding:14px 20px;">' +
+      '    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="iglLockModuleTabs"></div>' +
+      '    <button onclick="iglSetUnlockPasscode()" style="margin-bottom:10px;padding:7px 14px;border-radius:7px;border:1px solid #ccc;background:#f7f7f7;cursor:pointer;font-size:12px;">🔑 Unlock Passcode সেট/পরিবর্তন করুন</button>' +
+      '    <div id="iglLockMonthList"></div>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(d);
+  }
+  document.getElementById('iglMonthLockModal').style.display = 'flex';
+  iglRenderMonthLockUI(window._iglLockActiveModule || 'gs');
+}
+
+function iglRenderMonthLockUI(module) {
+  window._iglLockActiveModule = module;
+  var tabsEl = document.getElementById('iglLockModuleTabs');
+  var listEl = document.getElementById('iglLockMonthList');
+  if (!tabsEl || !listEl) return;
+  tabsEl.innerHTML = Object.keys(IGL_LOCK_MODULES).map(function(m) {
+    var active = m === module;
+    return '<button onclick="iglRenderMonthLockUI(\''+m+'\')" style="padding:6px 12px;border-radius:7px;border:1.5px solid '+(active?'#c0392b':'#ddd')+';background:'+(active?'#c0392b':'#fff')+';color:'+(active?'#fff':'#333')+';font-size:12px;font-weight:600;cursor:pointer;">'+IGL_LOCK_MODULES[m]+'</button>';
+  }).join('');
+
+  var months = iglGetAllMonthsForModule(module);
+  var locks = iglGetLocks();
+  var modLocks = locks[module] || {};
+  listEl.innerHTML = months.map(function(mk) {
+    var locked = !!modLocks[mk];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-bottom:1px solid #eee;">' +
+      '<span style="font-size:13px;font-weight:600;">' + mk + (locked?' <span style="color:#c0392b;">🔒 লক করা</span>':' <span style="color:#888;">🔓 খোলা</span>') + '</span>' +
+      '<button onclick="iglToggleMonthLock(\''+module+'\',\''+mk+'\')" style="padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;color:#fff;background:'+(locked?'#7d3c98':'#1e8449')+';">'+(locked?'আনলক':'লক করুন')+'</button>' +
+      '</div>';
+  }).join('') || '<div style="padding:14px;color:#888;font-size:13px;">এই মডিউলে কোনো ডাটা পাওয়া যায়নি।</div>';
+}
 
 // ── Print Bold Toggle ────────────────────────────────────────────────
 window.iglToggleBoldPrint = function() {
@@ -4808,6 +4980,7 @@ function ok(msg) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="_masterChangePwDialog()" style="border-color:#2980b9;color:#2980b9;">🔑 Change Password</button>
         <button class="btn btn-sm admin-only-action" onclick="openEditPermModal()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;">✏️ Edit Permission</button>
+        <button class="btn btn-sm admin-only-action" onclick="openMonthLockModal()" style="background:linear-gradient(135deg,#943126,#c0392b);color:#fff;">🔒 Month Lock</button>
         <button class="btn btn-sm admin-only-action" onclick="showDeleteByDateModal()" style="background:linear-gradient(135deg,#6c3483,#8e44ad);color:#fff;">🗓️ Delete by Date</button>
         <button class="btn btn-sm admin-only-action" onclick="resetAllTransactions()" style="background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;">🗑️ Reset Transactions</button>
         <button class="btn btn-sm" onclick="masterLock()" style="background:linear-gradient(135deg,#922b21,#c0392b);color:#fff;">🔒 Lock</button>
@@ -9553,6 +9726,8 @@ function saveReceive() {
   if (!date) { toast('Please enter a date!', 'warning'); return; }
   var _bdErr1 = window.iglCheckBackdate(date);
   if(_bdErr1){ toast(_bdErr1,'error'); return; }
+  var _lkErr1 = window.iglCheckMonthLock('gs', date);
+  if(_lkErr1){ toast(_lkErr1,'error'); return; }
   if (!group) { toast('Please select an item group!', 'warning'); return; }
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
@@ -9680,6 +9855,8 @@ async function saveIssue() {
   if (!date) { toast('Please enter a date!', 'warning'); return; }
   var _bdErr2 = window.iglCheckBackdate(date);
   if(_bdErr2){ toast(_bdErr2,'error'); return; }
+  var _lkErr2 = window.iglCheckMonthLock('gs', date);
+  if(_lkErr2){ toast(_lkErr2,'error'); return; }
   if (!slip) { toast('Please enter Issue Slip No.!', 'warning'); return; }
   if (!group) { toast('Please select an item group!', 'warning'); return; }
   if (!item) { toast('Please select an item!', 'warning'); return; }
@@ -10818,6 +10995,8 @@ function stnSaveReceive() {
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr3 = window.iglCheckBackdate(date);
   if(_bdErr3){ toast(_bdErr3,'error'); return; }
+  var _lkErr3 = window.iglCheckMonthLock('stn', date);
+  if(_lkErr3){ toast(_lkErr3,'error'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
@@ -10913,6 +11092,8 @@ async function stnSaveIssue() {
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
   if(_bdErr4){ toast(_bdErr4,'error'); return; }
+  var _lkErr4 = window.iglCheckMonthLock('stn', date);
+  if(_lkErr4){ toast(_lkErr4,'error'); return; }
   if (!slip)  { toast('Please enter Slip No.!', 'warning'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
@@ -14353,6 +14534,9 @@ async function stnDeleteTx(type, id) {
     return;
   }
 
+  var _lkErrSD = window.iglCheckMonthLock('stn', entry.date);
+  if (_lkErrSD) { toast(_lkErrSD, 'error'); return; }
+
   var confirmed = await igl_confirm(
     (type === 'RECEIVE' ? '📥 Receive' : '📤 Issue') + ' এন্ট্রি ডিলিট করবেন?',
     'এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।', '🗑️'
@@ -14493,6 +14677,9 @@ function stnEditTx(type, id) {
     if (!newDate) { toast('❌ তারিখ দিন।', 'error'); return; }
     if (!newItem) { toast('❌ আইটেম নাম দিন।', 'error'); return; }
     if (!newQty || newQty <= 0) { toast('❌ সঠিক পরিমাণ দিন।', 'error'); return; }
+
+    var _lkErrSE = window.iglCheckMonthLockEdit('stn', entry.date, newDate);
+    if (_lkErrSE) { toast(_lkErrSE, 'error'); return; }
 
     if (type === 'ISSUE') {
       DB.issues = DB.issues.map(function(r) {
@@ -15951,6 +16138,8 @@ function pkgSaveReceive() {
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr3 = window.iglCheckBackdate(date);
   if(_bdErr3){ toast(_bdErr3,'error'); return; }
+  var _lkErr3 = window.iglCheckMonthLock('pkg', date);
+  if(_lkErr3){ toast(_lkErr3,'error'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
@@ -16045,6 +16234,8 @@ async function pkgSaveIssue() {
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
   if(_bdErr4){ toast(_bdErr4,'error'); return; }
+  var _lkErr4 = window.iglCheckMonthLock('pkg', date);
+  if(_lkErr4){ toast(_lkErr4,'error'); return; }
   if (!slip)  { toast('Please enter Slip No.!', 'warning'); return; }
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
@@ -18432,6 +18623,9 @@ async function pkgDeleteTx(type, id) {
     return;
   }
 
+  var _lkErrPD = window.iglCheckMonthLock('pkg', entry.date);
+  if (_lkErrPD) { toast(_lkErrPD, 'error'); return; }
+
   var confirmed = await igl_confirm(
     (type === 'RECEIVE' ? '📥 Receive' : '📤 Issue') + ' এন্ট্রি ডিলিট করবেন?',
     'এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।', '🗑️'
@@ -18574,6 +18768,9 @@ function pkgEditTx(type, id) {
     if (!newDate) { toast('❌ তারিখ দিন।', 'error'); return; }
     if (!newItem) { toast('❌ আইটেম নাম দিন।', 'error'); return; }
     if (!newQty || newQty <= 0) { toast('❌ সঠিক পরিমাণ দিন।', 'error'); return; }
+
+    var _lkErrPE = window.iglCheckMonthLockEdit('pkg', entry.date, newDate);
+    if (_lkErrPE) { toast(_lkErrPE, 'error'); return; }
 
     if (type === 'ISSUE') {
       DB.issues = DB.issues.map(function(r) {
@@ -20552,6 +20749,8 @@ async function deleteReceive(id) {
   var entry = DB.receives.find(function(r){ return r.id === id; });
   var msg = window.iglCanDeleteMsg(entry ? entry.userId : '', entry ? entry.id : null, DB.receives);
   if(msg){ toast('❌ ' + msg, 'error'); return; }
+  var _lkErrDR = window.iglCheckMonthLock(window.iglModuleOfEntry(entry), entry ? entry.date : '');
+  if(_lkErrDR){ toast(_lkErrDR, 'error'); return; }
   const ok = await igl_confirm('এই Receive রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে স্টক থেকে বাদ যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item||''));
@@ -20685,6 +20884,8 @@ async function deleteIssue(id) {
   var entry = DB.issues.find(function(r){ return r.id === id; });
   var msg = window.iglCanDeleteMsg(entry ? entry.userId : '', entry ? entry.id : null, DB.issues);
   if(msg){ toast('❌ ' + msg, 'error'); return; }
+  var _lkErrDI = window.iglCheckMonthLock(window.iglModuleOfEntry(entry), entry ? entry.date : '');
+  if(_lkErrDI){ toast(_lkErrDI, 'error'); return; }
   const ok = await igl_confirm('এই Issue রেকর্ড ডিলিট করবেন?', 'ডিলিট করলে Issue লগ থেকে সরে যাবে।', '🗑️');
   if (!ok) return;
   if (entry) binAdd('stn_issue', entry, 'Stn Issue — ' + (entry.item||''));
@@ -21207,6 +21408,29 @@ async function machineIdRenameCascade(oldId, newId, erpNo) {
     return n.erp ? (String(n.erp)===String(erpNo)) : (n.machine === oldId);
   }
 
+  // ── সবার আগে চেক করো: এই মেশিনের কোনো Needle Issue ডাটা লক করা মাসে আছে কিনা।
+  // থাকলে রিনেম আটকে দাও — নাহলে লক থাকা সত্ত্বেও রিনেমের মাধ্যমে চুপচাপ ডাটা বদলে যেত। ──
+  var lockedMonthsHit = {};
+  function scanForLocks(arr) {
+    (arr || []).forEach(function(n){
+      if (needleMatches(n) && n.date) {
+        if (window.iglCheckMonthLock('needle', n.date)) lockedMonthsHit[iglMonthKeyOf(n.date)] = 1;
+      }
+    });
+  }
+  scanForLocks(typeof NDB !== 'undefined' ? NDB.needles : []);
+  if (typeof firebase !== 'undefined' && firebase.database) {
+    try {
+      var freshNeedleSnap = await firebase.database().ref('igl_erp/ndb/needles').once('value');
+      scanForLocks(freshNeedleSnap.val());
+    } catch(e) {}
+  }
+  var lockedMonthsList = Object.keys(lockedMonthsHit).sort();
+  if (lockedMonthsList.length) {
+    toast('🔒 এই মেশিনের Needle Issue ডাটা লক করা মাসে আছে: ' + lockedMonthsList.join(', ') + ' — রিনেম করার আগে ঐ মাস(গুলো) আনলক করুন।', 'error', 6000);
+    return counts;
+  }
+
   // লোকাল NDB.needles
   if (typeof NDB !== 'undefined' && NDB.needles) {
     var needles = NDB.needles;
@@ -21251,22 +21475,21 @@ async function machineIdRenameCascade(oldId, newId, erpNo) {
     return fb.ref('igl_erp/ndb/needles').set(arr);
   });
 
-  var stepRunDates = fb.ref('igl_machine_rundate_v2').once('value').then(function(snap){
-    var obj = snap.val() || {};
-    if (!obj.hasOwnProperty(oldKey)) return;
-    obj[newKey] = obj[oldKey];
-    delete obj[oldKey];
+  var stepRunDates = fb.ref('igl_machine_rundate_v2/' + oldKey).once('value').then(function(snap){
+    var val = snap.val();
+    if (val === null || val === undefined) return;
+    var payload = {}; payload[oldKey] = null; payload[newKey] = val;
     counts.rundates = 1;
-    return fb.ref('igl_machine_rundate_v2').set(obj);
+    // ⚠️ শুধু oldKey/newKey — বাকি কোনো মেশিনের ডাটা টাচ করা হয় না, তাই race condition-এর ঝুঁকি নেই
+    return fb.ref('igl_machine_rundate_v2').update(payload);
   });
 
-  var stepBaselines = fb.ref('igl_machine_baseline_v2').once('value').then(function(snap){
-    var obj = snap.val() || {};
-    if (!obj.hasOwnProperty(oldKey)) return;
-    obj[newKey] = obj[oldKey];
-    delete obj[oldKey];
+  var stepBaselines = fb.ref('igl_machine_baseline_v2/' + oldKey).once('value').then(function(snap){
+    var val = snap.val();
+    if (val === null || val === undefined) return;
+    var payload = {}; payload[oldKey] = null; payload[newKey] = val;
     counts.baselines = 1;
-    return fb.ref('igl_machine_baseline_v2').set(obj);
+    return fb.ref('igl_machine_baseline_v2').update(payload);
   });
 
   var stepProd = fb.ref('igl_machprod_v2').once('value').then(function(snap){
@@ -21275,10 +21498,14 @@ async function machineIdRenameCascade(oldId, newId, erpNo) {
     Object.keys(allMonths).forEach(function(monthKey){
       var monthObj = allMonths[monthKey] || {};
       if (monthObj.hasOwnProperty(oldKey)) {
-        monthObj[newKey] = monthObj[oldKey];
-        delete monthObj[oldKey];
+        // ⚠️ পুরো মাসের অবজেক্ট .set() না করে, শুধু oldKey→null (মুছে) ও newKey→ডাটা (বসানো)
+        // — .update() দিয়ে — এতে সেই মাসের অন্য কোনো মেশিনের ডাটা টাচ হয় না, ফলে অন্য ডিভাইস
+        // থেকে ঠিক একই সময়ে Production import করা হলেও সেটা হারানোর ঝুঁকি থাকে না।
+        var payload = {};
+        payload[oldKey] = null;
+        payload[newKey] = monthObj[oldKey];
         counts.prodMonths++;
-        monthWrites.push(fb.ref('igl_machprod_v2/' + monthKey).set(monthObj));
+        monthWrites.push(fb.ref('igl_machprod_v2/' + monthKey).update(payload));
       }
     });
     return Promise.all(monthWrites);
@@ -29889,6 +30116,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!date){toast('Date দিন!','warning');return;}
     var _bdErr5=window.iglCheckBackdate(date);
     if(_bdErr5){toast(_bdErr5,'error');return;}
+    var _lkErr5=window.iglCheckMonthLock('needle', date);
+    if(_lkErr5){toast(_lkErr5,'error');return;}
     if(!ndlId){toast('Needle select করুন!','warning');return;}
     if(!qty||qty<=0){toast('Quantity দিন!','warning');return;}
     var nm=ndlGetMaster();
@@ -30594,6 +30823,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!date){toast('Date দিন!','warning');return;}
     var _bdErr6=window.iglCheckBackdate(date);
     if(_bdErr6){toast(_bdErr6,'error');return;}
+    var _lkErr6=window.iglCheckMonthLock('needle', date);
+    if(_lkErr6){toast(_lkErr6,'error');return;}
     if(!machine){toast('Machine select করুন!','warning');return;}
     var checked=document.querySelectorAll('.nmi-chk:checked');
     if(!checked.length){toast('কমপক্ষে একটা needle select করুন!','warning');return;}
@@ -30924,6 +31155,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var entry=NDB.needles.find(function(r){return String(r.id)===String(id);});
     var msg=window.iglCanDeleteMsg(entry ? entry.userId : '', entry ? entry.id : null, NDB.needles);
     if(msg){ toast('❌ ' + msg, 'error'); return; }
+    var _lkErrND=window.iglCheckMonthLock('needle', entry ? entry.date : '');
+    if(_lkErrND){ toast(_lkErrND, 'error'); return; }
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_issue', entry, 'Needle Issue — ' + (entry.needle||entry.needleId||''));
     NDB.needles=NDB.needles.filter(function(r){return String(r.id)!==String(id);});
@@ -30945,6 +31178,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var entry=ndlGetRcv().find(function(r){return String(r.id)===String(id);});
     var msg=window.iglCanDeleteMsg(entry ? entry.userId : '', entry ? entry.id : null, ndlGetRcv());
     if(msg){ toast('❌ ' + msg, 'error'); return; }
+    var _lkErrNDR=window.iglCheckMonthLock('needle', entry ? entry.date : '');
+    if(_lkErrNDR){ toast(_lkErrNDR, 'error'); return; }
     var ok=await igl_confirm('Delete করবেন?','','🗑️');if(!ok)return;
     if (entry) binAdd('needle_receive', entry, 'Needle Receive — ' + (entry.needleCode||entry.needleId||''));
     ndlSetRcv(ndlGetRcv().filter(function(r){return String(r.id)!==String(id);}));
@@ -35256,6 +35491,9 @@ async function saveEditEntry() {
     var idx = arr.findIndex(function(r){ return r.id === _editId; });
     if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি!','error'); return; }
 
+    var _lkErrER = window.iglCheckMonthLockEdit(window.iglModuleOfEntry(arr[idx]), arr[idx].date, date);
+    if (_lkErrER) { toast(_lkErrER, 'error'); return; }
+
     var ok = await igl_confirm('Receive এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
 
@@ -35290,6 +35528,9 @@ async function saveEditEntry() {
     var arr = DB.issues;
     var idx = arr.findIndex(function(r){ return r.id === _editId; });
     if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি!','error'); return; }
+
+    var _lkErrEI = window.iglCheckMonthLockEdit(window.iglModuleOfEntry(arr[idx]), arr[idx].date, date);
+    if (_lkErrEI) { toast(_lkErrEI, 'error'); return; }
 
     var ok = await igl_confirm('Issue এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
@@ -35327,6 +35568,9 @@ async function saveEditEntry() {
     var arr = NDB.needles;
     var idx = arr.findIndex(function(r){ return String(r.id) === String(_editId); });
     if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি!','error'); return; }
+
+    var _lkErrEN = window.iglCheckMonthLockEdit('needle', arr[idx].date, date);
+    if (_lkErrEN) { toast(_lkErrEN, 'error'); return; }
 
     var ok = await igl_confirm('Needle Issue এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
