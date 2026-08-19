@@ -24935,16 +24935,56 @@ function mssToggleRowHighlight(tr, event, machineId) {
   tr.style.background = bg;
 }
 
+// ── প্রিন্টের checkbox সিলেকশন Firebase থেকে লোড করা — এক ডিভাইসে বদলালে
+// অন্য ডিভাইসেও একই সিলেকশন দেখানোর জন্য (localStorage শুধু অফলাইন fallback) ──
+function mssLoadExcludedFromPrint(cb) {
+  if (typeof firebase === 'undefined' || !firebase.database) {
+    var local = JSON.parse(localStorage.getItem('igl_mss_excluded_print') || '{}');
+    cb(local);
+    return;
+  }
+  firebase.database().ref('igl_mss_excluded_print').once('value').then(function(snap){
+    var raw = snap.val() || {};
+    var v = {};
+    Object.keys(raw).forEach(function(k){ v[_mpKeyDecode(k)] = raw[k]; });
+    localStorage.setItem('igl_mss_excluded_print', JSON.stringify(v));
+    cb(v);
+  }).catch(function(err){
+    console.error('mss excluded print load error', err);
+    var local = JSON.parse(localStorage.getItem('igl_mss_excluded_print') || '{}');
+    cb(local);
+  });
+}
+
 // ── প্রিন্টের checkbox বদলালে সিলেকশন মনে রাখা (window._mssExcludedFromPrint এ) —
 // যাতে পরে রি-রেন্ডার (যেমন বেজলাইন সেভ, মাস বদল) হলেও আনটিক করা মেশিন আবার
-// টিক হয়ে না যায় ──
+// টিক হয়ে না যায়, এবং Firebase-এ সেভ করে অন্য ডিভাইসেও সিঙ্ক থাকে ──
 function mssPrintChkChanged(machineId, checked) {
   window._mssExcludedFromPrint = window._mssExcludedFromPrint || {};
   if (checked) delete window._mssExcludedFromPrint[machineId];
   else window._mssExcludedFromPrint[machineId] = true;
+
+  localStorage.setItem('igl_mss_excluded_print', JSON.stringify(window._mssExcludedFromPrint));
+
+  if (typeof firebase !== 'undefined' && firebase.database) {
+    var encodedKey = _mpKeyEncode(machineId);
+    var ref = firebase.database().ref('igl_mss_excluded_print/' + encodedKey);
+    (checked ? ref.remove() : ref.set(true)).catch(function(err){
+      console.error('mss excluded print save error', err);
+    });
+  }
 }
 
 function renderMachineSetSummary() {
+  // প্রতিবার রেন্ডারের আগে Firebase থেকে তাজা প্রিন্ট-সিলেকশন টেনে আনা হয়,
+  // যাতে অন্য কোনো ডিভাইসে টিক উঠানো/দেওয়া থাকলে সেটাই সব ডিভাইসে দেখায় ──
+  mssLoadExcludedFromPrint(function(excl){
+    window._mssExcludedFromPrint = excl || {};
+    _mssRenderAfterExclusionLoad();
+  });
+}
+
+function _mssRenderAfterExclusionLoad() {
   var machines = getNeedleMachines()
     .filter(function(m){ return (m.section||'') !== 'Flat Knit'; })
     .slice().sort(function(a,b){ return (parseFloat(a.erp)||0) - (parseFloat(b.erp)||0); });
@@ -25118,11 +25158,21 @@ function mssPromptRunDate(machineId, currentDate) {
 // ── প্রিন্টে সব মেশিন সিলেক্ট/ডিসিলেক্ট করার জন্য ──
 function mssToggleAllPrint(state) {
   window._mssExcludedFromPrint = window._mssExcludedFromPrint || {};
+  var updates = {};
   document.querySelectorAll('.mss-print-chk').forEach(function(cb){
     cb.checked = state;
     var mid = cb.getAttribute('data-machine');
     if (state) delete window._mssExcludedFromPrint[mid]; else window._mssExcludedFromPrint[mid] = true;
+    updates[_mpKeyEncode(mid)] = state ? null : true;
   });
+
+  localStorage.setItem('igl_mss_excluded_print', JSON.stringify(window._mssExcludedFromPrint));
+
+  if (typeof firebase !== 'undefined' && firebase.database && Object.keys(updates).length) {
+    firebase.database().ref('igl_mss_excluded_print').update(updates).catch(function(err){
+      console.error('mss excluded print bulk save error', err);
+    });
+  }
 }
 
 // ── Sheet 3 প্রিন্ট: নির্বাচিত মাসের শেষ তারিখ পর্যন্ত হিসাব করা স্ন্যাপশট প্রিন্ট ──
@@ -27970,7 +28020,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   //  RETAIL MACHINE LIST
   // =============================================
   function getRetailMachines(){ try{return JSON.parse(localStorage.getItem('igl_retail_machines')||'[]');}catch(e){return[];} }
-  function setRetailMachines(v){ try{localStorage.setItem('igl_retail_machines',JSON.stringify(v));}catch(e){} }
+  function setRetailMachines(v){ try{localStorage.setItem('igl_retail_machines',JSON.stringify(v)); if(typeof triggerAutoSave === 'function') triggerAutoSave();}catch(e){} }
 
   function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
