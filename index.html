@@ -2526,11 +2526,36 @@ function iglApplyPermissions() {
   // showPage()-এর ভেতরে নিয়ন্ত্রিত হয় (index.html এর showPage ফাংশন দেখুন)। দুইটা সম্পূর্ণ স্বাধীন — একটা আরেকটাকে override করে না।
 }
 
+// ── Admin: নতুন ইউজার যোগ করা ──
+window.iglAddNewUser = function(){
+  // বিদ্যমান user1/user2/... এর মধ্যে সর্বোচ্চ নম্বর বের করে তার পরের নম্বর দিয়ে নতুন role/username বানানো হয়
+  var maxNum = 0;
+  Object.keys(IGL_USERS).forEach(function(u){
+    var m = /^user(\d+)$/.exec(IGL_USERS[u].role || '');
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  });
+  var n = maxNum + 1;
+  var newUsername = 'newuser' + n;
+  while (IGL_USERS[newUsername]) { n++; newUsername = 'newuser' + n; }
+  var newRole = 'user' + n;
+
+  IGL_USERS[newUsername] = { pass: '123456', role: newRole, name: 'New User ' + n };
+
+  // বর্তমান প্যানেল বন্ধ করে নতুন ইউজারসহ প্যানেল আবার খোলা হচ্ছে (এখনো সেভ হয়নি — Save Users চাপলে সেভ হবে)
+  var modal = document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child');
+  if (modal) modal.remove();
+  window.iglShowUserMgmt();
+  toast('নতুন ইউজার যোগ হয়েছে — নাম, ইউজারনেম, পাসওয়ার্ড ঠিক করে "✅ Save Users" চাপুন', 'success');
+};
+
 // ── Admin: User Password Edit ──
 window.iglShowUserMgmt = function(){
   var html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;">';
   html += '<div style="background:#fff;border-radius:14px;padding:28px;width:92%;max-width:460px;max-height:88vh;overflow-y:auto;">';
-  html += '<div style="font-size:16px;font-weight:700;color:#1a5276;margin-bottom:18px;">⚙️ User Management</div>';
+  html += '<div style="font-size:16px;font-weight:700;color:#1a5276;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">';
+  html += '<span>⚙️ User Management</span>';
+  html += '<button onclick="iglAddNewUser()" style="background:#117a65;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">➕ Add New User</button>';
+  html += '</div>';
   Object.keys(IGL_USERS).forEach(function(u){
     var user = IGL_USERS[u];
     var isAdmin = user.role === 'admin';
