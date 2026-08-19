@@ -2958,6 +2958,7 @@ window.iglSaveNavVisibility = function() {
       <span class="grp-arrow" id="arr-store">▶</span>
     </div>
     <ul class="sidebar-submenu" id="sub-store" style="display:none;">
+      <li id="nav-store-dashboard"><a href="#" onclick="showPage('general_store_dashboard', this); renderDashboard(); return false;"><span class="icon">📊</span> General Store Dashboard</a></li>
       <li id="nav-receive"><a href="#" onclick="showPage('receive', this); return false;"><span class="icon">📥</span> Receive Goods</a></li>
       <li id="nav-issue"><a href="#" onclick="showPage('issue', this); return false;"><span class="icon">📤</span> Issue Goods</a></li>
       <li id="nav-stock"><a href="#" onclick="showPage('stock', this); return false;"><span class="icon">📦</span> Stock Report</a></li>
@@ -3062,11 +3063,56 @@ window.iglSaveNavVisibility = function() {
 <!-- Main Content -->
 <div class="main">
 
-  <!--  DASHBOARD  -->
+  <!--  MAIN DASHBOARD (Welcome) -->
   <div class="page active" id="page-dashboard">
+    <div id="mainDashboardBanner" style="background:linear-gradient(135deg,#0b3d5c 0%,#1a5276 45%,#117a65 100%);border-radius:14px;padding:48px 32px;text-align:center;color:#fff;box-shadow:0 8px 28px rgba(10,60,90,0.25);position:relative;overflow:hidden;">
+      <div style="position:absolute;inset:0;opacity:0.08;background-image:radial-gradient(circle at 20% 20%, #fff 2px, transparent 2px),radial-gradient(circle at 80% 60%, #fff 2px, transparent 2px);background-size:60px 60px;"></div>
+      <div style="position:relative;z-index:1;">
+        <div style="width:78px;height:78px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:34px;font-weight:900;color:#0b3d5c;">IGL</div>
+        <h1 style="margin:0 0 8px;font-size:30px;font-weight:800;letter-spacing:0.3px;">Islam Garments Ltd.</h1>
+        <div style="font-size:15px;color:#d6eaf8;font-weight:500;margin-bottom:22px;">Knitting General Store ERP System</div>
+        <div style="font-size:17px;font-weight:600;margin-bottom:6px;" id="dash-welcome-msg">স্বাগতম 👋</div>
+        <div style="font-size:13px;color:#d6eaf8;" id="dash-date-welcome"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:24px;">
+      <div class="card" style="cursor:pointer;transition:transform .15s;" onclick="document.getElementById('nav-store-dashboard').querySelector('a').click();">
+        <div class="card-body" style="text-align:center;padding:26px 16px;">
+          <div style="font-size:34px;margin-bottom:8px;">🏭</div>
+          <div style="font-weight:700;color:#1a5276;">General Store</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;">স্টক, Receive, Issue সামারি</div>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer;" onclick="document.getElementById('nav-needle-issue')?.querySelector('a')?.click();">
+        <div class="card-body" style="text-align:center;padding:26px 16px;">
+          <div style="font-size:34px;margin-bottom:8px;">🪡</div>
+          <div style="font-weight:700;color:#1a5276;">Needle Section</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Needle Issue, Machine Set, Ledger</div>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer;" onclick="document.getElementById('nav-stn-dashboard')?.querySelector('a')?.click();">
+        <div class="card-body" style="text-align:center;padding:26px 16px;">
+          <div style="font-size:34px;margin-bottom:8px;">🖊️</div>
+          <div style="font-weight:700;color:#1a5276;">Stationery</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Stationery Dashboard</div>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer;" onclick="document.getElementById('nav-pkg-dashboard')?.querySelector('a')?.click();">
+        <div class="card-body" style="text-align:center;padding:26px 16px;">
+          <div style="font-size:34px;margin-bottom:8px;">📦</div>
+          <div style="font-weight:700;color:#1a5276;">Packaging</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Packaging Dashboard</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--  GENERAL STORE DASHBOARD  -->
+  <div class="page" id="page-general_store_dashboard">
     <div class="page-header">
-      <h2>Dashboard</h2>
-      <p id="dash-date"></p>
+      <h2>🏭 General Store Dashboard</h2>
+      <p id="dash-date">Knitting General Store — সব স্টক, Receive/Issue সামারি একসাথে</p>
     </div>
 
 
@@ -9356,7 +9402,8 @@ function showPage(name, el) {
 
   // Step 3: Load page data
   try {
-    if (name === 'dashboard') renderDashboard();
+    if (name === 'dashboard') { try{ renderMainDashboardWelcome(); }catch(e){} }
+    else if (name === 'general_store_dashboard') renderDashboard();
     else if (name === 'stock') renderStock();
     else if (name === 'receive_log') { populateLogFilters(); renderReceiveLog(); }
     else if (name === 'issue_log') { populateLogFilters(); renderIssueLog(); }
@@ -20187,9 +20234,21 @@ function pkgPrintOriented(orientation, stockFilter) {
 }
 
 
+// ── মেইন Dashboard (Welcome পেজ)-এ শুধু গ্রিটিং টেক্সট ও তারিখ বসানো হয় —
+// এখানে কোনো DB ক্যালকুলেশন হয় না, শুধু ডিসপ্লে টেক্সট ──
+function renderMainDashboardWelcome() {
+  var now = new Date();
+  var hour = now.getHours();
+  var greet = hour < 12 ? '☀️ শুভ সকাল' : (hour < 17 ? '🌤️ শুভ দুপুর' : '🌙 শুভ সন্ধ্যা');
+  var userName = (typeof IGL_CURRENT_USER !== 'undefined' && IGL_CURRENT_USER && IGL_CURRENT_USER.name) ? IGL_CURRENT_USER.name : '';
+  var msgEl = document.getElementById('dash-welcome-msg');
+  if (msgEl) msgEl.textContent = greet + (userName ? ', ' + userName + '!' : '! স্বাগতম');
+  var dateEl = document.getElementById('dash-date-welcome');
+  if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+}
+
 function renderDashboard() {
-  const now = new Date();
-  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   document.getElementById('s-receive').textContent = DB.receives.length;
   document.getElementById('s-issue').textContent = DB.issues.length;
   document.getElementById('s-items').textContent = DB.items.length;
@@ -26362,6 +26421,7 @@ function init() {
   document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
   var dash = document.getElementById('page-dashboard');
   if (dash) dash.style.display = 'block';
+  try { renderMainDashboardWelcome(); } catch(e) { console.error('welcome dashboard error:', e); }
   try { renderDashboard(); } catch(e) { console.error('dashboard error:', e); }
 }
 
