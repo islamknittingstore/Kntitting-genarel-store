@@ -1686,6 +1686,11 @@ if('serviceWorker' in navigator){
           }
         }
 
+        // ✅ Firebase থেকে user override (নাম/ছবি) রিলোড হওয়ার পর navbar-এর
+        // অ্যাভাটার/নাম রিফ্রেশ করা — আগে এটা বাদ পড়ে যাচ্ছিল, তাই ছবি Firebase এ
+        // সেভ থাকলেও navbar এ দেখা যেত না যতক্ষণ না ম্যানুয়ালি Users প্যানেল খোলা হতো ──
+        try { if(typeof iglUpdateUserAvatar === 'function') iglUpdateUserAvatar(); } catch(e){}
+
         // ✅ Firebase থেকে নতুন permission/settings এলে সাথে সাথে menu/nav আপডেট করো
         // (আগে শুধু login/session-restore এ চলতো, তাই অন্য device এ admin permission
         //  tick করলেও যেই user আগে থেকে login করা আছে, তার sidebar রিফ্রেশ হতো না —
