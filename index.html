@@ -2072,12 +2072,28 @@ function iglDoLogin(){
     if(rnaManageBtn) rnaManageBtn.style.display = 'none';
   }
 
-  // overlay hide
+  // ── Navbar-এ ইউজারের নাম + প্রোফাইল ছবি (যদি থাকে) দেখানো ──
+function iglUpdateUserAvatar(){
+  var nb = document.getElementById('igl-user-badge');
+  var av = document.getElementById('igl-user-avatar');
+  if (!window.IGL_CURRENT_USER) return;
+  if (nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
+  if (av) {
+    var uname = IGL_CURRENT_USER.username || (function(){
+      for (var k in IGL_USERS) { if (IGL_USERS[k].name === IGL_CURRENT_USER.name) return k; }
+      return null;
+    })();
+    var photo = uname && IGL_USERS[uname] ? IGL_USERS[uname].photo : null;
+    if (photo) { av.src = photo; av.style.display = 'inline-block'; }
+    else { av.style.display = 'none'; av.src = ''; }
+  }
+}
+
+// overlay hide
   document.getElementById('igl-login-overlay').style.display = 'none';
 
   // navbar এ user দেখাও
-  var nb = document.getElementById('igl-user-badge');
-  if(nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
+  iglUpdateUserAvatar();
 
   // Permission অনুযায়ী menu apply করো (admin menu + requisition সহ)
   iglApplyPermissions();
@@ -2101,6 +2117,7 @@ function iglDoLogin(){
         if(ov) ov.style.display = 'none';
         var nb = document.getElementById('igl-user-badge');
         if(nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
+        try { iglUpdateUserAvatar(); } catch(e){}
         // body class
         if(IGL_CURRENT_USER.role === 'admin'){
           document.body.classList.remove('igl-user-regular');
@@ -2526,6 +2543,38 @@ function iglApplyPermissions() {
   // showPage()-এর ভেতরে নিয়ন্ত্রিত হয় (index.html এর showPage ফাংশন দেখুন)। দুইটা সম্পূর্ণ স্বাধীন — একটা আরেকটাকে override করে না।
 }
 
+// ── Admin: Users প্যানেলে ইউজারের ছবি নির্বাচন করলে resize করে base64 বানানো হয়,
+// এবং সাথে সাথে preview দেখানো হয়। Save Users চাপার আগ পর্যন্ত এটা _iglPendingUserPhotos-এ থাকে ──
+window._iglPendingUserPhotos = window._iglPendingUserPhotos || {};
+window.iglHandleUserPhotoChange = function(username, inputEl){
+  var file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var size = 160; // ছোট বর্গাকার canvas — avatar এর জন্য যথেষ্ট, ফাইল সাইজ কম রাখতে
+      var canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      var ctx = canvas.getContext('2d');
+      // center-crop করে বর্গাকার বানানো হয়, যাতে ছবি স্ট্রেচ না হয়
+      var srcSize = Math.min(img.width, img.height);
+      var sx = (img.width - srcSize) / 2;
+      var sy = (img.height - srcSize) / 2;
+      ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      window._iglPendingUserPhotos[username] = dataUrl;
+      var prev = document.getElementById('um-photo-preview-'+username);
+      var placeholder = document.getElementById('um-photo-placeholder-'+username);
+      if (prev) { prev.src = dataUrl; prev.style.display = 'inline-block'; }
+      if (placeholder) placeholder.style.display = 'none';
+      toast('ছবি নির্বাচন হয়েছে — এবার "✅ Save Users" চাপুন', 'success');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
 // ── Admin: নতুন ইউজার যোগ করা ──
 window.iglAddNewUser = function(){
   // বিদ্যমান user1/user2/... এর মধ্যে সর্বোচ্চ নম্বর বের করে তার পরের নম্বর দিয়ে নতুন role/username বানানো হয়
@@ -2561,7 +2610,13 @@ window.iglShowUserMgmt = function(){
     var isAdmin = user.role === 'admin';
     var userPerms = iglGetUserPermissions(u);
     html += '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;background:'+(isAdmin?'#eaf4fb':'#fff')+'">';
-    html += '<div style="font-weight:700;color:'+(isAdmin?'#1a5276':'#333')+';margin-bottom:8px;">'+(isAdmin?'👑 ':'👤 ')+user.name+' <span style="font-size:11px;color:#888;">('+user.role+')</span></div>';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+    html += '<img id="um-photo-preview-'+u+'" src="'+(user.photo||'')+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1.5px solid #ccc;background:#f0f0f0;'+(user.photo?'':'display:none;')+'">';
+    html += '<div id="um-photo-placeholder-'+u+'" style="width:44px;height:44px;border-radius:50%;background:#dfe6e9;display:'+(user.photo?'none':'flex')+';align-items:center;justify-content:center;font-size:18px;">👤</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-weight:700;color:'+(isAdmin?'#1a5276':'#333')+';">'+(isAdmin?'👑 ':'👤 ')+user.name+' <span style="font-size:11px;color:#888;">('+user.role+')</span></div>';
+    html += '<label style="display:inline-block;margin-top:4px;font-size:11px;background:#117a65;color:#fff;padding:4px 10px;border-radius:12px;cursor:pointer;">📷 Change Photo<input type="file" accept="image/*" id="um-photo-file-'+u+'" style="display:none;" onchange="iglHandleUserPhotoChange(\''+u+'\', this)"></label>';
+    html += '</div></div>';
     html += '<label style="font-size:11px;color:#888;margin-bottom:2px;display:block;">Display Name</label>';
     html += '<input type="text" id="um-n-'+u+'" value="'+user.name+'" placeholder="Display Name" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;margin-bottom:6px;box-sizing:border-box;font-size:13px;">';
     html += '<label style="font-size:11px;color:#888;margin-bottom:2px;display:block;">Username (Login ID)</label>';
@@ -2601,7 +2656,9 @@ window.iglSaveUsers = function(){
     var newP = ((document.getElementById('um-p-'+u)||{}).value || IGL_USERS[u].pass).trim();
     var newN = ((document.getElementById('um-n-'+u)||{}).value || IGL_USERS[u].name).trim();
     if(!newU || !newP){ return; }
-    newIGL_USERS[newU] = { pass: newP, role: IGL_USERS[u].role, name: newN };
+    // photo: নতুন আপলোড থাকলে সেটা, নাহলে আগের যেটা ছিল সেটাই রাখা হয় (মুছে যায় না)
+    var newPhoto = (window._iglPendingUserPhotos && window._iglPendingUserPhotos[u]) || IGL_USERS[u].photo || null;
+    newIGL_USERS[newU] = { pass: newP, role: IGL_USERS[u].role, name: newN, photo: newPhoto };
 
     // Permission checkboxes save করো
     if (IGL_USERS[u].role !== 'admin') {
@@ -2615,11 +2672,13 @@ window.iglSaveUsers = function(){
   });
   Object.keys(IGL_USERS).forEach(function(k){ delete IGL_USERS[k]; });
   Object.keys(newIGL_USERS).forEach(function(k){ IGL_USERS[k] = newIGL_USERS[k]; });
+  window._iglPendingUserPhotos = {}; // সেভ হয়ে গেছে, temp cache খালি করা হলো
   localStorage.setItem('igl_users_override', JSON.stringify(IGL_USERS));
   if(typeof triggerAutoSave === 'function') triggerAutoSave();
   document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child').remove();
   var nb = document.getElementById('igl-user-badge');
   if(nb && window.IGL_CURRENT_USER) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
+  try { iglUpdateUserAvatar(); } catch(e){}
   toast('✅ Users ও Permission আপডেট হয়েছে!', 'success');
 };
 
@@ -2827,6 +2886,7 @@ window.iglSaveNavVisibility = function() {
     ⬇ ইন্সটল
   </button>
   <div style="display:flex;align-items:center;gap:8px;margin-left:10px;">
+    <img id="igl-user-avatar" src="" alt="" style="display:none;width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,0.5);">
     <span id="igl-user-badge" style="font-size:11px;color:#aed6f1;white-space:nowrap;"></span>
     <div id="igl-admin-menu" style="display:none;">
       <button onclick="iglShowUserMgmt()" style="font-size:10px;padding:3px 8px;border-radius:10px;border:none;background:rgba(255,165,0,0.3);color:#ffd700;cursor:pointer;">⚙️ Users</button>
