@@ -2599,8 +2599,8 @@ window.iglAddNewUser = function(){
   IGL_USERS[newUsername] = { pass: '123456', role: newRole, name: 'New User ' + n };
 
   // বর্তমান প্যানেল বন্ধ করে নতুন ইউজারসহ প্যানেল আবার খোলা হচ্ছে (এখনো সেভ হয়নি — Save Users চাপলে সেভ হবে)
-  var modal = document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child');
-  if (modal) modal.remove();
+  var _modals2 = document.querySelectorAll('div[style*="position:fixed"][style*="z-index:999999"]');
+  if (_modals2.length) _modals2[_modals2.length - 1].remove();
   window.iglShowUserMgmt();
   toast('নতুন ইউজার যোগ হয়েছে — নাম, ইউজারনেম, পাসওয়ার্ড ঠিক করে "✅ Save Users" চাপুন', 'success');
 };
@@ -2689,7 +2689,13 @@ window.iglSaveUsers = function(){
   if (typeof window.fbSaveAll === 'function') {
     try { window.fbSaveAll(); } catch(e){}
   }
-  document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child').remove();
+  // ⚠️ মডাল বন্ধ করা এখন try/catch এ — আগে এই লাইন ব্যর্থ হলে (querySelector null ফেরত দিলে)
+  // পুরো ফাংশন এখানেই থেমে যেত, ফলে নিচের avatar আপডেট আর success toast কখনো চলতো না —
+  // এটাই ছিল "সেভের পর উপরের আইকনে ছবি না ভাসার" আসল কারণ।
+  try {
+    var _modals = document.querySelectorAll('div[style*="position:fixed"][style*="z-index:999999"]');
+    if (_modals.length) _modals[_modals.length - 1].remove();
+  } catch(e){ console.warn('Modal close warning:', e.message); }
   var nb = document.getElementById('igl-user-badge');
   if(nb && window.IGL_CURRENT_USER) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
   try { iglUpdateUserAvatar(true); } catch(e){ toast('❌ Avatar আপডেট Error: '+e.message, 'error'); }
