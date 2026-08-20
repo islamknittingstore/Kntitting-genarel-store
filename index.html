@@ -2125,8 +2125,7 @@ function iglUpdateUserAvatar(debugMode){
         if(ov) ov.style.display = 'none';
         var nb = document.getElementById('igl-user-badge');
         if(nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
-        try { iglUpdateUserAvatar(); } catch(e){}
-        // body class
+        try { iglUpdateUserAvatar(true); } catch(e){}
         if(IGL_CURRENT_USER.role === 'admin'){
           document.body.classList.remove('igl-user-regular');
           var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
