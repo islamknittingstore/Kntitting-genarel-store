@@ -2090,7 +2090,7 @@ function iglUpdateUserAvatar(debugMode){
     })();
     var photo = uname && IGL_USERS[uname] ? IGL_USERS[uname].photo : null;
     if (debugMode) {
-      toast('🔍 Debug — username: "'+uname+'" | IGL_USERS এ আছে কি: '+(uname && !!IGL_USERS[uname])+' | photo আছে কি: '+(!!photo)+' | photo length: '+(photo?photo.length:0), 'info');
+      alert('🔍 Debug Info:\n\nusername: "'+uname+'"\nIGL_USERS এ আছে কি: '+(uname && !!IGL_USERS[uname])+'\nphoto আছে কি: '+(!!photo)+'\nphoto length: '+(photo?photo.length:0));
     }
     if (photo) { av.src = photo; av.style.display = 'inline-block'; }
     else { av.style.display = 'none'; av.src = ''; }
