@@ -2675,6 +2675,12 @@ window.iglSaveUsers = function(){
   window._iglPendingUserPhotos = {}; // সেভ হয়ে গেছে, temp cache খালি করা হলো
   localStorage.setItem('igl_users_override', JSON.stringify(IGL_USERS));
   if(typeof triggerAutoSave === 'function') triggerAutoSave();
+  // ── Users/Photo সেভ একটা গুরুত্বপূর্ণ, কম-ঘনঘন action — তাই স্বাভাবিক ১.২ সেকেন্ড
+  // debounce এর অপেক্ষা না করে সাথে সাথেই Firebase এ পাঠানো হয়, যাতে অ্যাপ দ্রুত বন্ধ
+  // করে ফেললেও ছবি/ইউজার ডেটা হারিয়ে না যায় ──
+  if (typeof window.fbSaveAll === 'function') {
+    try { window.fbSaveAll(); } catch(e){}
+  }
   document.querySelector('div[style*="position:fixed"][style*="z-index:999999"]:last-child').remove();
   var nb = document.getElementById('igl-user-badge');
   if(nb && window.IGL_CURRENT_USER) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
