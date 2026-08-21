@@ -3215,6 +3215,7 @@ window.iglSaveNavVisibility = function() {
         <div style="font-size:15px;color:#000;font-weight:800;margin-bottom:22px;">Knitting General Store ERP System</div>
         <div style="font-size:17px;font-weight:600;margin-bottom:6px;" id="dash-welcome-msg">স্বাগতম 👋</div>
         <div style="font-size:13px;color:#d6eaf8;" id="dash-date-welcome"></div>
+        <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-bangla"></div>
       </div>
     </div>
 
@@ -20420,6 +20421,38 @@ function renderMainDashboardWelcome() {
   if (msgEl) msgEl.innerHTML = greet + (userName ? ', <span class="dash-user-name-rgb">' + userName + '</span>!' : '! স্বাগতম');
   var dateEl = document.getElementById('dash-date-welcome');
   if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  var bnDateEl = document.getElementById('dash-date-bangla');
+  if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
+}
+
+// ── গ্রেগরিয়ান তারিখ থেকে বাংলা (বঙ্গাব্দ) তারিখে রূপান্তর — শুধু ডিসপ্লে টেক্সট, কোনো ডাটা ক্যালকুলেশন নেই ──
+function toBanglaDateString(d) {
+  var bngMonths = ['বৈশাখ','জ্যৈষ্ঠ','আষাঢ়','শ্রাবণ','ভাদ্র','আশ্বিন','কার্তিক','অগ্রহায়ণ','পৌষ','মাঘ','ফাল্গুন','চৈত্র'];
+  var bngNums = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+  function toBn(n) { return String(n).split('').map(function(ch){ return /[0-9]/.test(ch) ? bngNums[Number(ch)] : ch; }).join(''); }
+
+  var gYear = d.getFullYear();
+  var gMonth = d.getMonth() + 1;
+  var gDate = d.getDate();
+
+  // পহেলা বৈশাখ = ১৪ এপ্রিল (সংশোধিত বাংলা বর্ষপঞ্জি)
+  var bYearStartGYear = (gMonth > 4 || (gMonth === 4 && gDate >= 14)) ? gYear : gYear - 1;
+  var bYear = bYearStartGYear - 593;
+  var bYearStart = new Date(bYearStartGYear, 3, 14); // 3 = April (0-indexed)
+  var diffDays = Math.floor((new Date(gYear, gMonth-1, gDate) - bYearStart) / 86400000);
+
+  // ফাল্গুন মাস যেই গ্রেগরিয়ান বছরে পড়ে সেটি লিপ ইয়ার কিনা তার উপর ফাল্গুনের দৈর্ঘ্য নির্ভর করে
+  var falgunGYear = bYearStartGYear + 1;
+  var isLeap = (falgunGYear % 4 === 0 && falgunGYear % 100 !== 0) || (falgunGYear % 400 === 0);
+  var monthLengths = [31,31,31,31,31,30,30,30,30,30, isLeap ? 30 : 29, 30];
+
+  var monthIdx = 0, dayInMonth = 1, cum = 0;
+  for (var i = 0; i < 12; i++) {
+    if (diffDays < cum + monthLengths[i]) { monthIdx = i; dayInMonth = diffDays - cum + 1; break; }
+    cum += monthLengths[i];
+  }
+
+  return toBn(dayInMonth) + ' ' + bngMonths[monthIdx] + ' ' + toBn(bYear) + ' বঙ্গাব্দ';
 }
 
 // ── General Store Dashboard-এর ডেটা শুধু General Store-এর নিজস্ব রেকর্ড দেখাবে —
