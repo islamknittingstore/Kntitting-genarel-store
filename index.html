@@ -218,6 +218,10 @@ if('serviceWorker' in navigator){
     0%,100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.4; transform: scale(0.8); }
   }
+  @keyframes dashStarTwinkle {
+    0%, 100% { opacity: 0.15; transform: scale(0.7); }
+    50%      { opacity: 1;    transform: scale(1.15); }
+  }
   .btn-autosave-connect {
     font-size: 11px; padding: 4px 12px; border-radius: 20px; border: none;
     background: rgba(52,152,219,0.3); color: #aed6f1; cursor: pointer; font-weight: 600;
@@ -3208,7 +3212,7 @@ window.iglSaveNavVisibility = function() {
   <!--  MAIN DASHBOARD (Welcome) -->
   <div class="page active" id="page-dashboard">
     <div id="mainDashboardBanner" style="background:linear-gradient(135deg,#0b3d5c 0%,#1a5276 45%,#117a65 100%);border-radius:14px;padding:48px 32px;text-align:center;color:#fff;box-shadow:0 8px 28px rgba(10,60,90,0.25);position:relative;overflow:hidden;">
-      <div style="position:absolute;inset:0;opacity:0.08;background-image:radial-gradient(circle at 20% 20%, #fff 2px, transparent 2px),radial-gradient(circle at 80% 60%, #fff 2px, transparent 2px);background-size:60px 60px;"></div>
+      <div id="dashStarField" style="position:absolute;inset:0;overflow:hidden;pointer-events:none;"></div>
       <div id="dashWeatherWidget" style="position:absolute;top:16px;right:20px;z-index:3;text-align:right;">
         <div id="dash-weather-city" style="font-size:11px;color:#eaf6ff;opacity:0.9;white-space:nowrap;">📍 গাজীপুর</div>
         <div id="dash-weather-temp" style="font-size:19px;font-weight:800;color:#fff;white-space:nowrap;">--°C</div>
@@ -20430,6 +20434,8 @@ function renderMainDashboardWelcome() {
   var bnDateEl = document.getElementById('dash-date-bangla');
   if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
   try { loadDashboardWeather(); } catch(e) {}
+  try { initDashStarfield(); } catch(e) {}
+  try { setInterval(loadDashboardWeather, 15 * 60 * 1000); } catch(e) {}
 }
 
 // ── Dashboard Weather Widget — Open-Meteo (ফ্রি, কোনো API key লাগে না) ──
@@ -20477,12 +20483,39 @@ function _iglRenderWeather(temp, code, cityName, feelsLike) {
   if (cityEl) cityEl.textContent = '📍 ' + (cityName || 'গাজীপুর');
 }
 
+// ── Dashboard Banner — Twinkling Star Field (গ্যালাক্সি এফেক্ট) ──
+function initDashStarfield() {
+  var field = document.getElementById('dashStarField');
+  if (!field || field.dataset.built === '1') return;
+  field.dataset.built = '1';
+
+  var starCount = 60;
+  var html = '';
+  for (var i = 0; i < starCount; i++) {
+    var top = Math.random() * 100;
+    var left = Math.random() * 100;
+    var size = (Math.random() * 2 + 1).toFixed(1); // 1px - 3px
+    var delay = (Math.random() * 6).toFixed(2); // 0 - 6s stagger
+    var duration = (Math.random() * 2.5 + 2).toFixed(2); // 2 - 4.5s
+    var big = Math.random() < 0.15; // কিছু তারা একটু বড় ও উজ্জ্বল
+    var glow = big ? '0 0 6px 1px rgba(255,255,255,0.85)' : '0 0 3px rgba(255,255,255,0.6)';
+    html += '<div class="dash-star" style="'
+      + 'position:absolute;top:' + top + '%;left:' + left + '%;'
+      + 'width:' + (big ? (size * 1.6) : size) + 'px;height:' + (big ? (size * 1.6) : size) + 'px;'
+      + 'background:#fff;border-radius:50%;'
+      + 'box-shadow:' + glow + ';'
+      + 'animation:dashStarTwinkle ' + duration + 's ease-in-out ' + delay + 's infinite;'
+      + '"></div>';
+  }
+  field.innerHTML = html;
+}
+
 function loadDashboardWeather() {
   var widget = document.getElementById('dashWeatherWidget');
   if (!widget) return;
 
-  // ৩০ মিনিটের মধ্যে আগে লোড করা থাকলে ক্যাশ থেকেই দেখানো হবে (বারবার API কল এড়াতে)
-  if (IGL_WEATHER_CACHE && (Date.now() - IGL_WEATHER_CACHE_TIME) < 30 * 60 * 1000) {
+  // ১৫ মিনিটের মধ্যে আগে লোড করা থাকলে ক্যাশ থেকেই দেখানো হবে (বারবার API কল এড়াতে)
+  if (IGL_WEATHER_CACHE && (Date.now() - IGL_WEATHER_CACHE_TIME) < 15 * 60 * 1000) {
     _iglRenderWeather(IGL_WEATHER_CACHE.temp, IGL_WEATHER_CACHE.code, IGL_WEATHER_CACHE.city, IGL_WEATHER_CACHE.feelsLike);
     return;
   }
