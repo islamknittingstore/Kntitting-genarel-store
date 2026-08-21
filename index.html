@@ -3212,6 +3212,7 @@ window.iglSaveNavVisibility = function() {
       <div id="dashWeatherWidget" style="position:absolute;top:16px;right:20px;z-index:3;text-align:right;">
         <div id="dash-weather-city" style="font-size:11px;color:#eaf6ff;opacity:0.9;white-space:nowrap;">📍 গাজীপুর</div>
         <div id="dash-weather-temp" style="font-size:19px;font-weight:800;color:#fff;white-space:nowrap;">--°C</div>
+        <div id="dash-weather-feelslike" style="font-size:10.5px;color:#eaf6ff;opacity:0.85;white-space:nowrap;">অনুভূত হচ্ছে --°C</div>
         <div id="dash-weather-desc" style="font-size:11px;color:#eaf6ff;opacity:0.9;white-space:nowrap;">লোড হচ্ছে...</div>
       </div>
       <div style="position:relative;z-index:1;">
@@ -20464,12 +20465,14 @@ function _iglWeatherCodeToInfo(code) {
   return map[code] || ['🌡️', 'আবহাওয়া'];
 }
 
-function _iglRenderWeather(temp, code, cityName) {
+function _iglRenderWeather(temp, code, cityName, feelsLike) {
   var tempEl = document.getElementById('dash-weather-temp');
+  var feelsEl = document.getElementById('dash-weather-feelslike');
   var descEl = document.getElementById('dash-weather-desc');
   var cityEl = document.getElementById('dash-weather-city');
   var info = _iglWeatherCodeToInfo(code);
   if (tempEl) tempEl.textContent = Math.round(temp) + '°C';
+  if (feelsEl) feelsEl.textContent = 'অনুভূত হচ্ছে ' + Math.round(feelsLike) + '°C';
   if (descEl) descEl.textContent = info[0] + ' ' + info[1];
   if (cityEl) cityEl.textContent = '📍 ' + (cityName || 'গাজীপুর');
 }
@@ -20480,20 +20483,20 @@ function loadDashboardWeather() {
 
   // ৩০ মিনিটের মধ্যে আগে লোড করা থাকলে ক্যাশ থেকেই দেখানো হবে (বারবার API কল এড়াতে)
   if (IGL_WEATHER_CACHE && (Date.now() - IGL_WEATHER_CACHE_TIME) < 30 * 60 * 1000) {
-    _iglRenderWeather(IGL_WEATHER_CACHE.temp, IGL_WEATHER_CACHE.code, IGL_WEATHER_CACHE.city);
+    _iglRenderWeather(IGL_WEATHER_CACHE.temp, IGL_WEATHER_CACHE.code, IGL_WEATHER_CACHE.city, IGL_WEATHER_CACHE.feelsLike);
     return;
   }
 
   // গাজীপুর, বাংলাদেশ — সবসময় এই লোকেশনের লাইভ আবহাওয়া দেখানো হবে
   var GAZIPUR_LAT = 23.9999, GAZIPUR_LON = 90.4203;
 
-  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + GAZIPUR_LAT + '&longitude=' + GAZIPUR_LON + '&current=temperature_2m,weather_code&timezone=auto')
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + GAZIPUR_LAT + '&longitude=' + GAZIPUR_LON + '&current=temperature_2m,apparent_temperature,weather_code&timezone=auto')
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data && data.current) {
-        IGL_WEATHER_CACHE = { temp: data.current.temperature_2m, code: data.current.weather_code, city: 'গাজীপুর' };
+        IGL_WEATHER_CACHE = { temp: data.current.temperature_2m, code: data.current.weather_code, city: 'গাজীপুর', feelsLike: data.current.apparent_temperature };
         IGL_WEATHER_CACHE_TIME = Date.now();
-        _iglRenderWeather(data.current.temperature_2m, data.current.weather_code, 'গাজীপুর');
+        _iglRenderWeather(data.current.temperature_2m, data.current.weather_code, 'গাজীপুর', data.current.apparent_temperature);
       } else {
         throw new Error('no data');
       }
