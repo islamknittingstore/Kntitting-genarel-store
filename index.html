@@ -6752,6 +6752,13 @@ function ok(msg) {
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
+        <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="1" onchange="rnaPrintAllPageToggle(1,this.checked)">১</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="2" onchange="rnaPrintAllPageToggle(2,this.checked)">২</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="3" onchange="rnaPrintAllPageToggle(3,this.checked)">৩</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="4" onchange="rnaPrintAllPageToggle(4,this.checked)">৪</label>
+          </span>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
@@ -7020,6 +7027,13 @@ function ok(msg) {
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
+        <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="1" onchange="rnaPrintAllPageToggle(1,this.checked)">১</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="2" onchange="rnaPrintAllPageToggle(2,this.checked)">২</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="3" onchange="rnaPrintAllPageToggle(3,this.checked)">৩</label>
+            <label style="font-size:11px;display:flex;align-items:center;gap:2px;margin:0;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="rna-printall-chk" data-page="4" onchange="rnaPrintAllPageToggle(4,this.checked)">৪</label>
+          </span>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(0)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ S/J &amp; Fleece</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(1)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Rib &amp; Interlock</button>
         <button class="btn btn-sm no-print" onclick="rnaPrintSingle(2)" style="margin-top:16px;background:#1a5276;color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;">🖨️ Sinker</button>
@@ -28902,6 +28916,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var toDate = document.getElementById('rna-to').value;
     if(!fromDate||!toDate){ return; }
 
+    try{ rnaInitPrintAllCheckboxes(); }catch(e){}
+
     // ⚠️ Firebase-এর পুরো needle history লোড হওয়ার আগে (শুধু localStorage-এর trimmed/৩০-দিনের
     // cache থাকা অবস্থায়) হিসাব করলে BF ভুল/বেশি দেখাতে পারে। তাই পুরো লোড না হওয়া পর্যন্ত
     // অপেক্ষা করছি, আর একটা "লোড হচ্ছে" মেসেজ দেখাচ্ছি যাতে ভুল সংখ্যায় ভয় না পান।
@@ -28925,6 +28941,40 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     rnaShowTab(_rnaCurrentTab, null);
   }
 
+  // ── Print All: কোন কোন পেজ প্রিন্ট হবে তার সিলেকশন (ডিফল্ট হিসেবে সেভ থাকে) ──
+  function rnaGetPrintAllSelection(){
+    try{
+      var raw = localStorage.getItem('igl_rna_printall_pages');
+      if(raw){
+        var arr = JSON.parse(raw);
+        if(Array.isArray(arr) && arr.length===4) return arr;
+      }
+    }catch(e){}
+    return [true,true,true,true]; // ডিফল্ট: সবগুলো পেজ
+  }
+  function rnaSetPrintAllSelection(arr){
+    try{ localStorage.setItem('igl_rna_printall_pages', JSON.stringify(arr)); }catch(e){}
+  }
+  function rnaPrintAllPageToggle(pageNo, checked){
+    var sel = rnaGetPrintAllSelection();
+    sel[pageNo-1] = !!checked;
+    // কমপক্ষে একটা পেজ সিলেক্ট থাকতে হবে
+    if(!sel.some(function(v){ return v; })){
+      sel[pageNo-1] = true;
+      var chk = document.querySelector('.rna-printall-chk[data-page="'+pageNo+'"]');
+      if(chk) chk.checked = true;
+      if(typeof toast === 'function') toast('⚠️ অন্তত একটি পেজ সিলেক্ট থাকতে হবে', 'error');
+    }
+    rnaSetPrintAllSelection(sel);
+  }
+  function rnaInitPrintAllCheckboxes(){
+    var sel = rnaGetPrintAllSelection();
+    document.querySelectorAll('.rna-printall-chk').forEach(function(chk){
+      var idx = parseInt(chk.getAttribute('data-page'),10) - 1;
+      chk.checked = !!sel[idx];
+    });
+  }
+
   function rnaPrintAll(){
     var fromDate = document.getElementById('rna-from').value;
     var toDate = document.getElementById('rna-to').value;
@@ -28938,10 +28988,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       }
     }
 
+    // ইউজারের সিলেকশন অনুযায়ী শুধু নির্বাচিত পেজগুলোই প্রিন্ট হবে (হিসাব/ক্যালকুলেশন অপরিবর্তিত)
+    var pageSel = rnaGetPrintAllSelection();
+    var selectedIdx = [];
+    for(var i=0;i<4;i++){ if(pageSel[i]) selectedIdx.push(i); }
+    if(selectedIdx.length===0){ selectedIdx = [0,1,2,3]; } // নিরাপত্তা: কিছু সিলেক্ট না থাকলে সবগুলো
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
-    var bodyHTML = _rnaTabData.map(function(html, i){
-      return '<div class="rna-print-page">' + html + '</div>';
+    var bodyHTML = selectedIdx.map(function(i){
+      return '<div class="rna-print-page">' + _rnaTabData[i] + '</div>';
     }).join('');
 
     var css = _rnaPrintCSS('A4 landscape', '6mm', fontSize);
