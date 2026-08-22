@@ -22166,15 +22166,16 @@ function gsBFImportClosingStockXls(){
   document.getElementById('gsBFClosingStockInput').click();
 }
 
-// নাম মেলানোর জন্য normalize — quote/ইঞ্চি চিহ্ন, ড্যাশ, ব্র্যাকেট, extra স্পেস ইত্যাদির
-// পার্থক্য উপেক্ষা করে যাতে সামান্য লেখার ভিন্নতা থাকলেও মিল খুঁজে পায়
+// নাম মেলানোর জন্য normalize — quote/ইঞ্চি চিহ্ন (″ সহ), ড্যাশ, সেমিকোলন, কমা, ব্র্যাকেট,
+// এবং যেকোনো স্পেসিং পার্থক্য উপেক্ষা করে যাতে সামান্য লেখার ভিন্নতা থাকলেও মিল খুঁজে পায়
+// (উদাহরণ: মাস্টারে "Colling Fan Ac- 220v; 5″" আর ইম্পোর্ট ফাইলে "Colling Fan Ac- 220v, 5 Inch" — দুটোই মিলবে)
 function gsNormItemName(s){
   return String(s||'').toLowerCase()
-    .replace(/["'’‘]/g, ' ')
+    .replace(/["'’‘”“″‶]/g, ' ')
     .replace(/[\[\]\(\)]/g, ' ')
-    .replace(/[\-–—_,]/g, ' ')
+    .replace(/[\-–—_,;.]/g, ' ')
     .replace(/\binch(es)?\b/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\s+/g, '') // সব স্পেস বাদ — শুধু অক্ষর/সংখ্যার সিকোয়েন্স মিলিয়ে দেখবে
     .trim();
 }
 
