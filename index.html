@@ -3226,7 +3226,7 @@ window.iglSaveNavVisibility = function() {
         <div style="font-size:17px;font-weight:600;margin-bottom:6px;" id="dash-welcome-msg">স্বাগতম 👋</div>
         <div style="font-size:13px;color:#d6eaf8;" id="dash-date-welcome"></div>
         <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-bangla"></div>
-        <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-hijri" dir="rtl"></div>
+        <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-hijri"></div>
       </div>
     </div>
 
@@ -5766,12 +5766,44 @@ function ok(msg) {
           <button class="btn btn-primary btn-sm" onclick="renderNeedleMonthly()">View</button>
           <button class="btn btn-outline btn-sm" onclick="printMachineWise()" style="background:#1a5276;color:#fff;border-color:#1a5276;">🖨️ প্রিন্ট করুন</button>
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportMonthlyExcel()">📊 Excel</button>
+          <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="ndlUnmappedOpen()" title="কোন Needle এন্ট্রি কোনো মেশিনের সাথে মিলছে না তা খুঁজে বের করুন">🔍 Unmapped Check</button>
         </div>
       </div>
 
       <div class="header-print" id="needle-monthly-print-header"></div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="needleMonthlyGrid"></div>
+      </div>
+    </div>
+
+    <!-- Unmapped Needle Entries Checker Modal -->
+    <div id="ndl-unmapped-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:99999;align-items:center;justify-content:center;" class="no-print">
+      <div style="background:#fff;border-radius:10px;padding:20px 24px;width:min(720px, 92vw);max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 6px;color:#c0392b;font-size:16px;">🔍 Unmapped Needle Entries চেক</h3>
+        <p style="font-size:12px;color:#666;margin:0 0 14px;">যেসব Needle এন্ট্রি কোনো মেশিনের সাথেই মিলছে না, সেগুলো এখানে দেখা যাবে (Section ফিল্টার উপেক্ষা করে — সব মেশিন ধরে যাচাই করা হয়)।</p>
+        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#555;display:block;">সময়সীমা</label>
+            <select class="form-control" id="ndl-unmapped-scope" onchange="document.getElementById('ndl-unmapped-monthyear-wrap').style.display = this.value==='month' ? 'flex':'none';" style="width:150px;">
+              <option value="month">শুধু এই মাস</option>
+              <option value="all">সব সময়ের ডাটা</option>
+            </select>
+          </div>
+          <div id="ndl-unmapped-monthyear-wrap" style="display:flex;gap:8px;">
+            <select class="form-control" id="ndl-unmapped-month" style="width:130px;">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select>
+            <input type="number" class="form-control" id="ndl-unmapped-year" value="2026" min="2020" max="2050" style="width:90px;">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="ndlUnmappedRun()">চেক করুন</button>
+        </div>
+        <div id="ndl-unmapped-result"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button onclick="ndlUnmappedClose()" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:8px 20px;cursor:pointer;font-weight:700;">বন্ধ করুন</button>
+        </div>
       </div>
     </div>
 
@@ -20619,12 +20651,13 @@ function toBanglaDateString(d) {
   return toBn(dayInMonth) + ' ' + bngMonths[monthIdx] + ' ' + toBn(bYear) + ' বঙ্গাব্দ';
 }
 
-// ── আরবি (হিজরি/ইসলামিক) তারিখ — ব্রাউজারের বিল্ট-ইন Intl API ব্যবহার করে
-// (কোনো ইন্টারনেট/লাইব্রেরি লাগে না), Umm al-Qura ক্যালেন্ডার অনুযায়ী ──
+// ── হিজরি (আরবি মাস) তারিখ — মাসের নাম ইংরেজি হরফে (Arabic script না),
+// ব্রাউজারের বিল্ট-ইন Intl API ব্যবহার করে (ইন্টারনেট/লাইব্রেরি লাগে না),
+// Umm al-Qura ক্যালেন্ডার অনুযায়ী — যেমন: "22 Safar 1448 AH" ──
 function toHijriDateString(d) {
   try {
-    var fmt = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' });
-    return fmt.format(d) + ' هـ';
+    var fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' });
+    return fmt.format(d) + ' AH';
   } catch (e) {
     return '';
   }
@@ -23598,6 +23631,125 @@ function doMWPrint(pageCount) {
 }
 
 
+// ── Needle→Machine মিলানোর মূল লজিক (global, reusable) — নিচের ৩-ধাপের মিলানোর
+// নিয়মটা এখানে একবারই লেখা আছে, রিপোর্ট আর "Unmapped Check" দুই জায়গাতেই এটাই
+// ব্যবহার হয় — যাতে দুই জায়গায় লজিক আলাদা হয়ে ভবিষ্যতে ফলাফল না মেলে ──
+function buildNeedleToMachineMapG(allNeedlesList, machineList) {
+  var map = {};
+  function _crossSection(nSec, mSec) {
+    var nFlat = nSec.indexOf('flat') >= 0;
+    var mFlat = mSec.indexOf('flat') >= 0;
+    return nFlat !== mFlat;
+  }
+  allNeedlesList.forEach(function(n) {
+    machineList.forEach(function(machine) {
+      if (n.machine === machine.id) {
+        if (!map[n.id]) map[n.id] = machine.id;
+      }
+    });
+  });
+  allNeedlesList.forEach(function(n) {
+    if (map[n.id]) return;
+    var nSec = (n.section || '').toLowerCase();
+    machineList.forEach(function(machine) {
+      if (map[n.id]) return;
+      var mSec = (machine.section || '').toLowerCase();
+      if (nSec && mSec && _crossSection(nSec, mSec)) return;
+      if (machine.erp && n.erp && n.erp.toString() === machine.erp.toString()) {
+        map[n.id] = machine.id;
+      }
+    });
+  });
+  allNeedlesList.forEach(function(n) {
+    if (map[n.id]) return;
+    if (!n.machine) return;
+    var nSec = (n.section || '').toLowerCase();
+    var nMach = n.machine.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    machineList.forEach(function(machine) {
+      if (map[n.id]) return;
+      var mSec = (machine.section || '').toLowerCase();
+      if (nSec && mSec && _crossSection(nSec, mSec)) return;
+      var mId = machine.id.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (nMach && mId && nMach === mId) {
+        map[n.id] = machine.id;
+      }
+    });
+  });
+  return map;
+}
+
+// ── "Unmapped Needle Entries" চেকার — কোনো needle এন্ট্রি কোনো মেশিনের সাথেই
+// মিলছে না (৩-ধাপের কোনোটাতেই না), সেগুলো এখানে খুঁজে দেখানো হয় ──
+function ndlUnmappedOpen() {
+  var m = document.getElementById('ndl-unmapped-modal');
+  if (!m) return;
+  var mEl = document.getElementById('nm-month'), yEl = document.getElementById('nm-year');
+  var monthSel = document.getElementById('ndl-unmapped-month');
+  var yearSel  = document.getElementById('ndl-unmapped-year');
+  if (monthSel && mEl) monthSel.value = mEl.value;
+  if (yearSel && yEl) yearSel.value = yEl.value;
+  document.getElementById('ndl-unmapped-result').innerHTML = '';
+  m.style.display = 'flex';
+}
+function ndlUnmappedClose() {
+  var m = document.getElementById('ndl-unmapped-modal');
+  if (m) m.style.display = 'none';
+}
+function ndlUnmappedRun() {
+  var scope = document.getElementById('ndl-unmapped-scope').value; // 'month' | 'all'
+  var month = Number(document.getElementById('ndl-unmapped-month').value);
+  var year  = Number(document.getElementById('ndl-unmapped-year').value);
+
+  var allNeedlesList = (typeof NDB !== 'undefined' ? NDB.needles : []) || [];
+  allNeedlesList = allNeedlesList.filter(function(n) {
+    return (n.needleType||'').toLowerCase() !== 'used' && (n.type||'').toLowerCase() !== 'used';
+  });
+  if (scope === 'month') {
+    allNeedlesList = allNeedlesList.filter(function(n) {
+      var nd = new Date(n.date);
+      return nd.getMonth()+1 === month && nd.getFullYear() === year;
+    });
+  }
+
+  // ইচ্ছাকৃতভাবে সব সেকশনের সব মেশিন ধরে চেক করা হচ্ছে (কারেন্ট Section ফিল্টার
+  // উপেক্ষা করে), যাতে ফিল্টারের কারণে false-positive "unmapped" না দেখায়
+  var machineList = getNeedleMachines();
+  var map = buildNeedleToMachineMapG(allNeedlesList, machineList);
+
+  var unmapped = allNeedlesList.filter(function(n) { return !map[n.id]; });
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var resEl = document.getElementById('ndl-unmapped-result');
+
+  if (!unmapped.length) {
+    resEl.innerHTML = '<div style="padding:14px;background:#eafaf1;border:1px solid #1e8449;border-radius:7px;color:#1e6b3a;font-weight:700;">✅ সব Needle এন্ট্রি সঠিকভাবে কোনো না কোনো মেশিনের সাথে মিলে গেছে — কোনো Unmapped রেকর্ড নেই।</div>';
+    return;
+  }
+
+  unmapped.sort(function(a,b){ return (a.date||'') < (b.date||'') ? -1 : 1; });
+  var rows = unmapped.map(function(n) {
+    return '<tr>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;">' + (n.date ? fmtDate(n.date) : '-') + '</td>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;">' + (n.machine || '<span style="color:#c0392b;">(খালি)</span>') + '</td>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;">' + (n.erp || '-') + '</td>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;">' + (n.section || '-') + '</td>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;">' + (n.type || '-') + '</td>'
+      + '<td style="padding:6px 8px;border:1px solid #ddd;text-align:center;font-weight:700;">' + (n.qty||0) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  resEl.innerHTML =
+    '<div style="padding:10px 12px;background:#fdedec;border:1px solid #c0392b;border-radius:7px;color:#922b21;font-weight:700;margin-bottom:10px;">'
+    + '⚠️ মোট ' + unmapped.length + ' টি Needle এন্ট্রি কোনো মেশিনের সাথে মিলছে না' + (scope==='month' ? (' (' + monthNames[month-1] + ' ' + year + ')') : ' (সব সময়ের ডাটায়)') + '</div>'
+    + '<div style="max-height:320px;overflow-y:auto;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    + '<thead><tr style="background:#f0f3f7;"><th style="padding:6px 8px;border:1px solid #ddd;">তারিখ</th><th style="padding:6px 8px;border:1px solid #ddd;">Machine (যা এন্ট্রিতে আছে)</th><th style="padding:6px 8px;border:1px solid #ddd;">ERP (যা এন্ট্রিতে আছে)</th><th style="padding:6px 8px;border:1px solid #ddd;">Section</th><th style="padding:6px 8px;border:1px solid #ddd;">Type</th><th style="padding:6px 8px;border:1px solid #ddd;">Qty</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div>'
+    + '<div style="margin-top:10px;font-size:11.5px;color:#7d6608;background:#fef9e7;border:1px solid #d4ac0d;border-radius:6px;padding:8px 10px;">'
+    + '💡 ঠিক করতে: উপরে দেখানো Machine/ERP লেখাটা Master Data-র কোনো মেশিনের ID/ERP-এর সাথে ঠিক মিলছে কিনা যাচাই করুন। '
+    + 'না মিললে — হয় Master Data-তে গিয়ে সঠিক Machine ID/ERP-তে এডিট করে দিন (তখন এই রেকর্ডও অটো লিংক হয়ে যাবে), অথবা এই Needle এন্ট্রিটা ভুল মেশিনে হয়ে থাকলে ঠিক মেশিনে সরিয়ে সেভ করুন।'
+    + '</div>';
+}
+
 function renderNeedleMonthly() {
   var month = Number(document.getElementById('nm-month').value);
   var year = Number(document.getElementById('nm-year').value);
@@ -23637,51 +23789,7 @@ function renderNeedleMonthly() {
   // Helper: build one print page table from a list of machines
 
     function buildNeedleToMachineMap(machineList) {
-      var map = {};
-      // Circular vs Flat Knit — এই দুটো আলাদা রাখতে হবে
-      function _crossSection(nSec, mSec) {
-        var nFlat = nSec.indexOf('flat') >= 0;
-        var mFlat = mSec.indexOf('flat') >= 0;
-        return nFlat !== mFlat; // একটা flat অন্যটা circular হলে cross
-      }
-      // Pass 1: exact machine.id match
-      allNeedles.forEach(function(n) {
-        machineList.forEach(function(machine) {
-          if (n.machine === machine.id) {
-            if (!map[n.id]) map[n.id] = machine.id;
-          }
-        });
-      });
-      // Pass 2: ERP match — Circular/FlatKnit cross হলে skip, বাকি সব allow
-      allNeedles.forEach(function(n) {
-        if (map[n.id]) return;
-        var nSec = (n.section || '').toLowerCase();
-        machineList.forEach(function(machine) {
-          if (map[n.id]) return;
-          var mSec = (machine.section || '').toLowerCase();
-          if (nSec && mSec && _crossSection(nSec, mSec)) return;
-          if (machine.erp && n.erp && n.erp.toString() === machine.erp.toString()) {
-            map[n.id] = machine.id;
-          }
-        });
-      });
-      // Pass 3: machine name fuzzy match — cross-section block
-      allNeedles.forEach(function(n) {
-        if (map[n.id]) return;
-        if (!n.machine) return;
-        var nSec = (n.section || '').toLowerCase();
-        var nMach = n.machine.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-        machineList.forEach(function(machine) {
-          if (map[n.id]) return;
-          var mSec = (machine.section || '').toLowerCase();
-          if (nSec && mSec && _crossSection(nSec, mSec)) return;
-          var mId = machine.id.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (nMach && mId && nMach === mId) {
-            map[n.id] = machine.id;
-          }
-        });
-      });
-      return map;
+      return buildNeedleToMachineMapG(allNeedles, machineList);
     }
 
     function buildMachineTable(pageTitle, machineList, pageBreak, pageBreakAfter) {
