@@ -3226,6 +3226,7 @@ window.iglSaveNavVisibility = function() {
         <div style="font-size:17px;font-weight:600;margin-bottom:6px;" id="dash-welcome-msg">স্বাগতম 👋</div>
         <div style="font-size:13px;color:#d6eaf8;" id="dash-date-welcome"></div>
         <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-bangla"></div>
+        <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-hijri" dir="rtl"></div>
       </div>
     </div>
 
@@ -20479,6 +20480,8 @@ function renderMainDashboardWelcome() {
   if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   var bnDateEl = document.getElementById('dash-date-bangla');
   if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
+  var hijriEl = document.getElementById('dash-date-hijri');
+  if (hijriEl) hijriEl.textContent = toHijriDateString(now);
   try { loadDashboardWeather(); } catch(e) {}
   try { initDashStarfield(); } catch(e) {}
   try { setInterval(loadDashboardWeather, 15 * 60 * 1000); } catch(e) {}
@@ -20614,6 +20617,17 @@ function toBanglaDateString(d) {
   }
 
   return toBn(dayInMonth) + ' ' + bngMonths[monthIdx] + ' ' + toBn(bYear) + ' বঙ্গাব্দ';
+}
+
+// ── আরবি (হিজরি/ইসলামিক) তারিখ — ব্রাউজারের বিল্ট-ইন Intl API ব্যবহার করে
+// (কোনো ইন্টারনেট/লাইব্রেরি লাগে না), Umm al-Qura ক্যালেন্ডার অনুযায়ী ──
+function toHijriDateString(d) {
+  try {
+    var fmt = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' });
+    return fmt.format(d) + ' هـ';
+  } catch (e) {
+    return '';
+  }
 }
 
 // ── General Store Dashboard-এর ডেটা শুধু General Store-এর নিজস্ব রেকর্ড দেখাবে —
@@ -21612,24 +21626,44 @@ function toggleItemHidden(idx) {
 }
 
 // ── Update item name ──
+// ── Update item Name — also cascades the rename into every past
+// Receive/Issue record for this item (matched by old name + group), so
+// historical data stays correctly linked to the item and every stock/report
+// calculation (which matches by item name) keeps counting it exactly as
+// before. Nothing about quantities, dates, or amounts is touched — only the
+// item label on those old records is updated to match the new name. ──
 function updateItemName(idx, val) {
   const newName = (val || '').trim();
   if (!newName) { toast('আইটেমের নাম খালি রাখা যাবে না!', 'warning'); renderMaster(); return; }
   const items = DB.items;
   const oldName = items[idx].name;
+  const grp = items[idx].group;
   if (newName === oldName) return;
   // Duplicate check within same group
-  const dup = items.find((it, j) => j !== idx && it.name === newName && it.group === items[idx].group);
+  const dup = items.find((it, j) => j !== idx && it.name === newName && it.group === grp);
   if (dup) { toast('এই নামে একটি আইটেম আগে থেকেই আছে!', 'warning'); renderMaster(); return; }
   items[idx].name = newName;
   DB.items = items;
+
+  // Cascade the rename into historical Receive/Issue records so nothing
+  // gets orphaned from its stock/report calculations
+  let rCount = 0, iCount = 0;
+  DB.receives = (DB.receives || []).map(r => {
+    if (r.group === grp && r.item === oldName) { rCount++; return Object.assign({}, r, { item: newName }); }
+    return r;
+  });
+  DB.issues = (DB.issues || []).map(r => {
+    if (r.group === grp && r.item === oldName) { iCount++; return Object.assign({}, r, { item: newName }); }
+    return r;
+  });
+
   renderMaster();
   renderStock();
   populateMasterDataLists();
   _refreshAllGroupDropdowns();
   if (typeof updateDashboard === 'function') updateDashboard();
   triggerAutoSave();
-  toast(`✅ "${oldName}" → "${newName}" আপডেট হয়েছে`, 'success');
+  toast(`✅ "${oldName}" → "${newName}" আপডেট হয়েছে (Receive: ${rCount}, Issue: ${iCount} রেকর্ড ও লিংক করা হয়েছে)`, 'success');
 }
 
 // ── Update item Category — this renames the category itself, so every
