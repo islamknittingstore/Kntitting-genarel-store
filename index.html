@@ -381,6 +381,21 @@ if('serviceWorker' in navigator){
   /* Issue form fields — red focus */
   #page-issue .form-control:focus { border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192,57,43,0.12); }
 
+  /* ── Issue Goods form — compact layout so more fields fit on one screen
+     without scrolling. Scoped to #page-issue only — no other page/form
+     is affected. ── */
+  #page-issue .page-header { margin-bottom: 10px; padding-bottom: 6px; }
+  #page-issue .page-header h2 { font-size: 18px; }
+  #page-issue .page-header p { font-size: 12px; margin: 2px 0 0; }
+  #page-issue .card-body { padding: 12px 16px; }
+  #page-issue .form-grid { gap: 0 20px; }
+  #page-issue .form-group { margin-bottom: 8px; }
+  #page-issue .form-group label { margin-bottom: 2px; font-size: 10.5px; }
+  #page-issue .form-control { padding: 6px 10px; font-size: 12.5px; }
+  #page-issue .divider { margin: 10px 0; }
+  #page-issue .action-bar { margin-top: 10px; }
+  #page-issue .action-bar .btn { padding: 8px 16px; }
+
   /*  Page Headers — colored strips  */
   #page-receive .page-header h2 { color: #1a5276; }
   #page-issue .page-header h2 { color: #922b21; }
@@ -1404,6 +1419,7 @@ if('serviceWorker' in navigator){
           pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'),
           gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
           gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
+          gsReqFlags:      JSON.parse(localStorage.getItem('igl_gs_req_flags') || '{}'),
           monthLocks:      JSON.parse(localStorage.getItem('igl_month_locks') || '{}'),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || ''
         }
@@ -1698,6 +1714,7 @@ if('serviceWorker' in navigator){
           if(data.settings.pkgSuppliers && data.settings.pkgSuppliers.length) { localStorage.setItem('igl_pkg_suppliers', JSON.stringify(data.settings.pkgSuppliers)); if(typeof pkgPopulateSupplierDatalist==='function') pkgPopulateSupplierDatalist(); }
           if(data.settings.gsSuppliers && data.settings.gsSuppliers.length) { localStorage.setItem('igl_gs_suppliers', JSON.stringify(data.settings.gsSuppliers)); if(typeof gsPopulateSupplierDatalist==='function') gsPopulateSupplierDatalist(); }
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
+          if(data.settings.gsReqFlags && Object.keys(data.settings.gsReqFlags).length) { localStorage.setItem('igl_gs_req_flags', JSON.stringify(data.settings.gsReqFlags)); }
           // 🔒 Month Lock — এটা কখনো localStorage-এর ফাঁকা/পুরনো ডাটা দিয়ে ওভাররাইট করা যাবে না,
           // শুধু Firebase-এ আসলেই কিছু লক থাকলে (keys থাকলে) সেটা apply করো। খালি হলে টাচ করো না —
           // যাতে কোনো ডিভাইসে ভুলবশত লক তথ্য মুছে না যায়।
@@ -3524,6 +3541,16 @@ window.iglSaveNavVisibility = function() {
             <div class="form-group">
               <label>Current Stock</label>
               <div id="i-stock-badge"></div>
+            </div>
+            <div class="form-group" id="i-last-issues-wrap" style="display:none;">
+              <label>সর্বশেষ কয়েকটা Issue</label>
+              <div id="i-last-issues" style="border:1px solid #f0d5d3;border-radius:6px;padding:4px 6px;max-height:110px;overflow-y:auto;"></div>
+            </div>
+            <div class="form-group" id="i-req-flag-wrap" style="display:none;background:#fef5e7;border:1px solid #e67e22;border-radius:6px;padding:6px 10px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;font-size:12px;color:#7d5a10;letter-spacing:0;font-weight:600;">
+                <input type="checkbox" id="i-req-flag" onchange="onIssueReqFlagChange()" style="width:15px;height:15px;">
+                📋 এই আইটেমের Requisition দরকার
+              </label>
             </div>
           </div>
         </div>
@@ -7491,10 +7518,14 @@ async function _loadFromFile() {
     var needleWorkers  = needle.workers       || data.needleWorkers  || [];
     var stnIssues      = stn.issues           || data.stnIssues      || [];
     var stnReceives    = stn.receives         || data.stnReceives    || [];
+    var gsReqFlags     = data.gsReqFlags      || null;
 
     // ── সরাসরি localStorage এ লিখি ──
     try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(e) {}
     try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(e) {}
+    if (gsReqFlags && Object.keys(gsReqFlags).length) {
+      try { localStorage.setItem('igl_gs_req_flags', JSON.stringify(gsReqFlags)); } catch(e) {}
+    }
 
     // ── Stationery Issues/Receives কে DB.issues/DB.receives এ merge করো ──
     // stnIssues/stnReceives পুরনো আলাদা format — DB এর সাথে merge করতে হবে
@@ -7693,6 +7724,8 @@ async function _doSave() {
       retailMachines: retailMachines,
       // Workers
       needleWorkers: needleWorkers,
+      // Requisition flags (Issue Form থেকে টিক দেওয়া)
+      gsReqFlags: DB.gsReqFlags,
       // Meta
       savedAt: new Date().toISOString(),
       version: '3.0-full'
@@ -7855,6 +7888,7 @@ async function gdriveLoadNow() {
       if (data.machines) DB.machines = data.machines;
       if (data.receives) DB.receives = data.receives;
       if (data.issues)   DB.issues   = data.issues;
+      if (data.gsReqFlags) DB.gsReqFlags = data.gsReqFlags;
       if (data.needles && typeof NDB !== 'undefined') NDB.needles = data.needles;
       // Merge Drive items with preItems — never lose any item
       if (data.items) {
@@ -8071,6 +8105,8 @@ const DB = {
     return g;
   },
   set groups(v) { _set('igl_groups', v); },
+  get gsReqFlags() { return _get('igl_gs_req_flags') || {}; },
+  set gsReqFlags(v) { _set('igl_gs_req_flags', v); },
 };
 
 // 
@@ -10002,7 +10038,28 @@ function updateReceiveStock() {
 
 function updateIssueStock() {
   const item = document.getElementById('i-item').value;
-  if (item) document.getElementById('i-stock-badge').innerHTML = stockBadge(getStock(item));
+  const group = document.getElementById('i-group').value;
+  const lastWrap = document.getElementById('i-last-issues-wrap');
+  const flagWrap = document.getElementById('i-req-flag-wrap');
+  if (item) {
+    document.getElementById('i-stock-badge').innerHTML = stockBadge(getStock(item));
+    document.getElementById('i-last-issues').innerHTML = getLastIssuesHtml(item, 5);
+    if (lastWrap) lastWrap.style.display = '';
+    if (flagWrap) flagWrap.style.display = '';
+    document.getElementById('i-req-flag').checked = isItemFlaggedForReq(group, item);
+  } else {
+    if (lastWrap) lastWrap.style.display = 'none';
+    if (flagWrap) flagWrap.style.display = 'none';
+  }
+}
+
+function onIssueReqFlagChange() {
+  const item = document.getElementById('i-item').value;
+  const group = document.getElementById('i-group').value;
+  if (!item || !group) return;
+  const checked = document.getElementById('i-req-flag').checked;
+  setItemReqFlag(group, item, checked);
+  toast(checked ? ('📋 "' + item + '" Requisition লিস্টে যোগ হয়েছে') : ('✅ "' + item + '" Requisition লিস্ট থেকে বাদ দেওয়া হয়েছে'), 'success');
 }
 
 function fillMachineByNo() {
@@ -10235,6 +10292,10 @@ function clearIssueForm() {
   document.getElementById('i-machine-cat').value = '';
   document.getElementById('i-remarks').value = '';
   document.getElementById('i-stock-badge').innerHTML = '';
+  var lastWrap = document.getElementById('i-last-issues-wrap');
+  var flagWrap = document.getElementById('i-req-flag-wrap');
+  if (lastWrap) lastWrap.style.display = 'none';
+  if (flagWrap) flagWrap.style.display = 'none';
 
   // Re-populate Group and Category
   if (grp) {
@@ -10589,8 +10650,14 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var reqH = ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks'];
   reqH.forEach(function(v,i){ wsReq.getCell(4,i+1).value = v; });
   styleHeaderRow(wsReq.getRow(4));
-  for (var k=1;k<=15;k++){
+  // Issue Form থেকে "Requisition দরকার" টিক দেওয়া আইটেমগুলো এখানে অটো বসে যাবে
+  var reqFlaggedItems = items
+    .filter(function(it){ return isItemFlaggedForReq(group, it.name); })
+    .map(function(it){ return it.name; });
+  var reqRowCount = Math.max(15, reqFlaggedItems.length);
+  for (var k=1;k<=reqRowCount;k++){
     wsReq.getCell(4+k,1).value = k;
+    if (reqFlaggedItems[k-1]) wsReq.getCell(4+k,2).value = reqFlaggedItems[k-1];
     styleDataRow(wsReq.getRow(4+k), 8);
   }
 
@@ -21659,6 +21726,48 @@ function toggleItemHidden(idx) {
 }
 
 // ── Update item name ──
+// ── Requisition flag storage — যে আইটেমগুলো Issue করার সময় "Requisition দরকার"
+// টিক দেওয়া হয়েছে, সেগুলোর লিস্ট (group + item name key ধরে)। এই লিস্টটাই
+// Monthly Report-এর Requisition শীট/প্রিভিউতে অটো বসে যায়। ──
+function gsReqFlagKey(group, itemName) { return group + '|||' + itemName; }
+function isItemFlaggedForReq(group, itemName) {
+  return !!(DB.gsReqFlags && DB.gsReqFlags[gsReqFlagKey(group, itemName)]);
+}
+function setItemReqFlag(group, itemName, flag) {
+  var flags = Object.assign({}, DB.gsReqFlags || {});
+  var key = gsReqFlagKey(group, itemName);
+  if (flag) flags[key] = true; else delete flags[key];
+  DB.gsReqFlags = flags;
+  triggerAutoSave();
+}
+// আইটেমের নাম রিনেম হলে flag key-ও cascade রিনেম হবে (নাহলে flag হারিয়ে যাবে)
+function _renameReqFlagKey(group, oldName, newName) {
+  if (!DB.gsReqFlags) return;
+  var oldKey = gsReqFlagKey(group, oldName);
+  if (!DB.gsReqFlags[oldKey]) return;
+  var flags = Object.assign({}, DB.gsReqFlags);
+  delete flags[oldKey];
+  flags[gsReqFlagKey(group, newName)] = true;
+  DB.gsReqFlags = flags;
+}
+
+// ── নির্দিষ্ট আইটেমের সাম্প্রতিক কয়েকটা Issue রেকর্ড (তারিখ + Qty) — Issue Form-এ
+// দেখানো হয়, যাতে ট্রেন্ড দেখে Requisition দরকার কিনা বোঝা সহজ হয় ──
+function getLastIssuesHtml(itemName, n) {
+  n = n || 5;
+  var recs = (DB.issues || []).filter(function(r) { return r.item === itemName; });
+  recs.sort(function(a, b) { return (b.date || '') < (a.date || '') ? -1 : ((b.date||'') > (a.date||'') ? 1 : (b.id||0) - (a.id||0)); });
+  recs = recs.slice(0, n);
+  if (!recs.length) return '<div style="font-size:11px;color:#888;padding:4px 0;">এই আইটেমের কোনো আগের Issue রেকর্ড নেই</div>';
+  var rows = recs.map(function(r) {
+    return '<tr><td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;">' + fmtDate(r.date) + '</td>'
+      + '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:#c0392b;">' + r.qty + '</td></tr>';
+  }).join('');
+  return '<table style="width:100%;font-size:11px;border-collapse:collapse;">'
+    + '<thead><tr style="background:#faf3f2;"><th style="text-align:left;padding:2px 6px;">তারিখ</th><th style="text-align:right;padding:2px 6px;">Qty</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+}
+
 // ── Update item Name — also cascades the rename into every past
 // Receive/Issue record for this item (matched by old name + group), so
 // historical data stays correctly linked to the item and every stock/report
@@ -21689,6 +21798,7 @@ function updateItemName(idx, val) {
     if (r.group === grp && r.item === oldName) { iCount++; return Object.assign({}, r, { item: newName }); }
     return r;
   });
+  _renameReqFlagKey(grp, oldName, newName);
 
   renderMaster();
   renderStock();
@@ -22940,6 +23050,8 @@ function exportData() {
     retailMachines: retailMachines,
     // Stationery (backward compat)
     stationery: { issues: stnIssues, receives: stnReceives },
+    // Requisition flags (Issue Form থেকে টিক দেওয়া)
+    gsReqFlags: DB.gsReqFlags,
     // Workers
     needleWorkers: needleWorkers,
     // Meta
@@ -22980,6 +23092,7 @@ function doImport(event) {
       var needleWorkers  = needle.workers       || data.needleWorkers  || [];
       var stnIssues      = stn.issues           || data.stnIssues      || [];
       var stnReceives    = stn.receives         || data.stnReceives    || [];
+      var gsReqFlags     = data.gsReqFlags      || null;
 
       // কোনো ডেটাই নেই?
       var total = receives.length + issues.length + needles.length + items.length;
@@ -23019,6 +23132,9 @@ function doImport(event) {
         try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIss)); } catch(er) {}
         try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(er) {}
         try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(er) {}
+        if (gsReqFlags && Object.keys(gsReqFlags).length) {
+          try { localStorage.setItem('igl_gs_req_flags', JSON.stringify(gsReqFlags)); } catch(er) {}
+        }
 
         // Items — preItems এর সাথে merge করো যাতে built-in items না হারায়
         try {
