@@ -21524,7 +21524,7 @@ function renderMaster() {
     <td class="admin-only-action"><input type="checkbox" class="item-chk" data-idx="${i}"></td>
     <td>${sl+1}</td>
     <td><span style="background:${colorMap[item.group]||'#eee'};color:#1c2833;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">${item.group}</span></td>
-    <td><span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:12px;font-size:11px;">${item.category||'-'}</span></td>
+    <td><input class="editable-input" list="dl-categories" value="${item.category||''}" placeholder="Category..." onchange="updateItemCategory(${i}, this.value)"></td>
     <td><input class="editable-input" value="${item.name}" placeholder="Item Name..." onchange="updateItemName(${i}, this.value)"></td>
     <td style="text-align:center;">
       <input type="number" min="0" value="${item.bf||0}"
@@ -21630,6 +21630,39 @@ function updateItemName(idx, val) {
   if (typeof updateDashboard === 'function') updateDashboard();
   triggerAutoSave();
   toast(`✅ "${oldName}" → "${newName}" আপডেট হয়েছে`, 'success');
+}
+
+// ── Update item Category — this renames the category itself, so every
+// OTHER item that shares the same old category (within the same Group) gets
+// bulk-updated too — you never need to open each item one by one. Live views
+// (Master Data, Stock, filters, dropdowns, breakdown reports) reflect this
+// instantly since they read it.category directly. Old Receive/Issue slips
+// keep the category that was true when they were made (like a paper record)
+// and are not rewritten — only how items are categorized going forward. ──
+function updateItemCategory(idx, val) {
+  const items = DB.items;
+  const newCat = (val || '').trim();
+  const oldCat = items[idx].category || '';
+  const grp    = items[idx].group;
+  if (newCat === oldCat) return;
+  let count = 0;
+  if (oldCat) {
+    // Rename this category everywhere it's used within the same Group
+    items.forEach(it => {
+      if (it.group === grp && (it.category || '') === oldCat) { it.category = newCat; count++; }
+    });
+  } else {
+    // Item had no category before — only this one item gets the new category
+    items[idx].category = newCat;
+    count = 1;
+  }
+  DB.items = items;
+  renderMaster();
+  renderStock();
+  populateMasterDataLists();
+  if (typeof updateDashboard === 'function') updateDashboard();
+  triggerAutoSave();
+  toast(`✅ Category "${oldCat||'(খালি)'}" → "${newCat||'(খালি)'}" — ${count}টি আইটেমে আপডেট হয়েছে`, 'success');
 }
 
 // ── Update item B/F (Brought Forward / opening balance) ──
