@@ -3245,11 +3245,6 @@ window.iglSaveNavVisibility = function() {
         <div style="font-size:17px;font-weight:600;margin-bottom:6px;" id="dash-welcome-msg">স্বাগতম 👋</div>
         <div style="font-size:13px;color:#d6eaf8;" id="dash-date-welcome"></div>
         <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;" id="dash-date-bangla"></div>
-        <div style="font-size:12px;color:#d6eaf8;opacity:0.9;margin-top:2px;display:flex;align-items:center;gap:6px;">
-          <span id="dash-date-hijri"></span>
-          <button onclick="nudgeHijriOffset(-1)" title="১ দিন পিছিয়ে দিন" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:4px;width:18px;height:18px;font-size:11px;line-height:1;cursor:pointer;padding:0;">−</button>
-          <button onclick="nudgeHijriOffset(1)" title="১ দিন এগিয়ে দিন" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:4px;width:18px;height:18px;font-size:11px;line-height:1;cursor:pointer;padding:0;">+</button>
-        </div>
       </div>
     </div>
 
@@ -20585,8 +20580,6 @@ function renderMainDashboardWelcome() {
   if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   var bnDateEl = document.getElementById('dash-date-bangla');
   if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
-  var hijriEl = document.getElementById('dash-date-hijri');
-  if (hijriEl) hijriEl.textContent = toHijriDateString(now);
   try { loadDashboardWeather(); } catch(e) {}
   try { initDashStarfield(); } catch(e) {}
   try { setInterval(loadDashboardWeather, 15 * 60 * 1000); } catch(e) {}
@@ -20724,38 +20717,10 @@ function toBanglaDateString(d) {
   return toBn(dayInMonth) + ' ' + bngMonths[monthIdx] + ' ' + toBn(bYear) + ' বঙ্গাব্দ';
 }
 
-// ── হিজরি (আরবি মাস) তারিখ — মাসের নাম ইংরেজি হরফে (Arabic script না),
-// ব্রাউজারের বিল্ট-ইন Intl API ব্যবহার করে (ইন্টারনেট/লাইব্রেরি লাগে না),
-// Umm al-Qura ক্যালেন্ডার অনুযায়ী — যেমন: "22 Safar 1448 AH".
-// এই হিসাব-ভিত্তিক (calculated) ক্যালেন্ডার মাঝেমাঝে স্থানীয় চাঁদ দেখা কমিটির
-// ঘোষিত তারিখের চেয়ে ১ দিন আগে/পিছে হতে পারে — তাই একটা ম্যানুয়াল +/-
-// অ্যাডজাস্টমেন্ট রাখা হলো, যাতে স্থানীয় ঘোষণার সাথে মিলিয়ে ঠিক করে নেওয়া যায় ──
-function getHijriOffset() {
-  var v = parseInt(localStorage.getItem('igl_hijri_offset') || '0', 10);
-  return isNaN(v) ? 0 : v;
-}
-function setHijriOffset(v) {
-  localStorage.setItem('igl_hijri_offset', String(v));
-}
-function toHijriDateString(d) {
-  try {
-    var offset = getHijriOffset();
-    var adj = new Date(d.getTime() + offset * 86400000);
-    var fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' });
-    return fmt.format(adj) + ' AH';
-  } catch (e) {
-    return '';
-  }
-}
-function nudgeHijriOffset(delta) {
-  var v = getHijriOffset() + delta;
-  setHijriOffset(v);
-  var hijriEl = document.getElementById('dash-date-hijri');
-  if (hijriEl) hijriEl.textContent = toHijriDateString(new Date());
-  var offsetEl = document.getElementById('hijri-offset-label');
-  if (offsetEl) offsetEl.textContent = (v > 0 ? '+' : '') + v + ' দিন সমন্বয়';
-  toast('হিজরি তারিখ ' + (delta > 0 ? '১ দিন এগিয়ে' : '১ দিন পিছিয়ে') + ' দেওয়া হয়েছে', 'success');
-}
+// ── হিজরি (আরবি মাস) তারিখ ফিচারটা বাদ দেওয়া হয়েছে — অনেক ব্রাউজার/ডিভাইসে
+// Intl-এর Islamic ক্যালেন্ডার সাপোর্ট ভাঙা/ভুল আউটপুট দিচ্ছিল (যেমন "March 9,
+// 1448 BC AH" জাতীয় এলোমেলো ফলাফল), তাই ভুল তারিখ দেখানোর চেয়ে সম্পূর্ণ বাদ
+// দেওয়া হলো। ──
 
 // ── General Store Dashboard-এর ডেটা শুধু General Store-এর নিজস্ব রেকর্ড দেখাবে —
 // Stationery ও Packaging (যাদের group === 'Stationery'/'Packaging') বাদ দিয়ে ──
