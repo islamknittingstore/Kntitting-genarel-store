@@ -27317,9 +27317,33 @@ function stnRenderDeptList(){
   div.innerHTML=depts.map(function(d,i){
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;margin-bottom:6px;">'
       +'<span style="flex:1;font-weight:600;font-size:13px;">🏢 '+d+'</span>'
+      +'<button onclick="stnModalRenameDept('+i+')" style="background:#2980b9;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">✏️</button>'
       +'<button onclick="stnModalDelDept('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">🗑️</button>'
       +'</div>';
   }).join('');
+}
+// ── Department রিনেম — নাম বদলে দিলে এই Department-এর নামে সেভ করা আগের সব
+// Issue রেকর্ডেও (Stationery group) নতুন নামটা cascade হয়ে যাবে, তাই পুরনো
+// হিসাব হারিয়ে না গিয়ে নতুন নামের অধীনেই "রানিং" থাকবে ──
+function stnModalRenameDept(idx){
+  var depts=stnGetDepts();
+  var oldName=depts[idx];
+  var newName=prompt('নতুন Department নাম দিন:', oldName);
+  if(newName===null) return;
+  newName=newName.trim();
+  if(!newName){ toast('Department নাম খালি রাখা যাবে না!','warning'); return; }
+  if(newName===oldName) return;
+  if(depts.indexOf(newName)>=0){ toast('এই নামে একটা Department আগে থেকেই আছে!','warning'); return; }
+  depts[idx]=newName;
+  stnSaveDepts(depts);
+  var count=0;
+  DB.issues=(DB.issues||[]).map(function(r){
+    if(r.group==='Stationery' && r.machineId===oldName){ count++; return Object.assign({},r,{machineId:newName}); }
+    return r;
+  });
+  triggerAutoSave();
+  stnRenderDeptList();
+  toast('✅ "'+oldName+'" → "'+newName+'" — '+count+'টি Issue রেকর্ডেও আপডেট হয়েছে','success');
 }
 function stnModalAddDept(){
   var inp=document.getElementById('stn-new-dept-inp');
@@ -28262,9 +28286,32 @@ function pkgRenderDeptList(){
   div.innerHTML=depts.map(function(d,i){
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;margin-bottom:6px;">'
       +'<span style="flex:1;font-weight:600;font-size:13px;">🏢 '+d+'</span>'
+      +'<button onclick="pkgModalRenameDept('+i+')" style="background:#2980b9;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">✏️</button>'
       +'<button onclick="pkgModalDelDept('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;">🗑️</button>'
       +'</div>';
   }).join('');
+}
+// ── Department রিনেম — Packaging group-এর আগের সব Issue রেকর্ডেও নতুন নাম
+// cascade হয়ে যাবে ──
+function pkgModalRenameDept(idx){
+  var depts=pkgGetDepts();
+  var oldName=depts[idx];
+  var newName=prompt('নতুন Department নাম দিন:', oldName);
+  if(newName===null) return;
+  newName=newName.trim();
+  if(!newName){ toast('Department নাম খালি রাখা যাবে না!','warning'); return; }
+  if(newName===oldName) return;
+  if(depts.indexOf(newName)>=0){ toast('এই নামে একটা Department আগে থেকেই আছে!','warning'); return; }
+  depts[idx]=newName;
+  pkgSaveDepts(depts);
+  var count=0;
+  DB.issues=(DB.issues||[]).map(function(r){
+    if(r.group==='Packaging' && r.machineId===oldName){ count++; return Object.assign({},r,{machineId:newName}); }
+    return r;
+  });
+  triggerAutoSave();
+  pkgRenderDeptList();
+  toast('✅ "'+oldName+'" → "'+newName+'" — '+count+'টি Issue রেকর্ডেও আপডেট হয়েছে','success');
 }
 function pkgModalAddDept(){
   var inp=document.getElementById('pkg-new-dept-inp');
