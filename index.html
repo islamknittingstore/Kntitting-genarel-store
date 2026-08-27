@@ -1422,6 +1422,7 @@ if('serviceWorker' in navigator){
           gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
           gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
           gsReqFlags:      JSON.parse(localStorage.getItem('igl_gs_req_flags') || '{}'),
+          masterPw:        localStorage.getItem('igl_master_pw') || '',
           monthLocks:      JSON.parse(localStorage.getItem('igl_month_locks') || '{}'),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || ''
         }
@@ -1717,6 +1718,7 @@ if('serviceWorker' in navigator){
           if(data.settings.gsSuppliers && data.settings.gsSuppliers.length) { localStorage.setItem('igl_gs_suppliers', JSON.stringify(data.settings.gsSuppliers)); if(typeof gsPopulateSupplierDatalist==='function') gsPopulateSupplierDatalist(); }
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
           if(data.settings.gsReqFlags && Object.keys(data.settings.gsReqFlags).length) { localStorage.setItem('igl_gs_req_flags', JSON.stringify(data.settings.gsReqFlags)); }
+          if(data.settings.masterPw) { localStorage.setItem('igl_master_pw', data.settings.masterPw); }
           // 🔒 Month Lock — এটা কখনো localStorage-এর ফাঁকা/পুরনো ডাটা দিয়ে ওভাররাইট করা যাবে না,
           // শুধু Firebase-এ আসলেই কিছু লক থাকলে (keys থাকলে) সেটা apply করো। খালি হলে টাচ করো না —
           // যাতে কোনো ডিভাইসে ভুলবশত লক তথ্য মুছে না যায়।
@@ -7521,12 +7523,16 @@ async function _loadFromFile() {
     var stnIssues      = stn.issues           || data.stnIssues      || [];
     var stnReceives    = stn.receives         || data.stnReceives    || [];
     var gsReqFlags     = data.gsReqFlags      || null;
+    var masterPw       = data.masterPw        || null;
 
     // ── সরাসরি localStorage এ লিখি ──
     try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(e) {}
     try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(e) {}
     if (gsReqFlags && Object.keys(gsReqFlags).length) {
       try { localStorage.setItem('igl_gs_req_flags', JSON.stringify(gsReqFlags)); } catch(e) {}
+    }
+    if (masterPw) {
+      try { localStorage.setItem('igl_master_pw', masterPw); } catch(e) {}
     }
 
     // ── Stationery Issues/Receives কে DB.issues/DB.receives এ merge করো ──
@@ -7728,6 +7734,7 @@ async function _doSave() {
       needleWorkers: needleWorkers,
       // Requisition flags (Issue Form থেকে টিক দেওয়া)
       gsReqFlags: DB.gsReqFlags,
+      masterPw: localStorage.getItem('igl_master_pw') || '',
       // Meta
       savedAt: new Date().toISOString(),
       version: '3.0-full'
@@ -9477,7 +9484,7 @@ let _masterUnlocked = false;           // whether unlocked in this session
 
 // Default password if no password is set
 function _getMasterPassword() {
-  return localStorage.getItem(MASTER_PW_KEY) || '1234';
+  return localStorage.getItem(MASTER_PW_KEY) || '88922';
 }
 
 // Password prompt dialog — supports master, needle_master_page, needle_mapping
@@ -9608,6 +9615,7 @@ function _masterSaveNewPw() {
   }
 
   localStorage.setItem(MASTER_PW_KEY, newPw);
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
   document.body.removeChild(document.getElementById('pw-change-overlay'));
   toast('✅ Password changed successfully!', 'success');
 }
@@ -23045,6 +23053,7 @@ function exportData() {
     stationery: { issues: stnIssues, receives: stnReceives },
     // Requisition flags (Issue Form থেকে টিক দেওয়া)
     gsReqFlags: DB.gsReqFlags,
+      masterPw: localStorage.getItem('igl_master_pw') || '',
     // Workers
     needleWorkers: needleWorkers,
     // Meta
@@ -23086,6 +23095,7 @@ function doImport(event) {
       var stnIssues      = stn.issues           || data.stnIssues      || [];
       var stnReceives    = stn.receives         || data.stnReceives    || [];
       var gsReqFlags     = data.gsReqFlags      || null;
+      var masterPw       = data.masterPw        || null;
 
       // কোনো ডেটাই নেই?
       var total = receives.length + issues.length + needles.length + items.length;
@@ -23127,6 +23137,9 @@ function doImport(event) {
         try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(er) {}
         if (gsReqFlags && Object.keys(gsReqFlags).length) {
           try { localStorage.setItem('igl_gs_req_flags', JSON.stringify(gsReqFlags)); } catch(er) {}
+        }
+        if (masterPw) {
+          try { localStorage.setItem('igl_master_pw', masterPw); } catch(er) {}
         }
 
         // Items — preItems এর সাথে merge করো যাতে built-in items না হারায়
