@@ -5437,8 +5437,11 @@ function ok(msg) {
               <tbody id="bulkEditItemTable"><tr><td colspan="6" class="no-data">Group/Category ফিল্টার সিলেক্ট করে "Load / Refresh List" চাপুন</td></tr></tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-            <span id="bulk-edit-count" style="font-size:11px;color:var(--text-light);">0টি সিলেক্ট করা আছে</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+              <span id="bulk-edit-count" style="font-size:11px;color:var(--text-light);">0টি সিলেক্ট করা আছে</span>
+              <span id="bulk-edit-total-bf" style="font-size:12px;font-weight:700;color:#7d5a00;background:#fff2cc;border:1px solid #f0d98c;border-radius:6px;padding:4px 10px;">মোট B/F: 0</span>
+            </div>
             <button class="btn btn-success btn-sm" onclick="bulkEditApply()" style="padding:8px 20px;font-weight:700;">💾 Apply Selected — ১ বারে Sync করুন</button>
           </div>
         </div>
@@ -22300,6 +22303,7 @@ function bulkEditLoadItems() {
   if (!visibleRows.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="no-data">' + (grp || cat ? 'এই Filter-এ কোনো Item নেই' : 'প্রথমে উপরের Group/Category ফিল্টার সিলেক্ট করুন') + '</td></tr>';
     bulkEditUpdateCount();
+    bulkEditUpdateTotalBF();
     return;
   }
 
@@ -22311,11 +22315,24 @@ function bulkEditLoadItems() {
       + '<td>' + item.group + '</td>'
       + '<td>' + (item.category || '') + '</td>'
       + '<td><input class="editable-input bulk-edit-name" data-idx="' + i + '" value="' + (item.name || '').replace(/"/g, '&quot;') + '"></td>'
-      + '<td><input type="number" min="0" class="bulk-edit-bf" data-idx="' + i + '" value="' + (item.bf || 0) + '" style="width:70px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;"></td>'
+      + '<td><input type="number" min="0" class="bulk-edit-bf" data-idx="' + i + '" value="' + (item.bf || 0) + '" oninput="bulkEditUpdateTotalBF()" style="width:70px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;"></td>'
       + '</tr>';
   }).join('');
 
   bulkEditUpdateCount();
+  bulkEditUpdateTotalBF();
+}
+
+// ── ফিল্টার করা লিস্টের সব আইটেমের B/F যোগফল দেখায় (Group/Category সিলেক্ট করে
+// লিস্ট লোড করার পর, এবং কেউ ইনপুটে B/F বদলালে সাথে সাথে আপডেট হয়) ──
+function bulkEditUpdateTotalBF() {
+  var el = document.getElementById('bulk-edit-total-bf');
+  if (!el) return;
+  var total = 0;
+  document.querySelectorAll('.bulk-edit-bf').forEach(function(inp) {
+    total += Number(inp.value) || 0;
+  });
+  el.textContent = 'মোট B/F: ' + total;
 }
 
 function bulkEditSelectAll(check) {
