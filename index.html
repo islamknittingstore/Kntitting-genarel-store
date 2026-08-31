@@ -5389,6 +5389,7 @@ function ok(msg) {
         <div class="card-header" style="background:#f0f3f7;">
           Item List
           <div style="margin-left:auto; display:flex; gap:6px;">
+            <button class="btn btn-outline btn-sm admin-only-action" id="btn-bulk-edit-toggle" onclick="bulkEditToggle()">🔁 Bulk Edit</button>
             <button class="btn btn-outline btn-sm admin-only-action" onclick="selectAllItems()">Select All</button>
             <button class="btn btn-danger btn-sm admin-only-action" onclick="deleteSelectedItems()">Delete Selected</button>
           </div>
@@ -5410,6 +5411,38 @@ function ok(msg) {
             <button class="btn btn-outline btn-sm" onclick="clearMasterFilter()" style="height:38px;white-space:nowrap;">✕ Clear</button>
           </div>
         </div>
+
+        <!-- ── Bulk Edit Panel (batch Name/B-F edit → single Firebase sync) ──
+             নিচের টেবিলে সরাসরি এডিট করার সিস্টেম অপরিবর্তিত রাখা হয়েছে। এই প্যানেলটা
+             আলাদা — উপরের Group/Category ফিল্টার দিয়ে লিস্ট লোড করে সিরিয়াল নাম্বার টিক
+             দিয়ে Name/B-F এডিট করে "Apply" চাপলে টিক দেওয়া সবগুলো আইটেম একসাথে
+             আপডেট হয়ে মাত্র ১ বার Firebase-এ সাইন্স হয়। -->
+        <div class="card-body admin-only-action" id="bulk-edit-panel" style="display:none;padding:12px;border-bottom:1px solid var(--border);background:#fff8ec;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:12px;font-weight:700;color:#7d5a00;">
+              🔁 Bulk Edit Mode — উপরের Group/Category ফিল্টার সিলেক্ট করে নিচের লিস্ট লোড করুন, যেগুলো এডিট করতে চান সেগুলোর সিরিয়াল টিক দিন, Name/B-F বদলান, তারপর নিচের বাটনে ১ ক্লিকে সব একসাথে Sync হবে।
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="bulkEditLoadItems()">⟳ Load / Refresh List</button>
+              <button class="btn btn-outline btn-sm" onclick="bulkEditSelectAll(true)">✔ সব Select</button>
+              <button class="btn btn-outline btn-sm" onclick="bulkEditSelectAll(false)">✕ সব Unselect</button>
+            </div>
+          </div>
+          <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+            <table>
+              <thead><tr>
+                <th style="width:30px;"><input type="checkbox" id="bulk-edit-chk-all" onchange="bulkEditSelectAll(this.checked)"></th>
+                <th>SL</th><th>Group</th><th>Category</th><th>Item Name</th><th style="width:80px;text-align:center;">B/F</th>
+              </tr></thead>
+              <tbody id="bulkEditItemTable"><tr><td colspan="6" class="no-data">Group/Category ফিল্টার সিলেক্ট করে "Load / Refresh List" চাপুন</td></tr></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <span id="bulk-edit-count" style="font-size:11px;color:var(--text-light);">0টি সিলেক্ট করা আছে</span>
+            <button class="btn btn-success btn-sm" onclick="bulkEditApply()" style="padding:8px 20px;font-weight:700;">💾 Apply Selected — ১ বারে Sync করুন</button>
+          </div>
+        </div>
+
         <div class="card-body" style="padding:0; max-height:520px; overflow-y:auto;">
           <table>
             <thead><tr><th class="admin-only-action" style="width:30px;"><input type="checkbox" id="chk-all-items" onchange="toggleAllItems(this)"></th><th>SL</th><th>Group</th><th>Category</th><th>Item Name</th><th style="width:70px;text-align:center;">B/F</th><th style="width:80px;text-align:center;">Min Stock</th><th style="width:60px;text-align:center;">Hide</th><th class="admin-only-action"></th></tr></thead>
@@ -22225,6 +22258,148 @@ async function deleteItem(i) {
   _refreshAllGroupDropdowns();
   toast('Item deleted', 'warning');
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// ── Bulk Edit (batch Name/B-F update, single Firebase sync) ──
+// Group+Category ফিল্টার (উপরের master-filter-group/category ব্যবহার করে) দিয়ে
+// লিস্ট লোড করে, সিরিয়াল নাম্বার টিক দিয়ে Name/B-F এডিট করলে সেই এডিটগুলো এখানে
+// শুধু in-memory বাফারে থাকে — DB.items বা triggerAutoSave() একদম ছোঁয়া হয় না।
+// "Apply Selected" চাপলে টিক দেওয়া সবগুলো আইটেম DB.items-এ একসাথে বসে, এবং শেষে
+// মাত্র ১ বার renderMaster/renderStock/triggerAutoSave কল হয় — একটার পর একটা এডিট
+// করার সময় প্রতি ফিল্ডে আলাদা আলাদা Firebase সাইন্স এড়াতে। উপরের মূল টেবিলে
+// সরাসরি এডিট করার আগের সিস্টেম (updateItemName/updateItemBF) অপরিবর্তিত আছে। ──
+function bulkEditToggle() {
+  var panel = document.getElementById('bulk-edit-panel');
+  var btn = document.getElementById('btn-bulk-edit-toggle');
+  if (!panel) return;
+  var showing = panel.style.display !== 'none';
+  if (showing) {
+    panel.style.display = 'none';
+    if (btn) btn.textContent = '🔁 Bulk Edit';
+  } else {
+    panel.style.display = '';
+    if (btn) btn.textContent = '✕ Close Bulk Edit';
+    bulkEditLoadItems();
+  }
+}
+
+function bulkEditLoadItems() {
+  var grpFilterEl = document.getElementById('master-filter-group');
+  var catFilterEl = document.getElementById('master-filter-category');
+  var grp = grpFilterEl ? grpFilterEl.value : '';
+  var cat = catFilterEl ? catFilterEl.value : '';
+
+  var items = DB.items;
+  var visibleRows = items
+    .map(function(item, i) { return { item: item, i: i }; })
+    .filter(function(r) { return (!grp || r.item.group === grp) && (!cat || r.item.category === cat); });
+
+  var tbody = document.getElementById('bulkEditItemTable');
+  if (!tbody) return;
+
+  if (!visibleRows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">' + (grp || cat ? 'এই Filter-এ কোনো Item নেই' : 'প্রথমে উপরের Group/Category ফিল্টার সিলেক্ট করুন') + '</td></tr>';
+    bulkEditUpdateCount();
+    return;
+  }
+
+  tbody.innerHTML = visibleRows.map(function(r, sl) {
+    var item = r.item, i = r.i;
+    return '<tr data-bulk-idx="' + i + '">'
+      + '<td><input type="checkbox" class="bulk-edit-chk" data-idx="' + i + '" onchange="bulkEditUpdateCount()"></td>'
+      + '<td>' + (sl + 1) + '</td>'
+      + '<td>' + item.group + '</td>'
+      + '<td>' + (item.category || '') + '</td>'
+      + '<td><input class="editable-input bulk-edit-name" data-idx="' + i + '" value="' + (item.name || '').replace(/"/g, '&quot;') + '"></td>'
+      + '<td><input type="number" min="0" class="bulk-edit-bf" data-idx="' + i + '" value="' + (item.bf || 0) + '" style="width:70px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;"></td>'
+      + '</tr>';
+  }).join('');
+
+  bulkEditUpdateCount();
+}
+
+function bulkEditSelectAll(check) {
+  document.querySelectorAll('.bulk-edit-chk').forEach(function(c) { c.checked = check; });
+  var chkAll = document.getElementById('bulk-edit-chk-all');
+  if (chkAll) chkAll.checked = !!check;
+  bulkEditUpdateCount();
+}
+
+function bulkEditUpdateCount() {
+  var n = document.querySelectorAll('.bulk-edit-chk:checked').length;
+  var el = document.getElementById('bulk-edit-count');
+  if (el) el.textContent = n + 'টি সিলেক্ট করা আছে';
+}
+
+async function bulkEditApply() {
+  if (!IGL_CURRENT_USER || IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error'); return;
+  }
+  var checked = document.querySelectorAll('.bulk-edit-chk:checked');
+  if (!checked.length) { toast('অন্তত একটি আইটেম সিলেক্ট করুন।', 'warning'); return; }
+
+  var ok = await igl_confirm(checked.length + 'টি আইটেম একসাথে আপডেট করবেন?', 'Name/B-F যা এডিট করেছেন সব একসাথে বসবে এবং ১ বার Sync হবে।', '💾');
+  if (!ok) return;
+
+  var items = DB.items;
+  var nameChanged = 0, bfChanged = 0, skipped = 0;
+
+  checked.forEach(function(c) {
+    var idx = Number(c.getAttribute('data-idx'));
+    var item = items[idx];
+    if (!item) return;
+
+    var nameInput = document.querySelector('.bulk-edit-name[data-idx="' + idx + '"]');
+    var bfInput = document.querySelector('.bulk-edit-bf[data-idx="' + idx + '"]');
+
+    // ── Name বদলে থাকলে (per-field updateItemName-এর মতোই: duplicate check +
+    // পুরনো Receive/Issue রেকর্ডে cascade rename + deletedIds/reqFlag key আপডেট) ──
+    if (nameInput) {
+      var newName = (nameInput.value || '').trim();
+      var oldName = item.name;
+      if (newName && newName !== oldName) {
+        var dup = items.find(function(it, j) { return j !== idx && it.name === newName && it.group === item.group; });
+        if (dup) {
+          skipped++;
+          toast('⚠️ "' + newName + '" নামে আগে থেকেই আইটেম আছে (' + item.group + ') — স্কিপ করা হলো', 'warning');
+        } else {
+          item.name = newName;
+          if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', item.group + '||' + oldName);
+          DB.receives = (DB.receives || []).map(function(r) {
+            if (r.group === item.group && r.item === oldName) return Object.assign({}, r, { item: newName });
+            return r;
+          });
+          DB.issues = (DB.issues || []).map(function(r) {
+            if (r.group === item.group && r.item === oldName) return Object.assign({}, r, { item: newName });
+            return r;
+          });
+          _renameReqFlagKey(item.group, oldName, newName);
+          nameChanged++;
+        }
+      }
+    }
+
+    // ── B/F বদলে থাকলে ──
+    if (bfInput) {
+      var newBf = Number(bfInput.value) || 0;
+      if (newBf !== (item.bf || 0)) { item.bf = newBf; bfChanged++; }
+    }
+  });
+
+  DB.items = items;
+
+  // ── সবগুলো এডিট শেষে মাত্র ১ বার render + autosave (Firebase sync সহ) ──
+  renderMaster();
+  renderStock();
+  populateMasterDataLists();
+  _refreshAllGroupDropdowns();
+  if (typeof updateDashboard === 'function') updateDashboard();
+  triggerAutoSave();
+
+  bulkEditLoadItems();
+  toast('✅ Bulk Update সম্পন্ন — Name: ' + nameChanged + ', B/F: ' + bfChanged + (skipped ? ', Skipped: ' + skipped : '') + ' (১ বার Sync হয়েছে)', 'success');
+}
+// ══════════════════════════════════════════════════════════════════════
 
 function addMachine() {
   const id = document.getElementById('new-m-id').value.trim();
