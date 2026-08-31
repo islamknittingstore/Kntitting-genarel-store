@@ -1678,10 +1678,27 @@ if('serviceWorker' in navigator){
           }
           if(data.db.items) {
             // General Store item deletedIds দিয়ে filter করো (extra safety — save-side merge fix-এর পরেও)
-            DB.items = data.db.items.filter(function(it){
+            var _incomingGsItems = data.db.items.filter(function(it){
               var k = 'gs_item:'+(((it&&it.group)||'')+'||'+((it&&it.name)||''));
               return !_allDelIds[k];
             });
+            // ⚠️⚠️ Item Rename/B-F/Category Data-Loss Fix ⚠️⚠️
+            // আগে এখানে সরাসরি DB.items = _incomingGsItems বসিয়ে দেওয়া হতো — কিন্তু এই
+            // fbLoadAll() ফাংশন 'igl_erp/ts' পাল্টালেই (নিজের ডিভাইসের সেভ সহ, বা অন্য
+            // যেকোনো ডিভাইসের যেকোনো সেভে) ট্রিগার হয়। Master Data-তে item এর নাম/B-F/
+            // Category এডিট করার পর Firebase sync ~1.2 সেকেন্ড debounce করে হয় — এই
+            // অল্প সময়ের মধ্যে যদি fbLoadAll() আবার চলে (নিজের সেভ শেষ হওয়ার আগেই), তাহলে
+            // Firebase-এর তখনো-পুরনো (stale) item list এসে local-এ এইমাত্র করা এডিট মুছে
+            // দিতো — এটাই "নাম/B-F বদলালে আপডেট হচ্ছে না" এবং বাল্ক এডিটে "কিছু আপডেট
+            // হচ্ছে, কিছু হচ্ছে না" সমস্যার আসল কারণ। এখন: এই ডিভাইসে খুব সম্প্রতি
+            // (কয়েক সেকেন্ডের মধ্যে) local item এডিট হয়ে থাকলে, remote data দিয়ে
+            // এই মুহূর্তে overwrite না করে সেই এডিট রক্ষা করা হচ্ছে — পরের ts pulse-এ
+            // remote এমনিতেই sync হয়ে যাবে (receives/issues-এ যেভাবে pending-merge করা
+            // হয়, items-এর জন্য এটা সেই একই সুরক্ষার সরল সংস্করণ)।
+            var _recentLocalItemEdit = window._gsItemsLocalEditTs && (Date.now() - window._gsItemsLocalEditTs < 4000);
+            if (!_recentLocalItemEdit) {
+              DB.items = _incomingGsItems;
+            }
           }
         }
         if(data.ndb){
@@ -8237,6 +8254,10 @@ const DB = {
     v.forEach(function(it){ vMap[it.id] = true; });
     const missing = pre.filter(function(it){ return !vMap[it.id]; });
     _set('igl_items', v.concat(missing));
+    // এই ডিভাইসে General Store item-এ এইমাত্র local এডিট হলো (rename/B-F/Category/add/delete) —
+    // সময়টা মনে রাখো, যাতে fbLoadAll() এই এডিট Firebase-এ পুরোপুরি sync হওয়ার আগেই
+    // পুরনো remote data দিয়ে overwrite করে না ফেলে (দেখুন fbLoadAll-এর db.items merge গার্ড)
+    window._gsItemsLocalEditTs = Date.now();
   },
   get stnItems() {
     // Firebase থেকে লোড হলে সেটা দাও, না হলে built-in default
