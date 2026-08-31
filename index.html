@@ -1315,21 +1315,38 @@ if('serviceWorker' in navigator){
     // list দিয়ে Firebase এর নতুন item (অন্য ডিভাইসে যোগ করা) মুছে যেত — কিছুদিন পর item "গায়েব"।
     // এখন save করার আগে Firebase এর সর্বশেষ item list fetch করে local এর সাথে merge করা হয়,
     // যাতে local এ না থাকলেও remote-এ থাকা (এবং deleted না হওয়া) item হারিয়ে না যায়।
+    // ── General Store Master Data (items/groups) + shared deletedIds ট্র্যাকারও একইভাবে
+    // merge করা হয় (আগে শুধু stn/pkg items-এর জন্য এই প্রোটেকশন ছিল) — যাতে stale ডিভাইস
+    // General Store-এর item rename/B-F/Category আপডেট বা কারো করা delete মুছে দিতে না পারে ⚠️⚠️
     Promise.all([
       _fbDb.ref('igl_erp/stn/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
-      _fbDb.ref('igl_erp/pkg/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; })
+      _fbDb.ref('igl_erp/pkg/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
+      _fbDb.ref('igl_erp/db/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
+      _fbDb.ref('igl_erp/db/groups').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
+      _fbDb.ref('igl_erp/deletedIds').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; })
     ]).then(function(remoteArr){
-      _fbSaveAllWithMerge(remoteArr[0], remoteArr[1]);
+      _fbSaveAllWithMerge(remoteArr[0], remoteArr[1], remoteArr[2], remoteArr[3], remoteArr[4]);
     }).catch(function(){
       // Remote fetch ব্যর্থ হলেও local data দিয়ে সেভ চালিয়ে যাও — আগের মতোই আচরণ
-      _fbSaveAllWithMerge(null, null);
+      _fbSaveAllWithMerge(null, null, null, null, null);
     });
   };
 
-  function _fbSaveAllWithMerge(remoteStnItems, remotePkgItems){
+  function _fbSaveAllWithMerge(remoteStnItems, remotePkgItems, remoteGsItems, remoteGsGroups, remoteDeletedIds){
     try {
+      // ── deletedIds Merge Fix ⚠️⚠️ ── আগে এই ডিভাইসের নিজের (হয়তো stale) local cache
+      // দিয়ে পুরো deletedIds node overwrite হতো — ফলে অন্য ডিভাইসে করা delete (Issue/Receive/
+      // Bulk-Import-Undo ইত্যাদি) মুছে গিয়ে ডাটা "ফেরত" আসতো। এখন Firebase-এর সর্বশেষ
+      // deletedIds fetch করে local cache-এর সাথে union করা হয় — কোনো ডিভাইস অন্য ডিভাইসের
+      // delete আর হারাতে পারবে না।
+      var _remoteDelCache = {};
+      if (remoteDeletedIds) {
+        Object.keys(remoteDeletedIds).forEach(function(k){ _remoteDelCache[k.replace(/__/g, ':')] = true; });
+      }
+      var _localDelCacheForMerge = (typeof _fbDelIdsCache !== 'undefined') ? _fbDelIdsCache : {};
+      var _delCache = Object.assign({}, _remoteDelCache, _localDelCacheForMerge);
+      if (typeof _fbDelIdsCache !== 'undefined') _fbDelIdsCache = _delCache; // এই ডিভাইসের cache-ও আপডেট হোক
       // Save করার আগে deletedIds দিয়ে filter — offline device এর পুরনো deleted item Firebase এ যাবে না
-      var _delCache = (typeof _fbDelIdsCache !== 'undefined') ? _fbDelIdsCache : {};
       var _safeRcv = (typeof DB !== 'undefined') ? (DB.receives||[]).filter(function(r){ return !_delCache['rcv:'+String(r.id)]; }) : [];
       var _safeIss = (typeof DB !== 'undefined') ? (DB.issues||[]).filter(function(r){ return !_delCache['iss:'+String(r.id)]; }) : [];
       var _safeNdl = (typeof NDB !== 'undefined') ? (NDB.needles||[]).filter(function(r){ return !_delCache['ndl:'+String(r.id)]; }) : [];
@@ -1373,6 +1390,42 @@ if('serviceWorker' in navigator){
       if (typeof DB !== 'undefined') {
         if (_mergedStnItems.length !== _localStnItems.length) DB.stnItems = _mergedStnItems;
         if (_mergedPkgItems.length !== _localPkgItems.length) DB.pkgItems = _mergedPkgItems;
+      }
+
+      // ⚠️⚠️ General Store নিজের Master Data (Items/Groups) Merge Fix ⚠️⚠️
+      // stn/pkg items-এর মতো এখানেও: এই ডিভাইসের local item list-এর সাথে Firebase-এর
+      // সর্বশেষ list merge করা হয় — যাতে অন্য ডিভাইসে করা item add/rename/B-F/Category
+      // আপডেট, কোনো stale ডিভাইসের save-এ মুছে না যায়। General Store item-এর কোনো নিজস্ব
+      // id নেই, তাই (Group + Name) কে identity হিসেবে ব্যবহার করা হয়েছে — এটাই অ্যাপ যেখানে
+      // duplicate check করে সেই একই key। Rename/Delete-এর সময় পুরনো key
+      // 'gs_item:<group>||<name>' আকারে deletedIds cache-এ যোগ হয়, যাতে সেই পুরনো নামের
+      // stale remote entry merge-এ আর ফিরে না আসে।
+      var _localGsItems = (typeof DB !== 'undefined') ? (DB.items||[]).filter(function(it){
+        var k = 'gs_item:'+((it && it.group)||'')+'||'+((it && it.name)||'');
+        return !(_delCache||{})[k];
+      }) : [];
+      var _mergedGsItems = _localGsItems.slice();
+      if (Array.isArray(remoteGsItems)) {
+        var _localGsKeys = {};
+        _localGsItems.forEach(function(it){ _localGsKeys[(it.group||'')+'||'+(it.name||'')] = true; });
+        remoteGsItems.forEach(function(it){
+          if (!it) return;
+          var k = (it.group||'')+'||'+(it.name||'');
+          if (!_localGsKeys[k] && !(_delCache||{})['gs_item:'+k]) {
+            _mergedGsItems.push(it);
+          }
+        });
+      }
+      var _localGsGroups = (typeof DB !== 'undefined') ? (DB.groups||[]).slice() : [];
+      var _mergedGsGroups = _localGsGroups.slice();
+      if (Array.isArray(remoteGsGroups)) {
+        remoteGsGroups.forEach(function(g){
+          if (g && _mergedGsGroups.indexOf(g) === -1) _mergedGsGroups.push(g);
+        });
+      }
+      if (typeof DB !== 'undefined') {
+        if (_mergedGsItems.length !== (DB.items||[]).length) DB.items = _mergedGsItems;
+        if (_mergedGsGroups.length !== _localGsGroups.length) DB.groups = _mergedGsGroups;
       }
 
       // ⚠️⚠️ Extra Safety: master data (items/groups/stnItems/pkgItems) খালি হলে
@@ -1623,7 +1676,13 @@ if('serviceWorker' in navigator){
             DB.issues = fbIss.concat(pendingIss);
             if(pendingIss.length) toast('⚠️ '+pendingIss.length+'টি pending issue entry merge হয়েছে','warning');
           }
-          if(data.db.items)    DB.items    = data.db.items;
+          if(data.db.items) {
+            // General Store item deletedIds দিয়ে filter করো (extra safety — save-side merge fix-এর পরেও)
+            DB.items = data.db.items.filter(function(it){
+              var k = 'gs_item:'+(((it&&it.group)||'')+'||'+((it&&it.name)||''));
+              return !_allDelIds[k];
+            });
+          }
         }
         if(data.ndb){
           if(data.ndb.needles){
@@ -11308,8 +11367,18 @@ async function gsBulkImportUndo(){
   var ok = await igl_confirm('Bulk Import করা সব রেকর্ড ('+recvCount+' Receive + '+issCount+' Issue) মুছে ফেলা হবে। এই মুহূর্তে Import করা নতুন আইটেমও (যদি অন্য কোথাও ব্যবহার না হয়ে থাকে) মুছে যাবে। এগোবেন?', '', '🗑️');
   if (!ok) return;
 
-  DB.receives = (DB.receives||[]).filter(function(r){return !r.importedFromOldSystem;});
-  DB.issues   = (DB.issues||[]).filter(function(i){return !i.importedFromOldSystem;});
+  // ⚠️ প্রতিটা মুছে ফেলা রেকর্ডকে shared deletedIds ট্র্যাকারে যোগ করো — ঠিক deleteReceive/
+  // deleteIssue যেভাবে করে। এটা না করলে: অন্য যেকোনো ডিভাইস, যার memory-তে তখনো এই
+  // Import করা রেকর্ডগুলো আছে, পরবর্তী sync-এ এগুলোকে "এখনো sync না হওয়া নতুন এন্ট্রি"
+  // ভেবে আবার ফিরিয়ে আনবে — এবং তারপর সেই ডিভাইস সেভ করলে Firebase-এও আবার ফিরে আসবে।
+  DB.receives = (DB.receives||[]).filter(function(r){
+    if (r.importedFromOldSystem) { iglDelIdsAdd('rcv', r.id); return false; }
+    return true;
+  });
+  DB.issues   = (DB.issues||[]).filter(function(i){
+    if (i.importedFromOldSystem) { iglDelIdsAdd('iss', i.id); return false; }
+    return true;
+  });
 
   // যেই নতুন আইটেমগুলো এই Import-এই তৈরি হয়েছিল (autoCreated), এখন যদি সেগুলোর আর কোনো Receive/Issue না থাকে, সেগুলোও মুছে দাও
   var usedNames = {};
@@ -11317,7 +11386,11 @@ async function gsBulkImportUndo(){
   (DB.issues||[]).forEach(function(i){ usedNames[i.item]=true; });
   var removedItems = 0;
   DB.items = (DB.items||[]).filter(function(it){
-    if (it.autoCreated && !usedNames[it.name]) { removedItems++; return false; }
+    if (it.autoCreated && !usedNames[it.name]) {
+      removedItems++;
+      iglDelIdsAdd('gs_item', (it.group||'')+'||'+(it.name||''));
+      return false;
+    }
     return true;
   });
 
@@ -21851,6 +21924,9 @@ function updateItemName(idx, val) {
   if (dup) { toast('এই নামে একটি আইটেম আগে থেকেই আছে!', 'warning'); renderMaster(); return; }
   items[idx].name = newName;
   DB.items = items;
+  // পুরনো নাম-key-কে deletedIds-এ যোগ করো — যাতে merge-fetch-এর সময় stale remote
+  // কপি (পুরনো নামে) নতুন আইটেম হিসেবে আবার যোগ না হয়ে যায়
+  if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', grp+'||'+oldName);
 
   // Cascade the rename into historical Receive/Issue records so nothing
   // gets orphaned from its stock/report calculations
@@ -22138,6 +22214,11 @@ async function deleteItem(i) {
   const arr = DB.items;
   var deletedItem = arr[i];
   if (deletedItem) binAdd('store_item', deletedItem, 'Store Item — ' + (deletedItem.name||''));
+  // Shared deletedIds ট্র্যাকারে যোগ করো (group+name key) — যাতে অন্য ডিভাইসের stale
+  // save-এ এই ডিলিট করা আইটেম আর ফিরে না আসে
+  if (deletedItem && typeof iglDelIdsAdd === 'function') {
+    iglDelIdsAdd('gs_item', (deletedItem.group||'')+'||'+(deletedItem.name||''));
+  }
   arr.splice(i, 1); DB.items = arr;
   triggerAutoSave();
   renderMaster();
