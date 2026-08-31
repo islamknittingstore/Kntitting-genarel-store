@@ -39,7 +39,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     var PAGE = location.href;
     var SCOPE = location.pathname;
-    var CACHE = 'igl-erp-v8';
+    var CACHE = 'igl-erp-v9';
 
     var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '",SC="' + SCOPE + '";' +
       'self.addEventListener("install",function(e){' +
@@ -6506,13 +6506,30 @@ function ok(msg) {
       <!-- Off Day / Holiday Manager Modal (Admin Only) -->
       <div id="nur-offday-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
         <div style="background:#fff;border-radius:10px;padding:22px 26px;width:360px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-          <h3 style="margin:0 0 14px;color:#c0392b;font-size:15px;">🔴 Off Day / Holiday ডিউটি</h3>
-          <p style="font-size:12px;color:#555;margin-bottom:14px;">যেই তারিখে Off Day / Holiday তে ডিউটি ছিল সেই তারিখ যোগ করুন। Working Days এ count হবে।</p>
-          <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <input type="date" id="nur-offday-input" class="form-control" style="flex:1;">
-            <button onclick="nurAddOffDay()" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-weight:700;">+ যোগ করুন</button>
+          <h3 style="margin:0 0 12px;color:#c0392b;font-size:15px;">🔴 Off Day / Holiday</h3>
+          <div style="display:flex;gap:6px;margin-bottom:14px;">
+            <button id="nur-tab-duty" onclick="nurOffDaySetTab('duty')" style="background:#c0392b;color:#fff;border:none;border-radius:20px;padding:7px 16px;cursor:pointer;font-weight:700;font-size:12px;">🟢 Duty Day</button>
+            <button id="nur-tab-holiday" onclick="nurOffDaySetTab('holiday')" style="background:#f0f0f0;color:#555;border:none;border-radius:20px;padding:7px 16px;cursor:pointer;font-weight:700;font-size:12px;">⚫ Only Holiday</button>
           </div>
-          <div id="nur-offday-list" style="margin-bottom:14px;min-height:40px;"></div>
+
+          <div id="nur-offday-section">
+            <p style="font-size:12px;color:#555;margin-bottom:14px;">যেই তারিখে Off Day / Holiday তে ডিউটি ছিল সেই তারিখ যোগ করুন। Working Days এ count হবে।</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="date" id="nur-offday-input" class="form-control" style="flex:1;">
+              <button onclick="nurAddOffDay()" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-weight:700;">+ যোগ করুন</button>
+            </div>
+            <div id="nur-offday-list" style="margin-bottom:14px;min-height:40px;"></div>
+          </div>
+
+          <div id="nur-holiday-section" style="display:none;">
+            <p style="font-size:12px;color:#555;margin-bottom:14px;">যেই তারিখ শুধুই ছুটি (ডিউটি হয়নি) — সেই তারিখ যোগ করুন। টেবিলে শুক্রবারের মতো ধূসর দেখাবে, কিন্তু Working Days-এ count হবে না।</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="date" id="nur-holiday-input" class="form-control" style="flex:1;">
+              <button onclick="nurAddHoliday()" style="background:#333;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-weight:700;">+ যোগ করুন</button>
+            </div>
+            <div id="nur-holiday-list" style="margin-bottom:14px;min-height:40px;"></div>
+          </div>
+
           <div style="display:flex;justify-content:flex-end;gap:8px;">
             <button onclick="nurCloseOffDayManager()" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">✅ Done</button>
           </div>
@@ -32818,6 +32835,105 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     el.innerHTML = html;
   }
 
+  // ── Holiday (শুধুই ছুটি, Duty না — Working Day count-এ যাবে না, শুধু টেবিলে
+  // ফ্রাইডের মতো ধূসর দেখাবে) ──
+  var NUR_HOLIDAY_FB_PATH = 'igl_erp/ndb/holidays';
+  function nurGetHolidays() {
+    try { return JSON.parse(localStorage.getItem('igl_nur_holidays')||'[]'); } catch(e){ return []; }
+  }
+  function nurSaveHolidays(arr) {
+    localStorage.setItem('igl_nur_holidays', JSON.stringify(arr));
+    try{
+      if (typeof firebase !== 'undefined') {
+        firebase.database().ref(NUR_HOLIDAY_FB_PATH).set(arr).catch(function(err){
+          console.error('Holiday Firebase sync failed:', err);
+        });
+      }
+    }catch(e){ console.error('Holiday Firebase sync error:', e); }
+  }
+  function nurSyncHolidaysFromFirebase(cb) {
+    try{
+      if (typeof firebase === 'undefined') { if (cb) cb(); return; }
+      firebase.database().ref(NUR_HOLIDAY_FB_PATH).once('value').then(function(snap){
+        var fbArr = snap.val() || [];
+        if (!Array.isArray(fbArr)) fbArr = Object.values(fbArr);
+        var localArr = nurGetHolidays();
+        var merged = localArr.slice();
+        fbArr.forEach(function(d){ if (merged.indexOf(d) < 0) merged.push(d); });
+        merged.sort();
+        localStorage.setItem('igl_nur_holidays', JSON.stringify(merged));
+        if (merged.length !== fbArr.length) {
+          firebase.database().ref(NUR_HOLIDAY_FB_PATH).set(merged).catch(function(){});
+        }
+        if (cb) cb();
+      }).catch(function(err){
+        console.error('Holiday Firebase load failed:', err);
+        if (cb) cb();
+      });
+    }catch(e){ if (cb) cb(); }
+  }
+  function nurIsHoliday(dayStr) {
+    return nurGetHolidays().indexOf(dayStr) >= 0;
+  }
+  function nurAddHoliday() {
+    var val = document.getElementById('nur-holiday-input').value;
+    if (!val) { toast('তারিখ দিন!','warning'); return; }
+    nurSyncHolidaysFromFirebase(function(){
+      var arr = nurGetHolidays();
+      if (arr.indexOf(val) >= 0) { toast('এই তারিখ আগেই আছে!','warning'); nurRenderHolidayList(); return; }
+      arr.push(val);
+      arr.sort();
+      nurSaveHolidays(arr);
+      nurRenderHolidayList();
+      toast('✅ '+val+' Holiday হিসেবে যোগ হয়েছে','success');
+    });
+  }
+  function nurRemoveHoliday(date) {
+    nurSyncHolidaysFromFirebase(function(){
+      var arr = nurGetHolidays().filter(function(d){ return d !== date; });
+      nurSaveHolidays(arr);
+      nurRenderHolidayList();
+    });
+  }
+  function nurRenderHolidayList() {
+    var m = Number(document.getElementById('nur-month').value);
+    var y = Number(document.getElementById('nur-year').value);
+    var arr = nurGetHolidays().filter(function(d){
+      var nd = new Date(d);
+      return nd.getMonth()+1===m && nd.getFullYear()===y;
+    });
+    var el = document.getElementById('nur-holiday-list');
+    if (!el) return;
+    if (!arr.length) { el.innerHTML='<p style="color:#888;font-size:12px;">এই মাসে কোনো Holiday যোগ করা হয়নি।</p>'; return; }
+    var html = '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px;">এই মাসের Holiday গুলো:</div>';
+    arr.forEach(function(d){
+      var dayName = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'][new Date(d).getDay()];
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#eeeeee;border-radius:5px;margin-bottom:4px;">'
+        +'<span style="font-weight:600;color:#333;">⚫ '+d+' ('+dayName+')</span>'
+        +'<button onclick="nurRemoveHoliday(\''+d+'\')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">✖</button>'
+        +'</div>';
+    });
+    el.innerHTML = html;
+  }
+  // ── মোডালের দুই ট্যাব (Duty Day / Only Holiday) সুইচ করার ফাংশন ──
+  function nurOffDaySetTab(tab) {
+    var dutyBtn = document.getElementById('nur-tab-duty');
+    var holidayBtn = document.getElementById('nur-tab-holiday');
+    var dutySec = document.getElementById('nur-offday-section');
+    var holidaySec = document.getElementById('nur-holiday-section');
+    var activeStyle = 'background:#c0392b;color:#fff;border:none;border-radius:20px;padding:7px 16px;cursor:pointer;font-weight:700;font-size:12px;';
+    var inactiveStyle = 'background:#f0f0f0;color:#555;border:none;border-radius:20px;padding:7px 16px;cursor:pointer;font-weight:700;font-size:12px;';
+    if (tab === 'holiday') {
+      dutySec.style.display = 'none'; holidaySec.style.display = '';
+      dutyBtn.setAttribute('style', inactiveStyle); holidayBtn.setAttribute('style', activeStyle);
+      nurRenderHolidayList();
+      nurSyncHolidaysFromFirebase(function(){ nurRenderHolidayList(); });
+    } else {
+      dutySec.style.display = ''; holidaySec.style.display = 'none';
+      dutyBtn.setAttribute('style', activeStyle); holidayBtn.setAttribute('style', inactiveStyle);
+    }
+  }
+
   // ── Shift Needle Use Report ──────────────
   function renderNeedleUseReport(){
     var month=Number(document.getElementById('nur-month').value);
@@ -32948,12 +33064,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       days.forEach(function(day){
         var dayLabel=new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
         var isFri=new Date(day).getDay()===5;
+        var isHol=nurIsHoliday(day);
         var hasData=filtered.some(function(r){
           return r.date===day
             && (r.needleType||'new').toLowerCase()===ndlType
             && types.some(function(t){return t.key===r.type;});
         });
-        html+='<tr class="'+(isFri?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'; 
+        html+='<tr class="'+((isFri||isHol)?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'; 
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -33045,7 +33162,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var dayLabel=(function(){var d=new Date(day);var dd=String(d.getDate()).padStart(2,'0');var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];var yy=String(d.getFullYear()).slice(2);return dd+' '+mm+' '+yy;})();
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
-        var isOff=isFri;
+        var isOff=isFri||nurIsHoliday(day);
         html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
         types.forEach(function(t){
           var rowT=0;
@@ -33150,7 +33267,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var dayLabel=(function(){ var d=new Date(day); var dd=String(d.getDate()).padStart(2,'0'); var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; var yy=String(d.getFullYear()).slice(2); return dd+' '+mm+' '+yy; })();
         var isFri=new Date(day).getDay()===5;
         var hasData=filtered.some(function(r){ return r.date===day && (r.needleType||'new')==='new'; });
-        var isOff=isFri;
+        var isOff=isFri||nurIsHoliday(day);
         html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';
         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
         types.forEach(function(t){
@@ -33303,7 +33420,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
       var isFri = new Date(day).getDay()===5;
       var hasData2 = filtered.some(function(r){ return r.date===day; });
-      var isOff2 = isFri;
+      var isOff2 = isFri||nurIsHoliday(day);
       p2 += '<tr class="'+(isOff2?'nur-offday':'')+'">';
       p2 += '<td style="padding:2px 4px;border:1px solid #ddd;border-left:3px solid #000;font-size:7.5px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
       // New needle cols
