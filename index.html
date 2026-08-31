@@ -39,7 +39,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     var PAGE = location.href;
     var SCOPE = location.pathname;
-    var CACHE = 'igl-erp-v5';
+    var CACHE = 'igl-erp-v6';
 
     var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '",SC="' + SCOPE + '";' +
       'self.addEventListener("install",function(e){' +
@@ -599,11 +599,11 @@ if('serviceWorker' in navigator){
 
   /* ── Shift Needle Use Report — অন-স্ক্রিন (স্ক্রিনেই দেখার সময়) ── */
   /* অফ-ডে ও শুক্রবার — হালকা কালো/ধূসর শেড, উপর থেকে নিচ সব একই */
-  #needleUseReportGrid tr.nur-offday td { background: #e8e8e8 !important; }
+  #needleUseReportGrid tr.nur-offday td { background: #a6a6a6 !important; }
   /* Total কলাম — একটু গাঢ় ধূসর, কালো বোল্ড লেখা, হেডার থেকে গ্র্যান্ড টোটাল পর্যন্ত সব একই */
   #needleUseReportGrid td.nur-total, #needleUseReportGrid th.nur-total,
   #needleUseReportGrid tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
-  #needleUseReportGrid tr.nur-grand-total td { background: #e8e8e8 !important; color: #000 !important; font-weight: 800 !important; }
+  #needleUseReportGrid tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
 
   /*  Print styles  */
   @media print {
@@ -826,12 +826,12 @@ if('serviceWorker' in navigator){
     .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
     .nur-page1 tr[style]:not(.nur-offday):not(.nur-grand-total), .nur-page2 tr[style]:not(.nur-offday):not(.nur-grand-total) { background: #fff !important; color: #000 !important; }
     /* Off day/Holiday row — হালকা gray (Excel style) */
-    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #e8e8e8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Total column ও worker name header — হালকা রঙ, কালো বোল্ড লেখা (সাদা-কালো প্রিন্টারের জন্য উপযোগী) */
     .nur-page1 td.nur-total, .nur-page2 td.nur-total,
     .nur-page1 th.nur-total, .nur-page2 th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row (TOTAL row) — হালকা ধূসর, কালো বোল্ড লেখা */
-    .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #e8e8e8 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row-এর ভিতরের Total কলাম — বাকি সব Total-এর মতোই একই হালকা রঙ */
     .nur-page1 tr.nur-grand-total td.nur-total, .nur-page2 tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
@@ -33683,8 +33683,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
       'td.nur-total, th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-offday td { background: #e8e8e8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td { background: #e8e8e8 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
@@ -33755,8 +33755,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
       'td.nur-total, th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-offday td { background: #e8e8e8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td { background: #e8e8e8 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
