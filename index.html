@@ -39,7 +39,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     var PAGE = location.href;
     var SCOPE = location.pathname;
-    var CACHE = 'igl-erp-v9';
+    var CACHE = 'igl-erp-v14';
 
     var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '",SC="' + SCOPE + '";' +
       'self.addEventListener("install",function(e){' +
@@ -6325,6 +6325,30 @@ function ok(msg) {
         <div id="nrrSummary" style="padding:10px 16px;font-weight:700;color:#1a5276;font-size:14px;"></div>
       </div>
     </div>
+
+    <!-- ── Wash Needle Monthly Report — নতুন, আলাদা সেকশন, উপরের Remarks Log-এ
+         কোনো প্রভাব ফেলে না ── -->
+    <div class="card" id="nrr-wash-card" style="margin-top:16px;">
+      <div class="card-header" style="background:#eafaf6;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;" class="no-print">
+          <b style="color:#117a65;">🧺 Wash Needle — Monthly Report</b>
+          <select class="form-control" id="nrrw-month" style="width:130px;">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="nrrw-year" value="2026" style="width:85px;">
+          <button class="btn btn-primary btn-sm" onclick="renderWashMonthlyReport()">🔍 View</button>
+          <button class="btn btn-outline btn-sm" onclick="printWashMonthlyReport()">🖨️ Print</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;">
+        <div id="nrrWashGrid"></div>
+      </div>
+    </div>
   </div>
 
 
@@ -6418,6 +6442,7 @@ function ok(msg) {
             <option value="Flat Knit">Flat Knit</option>
           </select>
           <select class="form-control" id="nled-needle" onchange="renderNeedleLedger()" style="width:220px;"><option value="">All Needles</option></select>
+          <select class="form-control" id="nled-machine" onchange="renderNeedleLedger()" style="width:160px;"><option value="">All Machines</option></select>
           <input type="date" class="form-control" id="nled-from" onchange="renderNeedleLedger()" style="width:135px;">
           <input type="date" class="form-control" id="nled-to" onchange="renderNeedleLedger()" style="width:135px;">
           <button class="btn btn-outline btn-sm no-print" onclick="printStockReport()">🖨️ Print</button>
@@ -9843,6 +9868,7 @@ function showPage(name, el) {
     }
     else if (name === 'needle_ledger') {
       ndlPopulateDrop('nled-needle','');
+      ndlPopulateLedgerMachines();
       renderNeedleLedger();
     }
     else if (name === 'needle_mapping') {
@@ -9879,6 +9905,8 @@ function showPage(name, el) {
       document.getElementById('nrr-year').value  = y;
       document.getElementById('nrr-month').value = now.getMonth()+1;
       document.getElementById('nrr-remarks').value = '';
+      document.getElementById('nrrw-year').value  = y;
+      document.getElementById('nrrw-month').value = now.getMonth()+1;
       // Supervisor dropdown populate
       var nrrSupDrop = document.getElementById('nrr-supervisor');
       if(nrrSupDrop){
@@ -27228,6 +27256,119 @@ function renderNeedleRemarksReport(){
 }
 // ────────────────────────────────────────────────────────────────
 
+// ── Wash Needle — Monthly Report (Remarks Report পেজের নিচে, একদম আলাদা,
+// উপরের Remarks Log/ফিল্টার/ডাটার সাথে কোনো সম্পর্ক নেই — শুধু "afterwash" টাইপ
+// needle এন্ট্রি Date × Worker করে মাসিক টেবিল আকারে দেখায় ও প্রিন্ট করে ──
+function _nrrWashBuildTableHTML(){
+  var m = Number(document.getElementById('nrrw-month').value) || (new Date().getMonth()+1);
+  var y = Number(document.getElementById('nrrw-year').value) || new Date().getFullYear();
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
+  var workers = getWorkers();
+
+  var mm = String(m).padStart(2,'0');
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var days = [];
+  for (var d=1; d<=daysInMonth; d++) days.push(y+'-'+mm+'-'+String(d).padStart(2,'0'));
+
+  var filtered = iss.filter(function(r){
+    return r.date && r.date.slice(0,7)===(y+'-'+mm) && (r.type||'')==='afterwash';
+  });
+
+  var grand = {}; workers.forEach(function(w){ grand[w.id]=0; });
+  var grandTotal = 0;
+
+  var rows = days.map(function(day){
+    var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    var isFri = new Date(day).getDay()===5;
+    var isHol = (typeof nurIsHoliday==='function') && nurIsHoliday(day);
+    var dayRecs = filtered.filter(function(r){ return r.date===day; });
+    var hasData = dayRecs.length>0;
+    var rowTotal = 0;
+    var cells = workers.map(function(w){
+      var q = dayRecs.filter(function(r){ return r.worker===w.id; }).reduce(function(s,r){ return s+(r.qty||0); }, 0);
+      rowTotal += q; grand[w.id] = (grand[w.id]||0) + q;
+      return '<td style="padding:3px 5px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
+    }).join('');
+    grandTotal += rowTotal;
+    return '<tr class="'+((isFri||isHol)?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'
+      + '<td style="padding:3px 5px;border:1px solid #ddd;white-space:nowrap;">'+dayLabel+'</td>'
+      + cells
+      + '<td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:800;" class="nur-total">'+(rowTotal||'')+'</td>'
+      + '</tr>';
+  }).join('');
+
+  var headerCells = workers.map(function(w){ return '<th style="padding:4px;border:1px solid #555;" class="nur-worker-header">'+w.name+'</th>'; }).join('');
+  var grandCells = workers.map(function(w){ return '<td style="padding:4px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+(grand[w.id]||0)+'</td>'; }).join('');
+
+  // ── মেশিন-ভিত্তিক সারাংশ — কোন মেশিনে মাসে মোট কত পিস Wash Needle গেছে ──
+  var machTotals = {};
+  filtered.forEach(function(r){
+    var mid = r.machine || '(অজানা)';
+    machTotals[mid] = (machTotals[mid]||0) + (r.qty||0);
+  });
+  var machList = Object.keys(machTotals).sort(function(a,b){ return machTotals[b]-machTotals[a]; });
+  var machRows = machList.map(function(mid, i){
+    return '<tr style="'+(i%2===1?'background:#f8f9fa;':'')+'">'
+      + '<td style="padding:3px 6px;border:1px solid #ddd;text-align:center;color:#888;">'+(i+1)+'</td>'
+      + '<td style="padding:3px 6px;border:1px solid #ddd;font-weight:700;color:#117a65;">'+mid+'</td>'
+      + '<td style="padding:3px 6px;border:1px solid #ddd;text-align:center;font-weight:800;">'+machTotals[mid]+'</td>'
+      + '</tr>';
+  }).join('');
+  var machGrandTotal = machList.reduce(function(s,mid){ return s+machTotals[mid]; }, 0);
+  var machineTableHTML = ''
+    + '<div style="font-weight:800;color:#117a65;margin:14px 0 6px;font-size:12px;">📍 মেশিন-ভিত্তিক সারাংশ — কোন মেশিনে মাসে মোট কত পিস</div>'
+    + '<table style="width:60%;min-width:280px;border-collapse:collapse;font-size:11px;">'
+    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:4px;border:1px solid #555;width:36px;">SL</th><th style="padding:4px;border:1px solid #555;text-align:left;">Machine</th><th style="padding:4px;border:1px solid #555;">Total Pcs</th></tr></thead>'
+    + '<tbody>'+(machRows || '<tr><td colspan="3" style="padding:8px;text-align:center;color:#888;">কোনো ডাটা নেই</td></tr>')+'</tbody>'
+    + '<tfoot><tr class="nur-grand-total"><td colspan="2" style="padding:4px 6px;border:1px solid #555;font-weight:800;">সব মেশিন মিলিয়ে TOTAL</td><td style="padding:4px 6px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+machGrandTotal+'</td></tr></tfoot>'
+    + '</table>';
+
+  var html = ''
+    + '<div style="text-align:center;margin-bottom:6px;">'
+    + '<img src="'+IGL_LOGO_B64+'" style="height:30px;display:block;margin:0 auto 3px;">'
+    + '<div style="font-size:14px;font-weight:800;">Islam Garments Limited</div>'
+    + '<div style="font-size:12px;color:#555;">Wash Needle — Monthly Report — '+monthNames[m-1]+' '+y+'</div>'
+    + '</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:4px;border:1px solid #555;">Date</th>'+headerCells+'<th style="padding:4px;border:1px solid #555;" class="nur-total">Total</th></tr></thead>'
+    + '<tbody>'+rows+'</tbody>'
+    + '<tfoot><tr class="nur-grand-total"><td style="padding:4px 5px;border:1px solid #555;font-weight:800;">TOTAL</td>'+grandCells+'<td style="padding:4px 5px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+grandTotal+'</td></tr></tfoot>'
+    + '</table>'
+    + machineTableHTML;
+  return html;
+}
+
+function renderWashMonthlyReport(){
+  var el = document.getElementById('nrrWashGrid');
+  if (!el) return;
+  el.innerHTML = _nrrWashBuildTableHTML();
+}
+
+function printWashMonthlyReport(){
+  var html = _nrrWashBuildTableHTML();
+  var css = [
+    '@page { size: A4; margin: 10mm; }',
+    'body { margin:0; padding:0; font-family: Arial, sans-serif; color:#000; background:#fff; }',
+    'table { border-collapse: collapse; width: 100%; }',
+    'th, td { border: 0.7px solid #000 !important; }',
+    'th { background:#fff !important; color:#000 !important; }',
+    'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+    'td.nur-total, th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+    'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+    'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+  ].join('\n');
+  var win = window.open('', '_blank', 'width=900,height=800');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Wash Needle Monthly Report</title><style>'+css+'</style></head><body>');
+  win.document.write(html);
+  win.document.write('</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); }, 700);
+}
+// ────────────────────────────────────────────────────────────────
+
 window.onerror = function(msg, src, line, col, err) {
   console.error('JS Error:', msg, 'Line:', line);
   return false;
@@ -32483,29 +32624,36 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function renderNeedleLedger(){
     var sec=(document.getElementById('nled-section')||{}).value||'';
     var ndlId=(document.getElementById('nled-needle')||{}).value||'';
+    var machFilter=(document.getElementById('nled-machine')||{}).value||'';
     var from=(document.getElementById('nled-from')||{}).value||'';
     var to=(document.getElementById('nled-to')||{}).value||'';
     var nm=ndlGetMaster();
     var rcvs=ndlGetRcv();
     var iss=(typeof NDB!=='undefined')?NDB.needles:[];
     var txns=[];
-    // Add B/F rows for each needle
-    var bfList=ndlId?nm.filter(function(n){return n.id===ndlId;}):nm.filter(function(n){return (!sec||n.section===sec)&&(Number(n.bf)||0)>0;});
-    bfList.forEach(function(n){
-      txns.push({date:'0000-00-00',code:n.code,section:n.section,ntype:n.type,rcv:Number(n.bf)||0,isq:0,machine:'B/F',isBF:true,needleId:n.id});
-    });
-    rcvs.forEach(function(r){
-      if(sec&&r.section!==sec)return;if(ndlId&&r.needleId!==ndlId)return;
-      if(from&&r.date<from)return;if(to&&r.date>to)return;
-      txns.push({date:r.date,code:r.needleCode,section:r.section,ntype:r.needleType,rcv:r.qty,isq:0,machine:'',needleId:r.needleId});
-    });
+    // মেশিন ফিল্টার সিলেক্ট করা থাকলে — শুধু সেই মেশিনের Issue রেকর্ড দেখাবে
+    // (B/F ও Receive কোনো নির্দিষ্ট মেশিনের সাথে যুক্ত না, তাই ওগুলো বাদ যাবে)
+    if (!machFilter) {
+      // Add B/F rows for each needle
+      var bfList=ndlId?nm.filter(function(n){return n.id===ndlId;}):nm.filter(function(n){return (!sec||n.section===sec)&&(Number(n.bf)||0)>0;});
+      bfList.forEach(function(n){
+        txns.push({date:'0000-00-00',code:n.code,section:n.section,ntype:n.type,rcv:Number(n.bf)||0,isq:0,machine:'B/F',isBF:true,needleId:n.id});
+      });
+      rcvs.forEach(function(r){
+        if(sec&&r.section!==sec)return;if(ndlId&&r.needleId!==ndlId)return;
+        if(from&&r.date<from)return;if(to&&r.date>to)return;
+        txns.push({date:r.date,code:r.needleCode,section:r.section,ntype:r.needleType,rcv:r.qty,isq:0,machine:'',needleId:r.needleId});
+      });
+    }
     iss.forEach(function(r){
       var n=nm.find(function(x){return x.id===r.needleId;});if(!n)return;
       if(sec&&n.section!==sec)return;if(ndlId&&r.needleId!==ndlId)return;
+      if(machFilter&&r.machine!==machFilter)return;
       if(from&&r.date<from)return;if(to&&r.date>to)return;
       txns.push({date:r.date,code:n.code,section:n.section,ntype:n.type,rcv:0,isq:r.qty,machine:r.machine||'',needleId:r.needleId});
     });
     txns.sort(function(a,b){
+      if(machFilter) return a.date.localeCompare(b.date);
       if(a.needleId!==b.needleId)return a.needleId.localeCompare(b.needleId);
       return a.date.localeCompare(b.date);
     });
@@ -32513,9 +32661,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!txns.length){tb.innerHTML='<tr><td colspan="8" class="no-data">No data</td></tr>';return;}
     // Calculate running balance per needle
     var balMap={};
+    var machTotal=0;
     tb.innerHTML=txns.map(function(t){
       if(!balMap[t.needleId])balMap[t.needleId]=0;
       balMap[t.needleId]+=t.rcv-t.isq;
+      machTotal+=t.isq;
       var rowStyle=t.isBF?'background:#f3e5f5;':'';
       var dateDisplay=t.isBF?'<span style="color:#6c3483;font-weight:700;">B/F</span>':fmtDate(t.date);
       return '<tr style="'+rowStyle+'">'
@@ -32523,9 +32673,24 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td style="text-align:center;color:'+(t.isBF?'#6c3483':'#117a65')+';font-weight:700;">'+(t.rcv||'')+'</td>'
         +'<td style="text-align:center;color:#e74c3c;font-weight:700;">'+(t.isq||'')+'</td>'
         +'<td style="color:'+(t.isBF?'#6c3483':'')+';">'+(t.machine||'-')+'</td>'
-        +'<td style="text-align:center;font-weight:700;background:#f8f9fa;">'+balMap[t.needleId]+'</td></tr>';
+        +'<td style="text-align:center;font-weight:700;background:#f8f9fa;">'+(machFilter?'':balMap[t.needleId])+'</td></tr>';
     }).join('');
+    // মেশিন ফিল্টার করা থাকলে — Balance কলামের বদলে নিচে মোট Issue Qty দেখাও
+    if (machFilter) {
+      tb.innerHTML += '<tr style="background:#1c2833;color:#fff;"><td colspan="5" style="font-weight:800;padding:6px 8px;">TOTAL — '+machFilter+'</td><td style="text-align:center;font-weight:800;">'+machTotal+'</td><td colspan="2"></td></tr>';
+    }
   }
+
+  function ndlPopulateLedgerMachines(){
+    var sel=document.getElementById('nled-machine');if(!sel)return;
+    var machines=(typeof getNeedleMachines==='function')?getNeedleMachines():[];
+    var current=sel.value;
+    sel.innerHTML='<option value="">All Machines</option>'+machines.map(function(m){
+      return '<option value="'+m.id+'">'+m.id+'</option>';
+    }).join('');
+    sel.value=current;
+  }
+
 
   function ndlMapLoadMachines(){
     var machines=(typeof DB!=='undefined')?DB.machines:[];
@@ -33529,8 +33694,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var inputEl = document.getElementById('nur-prod-kg-'+y+'-'+m);
     if (inputEl) {
       inputEl.value = val;
-      var span = inputEl.nextElementSibling;
-      if (span) span.textContent = val;
+      // (kg লেবেল span-কে স্পর্শ করা হয় না, নাহলে ভ্যালু দুইবার দেখায়)
     }
     // Save to Firebase + localStorage
     nurSaveProdKg(y, m, val);
@@ -33559,16 +33723,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         if (val) {
           inputEl.value = val;
           inputEl.setAttribute('value', val);
-          var span = inputEl.nextElementSibling;
-          if (span) span.textContent = val;
+          // (kg লেবেল span-কে স্পর্শ করা হয় না, নাহলে ভ্যালু দুইবার দেখায়)
         } else {
           // Firebase এ নেই — localStorage এ আছে কিনা দেখো
           var local = localStorage.getItem('igl_nur_prod_'+year+'_'+month);
           if (local) {
             inputEl.value = local;
             inputEl.setAttribute('value', local);
-            var span2 = inputEl.nextElementSibling;
-            if (span2) span2.textContent = local;
+            // (kg লেবেল span-কে স্পর্শ করা হয় না, নাহলে ভ্যালু দুইবার দেখায়)
             // Firebase এ migrate করো
             _fbDb.ref(key).set(local);
           } else {
@@ -33583,8 +33745,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if (saved) {
         inputEl.value = saved;
         inputEl.setAttribute('value', saved);
-        var span3 = inputEl.nextElementSibling;
-        if (span3) span3.textContent = saved;
+        // (kg লেবেল span-কে স্পর্শ করা হয় না, নাহলে ভ্যালু দুইবার দেখায়)
       } else {
         _nurAutoCalcProdKg(year, month, inputEl);
       }
@@ -33607,8 +33768,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         inputEl.setAttribute('value', rounded);
         inputEl.style.color = '#1e8449';
         inputEl.title = 'Machine Wise Production থেকে স্বয়ংক্রিয়ভাবে বসানো হয়েছে — চাইলে এডিট করে বদলাতে পারবেন';
-        var span4 = inputEl.nextElementSibling;
-        if (span4) span4.textContent = rounded;
+        // (kg লেবেল span-কে স্পর্শ করা হয় না, নাহলে ভ্যালু দুইবার দেখায়)
       }
     });
   }
@@ -33802,6 +33962,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     tmpDiv.innerHTML = page2HTML;
     tmpDiv.querySelectorAll('.no-print').forEach(function(el){ el.remove(); });
+    // Total Production input-টাকে প্লেইন টেক্সটে বদলে দাও — কিছু ব্রাউজার/প্রিন্ট
+    // ড্রাইভারে number input প্রিন্ট করলে ভ্যালু দুইবার (ইনপুট বক্স + অতিরিক্ত টেক্সট)
+    // দেখানোর একটা পরিচিত সমস্যা আছে, তাই প্রিন্টে এটা এড়াতে সরাসরি span দিয়ে বসানো হলো
+    tmpDiv.querySelectorAll('input[type="number"]').forEach(function(inp){
+      var span = document.createElement('span');
+      span.style.cssText = 'display:inline-block;min-width:60pt;border-bottom:1pt solid #000;font-weight:bold;text-align:center;padding:0 2pt;';
+      span.textContent = inp.value || '';
+      inp.parentNode.replaceChild(span, inp);
+    });
     page2HTML = tmpDiv.innerHTML;
 
     var css = [
@@ -33876,6 +34045,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     });
     tmpDiv.innerHTML = pageEl.innerHTML;
     tmpDiv.querySelectorAll('.no-print').forEach(function(el){ el.remove(); });
+    // Total Production input-টাকে প্লেইন টেক্সটে বদলে দাও — number input প্রিন্ট করলে
+    // কিছু ব্রাউজারে ভ্যালু দুইবার দেখানোর সমস্যা এড়াতে
+    tmpDiv.querySelectorAll('input[type="number"]').forEach(function(inp){
+      var span = document.createElement('span');
+      span.style.cssText = 'display:inline-block;min-width:60pt;border-bottom:1pt solid #000;font-weight:bold;text-align:center;padding:0 2pt;';
+      span.textContent = inp.getAttribute('value') || '';
+      inp.parentNode.replaceChild(span, inp);
+    });
     var pageHTML = tmpDiv.innerHTML;
 
     var css = [
