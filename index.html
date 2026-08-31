@@ -39,7 +39,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     var PAGE = location.href;
     var SCOPE = location.pathname;
-    var CACHE = 'igl-erp-v6';
+    var CACHE = 'igl-erp-v8';
 
     var swSrc = 'var C="' + CACHE + '",P="' + PAGE + '",SC="' + SCOPE + '";' +
       'self.addEventListener("install",function(e){' +
@@ -604,6 +604,8 @@ if('serviceWorker' in navigator){
   #needleUseReportGrid td.nur-total, #needleUseReportGrid th.nur-total,
   #needleUseReportGrid tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
   #needleUseReportGrid tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
+  /* Worker/Supervisor নামের হেডার (Shawkat/Nazrul/Alom) — Total-এর চেয়ে একটু হালকা, আলাদা করে বোঝার জন্য */
+  #needleUseReportGrid th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; }
 
   /*  Print styles  */
   @media print {
@@ -834,6 +836,8 @@ if('serviceWorker' in navigator){
     .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row-এর ভিতরের Total কলাম — বাকি সব Total-এর মতোই একই হালকা রঙ */
     .nur-page1 tr.nur-grand-total td.nur-total, .nur-page2 tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Worker/Supervisor নামের হেডার — Total-এর চেয়ে একটু হালকা, আলাদা করে বোঝার জন্য */
+    .nur-page1 th.nur-worker-header, .nur-page2 th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
     #page-retail_needle_account .no-print { display: none !important; }
     #page-retail_needle_account .page-header { display: none !important; }
@@ -1431,6 +1435,7 @@ if('serviceWorker' in navigator){
           gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
           gsReqFlags:      JSON.parse(localStorage.getItem('igl_gs_req_flags') || '{}'),
           masterPw:        localStorage.getItem('igl_master_pw') || '',
+          needleRemarks:   JSON.parse(localStorage.getItem('igl_needle_remarks') || '[]'),
           monthLocks:      JSON.parse(localStorage.getItem('igl_month_locks') || '{}'),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || ''
         }
@@ -1727,6 +1732,7 @@ if('serviceWorker' in navigator){
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
           if(data.settings.gsReqFlags && Object.keys(data.settings.gsReqFlags).length) { localStorage.setItem('igl_gs_req_flags', JSON.stringify(data.settings.gsReqFlags)); }
           if(data.settings.masterPw) { localStorage.setItem('igl_master_pw', data.settings.masterPw); }
+          if(data.settings.needleRemarks && data.settings.needleRemarks.length) { localStorage.setItem('igl_needle_remarks', JSON.stringify(data.settings.needleRemarks)); if(typeof ndlPopulateRemarkDropdowns==='function') ndlPopulateRemarkDropdowns(); if(typeof ndlRenderRemarksList==='function') ndlRenderRemarksList(); }
           // 🔒 Month Lock — এটা কখনো localStorage-এর ফাঁকা/পুরনো ডাটা দিয়ে ওভাররাইট করা যাবে না,
           // শুধু Firebase-এ আসলেই কিছু লক থাকলে (keys থাকলে) সেটা apply করো। খালি হলে টাচ করো না —
           // যাতে কোনো ডিভাইসে ভুলবশত লক তথ্য মুছে না যায়।
@@ -7532,6 +7538,7 @@ async function _loadFromFile() {
     var stnReceives    = stn.receives         || data.stnReceives    || [];
     var gsReqFlags     = data.gsReqFlags      || null;
     var masterPw       = data.masterPw        || null;
+    var needleRemarks  = data.needleRemarks   || null;
 
     // ── সরাসরি localStorage এ লিখি ──
     try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(e) {}
@@ -7541,6 +7548,9 @@ async function _loadFromFile() {
     }
     if (masterPw) {
       try { localStorage.setItem('igl_master_pw', masterPw); } catch(e) {}
+    }
+    if (needleRemarks && needleRemarks.length) {
+      try { localStorage.setItem('igl_needle_remarks', JSON.stringify(needleRemarks)); } catch(e) {}
     }
 
     // ── Stationery Issues/Receives কে DB.issues/DB.receives এ merge করো ──
@@ -7743,6 +7753,7 @@ async function _doSave() {
       // Requisition flags (Issue Form থেকে টিক দেওয়া)
       gsReqFlags: DB.gsReqFlags,
       masterPw: localStorage.getItem('igl_master_pw') || '',
+      needleRemarks: JSON.parse(localStorage.getItem('igl_needle_remarks') || '[]'),
       // Meta
       savedAt: new Date().toISOString(),
       version: '3.0-full'
@@ -23062,6 +23073,7 @@ function exportData() {
     // Requisition flags (Issue Form থেকে টিক দেওয়া)
     gsReqFlags: DB.gsReqFlags,
       masterPw: localStorage.getItem('igl_master_pw') || '',
+      needleRemarks: JSON.parse(localStorage.getItem('igl_needle_remarks') || '[]'),
     // Workers
     needleWorkers: needleWorkers,
     // Meta
@@ -23104,6 +23116,7 @@ function doImport(event) {
       var stnReceives    = stn.receives         || data.stnReceives    || [];
       var gsReqFlags     = data.gsReqFlags      || null;
       var masterPw       = data.masterPw        || null;
+      var needleRemarks  = data.needleRemarks   || null;
 
       // কোনো ডেটাই নেই?
       var total = receives.length + issues.length + needles.length + items.length;
@@ -23148,6 +23161,9 @@ function doImport(event) {
         }
         if (masterPw) {
           try { localStorage.setItem('igl_master_pw', masterPw); } catch(er) {}
+        }
+        if (needleRemarks && needleRemarks.length) {
+          try { localStorage.setItem('igl_needle_remarks', JSON.stringify(needleRemarks)); } catch(er) {}
         }
 
         // Items — preItems এর সাথে merge করো যাতে built-in items না হারায়
@@ -33246,32 +33262,31 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p2 += '<th colspan="'+( usedTypes.length*(wCols+1)+1 )+'" style="border:1px solid #555;border-left:4px double #000;padding:4px;background:#6e2f1a;color:#fff;text-align:center;font-size:10px;">(USED NEEDLE)</th>';
     p2 += '</tr>';
 
-    // Row 2: Category headers
+    // Row 2: Category headers — Total/Off-day-এর মতোই একই গাঢ় ধূসর রঙ, কালো বোল্ড
     p2 += '<tr style="background:#2c3e50;color:#fff;">';
-    p2 += '<th style="border:1px solid #555;border-left:3px solid #000;padding:3px;">Date</th>';
+    p2 += '<th rowspan="2" style="border:1px solid #555;border-left:3px solid #000;padding:3px;vertical-align:middle;" class="nur-total">Date</th>';
     p2NewTypes.forEach(function(t){
-      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;padding:2px;text-align:center;">'+t.label+'-Pcs</th>';
+      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;padding:2px;text-align:center;" class="nur-total">'+t.label+'-Pcs</th>';
     });
-    p2 += '<th style="border:1px solid #555;border-right:3px solid #000;padding:2px;text-align:center;">Remarks</th>';
+    p2 += '<th style="border:1px solid #555;border-right:3px solid #000;padding:2px;text-align:center;" class="nur-total">Remarks</th>';
     usedTypes.forEach(function(t,ti){
-      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;'+(ti===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;">'+t.label+'-Pcs</th>';
+      p2 += '<th colspan="'+(wCols+1)+'" style="border:1px solid #555;'+(ti===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;" class="nur-total">'+t.label+'-Pcs</th>';
     });
-    p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;">Remarks</th>';
+    p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;" class="nur-total">Remarks</th>';
     p2 += '</tr>';
 
-    // Row 3: Worker names
+    // Row 3: Worker names — Total-এর চেয়ে একটু হালকা, আলাদা করে বোঝার জন্য
     p2 += '<tr style="background:#34495e;color:#fff;">';
-    p2 += '<th style="border:1px solid #555;border-left:3px solid #000;padding:2px;"></th>';
     p2NewTypes.forEach(function(){
       workers.forEach(function(w){
-        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
+        p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;font-size:7px;" class="nur-worker-header">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
     p2 += '<th style="border:1px solid #555;border-right:3px solid #000;" class="nur-total"></th>';
     usedTypes.forEach(function(t,ti){
       workers.forEach(function(w,wi){
-        p2 += '<th style="border:1px solid #555;'+(ti===0&&wi===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;font-size:7px;" class="nur-total">'+w.name+'</th>';
+        p2 += '<th style="border:1px solid #555;'+(ti===0&&wi===0?'border-left:4px double #000;':'')+'padding:2px;text-align:center;font-size:7px;" class="nur-worker-header">'+w.name+'</th>';
       });
       p2 += '<th style="border:1px solid #555;padding:2px;text-align:center;background:#117a65;" class="nur-total">Total</th>';
     });
@@ -33686,6 +33701,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
       'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
@@ -33758,6 +33774,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
       'input[type="number"] { border: none !important; border-bottom: 1pt solid #000 !important; font-size: inherit !important; font-weight: bold; background: transparent !important; color: #000 !important; width: 60pt; text-align: center; -webkit-appearance: none; }',
@@ -34088,6 +34105,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
   function ndlSaveRemarks(arr){
     localStorage.setItem('igl_needle_remarks', JSON.stringify(arr));
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
   }
 
   function ndlPopulateRemarkDropdowns(){
