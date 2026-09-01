@@ -6454,6 +6454,12 @@ function ok(msg) {
           </select>
           <input type="number" class="form-control" id="nrrw-year" value="2026" style="width:85px;">
           <button class="btn btn-primary btn-sm" onclick="renderWashMonthlyReport()">🔍 View</button>
+          <select class="form-control" id="nrrw-print-mode" style="width:170px;">
+            <option value="all">🖨️ সবগুলো (৩টা)</option>
+            <option value="new">🖨️ শুধু New Needle</option>
+            <option value="used">🖨️ শুধু Used Needle</option>
+            <option value="combined">🖨️ শুধু Combined</option>
+          </select>
           <button class="btn btn-outline btn-sm" onclick="printWashMonthlyReport()">🖨️ Print</button>
         </div>
       </div>
@@ -27552,72 +27558,65 @@ function renderNeedleRemarksReport(){
 
 // ── Wash Needle — Monthly Report (Remarks Report পেজের নিচে, একদম আলাদা,
 // উপরের Remarks Log/ফিল্টার/ডাটার সাথে কোনো সম্পর্ক নেই — শুধু "afterwash" টাইপ
-// needle এন্ট্রি Date × Worker করে মাসিক টেবিল আকারে দেখায় ও প্রিন্ট করে ──
-function _nrrWashBuildTableHTML(){
-  var m = Number(document.getElementById('nrrw-month').value) || (new Date().getMonth()+1);
-  var y = Number(document.getElementById('nrrw-year').value) || new Date().getFullYear();
-  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-  var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
-  var workers = getWorkers();
-
-  var mm = String(m).padStart(2,'0');
-  var daysInMonth = new Date(y, m, 0).getDate();
-  var days = [];
-  for (var d=1; d<=daysInMonth; d++) days.push(y+'-'+mm+'-'+String(d).padStart(2,'0'));
-
-  var filtered = iss.filter(function(r){
-    return r.date && r.date.slice(0,7)===(y+'-'+mm) && (r.type||'')==='afterwash';
+// needle এন্ট্রি নিয়ে মেশিন-ভিত্তিক মাসিক সারাংশ তিনটা ফরম্যাটে (New / Used /
+// Combined) দেখায় ও প্রিন্ট করে। বাকি কোনো নিডেল রিপোর্ট/ক্যালকুলেশনের সাথে এর
+// কোনো সম্পর্ক নেই — শুধু এই একটা ফাংশনের ভেতরেই সব পরিবর্তন সীমাবদ্ধ ──
+function _nrrWashMachineErpMap(){
+  var map = {};
+  (typeof NEEDLE_MACHINES !== 'undefined' ? NEEDLE_MACHINES : []).forEach(function(nm){
+    if (nm && nm.id) map[nm.id] = nm.erp || '';
   });
+  return map;
+}
 
-  var grand = {}; workers.forEach(function(w){ grand[w.id]=0; });
-  var grandTotal = 0;
-
-  var rows = days.map(function(day){
-    var dayLabel = new Date(day).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-    var isFri = new Date(day).getDay()===5;
-    var isHol = (typeof nurIsHoliday==='function') && nurIsHoliday(day);
-    var dayRecs = filtered.filter(function(r){ return r.date===day; });
-    var hasData = dayRecs.length>0;
-    var rowTotal = 0;
-    var cells = workers.map(function(w){
-      var q = dayRecs.filter(function(r){ return r.worker===w.id; }).reduce(function(s,r){ return s+(r.qty||0); }, 0);
-      rowTotal += q; grand[w.id] = (grand[w.id]||0) + q;
-      return '<td style="padding:3px 5px;border:1px solid #ddd;text-align:center;">'+(q||'')+'</td>';
-    }).join('');
-    grandTotal += rowTotal;
-    return '<tr class="'+((isFri||isHol)?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'
-      + '<td style="padding:3px 5px;border:1px solid #ddd;white-space:nowrap;">'+dayLabel+'</td>'
-      + cells
-      + '<td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:800;" class="nur-total">'+(rowTotal||'')+'</td>'
-      + '</tr>';
-  }).join('');
-
-  var headerCells = workers.map(function(w){ return '<th style="padding:4px;border:1px solid #555;" class="nur-worker-header">'+w.name+'</th>'; }).join('');
-  var grandCells = workers.map(function(w){ return '<td style="padding:4px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+(grand[w.id]||0)+'</td>'; }).join('');
-
-  // ── মেশিন-ভিত্তিক সারাংশ — কোন মেশিনে মাসে মোট কত পিস Wash Needle গেছে ──
+function _nrrWashBuildMachineTable(data, title, color, erpMap){
   var machTotals = {};
-  filtered.forEach(function(r){
+  var machErp = {};
+  data.forEach(function(r){
     var mid = r.machine || '(অজানা)';
     machTotals[mid] = (machTotals[mid]||0) + (r.qty||0);
+    if (!machErp[mid]) machErp[mid] = r.erp || erpMap[mid] || '';
   });
   var machList = Object.keys(machTotals).sort(function(a,b){ return machTotals[b]-machTotals[a]; });
   var machRows = machList.map(function(mid, i){
     return '<tr style="'+(i%2===1?'background:#f8f9fa;':'')+'">'
       + '<td style="padding:3px 6px;border:1px solid #ddd;text-align:center;color:#888;">'+(i+1)+'</td>'
-      + '<td style="padding:3px 6px;border:1px solid #ddd;font-weight:700;color:#117a65;">'+mid+'</td>'
+      + '<td style="padding:3px 6px;border:1px solid #ddd;text-align:center;font-weight:700;">'+(machErp[mid]||'-')+'</td>'
+      + '<td style="padding:3px 6px;border:1px solid #ddd;font-weight:700;color:'+color+';">'+mid+'</td>'
       + '<td style="padding:3px 6px;border:1px solid #ddd;text-align:center;font-weight:800;">'+machTotals[mid]+'</td>'
       + '</tr>';
   }).join('');
   var machGrandTotal = machList.reduce(function(s,mid){ return s+machTotals[mid]; }, 0);
-  var machineTableHTML = ''
-    + '<div style="font-weight:800;color:#117a65;margin:14px 0 6px;font-size:12px;">📍 মেশিন-ভিত্তিক সারাংশ — কোন মেশিনে মাসে মোট কত পিস</div>'
-    + '<table style="width:60%;min-width:280px;border-collapse:collapse;font-size:11px;">'
-    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:4px;border:1px solid #555;width:36px;">SL</th><th style="padding:4px;border:1px solid #555;text-align:left;">Machine</th><th style="padding:4px;border:1px solid #555;">Total Pcs</th></tr></thead>'
-    + '<tbody>'+(machRows || '<tr><td colspan="3" style="padding:8px;text-align:center;color:#888;">কোনো ডাটা নেই</td></tr>')+'</tbody>'
-    + '<tfoot><tr class="nur-grand-total"><td colspan="2" style="padding:4px 6px;border:1px solid #555;font-weight:800;">সব মেশিন মিলিয়ে TOTAL</td><td style="padding:4px 6px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+machGrandTotal+'</td></tr></tfoot>'
+  return ''
+    + '<div style="font-weight:800;color:'+color+';margin:16px 0 6px;font-size:12px;">'+title+'</div>'
+    + '<table style="width:70%;min-width:320px;border-collapse:collapse;font-size:11px;">'
+    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:4px;border:1px solid #555;width:36px;">SL</th><th style="padding:4px;border:1px solid #555;width:80px;">ERP No</th><th style="padding:4px;border:1px solid #555;text-align:left;">Machine ID</th><th style="padding:4px;border:1px solid #555;">Total Pcs</th></tr></thead>'
+    + '<tbody>'+(machRows || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">কোনো ডাটা নেই</td></tr>')+'</tbody>'
+    + '<tfoot><tr class="nur-grand-total"><td colspan="3" style="padding:4px 6px;border:1px solid #555;font-weight:800;">সব মেশিন মিলিয়ে TOTAL</td><td style="padding:4px 6px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+machGrandTotal+'</td></tr></tfoot>'
     + '</table>';
+}
+
+function _nrrWashBuildTableHTML(mode){
+  mode = mode || 'all';
+  var m = Number(document.getElementById('nrrw-month').value) || (new Date().getMonth()+1);
+  var y = Number(document.getElementById('nrrw-year').value) || new Date().getFullYear();
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
+  var mm = String(m).padStart(2,'0');
+
+  var filtered = iss.filter(function(r){
+    return r.date && r.date.slice(0,7)===(y+'-'+mm) && (r.type||'')==='afterwash';
+  });
+  var newFiltered  = filtered.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used'; });
+  var usedFiltered = filtered.filter(function(r){ return (r.needleType||'').toLowerCase()==='used'; });
+
+  var erpMap = _nrrWashMachineErpMap();
+
+  var tablesHTML = '';
+  if (mode==='all' || mode==='new')      tablesHTML += _nrrWashBuildMachineTable(newFiltered,  '🆕 New Needle — মেশিন-ভিত্তিক সারাংশ',           '#2980b9', erpMap);
+  if (mode==='all' || mode==='used')     tablesHTML += _nrrWashBuildMachineTable(usedFiltered, '♻️ Used Needle — মেশিন-ভিত্তিক সারাংশ',           '#c0392b', erpMap);
+  if (mode==='all' || mode==='combined') tablesHTML += _nrrWashBuildMachineTable(filtered,     '🔀 New + Used (সব মিলিয়ে) — মেশিন-ভিত্তিক সারাংশ', '#117a65', erpMap);
 
   var html = ''
     + '<div style="text-align:center;margin-bottom:6px;">'
@@ -27625,23 +27624,21 @@ function _nrrWashBuildTableHTML(){
     + '<div style="font-size:14px;font-weight:800;">Islam Garments Limited</div>'
     + '<div style="font-size:12px;color:#555;">Wash Needle — Monthly Report — '+monthNames[m-1]+' '+y+'</div>'
     + '</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
-    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:4px;border:1px solid #555;">Date</th>'+headerCells+'<th style="padding:4px;border:1px solid #555;" class="nur-total">Total</th></tr></thead>'
-    + '<tbody>'+rows+'</tbody>'
-    + '<tfoot><tr class="nur-grand-total"><td style="padding:4px 5px;border:1px solid #555;font-weight:800;">TOTAL</td>'+grandCells+'<td style="padding:4px 5px;border:1px solid #555;text-align:center;font-weight:800;" class="nur-total">'+grandTotal+'</td></tr></tfoot>'
-    + '</table>'
-    + machineTableHTML;
+    + tablesHTML;
   return html;
 }
 
 function renderWashMonthlyReport(){
   var el = document.getElementById('nrrWashGrid');
   if (!el) return;
-  el.innerHTML = _nrrWashBuildTableHTML();
+  el.innerHTML = _nrrWashBuildTableHTML('all');
 }
 
 function printWashMonthlyReport(){
-  var html = _nrrWashBuildTableHTML();
+  var modeEl = document.getElementById('nrrw-print-mode');
+  var mode = modeEl ? modeEl.value : 'all';
+  var titleByMode = { all:'সবগুলো ফরম্যাট', new:'New Needle', used:'Used Needle', combined:'Combined' };
+  var html = _nrrWashBuildTableHTML(mode);
   var css = [
     '@page { size: A4; margin: 10mm; }',
     'body { margin:0; padding:0; font-family: Arial, sans-serif; color:#000; background:#fff; }',
@@ -27654,7 +27651,7 @@ function printWashMonthlyReport(){
     'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
   ].join('\n');
   var win = window.open('', '_blank', 'width=900,height=800');
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Wash Needle Monthly Report</title><style>'+css+'</style></head><body>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Wash Needle Monthly Report — '+(titleByMode[mode]||'')+'</title><style>'+css+'</style></head><body>');
   win.document.write(html);
   win.document.write('</body></html>');
   win.document.close();
