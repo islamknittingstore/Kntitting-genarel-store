@@ -1471,6 +1471,9 @@ if('serviceWorker' in navigator){
         ndlRcv: _safeNdlRcv,
         rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
         bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
+        // Drop Design Needle Register — শুধুমাত্র তথ্যগত রেকর্ড (মেকানিক্যাল জমা/ফেরত),
+        // কোনো স্টক/ব্যালেন্স ক্যালকুলেশনে যোগ হয় না — stn.recordOnly এর মতোই স্বতন্ত্র
+        dropNeedle: JSON.parse(localStorage.getItem('igl_drop_needle') || '[]'),
         // deletedIds — fbSaveAll এ include করো যাতে overwrite এ না হারায়
         deletedIds: _delIdsForSave,
         settings: {
@@ -1793,6 +1796,18 @@ if('serviceWorker' in navigator){
         }
         if(data.rnaManage) localStorage.setItem('igl_rna_manage', JSON.stringify(data.rnaManage));
         if(data.bin)       localStorage.setItem('igl_bin',        JSON.stringify(data.bin));
+        if(data.dropNeedle){
+          // Drop Design Needle Register — ndlRcv এর মতোই id-ভিত্তিক pending merge,
+          // যাতে local এ এইমাত্র করা এন্ট্রি Firebase sync হওয়ার আগেই হারিয়ে না যায়
+          var localDropNdl = JSON.parse(localStorage.getItem('igl_drop_needle') || '[]');
+          var fbDropNdl = data.dropNeedle;
+          var fbDropNdlIds = {}; fbDropNdl.forEach(function(r){ fbDropNdlIds[r.id]=true; });
+          var pendingDropNdl = localDropNdl.filter(function(r){
+            return r.id && !fbDropNdlIds[r.id] && !_allDelIds['dropndl:'+String(r.id)];
+          });
+          var mergedDropNdl = fbDropNdl.concat(pendingDropNdl);
+          localStorage.setItem('igl_drop_needle', JSON.stringify(mergedDropNdl));
+        }
         if(data.settings){
           if(data.settings.userPermissions) localStorage.setItem('igl_user_permissions', JSON.stringify(data.settings.userPermissions));
           if(data.settings.usersOverride)   localStorage.setItem('igl_users_override',   JSON.stringify(data.settings.usersOverride));
@@ -1849,6 +1864,7 @@ if('serviceWorker' in navigator){
         try { if(typeof renderNdlStockRegister==='function') renderNdlStockRegister(); } catch(e){}
         try { if(typeof renderReceiveLog     ==='function') renderReceiveLog(); }     catch(e){}
         try { if(typeof renderIssueLog       ==='function') renderIssueLog(); }       catch(e){}
+        try { if(typeof renderDropNeedleLog  ==='function') renderDropNeedleLog(); }  catch(e){}
         // Stationery UI refresh — item ডিলিট/যোগ হলে সব device এ আপডেট হবে
         try { if(typeof stnItemMasterRender       ==='function') stnItemMasterRender(); }       catch(e){}
         try { if(typeof renderStationeryDashboard ==='function') renderStationeryDashboard(); } catch(e){}
@@ -3245,6 +3261,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
       <li id="nav-needle-newset"><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
       <li id="nav-needle-remarks"><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
+      <li id="nav-drop-needle"><a href="#" onclick="showPage('drop_needle_register', this); return false;"><span class="icon">🔀</span> Drop / Set Needle Register</a></li>
       <li id="nav-retail-needle"><a href="#" onclick="showPage('retail_needle_account', this); return false;"><span class="icon">🧾</span> Retail Needle Account</a></li>
       <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
       <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
@@ -3734,6 +3751,24 @@ window.iglSaveNavVisibility = function() {
     <div class="page-header">
       <h2>Receive Register</h2>
       <p>All goods receive records</p>
+    </div>
+    <div class="card no-print" style="margin-bottom:16px;">
+      <div class="card-header" style="background:#eef2f7;">🔎 স্লিপ নাম্বার দিয়ে খুঁজুন (Slip Wise Search)</div>
+      <div class="card-body" style="padding:12px 20px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">বছর</label>
+            <select class="form-control" id="slipq-year" style="width:100px;"></select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">স্লিপ নাম্বার</label>
+            <input type="text" class="form-control" id="slipq-no" style="width:150px;" placeholder="যেমনঃ 1" onkeydown="if(event.key==='Enter')searchSlipWise();">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="searchSlipWise()">🔍 খুঁজুন</button>
+        </div>
+        <div id="slipq-cards" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div id="slipq-details" style="margin-top:10px;"></div>
+      </div>
     </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
@@ -5875,6 +5910,89 @@ function ok(msg) {
       <div class="card-body" style="padding:0;"><div class="table-scroll">
         <table><thead><tr><th>Date</th><th>Needle/Sinker</th><th>Section</th><th>Needle Type</th><th>Challan</th><th>Qty</th><th class="no-print">Action</th></tr></thead>
         <tbody id="needleReceiveLog"></tbody></table>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- DROP DESIGN NEEDLE REGISTER — শুধুই তথ্যগত রেকর্ড, কোনো স্টক/ব্যালেন্স
+       ক্যালকুলেশনের সাথে সম্পর্কিত নয় (মেকানিক্যাল সলিড↔ড্রপ ডিজাইন পরিবর্তনের সময়
+       যেই অতিরিক্ত নিডেল জমা/ফেরত দেয়, শুধু সেটার হিসাব রাখার জন্য) -->
+  <div class="page" id="page-drop_needle_register">
+    <div class="page-header">
+      <h2>🔀 Drop / Set Needle Register</h2>
+      <p>মেশিন Solid ↔ Drop Design পরিবর্তনের সময় অতিরিক্ত ড্রপ নিডেল বা সেট নিডেল জমা/ফেরতের রেকর্ড — শুধুই তথ্যের জন্য, কোনো স্টক ব্যালেন্সে যোগ হয় না</p>
+    </div>
+    <div class="card" style="border-top:4px solid #8e44ad;">
+      <div class="card-header" style="background:linear-gradient(135deg,#8e44ad,#a569bd);color:#fff;">🔀 নতুন এন্ট্রি</div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div>
+            <div class="form-group"><label>তারিখ *</label><input type="date" class="form-control" id="dn-date"></div>
+            <div class="form-group"><label>নিডেল ক্যাটাগরি *</label>
+              <select class="form-control" id="dn-category" style="width:100%;font-weight:700;">
+                <option value="drop">🔀 Drop Needle</option>
+                <option value="set">🧷 Set Needle</option>
+              </select>
+            </div>
+            <div class="form-group"><label>ধরন *</label>
+              <select class="form-control" id="dn-type" style="width:100%;font-weight:700;">
+                <option value="deposit">📥 জমা (Solid → Drop Design)</option>
+                <option value="withdraw">📤 ফেরত (Drop Design → Solid)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>শিফট *</label>
+              <select class="form-control" id="dn-shift" style="width:100%;">
+                <option value="A">A Shift (সকাল)</option>
+                <option value="B">B Shift (দুপুর)</option>
+                <option value="C">C Shift (রাত)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="form-group"><label>মেশিন নং (ERP) *</label>
+              <select class="form-control" id="dn-machine-no" style="width:100%;" onchange="dnOnMachineSelect(this.value)"><option value="">-- Select --</option></select>
+            </div>
+            <div class="form-group"><label>মেশিন আইডি</label>
+              <input type="text" class="form-control" id="dn-machine-id-display" readonly style="background:#f4f1f7;font-weight:700;">
+            </div>
+            <div class="form-group"><label>পরিমাণ (পিস) *</label><input type="number" class="form-control" id="dn-qty" placeholder="0" min="1"></div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>নাম (যিনি জমা/ফেরত দিচ্ছেন) *</label>
+            <input type="text" class="form-control" id="dn-name" list="dn-name-list" placeholder="নাম লিখুন বা লিস্ট থেকে বেছে নিন..." autocomplete="off">
+            <datalist id="dn-name-list"></datalist>
+          </div>
+          <div class="form-group"><label>বক্স নং (যেই বক্সে রাখা হয়েছে)</label><input type="text" class="form-control" id="dn-box" placeholder="যেমনঃ Box-12"></div>
+        </div>
+        <div class="form-group"><label>রিমার্কস (ঐচ্ছিক)</label><input type="text" class="form-control" id="dn-remarks" placeholder="মন্তব্য..."></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-success" onclick="saveDropNeedle()" style="min-width:160px;">✅ Save Entry</button>
+          <button class="btn btn-outline" onclick="dnClearForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:15px;">
+      <div class="card-header" style="background:#f0f3f7;">📋 রেকর্ড লগ
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+          <select class="form-control" id="dn-log-category" onchange="renderDropNeedleLog()" style="width:140px;">
+            <option value="">সব ক্যাটাগরি</option>
+            <option value="drop">Drop Needle</option>
+            <option value="set">Set Needle</option>
+          </select>
+          <select class="form-control" id="dn-log-type" onchange="renderDropNeedleLog()" style="width:150px;">
+            <option value="">সব ধরন</option>
+            <option value="deposit">শুধু জমা</option>
+            <option value="withdraw">শুধু ফেরত</option>
+          </select>
+          <select class="form-control" id="dn-log-machine" onchange="renderDropNeedleLog()" style="width:150px;"><option value="">সব মেশিন</option></select>
+          <input type="date" class="form-control" id="dn-log-from" onchange="renderDropNeedleLog()" style="width:135px;">
+          <input type="date" class="form-control" id="dn-log-to" onchange="renderDropNeedleLog()" style="width:135px;">
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;"><div class="table-scroll">
+        <table><thead><tr><th>Date</th><th>ক্যাটাগরি</th><th>ধরন</th><th>ERP No</th><th>Machine ID</th><th>Shift</th><th>Qty</th><th>নাম</th><th>বক্স নং</th><th>Remarks</th><th class="no-print">Action</th></tr></thead>
+        <tbody id="dropNeedleLog"></tbody></table>
       </div></div>
     </div>
   </div>
@@ -8324,6 +8442,10 @@ const DB = {
     window._issFullCache = v || [];
     _set('igl_issues', _gsTrimForStorage(window._issFullCache));
   },
+  // Drop Design Needle Register — শুধুই তথ্যগত রেকর্ড (Solid↔Drop মেশিন চেঞ্জের
+  // সময়ের সারপ্লাস নিডেল জমা/ফেরত), কোনো স্টক/ব্যালেন্স ক্যালকুলেশনের সাথে যুক্ত নয়
+  get dropNeedle() { return _get('igl_drop_needle') || []; },
+  set dropNeedle(v) { _set('igl_drop_needle', v || []); },
   get groups() {
     let g = [];
     try { g = JSON.parse(localStorage.getItem('igl_groups') || '[]'); } catch(e) {}
@@ -9927,7 +10049,7 @@ function showPage(name, el) {
     if (name === 'dashboard') { try{ renderMainDashboardWelcome(); }catch(e){} }
     else if (name === 'general_store_dashboard') renderDashboard();
     else if (name === 'stock') renderStock();
-    else if (name === 'receive_log') { populateLogFilters(); renderReceiveLog(); }
+    else if (name === 'receive_log') { populateLogFilters(); renderReceiveLog(); slipqInit(); }
     else if (name === 'issue_log') { populateLogFilters(); renderIssueLog(); }
     else if (name === 'master') { renderMaster(); populateMasterDataLists(); }
     else if (name === 'receive') {
@@ -10077,6 +10199,12 @@ function showPage(name, el) {
         });
       }
       renderNeedleRemarksReport();
+    }
+    else if (name === 'drop_needle_register') {
+      dnPopulateMachines();
+      dnPopulateNames();
+      if (!document.getElementById('dn-date').value) document.getElementById('dn-date').value = todayStr();
+      renderDropNeedleLog();
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
     else if (name === 'stn_item_master') {
@@ -21578,6 +21706,74 @@ function renderReceiveLog() {
   }
 }
 
+// ── Slip Wise Search — একই স্লিপ নাম্বার দুটো ভিন্ন সিরিজে ব্যবহার হয়
+// (Electrical নিজস্ব স্লিপে, বাকি ৪ গ্রুপ একসাথে একই সাধারণ স্লিপে) — তাই স্লিপ
+// নাম্বার একা ইউনিক না, group থেকে অটোমেটিক্যালি সিরিজ ভাগ করে দেখানো হয়।
+// স্লিপ নাম্বার বছরভিত্তিক (প্রতি বছর ১ থেকে আবার শুরু হয়), তাই Year অবশ্যই লাগবে।
+function slipqInit(){
+  var sel = document.getElementById('slipq-year');
+  if(!sel) return;
+  var curY = new Date().getFullYear();
+  var years = {}; years[curY] = 1;
+  (DB.receives||[]).forEach(function(r){ if(r.date) years[r.date.slice(0,4)] = 1; });
+  var list = Object.keys(years).map(Number).sort(function(a,b){ return b-a; });
+  sel.innerHTML = list.map(function(y){ return '<option value="'+y+'"'+(y===curY?' selected':'')+'>'+y+'</option>'; }).join('');
+}
+
+function searchSlipWise(){
+  var year = document.getElementById('slipq-year').value;
+  var no = (document.getElementById('slipq-no').value||'').trim().toLowerCase();
+  var cardsEl = document.getElementById('slipq-cards');
+  var detailsEl = document.getElementById('slipq-details');
+  detailsEl.innerHTML = '';
+  if(!no){ cardsEl.innerHTML=''; toast('স্লিপ নাম্বার দিন','warning'); return; }
+  var all = DB.receives.filter(function(r){
+    return ['Stationery','Packaging','Needle'].indexOf(r.group)===-1
+      && r.date && r.date.slice(0,4)===String(year)
+      && String(r.chalan||'').trim().toLowerCase()===no;
+  });
+  if(!all.length){ cardsEl.innerHTML = '<div style="color:#888;font-size:13px;">এই বছরে এই স্লিপ নাম্বারে কোনো এন্ট্রি পাওয়া যায়নি</div>'; window._slipqSeries = []; return; }
+  var electrical = all.filter(function(r){ return r.group==='Electrical'; });
+  var general = all.filter(function(r){ return r.group!=='Electrical'; });
+  var series = [];
+  if(electrical.length) series.push({label:'🔌 Electrical Slip', color:'#e67e22', data:electrical});
+  if(general.length) series.push({label:'🔧 General Slip (Belt & Bearing / ICT / Maintenance / Spare Parts)', color:'#2980b9', data:general});
+  window._slipqSeries = series;
+  cardsEl.innerHTML = series.map(function(s, idx){
+    var date = s.data[0].date;
+    var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
+    return '<div onclick="slipqShowDetails('+idx+')" style="cursor:pointer;border:2px solid '+s.color+';border-radius:10px;padding:10px 16px;min-width:220px;background:#fff;">'
+      + '<div style="font-weight:800;color:'+s.color+';">'+s.label+'</div>'
+      + '<div style="font-size:12px;color:#555;margin-top:4px;">📅 তারিখ: '+fmtDate(date)+'</div>'
+      + '<div style="font-size:12px;color:#555;">আইটেম: '+s.data.length+' | মোট Qty: '+totalQty+'</div>'
+      + '<div style="font-size:11px;color:'+s.color+';margin-top:4px;font-weight:600;">👆 ক্লিক করে বিস্তারিত দেখুন</div>'
+      + '</div>';
+  }).join('');
+  if(series.length === 1) slipqShowDetails(0);
+}
+
+function slipqShowDetails(idx){
+  var series = window._slipqSeries || [];
+  var s = series[idx];
+  if(!s) return;
+  var detailsEl = document.getElementById('slipq-details');
+  var rows = s.data.map(function(r){
+    return '<tr><td>'+(r.category||'-')+'</td><td><b>'+r.item+'</b></td>'
+      + '<td style="text-align:center;">'+r.qty+'</td>'
+      + '<td style="text-align:right;">'+(r.rate?Number(r.rate).toLocaleString():'-')+'</td>'
+      + '<td style="text-align:right;">'+(r.amount?Number(r.amount).toLocaleString():'-')+'</td>'
+      + '<td>'+(r.bill||'-')+'</td></tr>';
+  }).join('');
+  var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
+  var totalAmt = s.data.reduce(function(sum,r){ return sum+(Number(r.amount)||0); }, 0);
+  detailsEl.innerHTML = '<div style="font-weight:800;margin-bottom:6px;color:'+s.color+';">'+s.label+' — বিস্তারিত (তারিখ: '+fmtDate(s.data[0].date)+')</div>'
+    + '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Bill No.</th></tr></thead>'
+    + '<tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="background:#f8f9fa;font-weight:700;"><td colspan="2">TOTAL</td><td style="text-align:center;">'+totalQty+'</td><td></td><td style="text-align:right;">'+totalAmt.toLocaleString()+'</td><td></td></tr></tfoot>'
+    + '</table></div>';
+}
+
 async function deleteReceive(id) {
   var entry = DB.receives.find(function(r){ return r.id === id; });
   var msg = window.iglCanDeleteMsg(entry ? entry.userId : '', entry ? entry.id : null, DB.receives);
@@ -31731,6 +31927,130 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     try { updateNrCurrentStock(); } catch(e) {}
     try { renderNeedleStock(); } catch(e) {}
     try { renderUsedNeedleStock(); } catch(e) {}
+  }
+
+  // ── Drop Design Needle Register — শুধুই তথ্যগত লগ, কোনো স্টক/ব্যালেন্স
+  // ক্যালকুলেশনে যুক্ত নয়। DB.receives/DB.issues/NDB.needles কোনোটাই টাচ হয় না। ──
+  function dnPopulateMachines(){
+    var sel = document.getElementById('dn-machine-no');
+    var logSel = document.getElementById('dn-log-machine');
+    if(!sel) return;
+    var list = (typeof getNeedleMachines === 'function' ? getNeedleMachines() : NEEDLE_MACHINES).slice();
+    list.sort(function(a,b){ return parseInt(a.erp||0,10)-parseInt(b.erp||0,10); });
+    sel.innerHTML = '<option value="">-- Select --</option>';
+    if(logSel) logSel.innerHTML = '<option value="">সব মেশিন</option>';
+    window._dnMachineMap = {};
+    list.forEach(function(m){
+      var erpNo = (m.erp||'').toString() || '-';
+      window._dnMachineMap[m.id] = erpNo;
+      sel.innerHTML += '<option value="'+m.id+'">'+erpNo+' — '+m.id+'</option>';
+      if(logSel) logSel.innerHTML += '<option value="'+m.id+'">'+erpNo+' — '+m.id+'</option>';
+    });
+  }
+
+  function dnOnMachineSelect(machineId){
+    var disp = document.getElementById('dn-machine-id-display');
+    if(!disp) return;
+    disp.value = machineId || '';
+  }
+
+  function dnPopulateNames(){
+    var dl = document.getElementById('dn-name-list');
+    if(!dl) return;
+    var names = {};
+    (DB.dropNeedle||[]).forEach(function(r){ if(r.name) names[r.name] = true; });
+    dl.innerHTML = Object.keys(names).sort().map(function(n){ return '<option value="'+n+'">'; }).join('');
+  }
+
+  function dnClearForm(){
+    document.getElementById('dn-machine-no').value = '';
+    document.getElementById('dn-machine-id-display').value = '';
+    document.getElementById('dn-qty').value = '';
+    document.getElementById('dn-name').value = '';
+    document.getElementById('dn-box').value = '';
+    document.getElementById('dn-remarks').value = '';
+  }
+
+  function saveDropNeedle(){
+    if (!window._fbInitialLoadDone) {
+      toast('⏳ Firebase থেকে ডাটা এখনো লোড হয়নি — একটু অপেক্ষা করুন, তারপর আবার চেষ্টা করুন।', 'warning');
+      return;
+    }
+    var date = document.getElementById('dn-date').value;
+    var category = document.getElementById('dn-category').value;
+    var type = document.getElementById('dn-type').value;
+    var shift = document.getElementById('dn-shift').value;
+    var machineId = document.getElementById('dn-machine-no').value;
+    var qty = Number(document.getElementById('dn-qty').value);
+    var name = (document.getElementById('dn-name').value||'').trim();
+    var box = (document.getElementById('dn-box').value||'').trim();
+    var remarks = (document.getElementById('dn-remarks').value||'').trim();
+    if(!date){ toast('তারিখ দিন!','warning'); return; }
+    if(!machineId){ toast('মেশিন সিলেক্ট করুন!','warning'); return; }
+    if(!qty || qty<=0){ toast('পরিমাণ দিন!','warning'); return; }
+    if(!name){ toast('নাম দিন!','warning'); return; }
+    var erp = (window._dnMachineMap && window._dnMachineMap[machineId]) || '';
+    var rec = {
+      id: Date.now(), date: date, category: category, type: type, shift: shift,
+      machine: machineId, erp: erp, qty: qty, name: name, box: box, remarks: remarks,
+      entryBy: (window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : ''),
+      entryTime: new Date().toISOString()
+    };
+    var arr = DB.dropNeedle;
+    arr.push(rec);
+    DB.dropNeedle = arr;
+    triggerAutoSave();
+    toast('✅ এন্ট্রি সেভ হয়েছে', 'success');
+    dnClearForm();
+    dnPopulateNames();
+    renderDropNeedleLog();
+  }
+
+  function deleteDropNeedle(id){
+    var _isAdminDN = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    if(!_isAdminDN){ toast('❌ শুধু Admin ডিলিট করতে পারবে','error'); return; }
+    if(!confirm('এই এন্ট্রিটি ডিলিট করবেন?')) return;
+    var arr = DB.dropNeedle.filter(function(r){ return r.id !== id; });
+    DB.dropNeedle = arr;
+    triggerAutoSave();
+    renderDropNeedleLog();
+  }
+
+  function renderDropNeedleLog(){
+    var tb = document.getElementById('dropNeedleLog');
+    if(!tb) return;
+    var category = (document.getElementById('dn-log-category')||{}).value || '';
+    var type = (document.getElementById('dn-log-type')||{}).value || '';
+    var mach = (document.getElementById('dn-log-machine')||{}).value || '';
+    var from = (document.getElementById('dn-log-from')||{}).value || '';
+    var to   = (document.getElementById('dn-log-to')||{}).value || '';
+    var arr = DB.dropNeedle.slice();
+    if(category) arr = arr.filter(function(r){ return (r.category||'drop')===category; });
+    if(type) arr = arr.filter(function(r){ return r.type===type; });
+    if(mach) arr = arr.filter(function(r){ return r.machine===mach; });
+    if(from) arr = arr.filter(function(r){ return r.date>=from; });
+    if(to)   arr = arr.filter(function(r){ return r.date<=to; });
+    arr.sort(function(a,b){ return b.date.localeCompare(a.date) || (b.id-a.id); });
+    if(!arr.length){ tb.innerHTML = '<tr><td colspan="11" class="no-data">কোনো রেকর্ড নেই</td></tr>'; return; }
+    var _isAdminDN2 = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    tb.innerHTML = arr.map(function(r){
+      var badge = r.type==='withdraw'
+        ? '<span style="background:#c0392b;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">📤 ফেরত</span>'
+        : '<span style="background:#117a65;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">📥 জমা</span>';
+      var catBadge = (r.category==='set')
+        ? '<span style="background:#e67e22;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">🧷 Set</span>'
+        : '<span style="background:#8e44ad;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">🔀 Drop</span>';
+      return '<tr><td>'+fmtDate(r.date)+'</td><td>'+catBadge+'</td><td>'+badge+'</td>'
+        + '<td style="text-align:center;font-weight:700;">'+(r.erp||'-')+'</td>'
+        + '<td>'+(r.machine||'-')+'</td>'
+        + '<td style="text-align:center;">'+(r.shift||'-')+'</td>'
+        + '<td style="text-align:center;font-weight:700;color:#8e44ad;">'+r.qty+'</td>'
+        + '<td>'+(r.name||'-')+'</td>'
+        + '<td style="text-align:center;">'+(r.box||'-')+'</td>'
+        + '<td>'+(r.remarks||'-')+'</td>'
+        + '<td class="no-print">'+(_isAdminDN2 ? '<button onclick="deleteDropNeedle('+r.id+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">X</button>' : '')+'</td>'
+        + '</tr>';
+    }).join('');
   }
 
   function renderNdlRcvLog(){
