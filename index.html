@@ -3777,7 +3777,7 @@ window.iglSaveNavVisibility = function() {
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Bill No.</th><th>Quantity</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Date</th><th>Group</th><th>Item Cat.</th><th>Item</th><th>Challan No.</th><th>Bill No.</th><th>Quantity</th><th>Rate</th><th>Amount</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="receiveLogTable"></tbody>
           </table>
@@ -7732,8 +7732,11 @@ async function _loadFromFile() {
       }
     });
 
-    try { localStorage.setItem('igl_receives', JSON.stringify(mergedReceives)); } catch(e) {}
-    try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIssues));   } catch(e) {}
+    // DB.receives/DB.issues সেটার দিয়ে সেভ করো (localStorage.setItem সরাসরি নয়) —
+    // যাতে in-memory full-cache (window._rcvFullCache/_issFullCache) সিঙ্কে থাকে,
+    // নাহলে এই restore-এর পরও পুরনো cache-এর ডেটা অ্যাপে দেখা যেত (data অদৃশ্য হওয়ার bug)
+    DB.receives = mergedReceives;
+    DB.issues   = mergedIssues;
 
     // Items — preItems merge
     try {
@@ -8232,6 +8235,23 @@ function _set(k, v) {
   _triggerAutoSave();
 }
 
+// ── General Store Receive/Issue: NDB.needles-এর মতো একই প্যাটার্ন —
+// localStorage এ শুধু লাস্ট ৩০ দিনের রেকর্ড রাখা হয় (স্পেস বাঁচাতে, "ইয়ারপি"/অ্যাপ
+// ভারী হয়ে না যায়), কিন্তু সেশনের সময় পুরো history in-memory cache-এ থাকে (রিপোর্ট/
+// স্টক ব্যালেন্স ঠিক রাখার জন্য)। fbLoadAll() রিফ্রেশ/রিকানেক্টে Firebase থেকে পুরো
+// history এনে এই cache replace করে দেয় — তাই পুরনো ডেটা কখনো হারায় না, Firebase-ই
+// আসল সংরক্ষণাগার (source of truth) ──
+window._rcvFullCache = null;
+window._issFullCache = null;
+function _gsTrimForStorage(arr) {
+  try {
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    var cutoffStr = cutoff.toISOString().split('T')[0];
+    return (arr || []).filter(function(n){ return !n.date || n.date >= cutoffStr; });
+  } catch(e) { return arr || []; }
+}
+
 const DB = {
   get items() {
     const pre = window.preItems || [];
@@ -8282,10 +8302,28 @@ const DB = {
   },
   get machines() { return _get('igl_machines') || []; },
   set machines(v) { _set('igl_machines', v); },
-  get receives() { return _get('igl_receives') || []; },
-  set receives(v) { _set('igl_receives', v); },
-  get issues() { return _get('igl_issues') || []; },
-  set issues(v) { _set('igl_issues', v); },
+  get receives() {
+    if (window._rcvFullCache === null) {
+      // প্রথম access — localStorage এর (সম্ভবত trimmed) কপি দিয়ে seed করো;
+      // fbLoadAll() লোড হওয়ার পর পুরো history দিয়ে এটা replace হয়ে যাবে।
+      window._rcvFullCache = _get('igl_receives') || [];
+    }
+    return window._rcvFullCache;
+  },
+  set receives(v) {
+    window._rcvFullCache = v || [];                    // পুরো ডেটা memory তে (সেশনের জন্য, রিপোর্ট/স্টক ব্যালেন্সের জন্য নিরাপদ)
+    _set('igl_receives', _gsTrimForStorage(window._rcvFullCache)); // localStorage এ শুধু লাস্ট ৩০ দিন (স্পেস বাঁচাতে)
+  },
+  get issues() {
+    if (window._issFullCache === null) {
+      window._issFullCache = _get('igl_issues') || [];
+    }
+    return window._issFullCache;
+  },
+  set issues(v) {
+    window._issFullCache = v || [];
+    _set('igl_issues', _gsTrimForStorage(window._issFullCache));
+  },
   get groups() {
     let g = [];
     try { g = JSON.parse(localStorage.getItem('igl_groups') || '[]'); } catch(e) {}
@@ -10291,6 +10329,13 @@ function rCalcAmount() {
   }
 }
 function saveReceive() {
+  // ⚠️ Firebase থেকে প্রথম লোড সম্পূর্ণ না হওয়া পর্যন্ত নতুন কোনো Receive এন্ট্রি
+  // সেভ করতে দেওয়া হবে না — নাহলে পুরনো/অসম্পূর্ণ লোকাল ডাটার উপর এন্ট্রি বসে যেতে
+  // পারে, আর fbLoadAll() পরে এসে সেই এন্ট্রি overwrite করে হারিয়ে ফেলতে পারে।
+  if (!window._fbInitialLoadDone) {
+    toast('⏳ Firebase থেকে ডাটা এখনো লোড হয়নি — একটু অপেক্ষা করুন (কিছুক্ষণের মধ্যে সংযোগ হয়ে যাবে), তারপর আবার চেষ্টা করুন।', 'warning');
+    return;
+  }
   const date = document.getElementById('r-date').value;
   const group = document.getElementById('r-group').value;
   const category = document.getElementById('r-category').value;
@@ -10418,6 +10463,12 @@ function clearReceiveForm() {
 //  SAVE ISSUE
 // 
 async function saveIssue() {
+  // ⚠️ Firebase থেকে প্রথম লোড সম্পূর্ণ না হওয়া পর্যন্ত নতুন কোনো Issue এন্ট্রি
+  // সেভ করতে দেওয়া হবে না — একই কারণে যেই কারণে saveReceive()-এও একই গার্ড আছে।
+  if (!window._fbInitialLoadDone) {
+    toast('⏳ Firebase থেকে ডাটা এখনো লোড হয়নি — একটু অপেক্ষা করুন (কিছুক্ষণের মধ্যে সংযোগ হয়ে যাবে), তারপর আবার চেষ্টা করুন।', 'warning');
+    return;
+  }
   const date = document.getElementById('i-date').value;
   const slip = document.getElementById('i-slip').value.trim();
   const group = document.getElementById('i-group').value;
@@ -21461,7 +21512,7 @@ function renderReceiveLog() {
   document.getElementById('print-date-receive').textContent = 'Print Date: ' + fmtDate(todayStr());
   const tbody = document.getElementById('receiveLogTable');
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="no-data">
+    tbody.innerHTML = `<tr><td colspan="11" class="no-data">
       ${q ? `No records found for "${q}"` : 'No records found'}
     </td></tr>`;
     document.getElementById('receiveLogSummary').textContent = '';
@@ -21489,13 +21540,16 @@ function renderReceiveLog() {
     <td><span style="font-weight:600;color:#1a5276;">${hl(r.chalan||'-', q)}</span></td>
     <td>${(r.bill && String(r.bill).trim()) ? `<span style="font-weight:600;color:#1a5276;">${hl(r.bill, q)}</span>` : `<span style="background:#fef5e7;color:#b9770e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ বিল বাকি</span>`}</td>
     <td><b style="color:#1a5276;">${r.qty}</b></td>
+    <td style="text-align:right;">${r.rate ? Number(r.rate).toLocaleString() : '-'}</td>
+    <td style="text-align:right;font-weight:600;">${r.amount ? Number(r.amount).toLocaleString() : '-'}</td>
     ${entryByCell}
     ${isAdmin ? `<td class="no-print admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:4px 6px;">${r.entryTime ? (new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})) : '—'}</td>` : ''}
     <td class="no-print" style="white-space:nowrap;">${(isAdmin || (window.IGL_CURRENT_USER && r.userId === window.IGL_CURRENT_USER.role)) ? `<button class="btn-del" onclick="deleteReceive(${r.id})">✕</button>` : ''}${iglCanEdit('receive',r) ? `<button onclick="openEditModal('receive',${r.id})" style="margin-left:4px;background:#1a5276;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button>` : ''}</td>
   </tr>`;
   }).join('');
   const total = data.reduce((s,r)=>s+r.qty,0);
-  document.getElementById('receiveLogSummary').textContent = `Total Records: ${data.length} | Total Qty: ${total}`;
+  const totalAmt = data.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  document.getElementById('receiveLogSummary').textContent = `Total Records: ${data.length} | Total Qty: ${total} | Total Amount: ৳${totalAmt.toLocaleString()}`;
 
   // User-wise Summary (Admin only)
   var summaryCard = document.getElementById('rlog-user-summary-card');
@@ -23478,8 +23532,9 @@ function doImport(event) {
       ).then(function(ok) {
         if (!ok) return;
 
-        // ── সরাসরি localStorage এ লিখি — DB setter bypass করি ──
-        // কারণ DB.items setter preItems merge করে ফেলে
+        // ── DB.receives/DB.issues সেটার দিয়ে লিখি (localStorage সরাসরি নয়) — যাতে
+        // in-memory full-cache সিঙ্কে থাকে; DB.items তবুও সরাসরি লিখি কারণ সেই
+        // setter preItems merge করে ফেলে যেটা এই full-replace এ চাই না ──
 
         // stnIssues/stnReceives কে receives/issues এ merge করো
         var mergedRcv = receives.slice();
@@ -23497,8 +23552,8 @@ function doImport(event) {
           }
         });
 
-        try { localStorage.setItem('igl_receives', JSON.stringify(mergedRcv)); } catch(er) {}
-        try { localStorage.setItem('igl_issues',   JSON.stringify(mergedIss)); } catch(er) {}
+        DB.receives = mergedRcv;
+        DB.issues   = mergedIss;
         try { localStorage.setItem('igl_machines', JSON.stringify(machines)); } catch(er) {}
         try { localStorage.setItem('igl_groups',   JSON.stringify(groups));   } catch(er) {}
         if (gsReqFlags && Object.keys(gsReqFlags).length) {
