@@ -33787,6 +33787,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var year=Number(document.getElementById('nur-year').value);
     var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+    // Remarks-এ "m/c accident (14)" এর মতো টেক্সটে মেশিন নম্বরটা () সহ পরের লাইনে
+    // নামিয়ে দেয় — "m/c accident<br>(14)" — যাতে ছোট Remarks ঘরে পাশে কেটে না যায়
+    function nurStackErp(text){
+      return text.replace(/\s\(([^)]*)\)\s*$/, '<br>($1)');
+    }
+
     // এই সেশনে একবার ব্যাকগ্রাউন্ডে Firebase থেকে off-day সিঙ্ক করে নাও (Working Days ঠিক রাখতে)
     if (!window.__nurOffDaySynced) {
       window.__nurOffDaySynced = true;
@@ -34029,9 +34035,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           if((r.needleType||'new').toLowerCase()!=='new') return false;
           var rm=r.remarks.trim().toLowerCase();
           return rm.indexOf('new set') === 0 || rm.indexOf('accident') >= 0;
-        }).map(function(r){return r.remarks.replace(/^Machine Accident/i,'m/c accident');});
+        }).map(function(r){return nurStackErp(r.remarks.replace(/^Machine Accident/i,'m/c accident'));});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:5px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueRemarks+'</td>';
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:6px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
@@ -34138,8 +34144,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var rm=r.remarks.trim().toLowerCase();
           return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
         }).map(function(r){
-          // "Machine Accident (90)" → "m/c accident (90)"
-          return r.remarks.replace(/^Machine Accident/i,'m/c accident');
+          // "Machine Accident (90)" → "m/c accident<br>(90)"
+          return nurStackErp(r.remarks.replace(/^Machine Accident/i,'m/c accident'));
         });
         // Design entries → "Design ERP-xxx" style (সব machine, ERP restriction নেই)
         var designRemarks=filtered.filter(function(r){
@@ -34153,7 +34159,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return JAQ_ERPS_NUR.indexOf(erp)>=0 && (r.type||'')==='newset';
         }).map(function(r){ return 'New Set ERP-'+(r.erp||r.machine); });
         var allRemarks=[...new Set(dayRemarks.concat(designRemarks).concat(jaqNewSetRemarks))].join(', ');
-        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:5px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+allRemarks+'</td>';
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:6px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+allRemarks+'</td>';
         html+='</tr>';
       });
 
@@ -34292,9 +34298,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         if((r.needleType||'new').toLowerCase()!=='new') return false;
         var rm=r.remarks.trim().toLowerCase();
         return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
-      }).map(function(r){ return r.remarks.replace(/^Machine Accident/i,'m/c accident'); });
+      }).map(function(r){ return nurStackErp(r.remarks.replace(/^Machine Accident/i,'m/c accident')); });
       var uniqueNewRemarks=[...new Set(newDayRemarks)].join(', ');
-      p2+='<td style="border:1px solid #ddd;border-right:3px solid #000;padding:1px 3px;font-size:5px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueNewRemarks+'</td>';
+      p2+='<td style="border:1px solid #ddd;border-right:3px solid #000;padding:1px 3px;font-size:6px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueNewRemarks+'</td>';
       // Used needle cols
       usedTypes.forEach(function(t,ti){
         var rowT=0;
@@ -34313,9 +34319,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         if((r.needleType||'new').toLowerCase()!=='used') return false;
         var rm=r.remarks.trim().toLowerCase();
         return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
-      }).map(function(r){ return r.remarks.replace(/^Machine Accident/i,'m/c accident'); });
+      }).map(function(r){ return nurStackErp(r.remarks.replace(/^Machine Accident/i,'m/c accident')); });
       var uniqueUsedRemarks=[...new Set(usedDayRemarks)].join(', ');
-      p2+='<td style="border:1px solid #ddd;padding:1px 3px;font-size:5px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueUsedRemarks+'</td>';
+      p2+='<td style="border:1px solid #ddd;padding:1px 3px;font-size:6px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueUsedRemarks+'</td>';
       p2+='</tr>';
     });
 
