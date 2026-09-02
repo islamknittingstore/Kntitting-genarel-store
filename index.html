@@ -3752,24 +3752,6 @@ window.iglSaveNavVisibility = function() {
       <h2>Receive Register</h2>
       <p>All goods receive records</p>
     </div>
-    <div class="card no-print" style="margin-bottom:16px;">
-      <div class="card-header" style="background:#eef2f7;">🔎 স্লিপ নাম্বার দিয়ে খুঁজুন (Slip Wise Search)</div>
-      <div class="card-body" style="padding:12px 20px;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-light);">বছর</label>
-            <select class="form-control" id="slipq-year" style="width:100px;"></select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--text-light);">স্লিপ নাম্বার</label>
-            <input type="text" class="form-control" id="slipq-no" style="width:150px;" placeholder="যেমনঃ 1" onkeydown="if(event.key==='Enter')searchSlipWise();">
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="searchSlipWise()">🔍 খুঁজুন</button>
-        </div>
-        <div id="slipq-cards" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;"></div>
-        <div id="slipq-details" style="margin-top:10px;"></div>
-      </div>
-    </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Receive Log</span>
@@ -3843,6 +3825,24 @@ window.iglSaveNavVisibility = function() {
     <div class="page-header">
       <h2>Issue Register</h2>
       <p>All goods issue records</p>
+    </div>
+    <div class="card no-print" style="margin-bottom:16px;">
+      <div class="card-header" style="background:#eef2f7;">🔎 স্লিপ নাম্বার দিয়ে খুঁজুন (Slip Wise Search)</div>
+      <div class="card-body" style="padding:12px 20px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">বছর</label>
+            <select class="form-control" id="slipq-year" style="width:100px;"></select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--text-light);">স্লিপ নাম্বার</label>
+            <input type="text" class="form-control" id="slipq-no" style="width:150px;" placeholder="যেমনঃ 1" onkeydown="if(event.key==='Enter')searchSlipWise();">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="searchSlipWise()">🔍 খুঁজুন</button>
+        </div>
+        <div id="slipq-cards" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div id="slipq-details" style="margin-top:10px;"></div>
+      </div>
     </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
@@ -5930,7 +5930,7 @@ function ok(msg) {
             <div class="form-group"><label>তারিখ *</label><input type="date" class="form-control" id="dn-date"></div>
             <div class="form-group"><label>নিডেল ক্যাটাগরি *</label>
               <select class="form-control" id="dn-category" style="width:100%;font-weight:700;">
-                <option value="drop">🔀 Drop Needle</option>
+                <option value="drop">🔀 Drop & Design Needle</option>
                 <option value="set">🧷 Set Needle</option>
               </select>
             </div>
@@ -5955,7 +5955,7 @@ function ok(msg) {
             <div class="form-group"><label>মেশিন আইডি</label>
               <input type="text" class="form-control" id="dn-machine-id-display" readonly style="background:#f4f1f7;font-weight:700;">
             </div>
-            <div class="form-group"><label>পরিমাণ (পিস) *</label><input type="number" class="form-control" id="dn-qty" placeholder="0" min="1"></div>
+            <div class="form-group"><label>পরিমাণ (পিস)</label><input type="number" class="form-control" id="dn-qty" placeholder="ঐচ্ছিক" min="1"></div>
           </div>
         </div>
         <div class="form-grid">
@@ -5977,7 +5977,7 @@ function ok(msg) {
         <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
           <select class="form-control" id="dn-log-category" onchange="renderDropNeedleLog()" style="width:140px;">
             <option value="">সব ক্যাটাগরি</option>
-            <option value="drop">Drop Needle</option>
+            <option value="drop">Drop & Design Needle</option>
             <option value="set">Set Needle</option>
           </select>
           <select class="form-control" id="dn-log-type" onchange="renderDropNeedleLog()" style="width:150px;">
@@ -10049,8 +10049,8 @@ function showPage(name, el) {
     if (name === 'dashboard') { try{ renderMainDashboardWelcome(); }catch(e){} }
     else if (name === 'general_store_dashboard') renderDashboard();
     else if (name === 'stock') renderStock();
-    else if (name === 'receive_log') { populateLogFilters(); renderReceiveLog(); slipqInit(); }
-    else if (name === 'issue_log') { populateLogFilters(); renderIssueLog(); }
+    else if (name === 'receive_log') { populateLogFilters(); renderReceiveLog(); }
+    else if (name === 'issue_log') { populateLogFilters(); renderIssueLog(); slipqInit(); }
     else if (name === 'master') { renderMaster(); populateMasterDataLists(); }
     else if (name === 'receive') {
       populateFormDropdowns();
@@ -21715,7 +21715,7 @@ function slipqInit(){
   if(!sel) return;
   var curY = new Date().getFullYear();
   var years = {}; years[curY] = 1;
-  (DB.receives||[]).forEach(function(r){ if(r.date) years[r.date.slice(0,4)] = 1; });
+  (DB.issues||[]).forEach(function(r){ if(r.date) years[r.date.slice(0,4)] = 1; });
   var list = Object.keys(years).map(Number).sort(function(a,b){ return b-a; });
   sel.innerHTML = list.map(function(y){ return '<option value="'+y+'"'+(y===curY?' selected':'')+'>'+y+'</option>'; }).join('');
 }
@@ -21727,10 +21727,10 @@ function searchSlipWise(){
   var detailsEl = document.getElementById('slipq-details');
   detailsEl.innerHTML = '';
   if(!no){ cardsEl.innerHTML=''; toast('স্লিপ নাম্বার দিন','warning'); return; }
-  var all = DB.receives.filter(function(r){
+  var all = DB.issues.filter(function(r){
     return ['Stationery','Packaging','Needle'].indexOf(r.group)===-1
       && r.date && r.date.slice(0,4)===String(year)
-      && String(r.chalan||'').trim().toLowerCase()===no;
+      && String(r.slip||'').trim().toLowerCase()===no;
   });
   if(!all.length){ cardsEl.innerHTML = '<div style="color:#888;font-size:13px;">এই বছরে এই স্লিপ নাম্বারে কোনো এন্ট্রি পাওয়া যায়নি</div>'; window._slipqSeries = []; return; }
   var electrical = all.filter(function(r){ return r.group==='Electrical'; });
@@ -21760,17 +21760,15 @@ function slipqShowDetails(idx){
   var rows = s.data.map(function(r){
     return '<tr><td>'+(r.category||'-')+'</td><td><b>'+r.item+'</b></td>'
       + '<td style="text-align:center;">'+r.qty+'</td>'
-      + '<td style="text-align:right;">'+(r.rate?Number(r.rate).toLocaleString():'-')+'</td>'
-      + '<td style="text-align:right;">'+(r.amount?Number(r.amount).toLocaleString():'-')+'</td>'
-      + '<td>'+(r.bill||'-')+'</td></tr>';
+      + '<td>'+(r.machineNo||'-')+'</td>'
+      + '<td>'+(r.machineId||'-')+'</td></tr>';
   }).join('');
   var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
-  var totalAmt = s.data.reduce(function(sum,r){ return sum+(Number(r.amount)||0); }, 0);
   detailsEl.innerHTML = '<div style="font-weight:800;margin-bottom:6px;color:'+s.color+';">'+s.label+' — বিস্তারিত (তারিখ: '+fmtDate(s.data[0].date)+')</div>'
     + '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px;">'
-    + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Bill No.</th></tr></thead>'
+    + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Machine No</th><th>Machine ID</th></tr></thead>'
     + '<tbody>'+rows+'</tbody>'
-    + '<tfoot><tr style="background:#f8f9fa;font-weight:700;"><td colspan="2">TOTAL</td><td style="text-align:center;">'+totalQty+'</td><td></td><td style="text-align:right;">'+totalAmt.toLocaleString()+'</td><td></td></tr></tfoot>'
+    + '<tfoot><tr style="background:#f8f9fa;font-weight:700;"><td colspan="2">TOTAL</td><td style="text-align:center;">'+totalQty+'</td><td colspan="2"></td></tr></tfoot>'
     + '</table></div>';
 }
 
@@ -31981,13 +31979,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var type = document.getElementById('dn-type').value;
     var shift = document.getElementById('dn-shift').value;
     var machineId = document.getElementById('dn-machine-no').value;
-    var qty = Number(document.getElementById('dn-qty').value);
+    var qtyRaw = document.getElementById('dn-qty').value;
+    var qty = qtyRaw==='' ? null : Number(qtyRaw);
     var name = (document.getElementById('dn-name').value||'').trim();
     var box = (document.getElementById('dn-box').value||'').trim();
     var remarks = (document.getElementById('dn-remarks').value||'').trim();
     if(!date){ toast('তারিখ দিন!','warning'); return; }
     if(!machineId){ toast('মেশিন সিলেক্ট করুন!','warning'); return; }
-    if(!qty || qty<=0){ toast('পরিমাণ দিন!','warning'); return; }
     if(!name){ toast('নাম দিন!','warning'); return; }
     var erp = (window._dnMachineMap && window._dnMachineMap[machineId]) || '';
     var rec = {
@@ -32039,12 +32037,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         : '<span style="background:#117a65;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">📥 জমা</span>';
       var catBadge = (r.category==='set')
         ? '<span style="background:#e67e22;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">🧷 Set</span>'
-        : '<span style="background:#8e44ad;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">🔀 Drop</span>';
+        : '<span style="background:#8e44ad;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;">🔀 Drop & Design</span>';
       return '<tr><td>'+fmtDate(r.date)+'</td><td>'+catBadge+'</td><td>'+badge+'</td>'
         + '<td style="text-align:center;font-weight:700;">'+(r.erp||'-')+'</td>'
         + '<td>'+(r.machine||'-')+'</td>'
         + '<td style="text-align:center;">'+(r.shift||'-')+'</td>'
-        + '<td style="text-align:center;font-weight:700;color:#8e44ad;">'+r.qty+'</td>'
+        + '<td style="text-align:center;font-weight:700;color:#8e44ad;">'+(r.qty!=null?r.qty:'-')+'</td>'
         + '<td>'+(r.name||'-')+'</td>'
         + '<td style="text-align:center;">'+(r.box||'-')+'</td>'
         + '<td>'+(r.remarks||'-')+'</td>'
