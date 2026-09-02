@@ -598,12 +598,14 @@ if('serviceWorker' in navigator){
   body.print-portrait { }
 
   /* ── Shift Needle Use Report — অন-স্ক্রিন (স্ক্রিনেই দেখার সময়) ── */
-  /* অফ-ডে ও শুক্রবার — হালকা কালো/ধূসর শেড, উপর থেকে নিচ সব একই */
-  #needleUseReportGrid tr.nur-offday td { background: #a6a6a6 !important; }
+  /* অফ-ডে ও শুক্রবার — হালকা কালো/ধূসর শেড, উপর থেকে নিচ সব একই; ছায়ার গাঢ়ত্ব
+     --nur-shade-color এই CSS variable দিয়ে নিয়ন্ত্রিত (JS: nurApplyShadeVar()) —
+     ইউজার Print Settings-এ "ছায়া (%)" পরিবর্তন করলে এটাই বদলায়, কালি বাঁচাতে */
+  #needleUseReportGrid tr.nur-offday td { background: var(--nur-shade-color, #a6a6a6) !important; }
   /* Total কলাম — একটু গাঢ় ধূসর, কালো বোল্ড লেখা, হেডার থেকে গ্র্যান্ড টোটাল পর্যন্ত সব একই */
   #needleUseReportGrid td.nur-total, #needleUseReportGrid th.nur-total,
-  #needleUseReportGrid tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
-  #needleUseReportGrid tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; }
+  #needleUseReportGrid tr.nur-grand-total td.nur-total { background: var(--nur-shade-color, #a6a6a6) !important; color: #000 !important; font-weight: 800 !important; }
+  #needleUseReportGrid tr.nur-grand-total td { background: var(--nur-shade-color, #a6a6a6) !important; color: #000 !important; font-weight: 800 !important; }
   /* Worker/Supervisor নামের হেডার (Shawkat/Nazrul/Alom) — Total-এর চেয়ে একটু হালকা, আলাদা করে বোঝার জন্য */
   #needleUseReportGrid th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; }
 
@@ -827,15 +829,15 @@ if('serviceWorker' in navigator){
     /* সব রঙ বাদ — Excel style */
     .nur-page1 tr, .nur-page2 tr { background: #fff !important; }
     .nur-page1 tr[style]:not(.nur-offday):not(.nur-grand-total), .nur-page2 tr[style]:not(.nur-offday):not(.nur-grand-total) { background: #fff !important; color: #000 !important; }
-    /* Off day/Holiday row — হালকা gray (Excel style) */
-    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Off day/Holiday row — হালকা gray (Excel style); ছায়ার গাঢ়ত্ব --nur-shade-color দিয়ে নিয়ন্ত্রিত */
+    .nur-page1 tr.nur-offday td, .nur-page2 tr.nur-offday td { background: var(--nur-shade-color, #a6a6a6) !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Total column ও worker name header — হালকা রঙ, কালো বোল্ড লেখা (সাদা-কালো প্রিন্টারের জন্য উপযোগী) */
     .nur-page1 td.nur-total, .nur-page2 td.nur-total,
-    .nur-page1 th.nur-total, .nur-page2 th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 th.nur-total, .nur-page2 th.nur-total { background: var(--nur-shade-color, #a6a6a6) !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row (TOTAL row) — হালকা ধূসর, কালো বোল্ড লেখা */
-    .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 tr.nur-grand-total td, .nur-page2 tr.nur-grand-total td { background: var(--nur-shade-color, #a6a6a6) !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Grand Total row-এর ভিতরের Total কলাম — বাকি সব Total-এর মতোই একই হালকা রঙ */
-    .nur-page1 tr.nur-grand-total td.nur-total, .nur-page2 tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nur-page1 tr.nur-grand-total td.nur-total, .nur-page2 tr.nur-grand-total td.nur-total { background: var(--nur-shade-color, #a6a6a6) !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Worker/Supervisor নামের হেডার — Total-এর চেয়ে একটু হালকা, আলাদা করে বোঝার জন্য */
     .nur-page1 th.nur-worker-header, .nur-page2 th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
@@ -6756,6 +6758,14 @@ function ok(msg) {
               title="Print Font Size (pt) — এখানে change করলে Page 1, Page 2, Both সবখানে apply হবে">
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
+          <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">⬛ ছায়া:</label>
+            <input type="number" id="nur-shade-level-quick" value="65" min="0" max="100" step="5"
+              style="width:46px;border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;padding:0;"
+              onchange="nurSyncShadeLevel(this.value)"
+              title="Off-day/Total ঘরের ছায়ার গাঢ়ত্ব (%) — 0% = সাদা (কালি খরচ নেই), 100% = গাঢ় কালো। এখানে change করলে Page 1, Page 2, Both সবখানে apply হবে">
+            <span style="font-size:10px;color:#888;">%</span>
+          </span>
           <button class="btn btn-sm no-print" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportNeedleUseExcel()">📊 Excel</button>
           <span id="nur-offday-btn-wrap" style="display:none;">
             <button class="btn btn-sm no-print" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="nurOpenOffDayManager()">🔴 Off Day / Holiday</button>
@@ -6834,6 +6844,10 @@ function ok(msg) {
                 <option value="A3 landscape">A3 Landscape</option>
                 <option value="A3 portrait">A3 Portrait</option>
               </select>
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:#333;display:block;margin-bottom:4px;">Off-day/Total ছায়া (%)</label>
+              <input type="number" id="nur-shade-level" value="65" min="0" max="100" step="5" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;" title="0% = সাদা (কালি খরচ নেই), 100% = গাঢ় কালো">
             </div>
           </div>
 
@@ -27706,26 +27720,30 @@ function renderNeedleRemarksReport(){
 
   // Remarks key → match function (dynamic from ndlGetRemarks)
   var _remarksList = ndlGetRemarks();
-  var _fixedTexts = _remarksList
-    .filter(function(r){return r.id!=='others';})
-    .map(function(r){return r.text.toLowerCase();});
   var REMARKS_MAP = {};
   _remarksList.forEach(function(r){
-    if(r.id==='others'){
-      REMARKS_MAP['others'] = function(rec){
-        var rm=(rec.remarks||'').trim();
-        if(!rm) return false;
-        return !_fixedTexts.some(function(f){ return rm.toLowerCase()===f || rm.toLowerCase().indexOf(f)===0; });
+    if(r.id==='others') return; // পরে, বাকি সব বানানোর পর বানানো হবে (নিচে)
+    (function(rr){
+      REMARKS_MAP[rr.id] = function(rec){
+        if(rr.text==='__others__') return false;
+        var rm=(rec.remarks||'').trim().toLowerCase();
+        // 'accident' id: পুরনো ("Machine Accident (..)") ও নতুন ("m/c accident (..)")
+        // দুই ফরম্যাটের রেকর্ডই যাতে মিলে, তাই substring match — শুধু prefix match না
+        if(rr.id==='accident') return rm.indexOf('accident')>=0;
+        return rm.indexOf(rr.text.toLowerCase())===0;
       };
-    } else {
-      (function(rr){
-        REMARKS_MAP[rr.id] = function(rec){
-          if(rr.text==='__others__') return false;
-          return (rec.remarks||'').trim().toLowerCase().indexOf(rr.text.toLowerCase())===0;
-        };
-      })(r);
-    }
+    })(r);
   });
+  // 'others' = যেসব রেকর্ড উপরের কোনো নির্দিষ্ট রিজনের সাথেই মেলে না — একই ম্যাচ
+  // ফাংশনগুলো পুনরায় ব্যবহার করা হয়েছে, যাতে 'accident' এর নতুন/পুরনো টেক্সট সঠিকভাবে
+  // বাদ পড়ে (আগে আলাদা prefix-check থাকায় নতুন ফরম্যাট ভুলবশত 'others' এও ধরা পড়ত)
+  REMARKS_MAP['others'] = function(rec){
+    var rm=(rec.remarks||'').trim();
+    if(!rm) return false;
+    return !Object.keys(REMARKS_MAP).some(function(id){
+      return id!=='others' && REMARKS_MAP[id](rec);
+    });
+  };
 
   var iss = (typeof NDB !== 'undefined') ? NDB.needles : [];
   var nm  = ndlGetMaster();
@@ -32724,7 +32742,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if(val==='newset'){
         inp.value = 'New Set (' + (machineErp||'?') + ')';
       } else if(val==='accident'){
-        inp.value = 'Machine Accident (' + (machineErp||'?') + ')';
+        inp.value = 'm/c accident (' + (machineErp||'?') + ')';
       } else {
         inp.value = found.text;
       }
@@ -34003,15 +34021,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           gt[t.key].total+=rowT;
           html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
         });
-        // Remarks — শুধু New Set ও Machine Accident দেখাবে
+        // Remarks — এই পেজ শুধু New Needle-এর, তাই শুধু New Needle-এর New Set/Accident
+        // দেখাবে — Used Needle-এর accident/newset এখানে আসবে না, ওটা Page 2-এ দেখাবে
         var dayRemarks=filtered.filter(function(r){
           if(r.date!==day) return false;
           if(!r.remarks) return false;
+          if((r.needleType||'new').toLowerCase()!=='new') return false;
           var rm=r.remarks.trim().toLowerCase();
-          return rm.indexOf('new set') === 0 || rm.indexOf('machine accident') === 0;
-        }).map(function(r){return r.remarks;});
+          return rm.indexOf('new set') === 0 || rm.indexOf('accident') >= 0;
+        }).map(function(r){return r.remarks.replace(/^Machine Accident/i,'m/c accident');});
         var uniqueRemarks=[...new Set(dayRemarks)].join(', ');
-        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:2px 4px;font-size:8px;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;">'+uniqueRemarks+'</td>';
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:5px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueRemarks+'</td>';
         html+='</tr>';
       });
 
@@ -34109,15 +34129,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           gt[t.key].total+=rowT;
           html+='<td style="padding:2px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
         });
-        // Remarks — New Set, Accident + Design machine numbers
+        // Remarks — New Set, Accident + Design machine numbers — এই পেজও New Needle-এর,
+        // তাই Used Needle-এর accident/newset বাদ (Page 2-এ দেখাবে)
         var dayRemarks=filtered.filter(function(r){
           if(r.date!==day) return false;
           if(!r.remarks) return false;
+          if((r.needleType||'new').toLowerCase()!=='new') return false;
           var rm=r.remarks.trim().toLowerCase();
-          return rm.indexOf('new set')===0 || rm.indexOf('machine accident')===0;
+          return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
         }).map(function(r){
-          // "Machine Accident (90)" → "Accident (90)"
-          return r.remarks.replace(/^Machine Accident/i,'Accident');
+          // "Machine Accident (90)" → "m/c accident (90)"
+          return r.remarks.replace(/^Machine Accident/i,'m/c accident');
         });
         // Design entries → "Design ERP-xxx" style (সব machine, ERP restriction নেই)
         var designRemarks=filtered.filter(function(r){
@@ -34131,7 +34153,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           return JAQ_ERPS_NUR.indexOf(erp)>=0 && (r.type||'')==='newset';
         }).map(function(r){ return 'New Set ERP-'+(r.erp||r.machine); });
         var allRemarks=[...new Set(dayRemarks.concat(designRemarks).concat(jaqNewSetRemarks))].join(', ');
-        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:2px 4px;font-size:8px;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;">'+allRemarks+'</td>';
+        html+='<td style="border:2px solid #ddd;border-left:3px solid #555;border-right:3px solid #555;padding:1px 3px;font-size:5px !important;color:#555;width:55px;max-width:55px;overflow:hidden;word-break:break-word;line-height:1.1;">'+allRemarks+'</td>';
         html+='</tr>';
       });
 
@@ -34263,7 +34285,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         gt2new[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#eafaf1;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;border-right:3px solid #000;"></td>';
+      // New Needle Remarks — Page 2-তেও New Needle-এর ডাটা থাকে, তাই এখানেও দেখাবে
+      var newDayRemarks=filtered.filter(function(r){
+        if(r.date!==day) return false;
+        if(!r.remarks) return false;
+        if((r.needleType||'new').toLowerCase()!=='new') return false;
+        var rm=r.remarks.trim().toLowerCase();
+        return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
+      }).map(function(r){ return r.remarks.replace(/^Machine Accident/i,'m/c accident'); });
+      var uniqueNewRemarks=[...new Set(newDayRemarks)].join(', ');
+      p2+='<td style="border:1px solid #ddd;border-right:3px solid #000;padding:1px 3px;font-size:5px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueNewRemarks+'</td>';
       // Used needle cols
       usedTypes.forEach(function(t,ti){
         var rowT=0;
@@ -34275,7 +34306,16 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         gt2used[t.key].total+=rowT;
         p2+='<td style="padding:1px;border:1px solid #ddd;text-align:center;font-weight:700;background:#fef9e7;" class="nur-total">'+(rowT||'')+'</td>';
       });
-      p2+='<td style="border:1px solid #ddd;"></td>';
+      // Used Needle Remarks — Used Needle-এর New Set/Accident
+      var usedDayRemarks=filtered.filter(function(r){
+        if(r.date!==day) return false;
+        if(!r.remarks) return false;
+        if((r.needleType||'new').toLowerCase()!=='used') return false;
+        var rm=r.remarks.trim().toLowerCase();
+        return rm.indexOf('new set')===0 || rm.indexOf('accident')>=0;
+      }).map(function(r){ return r.remarks.replace(/^Machine Accident/i,'m/c accident'); });
+      var uniqueUsedRemarks=[...new Set(usedDayRemarks)].join(', ');
+      p2+='<td style="border:1px solid #ddd;padding:1px 3px;font-size:5px !important;color:#555;overflow:hidden;word-break:break-word;line-height:1.1;">'+uniqueUsedRemarks+'</td>';
       p2+='</tr>';
     });
 
@@ -34520,6 +34560,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var quick = document.getElementById('nur-font-size-quick');
     var modal  = document.getElementById('nur-font-size');
     if(quick && modal) modal.value = quick.value;
+    // Quick shade sync → modal input
+    var quickShade = document.getElementById('nur-shade-level-quick');
+    var modalShade = document.getElementById('nur-shade-level');
+    if(quickShade && modalShade) modalShade.value = quickShade.value;
     document.getElementById('nur-print-modal').style.display = 'flex';
   }
 
@@ -34529,6 +34573,31 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(modal) modal.value = val;
     localStorage.setItem('igl_nur_font_size', val);
   }
+
+  // Off-day/Total ছায়ার গাঢ়ত্ব — quick bar → modal input সিঙ্ক করো (font-size এর মতোই প্যাটার্ন)
+  function nurSyncShadeLevel(val) {
+    var modal = document.getElementById('nur-shade-level');
+    if(modal) modal.value = val;
+    localStorage.setItem('igl_nur_shade_level', val);
+    nurApplyShadeVar();
+  }
+
+  // 0–100 (%) থেকে গ্রে-স্কেল হেক্স রঙ বের করে দেয় — 0% = সাদা (#ffffff), 100% = কালো (#000000)
+  function nurShadeHex(pct) {
+    pct = Math.max(0, Math.min(100, Number(pct)));
+    var v = Math.round(255 - (pct/100)*255);
+    var hex = v.toString(16).padStart(2,'0');
+    return '#'+hex+hex+hex;
+  }
+
+  // অন-স্ক্রিন প্রিভিউ (needleUseReportGrid) এর জন্য --nur-shade-color CSS variable সেট করো,
+  // যাতে সেভ করা লেভেল অনুযায়ী স্ক্রিনেও একই ছায়া দেখা যায় (পেজ লোড হলে ও লেভেল বদলালে কল হয়)
+  function nurApplyShadeVar() {
+    var lvl = parseFloat(localStorage.getItem('igl_nur_shade_level') || '65');
+    if(isNaN(lvl)) lvl = 65;
+    document.documentElement.style.setProperty('--nur-shade-color', nurShadeHex(lvl));
+  }
+  nurApplyShadeVar();
 
   function nurSelectAll(type, pg) {
     var bg = type==='col' ? '#ede2f5' : '#d6eaf8';
@@ -34570,8 +34639,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nurDoPrint() {
     var pageSize = document.getElementById('nur-page-size').value;
     var fontSize = parseFloat(document.getElementById('nur-font-size').value) || 8;
+    var shadeLevel = parseFloat(document.getElementById('nur-shade-level').value);
+    if(isNaN(shadeLevel)) shadeLevel = 65;
+    var shadeColor = nurShadeHex(shadeLevel);
     localStorage.setItem('igl_nur_page_size', pageSize);
     localStorage.setItem('igl_nur_font_size', fontSize);
+    localStorage.setItem('igl_nur_shade_level', shadeLevel);
     document.getElementById('nur-print-modal').style.display = 'none';
 
     var grid = document.getElementById('needleUseReportGrid');
@@ -34647,10 +34720,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'th { font-weight: bold !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
-      'td.nur-total, th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'td.nur-total, th.nur-total { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: ' + shadeColor + ' !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td.nur-total { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
@@ -34675,6 +34748,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var pageSize = localStorage.getItem('igl_nur_page_size') || 'A3 landscape';
     var quickEl  = document.getElementById('nur-font-size-quick');
     var fontSize = quickEl ? (parseFloat(quickEl.value)||8) : parseFloat(localStorage.getItem('igl_nur_font_size') || '8');
+    var quickShadeEl = document.getElementById('nur-shade-level-quick');
+    var shadeLevel = quickShadeEl ? (parseFloat(quickShadeEl.value)) : parseFloat(localStorage.getItem('igl_nur_shade_level') || '65');
+    if(isNaN(shadeLevel)) shadeLevel = 65;
+    var shadeColor = nurShadeHex(shadeLevel);
 
     var pageEl = grid.querySelector('.nur-page' + pg);
     if (!pageEl) { alert('Page ' + pg + ' পাওয়া যায়নি।'); return; }
@@ -34728,10 +34805,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'th { font-weight: bold !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       'td:first-child, th:first-child { min-width: 68pt; width: 68pt; white-space: nowrap !important; overflow: visible !important; }',
-      'td.nur-total, th.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-offday td { background: #a6a6a6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-      'tr.nur-grand-total td.nur-total { background: #a6a6a6 !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'td.nur-total, th.nur-total { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-offday td { background: ' + shadeColor + ' !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+      'tr.nur-grand-total td.nur-total { background: ' + shadeColor + ' !important; color: #000 !important; font-weight: 800 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'th.nur-worker-header { background: #d9d9d9 !important; color: #000 !important; font-weight: 600 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
       'td:not(:first-child):not(.nur-total) { white-space: nowrap !important; }',
       'thead { display: table-header-group; }',
@@ -35043,7 +35120,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // ── Needle Remarks Manager ──────────────────────────────────────────────
   var _NDL_REMARKS_DEFAULT = [
     {id:'newset',   label:'🆕 New Set',        text:'New Set'},
-    {id:'accident', label:'⚠️ Machine Accident', text:'Machine Accident'},
+    {id:'accident', label:'⚠️ m/c accident', text:'m/c accident'},
     {id:'r3', label:'Due to entry of loose cotton.',         text:'Due to entry of loose cotton.'},
     {id:'r4', label:'Due to loose yarn entry.',              text:'Due to loose yarn entry.'},
     {id:'r6', label:'Needle breakage occurs during take-down after program change.', text:'Needle breakage occurs during take-down after program change.'},
