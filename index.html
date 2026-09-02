@@ -33782,16 +33782,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // ── Shift Needle Use Report ──────────────
+  // Remarks-এ "m/c accident (14)" এর মতো টেক্সটে মেশিন নম্বরটা () সহ পরের লাইনে
+  // নামিয়ে দেয় — "m/c accident<br>(14)" — যাতে ছোট Remarks ঘরে পাশে কেটে না যায়
+  // (এটাকে আগে renderNeedleUseReport()-এর ভিতরে লোকাল ফাংশন হিসেবে রাখা হয়েছিল, কিন্তু
+  //  _renderNURWithData() একদম আলাদা ফাংশন হওয়ায় সেখান থেকে এটা অ্যাক্সেস করা যাচ্ছিল না —
+  //  ফলে "nurStackErp is not defined" এরর দিয়ে পুরনো মাসের Firebase ডাটা লোড আটকে যাচ্ছিল।
+  //  তাই এটাকে বাইরে এনে গ্লোবাল স্কোপে রাখা হলো, কোনো ক্যালকুলেশন পরিবর্তন হয়নি।)
+  function nurStackErp(text){
+    return text.replace(/\s\(([^)]*)\)\s*$/, '<br>($1)');
+  }
+
   function renderNeedleUseReport(){
     var month=Number(document.getElementById('nur-month').value);
     var year=Number(document.getElementById('nur-year').value);
     var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-    // Remarks-এ "m/c accident (14)" এর মতো টেক্সটে মেশিন নম্বরটা () সহ পরের লাইনে
-    // নামিয়ে দেয় — "m/c accident<br>(14)" — যাতে ছোট Remarks ঘরে পাশে কেটে না যায়
-    function nurStackErp(text){
-      return text.replace(/\s\(([^)]*)\)\s*$/, '<br>($1)');
-    }
 
     // এই সেশনে একবার ব্যাকগ্রাউন্ডে Firebase থেকে off-day সিঙ্ক করে নাও (Working Days ঠিক রাখতে)
     if (!window.__nurOffDaySynced) {
