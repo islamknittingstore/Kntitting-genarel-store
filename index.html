@@ -15523,6 +15523,31 @@ function stnEditTx(type, id) {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Item-wise Issue Detail টেবিলে Admin কোনো Receive/Issue এন্ট্রি ম্যানুয়ালি কয়েক ঘর
+// উপরে/নিচে সরাতে পারবে (dispOrder ফিল্ড) — শুধু ডিসপ্লে সিরিয়াল বদলায়, তারিখ/পরিমাণ/
+// +/- ক্যালকুলেশন বা স্টক টোটালে কোনো প্রভাব পড়ে না। ম্যানুয়াল স্টক বুকের সাথে সিরিয়াল
+// মিলিয়ে দেখানোর জন্যই এই অপশন।
+function stnShiftEntryOrder(type, id, itemName, dir) {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    toast('❌ শুধু Admin এই কাজ করতে পারবে।', 'error');
+    return;
+  }
+  if (type === 'issue') {
+    DB.issues = DB.issues.map(function(r) {
+      if (r.id !== id) return r;
+      return Object.assign({}, r, { dispOrder: (Number(r.dispOrder)||0) + dir });
+    });
+  } else {
+    DB.receives = DB.receives.map(function(r) {
+      if (r.id !== id) return r;
+      return Object.assign({}, r, { dispOrder: (Number(r.dispOrder)||0) + dir });
+    });
+  }
+  triggerAutoSave();
+  renderStationeryDashboard();
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 function stnGetHiddenItems() {
   try { return JSON.parse(localStorage.getItem('igl_stn_hidden') || '[]'); } catch(e) { return []; }
 }
@@ -15860,9 +15885,9 @@ function renderStationeryDashboard() {
           if (dateFromIW && r.date < dateFromIW) return false;
           if (dateToIW   && r.date > dateToIW)   return false;
           return true;
-        }).map(function(r){ return {type:'receive', date:r.date, qty:Number(r.qty)||0, slip:r.chalan||'-', dept:r.supplier||'-', remarks:r.remarks||'-'}; });
+        }).map(function(r){ return {type:'receive', id:r.id, date:r.date, qty:Number(r.qty)||0, slip:r.chalan||'-', dept:r.supplier||'-', remarks:r.remarks||'-', dispOrder:Number(r.dispOrder)||0}; });
 
-        var allEntries = sortedEntries.map(function(r){ return {type:'issue', date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-'}; })
+        var allEntries = sortedEntries.map(function(r){ return {type:'issue', id:r.id, date:r.date, qty:Number(r.qty)||0, slip:r.slip||'-', dept:r.machineId||'-', remarks:r.remarks||'-', dispOrder:Number(r.dispOrder)||0}; })
           .concat(rcvEntries)
           .sort(function(a,b){ return a.date > b.date ? 1 : a.date < b.date ? -1 : 0; });
 
@@ -15884,6 +15909,25 @@ function renderStationeryDashboard() {
           allEntries = orderedEntries;
         })();
 
+        // Admin ম্যানুয়াল রি-অর্ডার (dispOrder): এন্ট্রি সেভ থাকা dispOrder অনুযায়ী কয়েক ঘর
+        // উপরে/নিচে সরিয়ে দেখানো হয় — এতে শুধু ডিসপ্লে সিরিয়াল বদলায়, +/- ক্যালকুলেশন বা
+        // মোট রিসিভ/ইস্যু/ব্যালেন্স কিছুই পরিবর্তন হয় না (উপরের অংশে Balance রিক্যালকুলেট হয়
+        // নতুন ক্রম ধরে, কিন্তু সর্বমোট সবসময় একই থাকে)
+        (function(){
+          var withIdx = allEntries.map(function(r, i){ return {r:r, i:i}; });
+          withIdx.sort(function(a,b){
+            var ka = a.i + (a.r.dispOrder||0);
+            var kb = b.i + (b.r.dispOrder||0);
+            if (ka !== kb) return ka - kb;
+            // দুইটার key সমান হলে (একজন সরে এসে অন্যজনের জায়গায় পড়েছে) —
+            // যে বেশি সরেছে (dispOrder বেশি) সে-ই পরে বসবে, তাহলেই আসল সোয়াপ হয়
+            return (a.r.dispOrder||0) - (b.r.dispOrder||0);
+          });
+          allEntries = withIdx.map(function(x){ return x.r; });
+        })();
+
+        var isAdminIW = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+
         runBal = bf;
         var rowNum = 0;
         var totalRcv = 0;
@@ -15893,8 +15937,14 @@ function renderStationeryDashboard() {
           if (isRcv) { runBal += r.qty; totalRcv += r.qty; } else { runBal -= r.qty; rowNum++; }
           var balColor = runBal < 0 ? '#c0392b' : runBal === 0 ? '#e67e22' : '#117a65';
           var rowBg = isRcv ? 'background:#eafaf1;' : (rowNum%2===0?'background:#fdf4ff;':'');
+          var moveBtns = isAdminIW ? (
+            '<span class="no-print" style="display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle;">'+
+            '<button onclick="stnShiftEntryOrder(\''+r.type+'\',\''+r.id+'\',\''+itemName.replace(/'/g,"\\'")+'\',-1)" title="উপরে সরাও" style="border:none;background:#eee;border-radius:3px;width:16px;height:16px;font-size:9px;line-height:1;cursor:pointer;padding:0;">▲</button>'+
+            '<button onclick="stnShiftEntryOrder(\''+r.type+'\',\''+r.id+'\',\''+itemName.replace(/'/g,"\\'")+'\',1)" title="নিচে সরাও" style="border:none;background:#eee;border-radius:3px;width:16px;height:16px;font-size:9px;line-height:1;cursor:pointer;padding:0;">▼</button>'+
+            '</span>'
+          ) : '';
           html += '<tr style="'+rowBg+'">'+
-            '<td style="text-align:center;padding:5px 10px;border:1px solid #f0e6f8;">'+(isRcv?'R':rowNum)+'</td>'+
+            '<td style="text-align:center;padding:5px 10px;border:1px solid #f0e6f8;white-space:nowrap;">'+(isRcv?'R':rowNum)+moveBtns+'</td>'+
             '<td style="padding:5px 10px;border:1px solid #f0e6f8;">'+fmtDate(r.date)+'</td>'+
             '<td style="padding:5px 10px;border:1px solid #f0e6f8;">'+(isRcv?'<span style="background:#27ae60;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;">RCV</span> ':'')+r.slip+'</td>'+
             '<td style="padding:5px 10px;border:1px solid #f0e6f8;font-weight:600;color:'+(isRcv?'#117a65':'#0e6655')+';">'+r.dept+'</td>'+
@@ -21772,15 +21822,18 @@ function slipqShowDetails(idx){
   if(!s) return;
   var detailsEl = document.getElementById('slipq-details');
   var rows = s.data.map(function(r){
+    // মেশিন আইডি না থাকলে (মেশিন ছাড়া অন্য কাজে ব্যবহার হলে) Remarks দেখাও, যাতে
+    // স্লিপ-ওয়াইজ সার্চেও আইটেমটা কোথায় ব্যবহার হয়েছে বোঝা যায় (Issue Log-এর সাথে সামঞ্জস্যপূর্ণ)
+    var midRemarks = r.machineId ? r.machineId : (r.remarks || '-');
     return '<tr><td>'+(r.category||'-')+'</td><td><b>'+r.item+'</b></td>'
       + '<td style="text-align:center;">'+r.qty+'</td>'
       + '<td>'+(r.machineNo||'-')+'</td>'
-      + '<td>'+(r.machineId||'-')+'</td></tr>';
+      + '<td>'+midRemarks+'</td></tr>';
   }).join('');
   var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
   detailsEl.innerHTML = '<div style="font-weight:800;margin-bottom:6px;color:'+s.color+';">'+s.label+' — বিস্তারিত (তারিখ: '+fmtDate(s.data[0].date)+')</div>'
     + '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px;">'
-    + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Machine No</th><th>Machine ID</th></tr></thead>'
+    + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Machine No</th><th>মেশিন আইডি/রিমার্কস</th></tr></thead>'
     + '<tbody>'+rows+'</tbody>'
     + '<tfoot><tr style="background:#f8f9fa;font-weight:700;"><td colspan="2">TOTAL</td><td style="text-align:center;">'+totalQty+'</td><td colspan="2"></td></tr></tfoot>'
     + '</table></div>';
@@ -38361,11 +38414,19 @@ function pqbDoPrint() {
 
   function vtLoadAndRender() {
     if(typeof (typeof firebase!=='undefined'?firebase.database():null)!=='undefined'){
+      var container0 = document.getElementById('vt-cards');
+      if(container0) container0.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#aaa;">লোড হচ্ছে...</div>';
       (typeof firebase!=='undefined'?firebase.database():null).ref(VT_FB_PATH).once('value').then(function(snap){
         var data = snap.val() || {};
         _vtData = Object.keys(data).filter(function(k){ return k!=='__pin__'; }).map(function(k){ return data[k]; });
         vtRender();
-      }).catch(function(){ vtRender(); });
+      }).catch(function(err){
+        // আগে এখানে এরর চুপচাপ গিলে ফেলে "Vault খালি" দেখিয়ে দিত — বাস্তবে ডাটা থাকতে
+        // পারে, শুধু Firebase থেকে লোড (permission/network) ব্যর্থ হয়েছে। তাই এখন
+        // আসল এরর মেসেজ দেখানো হচ্ছে, যাতে "খালি" আর "লোড ব্যর্থ" গুলিয়ে না যায়।
+        var container = document.getElementById('vt-cards');
+        if(container) container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#c0392b;">❌ ডাটা লোড সমস্যা: '+(err&&err.message?err.message:'Firebase থেকে Vault লোড করা যায়নি')+'<br><span style="font-size:12px;color:#888;">এর মানে এই না যে ডাটা হারিয়ে গেছে — Firebase পারমিশন/কানেকশন সমস্যাও হতে পারে।</span></div>';
+      });
     } else { vtRender(); }
   }
 
