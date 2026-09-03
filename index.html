@@ -26732,13 +26732,20 @@ function _mssRenderAfterExclusionLoad() {
       }
 
       var lastSetCell;
+      // মেশিন আইডিতে ইঞ্চি বোঝাতে আসল ডাবল-কোট (") ব্যবহার হয় (যেমন 34"(1)) — সেটা
+      // onclick="..." অ্যাট্রিবিউটের ভিতরে থাকলে HTML অ্যাট্রিবিউটটাই ভেঙে যায় আর
+      // ক্লিক করলে কিছুই হয় না। তাই দুই রকম এস্কেপ আলাদা রাখা হচ্ছে —
+      // midAttr: শুধু plain HTML অ্যাট্রিবিউটে (data-mid ইত্যাদি) বসানোর জন্য
+      // midJs  : onclick="...('...')"-এর মতো JS স্ট্রিং literal-এর জন্য (' ও " দুটোই এস্কেপ)
+      var midAttr = String(m.id).replace(/"/g,'&quot;');
+      var midJs   = String(m.id).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       if (lastSet) {
         lastSetCell = '<span style="color:#6c3483;font-weight:700;">'+_fmtDMY(lastSet)+'</span>';
       } else if (isNewMachine) {
         lastSetCell = '<span style="color:#117a65;font-weight:700;">🆕 '+_fmtDMY(effectiveDate)+'</span> '
-          + '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \''+effectiveDate+'\'); return false;" style="font-size:9px;color:#888;">✏️</a>';
+          + '<a href="#" onclick="mssPromptRunDate(\''+midJs+'\', \''+effectiveDate+'\'); return false;" style="font-size:9px;color:#888;">✏️</a>';
       } else {
-        lastSetCell = '<a href="#" onclick="mssPromptRunDate(\''+m.id.replace(/'/g,"\\'")+'\', \'\'); return false;" style="color:#c0392b;font-size:10.5px;">🆕 Running Date সেট করুন</a>';
+        lastSetCell = '<a href="#" onclick="mssPromptRunDate(\''+midJs+'\', \'\'); return false;" style="color:#c0392b;font-size:10.5px;">🆕 Running Date সেট করুন</a>';
       }
 
       window._mssHighlight = window._mssHighlight || {};
@@ -26748,8 +26755,8 @@ function _mssRenderAfterExclusionLoad() {
       var isChecked = !window._mssExcludedFromPrint[m.id];
 
       var altBg = (idx%2===1?'#f9f4fc':'#fff');
-      t += '<tr class="mss-row" data-mid="'+m.id.replace(/"/g,'&quot;')+'" data-orig-bg="'+altBg+'" onclick="mssToggleRowHighlight(this, event, \''+m.id.replace(/'/g,"\\'")+'\')" style="background:'+rowBg+';cursor:pointer;">';
-      t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+m.id.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();" onchange="mssPrintChkChanged(\''+m.id.replace(/'/g,"\\'")+'\', this.checked)" '+(isChecked?'checked':'')+'></td>';
+      t += '<tr class="mss-row" data-mid="'+midAttr+'" data-orig-bg="'+altBg+'" onclick="mssToggleRowHighlight(this, event, \''+midJs+'\')" style="background:'+rowBg+';cursor:pointer;">';
+      t += '<td class="no-print" style="text-align:center;padding:5px 4px;border-bottom:1px solid #eee;"><input type="checkbox" class="mss-print-chk" data-machine="'+midAttr+'" onclick="event.stopPropagation();" onchange="mssPrintChkChanged(\''+midJs+'\', this.checked)" '+(isChecked?'checked':'')+'></td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(idx+1)+'</td>';
       t += '<td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">'+(m.erp||'')+'</td>';
       t += '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>';
