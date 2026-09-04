@@ -34470,13 +34470,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // Machine Wise Production থেকে ওই মাসের মোট প্রোডাকশন যোগ করে সরাসরি বসিয়ে দেয় —
-  // এটাই একমাত্র উৎস; আর কোনো ম্যানুয়াল এন্ট্রি/ওভাররাইড নেই, তাই Machine Wise Production
-  // আপডেট হলে এই রিপোর্টও পরের বার লোডে নিজে থেকেই আপডেট হয়ে যাবে।
+  // শুধুমাত্র Needle Section-এ ট্র্যাক করা মেশিনগুলোর প্রোডাকশন যোগ হয় (ঠিক যেভাবে
+  // "📊📦 Machine Wise + Production" পেজের Grand Total হিসাব হয়) — Machine Wise
+  // Production শিটে থাকা অন্য (Needle Section-এ নেই এমন) মেশিনের ডাটা এখানে যোগ হয় না,
+  // নাহলে দুই রিপোর্টের টোটাল মিলবে না। এটাই একমাত্র উৎস; কোনো ম্যানুয়াল এন্ট্রি/ওভাররাইড নেই,
+  // তাই Machine Wise Production আপডেট হলে এই রিপোর্টও পরের বার লোডে নিজে থেকেই আপডেট হয়ে যাবে।
   function nurSyncProdKgFromMachineWise(year, month, spanEl) {
     if (typeof mpLoadMonth !== 'function') { spanEl.textContent = '0'; return; }
+    var needleMachineIds = {};
+    (typeof getNeedleMachines === 'function' ? getNeedleMachines() : []).forEach(function(m){
+      if (m && m.id) needleMachineIds[m.id] = true;
+    });
     mpLoadMonth(year, month, function(prodData){
       var total = 0;
       Object.keys(prodData||{}).forEach(function(mid){
+        if (!needleMachineIds[mid]) return; // Needle Section-এ নেই এমন মেশিন বাদ
         var mProd = prodData[mid] || {};
         Object.keys(mProd).forEach(function(dayNum){ total += parseFloat(mProd[dayNum]) || 0; });
       });
