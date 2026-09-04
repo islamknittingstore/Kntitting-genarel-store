@@ -6154,6 +6154,7 @@ function ok(msg) {
           <button class="btn btn-sm no-print admin-only-action" style="background:#1e8449;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpImportExcel()" title="ফ্যাক্টরির &quot;Machine Wise Knitting Production Report&quot; (.xls) ফাইল সরাসরি Import করুন">📤 Import Production Report (.xls)</button>
           <button class="btn btn-sm no-print admin-only-action" style="background:#a04000;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="smpOpenModal()" title="একটা নির্দিষ্ট মেশিনের ১-২ বছরের পুরনো Production একসাথে Import করুন">📅 একটি মেশিনের বহু বছরের ডাটা Import</button>
           <button class="btn btn-sm no-print" style="background:#117864;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpOpenYearCheckModal()" title="একটা বছরের কোন মাসে Production ডাটা Import করা আছে আর কোন মাসে নেই তা এক নজরে দেখুন">🔍 বছর-ভিত্তিক Import চেক</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mpOpenMissingCheck()" title="সিলেক্ট করা মাসে Needle Section-এর কোন কোন মেশিনের প্রোডাকশন Excel Import-এ পাওয়া যায়নি (Machine Set Summary-তে যোগ হয়নি) তা দেখুন">⚠️ Missing Machine Check</button>
           <input type="file" id="mp-import-file" accept=".xlsx,.xls" style="display:none;" onchange="mpHandleImportFile(event)">
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
@@ -6217,6 +6218,26 @@ function ok(msg) {
     </div>
   </div>
 
+  <!-- ⚠️ Missing Machine Check Modal (Admin Only) -->
+  <div id="mp-missing-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:8px;max-width:480px;width:92%;padding:20px;max-height:85vh;overflow-y:auto;">
+      <h3 style="margin:0 0 6px;color:#c0392b;">⚠️ Missing Machine Check</h3>
+      <p style="font-size:12px;color:#666;margin:0 0 14px;">সিলেক্ট করা মাসে Needle Section-এ যত মেশিন আছে, তার মধ্যে যেগুলোর <b>একটা দিনেরও Production ডাটা Machine Wise Production-এ পাওয়া যায়নি</b> — সেগুলো এখানে লিস্ট হবে। এর মানে হয়তো Excel Import-এ ওই মেশিনের সারি বাদ পড়েছে (ERP নম্বর মিলেনি), অথবা মেশিনটা সত্যিই পুরো মাস বন্ধ ছিল — দুটোই যাচাই করে দেখুন।</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <select class="form-control" id="mpmc-month" style="width:130px;">
+          <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <input type="number" class="form-control" id="mpmc-year" style="width:100px;" min="2015" max="2050">
+        <button class="btn btn-primary btn-sm" onclick="mpRunMissingCheck()">চেক করুন</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mp-missing-modal').style.display='none';" style="margin-left:auto;">✕ বন্ধ</button>
+      </div>
+      <div id="mpmc-results"></div>
+    </div>
+  </div>
+
   <!-- MACHINE SET & PRODUCTION SUMMARY (Sheet 3) -->
   <div class="page" id="page-machine_set_summary">
     <div class="page-header">
@@ -6244,6 +6265,7 @@ function ok(msg) {
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
           <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mssPrintSummary()">🖨️ Print (এই মাসের শেষ পর্যন্ত)</button>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#b9770e;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="mssOpenRangeCheck()" title="যেকোনো তারিখ রেঞ্জের জন্য সব Needle Section মেশিন মিলিয়ে মোট Production বের করে, Machine Wise Production ও Shift Needle Use Report এর টোটালের সাথে মিলিয়ে দেখার জন্য">🧮 Production Range Verify</button>
         </div>
         <div style="margin-top:6px;font-size:11px;color:#666;">
           মাস সিলেক্ট করে Refresh চাপলে <b>ওই মাসের শেষ তারিখ পর্যন্ত</b> হিসাব করা Last Set ও Production দেখাবে (চলতি মাস সিলেক্ট করলে আজ পর্যন্ত) | যেসব মেশিনের পুরনো (Excel Import না থাকা) সেট চেঞ্জের প্রডাকশন হাতে নেই, তাদের জন্য <b>📝 প্রডাকশন বেজলাইন</b> বাটন দিয়ে একটা তারিখ পর্যন্ত মোট প্রডাকশন বসিয়ে দিন — তারপর থেকে শুধু Excel Import যোগ হবে
@@ -6251,6 +6273,29 @@ function ok(msg) {
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="machineSetSummaryGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🧮 Production Range Verify Modal (Admin Only) -->
+  <div id="mss-range-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:10px;padding:22px 26px;width:380px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 6px;color:#b9770e;font-size:15px;">🧮 Production Range Verify</h3>
+      <p style="font-size:12px;color:#555;margin-bottom:14px;">যেকোনো তারিখ রেঞ্জ দিন — সব Needle Section মেশিন মিলিয়ে ওই সময়ের মোট Production বের করে দেখাবে। এই সংখ্যাটা <b>Machine Wise Production</b>-এর টোটাল ও <b>Shift Needle Use Report</b>-এর Total Production এর সাথে মিলিয়ে দেখুন — তিনটাই এক হলে বুঝবেন সব ঠিক আছে।</p>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">শুরুর তারিখ</label>
+          <input type="date" id="mss-range-from" class="form-control" style="width:100%;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">শেষ তারিখ</label>
+          <input type="date" id="mss-range-to" class="form-control" style="width:100%;">
+        </div>
+      </div>
+      <div id="mss-range-result" style="min-height:40px;background:#fef9e7;border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button onclick="mssCloseRangeCheck()" style="background:#95a5a6;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">বন্ধ করুন</button>
+        <button onclick="mssCalcRangeCheck()" style="background:#b9770e;color:#fff;border:none;border-radius:4px;padding:7px 18px;cursor:pointer;font-weight:700;">✅ ক্যালকুলেট করুন</button>
       </div>
     </div>
   </div>
@@ -26187,6 +26232,19 @@ function mpImportFromKnittingReport(text, evt) {
       if (yearEl) yearEl.value = year;
       if (monthEl) monthEl.value = month;
       renderNeedleMonthlyProd();
+
+      // Import শেষে সাথে সাথেই চেক করো — Needle Section-এর কোনো মেশিন এই মাসে
+      // পুরোপুরি প্রোডাকশনবিহীন (একটা দিনও ডাটা নেই) রয়ে গেল কিনা, যাতে ERP
+      // মিসম্যাচ বা রো বাদ পড়ে যাওয়া সাথে সাথেই ধরা পড়ে।
+      mpFindMissingMachines(year, month, existing, function(missing){
+        if (missing.length) {
+          toast('⚠️ ' + missing.length + 'টি মেশিনের পুরো মাসেই কোনো Production ডাটা পাওয়া যায়নি — বিস্তারিত দেখতে "⚠️ Missing Machine Check" বাটনে চাপুন', 'warning');
+        }
+        var mEl = document.getElementById('mpmc-month'), yEl2 = document.getElementById('mpmc-year');
+        if (mEl) mEl.value = month;
+        if (yEl2) yEl2.value = year;
+        window._mpLastMissingCheck = {year:year, month:month, missing:missing};
+      });
     });
   } catch(err) {
     console.error(err);
@@ -26195,6 +26253,67 @@ function mpImportFromKnittingReport(text, evt) {
     if (evt && evt.target) evt.target.value = '';
   }
 }
+
+// ── ⚠️ Missing Machine Check — নির্দিষ্ট মাসে Needle Section-এর কোন মেশিনের একটা
+// দিনও Production ডাটা নেই তা বের করে (Excel Import-এ রো বাদ পড়া / ERP মিসম্যাচ ধরার জন্য) ──
+function mpFindMissingMachines(year, month, prodData, cb) {
+  function run(data) {
+    var missing = [];
+    (typeof getNeedleMachines === 'function' ? getNeedleMachines() : []).forEach(function(m){
+      var mProd = (data || {})[m.id] || {};
+      var hasAny = Object.keys(mProd).some(function(d){ return (parseFloat(mProd[d]) || 0) > 0; });
+      if (!hasAny) missing.push(m);
+    });
+    cb(missing);
+  }
+  if (prodData) { run(prodData); }
+  else { mpLoadMonth(year, month, run); }
+}
+
+function mpOpenMissingCheck() {
+  var y = parseInt((document.getElementById('nmp-year')||{}).value) || new Date().getFullYear();
+  var m = parseInt((document.getElementById('nmp-month')||{}).value) || (new Date().getMonth()+1);
+  document.getElementById('mpmc-month').value = m;
+  document.getElementById('mpmc-year').value = y;
+  document.getElementById('mpmc-results').innerHTML = '';
+  document.getElementById('mp-missing-modal').style.display = 'flex';
+  // এইমাত্র Import করা থাকলে ক্যাশ করা ফলাফল সরাসরি দেখাও, নাহলে অটো-রান করো
+  if (window._mpLastMissingCheck && window._mpLastMissingCheck.year === y && window._mpLastMissingCheck.month === m) {
+    mpRenderMissingResults(window._mpLastMissingCheck.missing);
+  } else {
+    mpRunMissingCheck();
+  }
+}
+
+function mpRunMissingCheck() {
+  var y = parseInt(document.getElementById('mpmc-year').value) || new Date().getFullYear();
+  var m = parseInt(document.getElementById('mpmc-month').value) || (new Date().getMonth()+1);
+  document.getElementById('mpmc-results').innerHTML = '⏳ চেক করা হচ্ছে...';
+  mpFindMissingMachines(y, m, null, function(missing){
+    window._mpLastMissingCheck = {year:y, month:m, missing:missing};
+    mpRenderMissingResults(missing);
+  });
+}
+
+function mpRenderMissingResults(missing) {
+  var el = document.getElementById('mpmc-results');
+  if (!missing.length) {
+    el.innerHTML = '<div style="background:#eafaf1;border:1px solid #a9dfbf;border-radius:6px;padding:10px;color:#186a3b;font-weight:700;font-size:13px;">✅ সবগুলো মেশিনেরই অন্তত একটা দিনের Production ডাটা পাওয়া গেছে — কোনো মেশিন মিসিং নেই।</div>';
+    return;
+  }
+  var rows = missing.map(function(m){
+    return '<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;">'+(m.erp||'-')+'</td>'
+      + '<td style="padding:5px 8px;border-bottom:1px solid #eee;"><b>'+m.id+'</b></td>'
+      + '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#888;">'+(m.section||'-')+'</td></tr>';
+  }).join('');
+  el.innerHTML =
+    '<div style="background:#fdedec;border:1px solid #f5b7b1;border-radius:6px;padding:10px;color:#943126;font-weight:700;font-size:13px;margin-bottom:8px;">⚠️ '+missing.length+'টি মেশিনের এই মাসে কোনো Production ডাটা পাওয়া যায়নি:</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    + '<thead><tr style="background:#f5b7b1;"><th style="padding:5px 8px;">ERP</th><th style="padding:5px 8px;text-align:left;">Machine ID</th><th style="padding:5px 8px;">Section</th></tr></thead>'
+    + '<tbody>'+rows+'</tbody></table>'
+    + '<div style="font-size:11px;color:#666;margin-top:8px;">👉 এইগুলো যাচাই করুন: (১) ফ্যাক্টরির Excel রিপোর্টে এই মেশিনের ERP নম্বরের সারি আছে কিনা, (২) থাকলে ERP নম্বরটা সিস্টেমে যা সেভ করা আছে তার সাথে হুবহু মিলছে কিনা, (৩) মেশিনটা কি সত্যিই পুরো মাস বন্ধ ছিল।</div>';
+}
+
 
 // ── (fallback) আগের xlsx টেমপ্লেট ফরম্যাট ইমপোর্ট — ম্যানুয়াল Excel Template ব্যবহার করলে ──
 function mpImportFromXlsxTemplate(file, evt) {
@@ -26236,6 +26355,15 @@ function mpImportFromXlsxTemplate(file, evt) {
           mpSaveMonth(year, month, prodData);
           toast('✅ ' + updated + 'টি production entry Import হয়েছে', 'success');
           renderNeedleMonthlyProd();
+          mpFindMissingMachines(year, month, prodData, function(missing){
+            if (missing.length) {
+              toast('⚠️ ' + missing.length + 'টি মেশিনের পুরো মাসেই কোনো Production ডাটা পাওয়া যায়নি — বিস্তারিত দেখতে "⚠️ Missing Machine Check" বাটনে চাপুন', 'warning');
+            }
+            var mEl = document.getElementById('mpmc-month'), yEl2 = document.getElementById('mpmc-year');
+            if (mEl) mEl.value = month;
+            if (yEl2) yEl2.value = year;
+            window._mpLastMissingCheck = {year:year, month:month, missing:missing};
+          });
         });
       } catch(err) {
         console.error(err);
@@ -26763,6 +26891,82 @@ function mssPromptRunDate(machineId, currentDate) {
   mrdSaveDate(machineId, val);
   renderMachineSetSummary();
 }
+
+// ── 🧮 Production Range Verify (Admin Only) ──────────────────────
+// Machine Set Summary পেজ থেকে যেকোনো তারিখ রেঞ্জের জন্য সব Needle Section
+// মেশিন মিলিয়ে মোট Production বের করে — Machine Wise Production ও
+// Shift Needle Use Report এর Total Production এর সাথে ক্রস-চেক করার জন্য।
+// এটা Machine Set Summary টেবিলের "Last Set থেকে" হিসাবের থেকে আলাদা —
+// এটা শুধু একটা সাধারণ তারিখ-রেঞ্জ যোগফল, ঠিক অন্য দুই রিপোর্টের মতোই (Flat Knit সহ,
+// যাতে তিনটা রিপোর্টের সংখ্যা একই universe থেকে হিসাব হয়ে মেলানো যায়)।
+function mssOpenRangeCheck() {
+  var y = parseInt(document.getElementById('mss-year').value) || new Date().getFullYear();
+  var m = parseInt(document.getElementById('mss-month').value) || (new Date().getMonth()+1);
+  var monthStart = y+'-'+String(m).padStart(2,'0')+'-01';
+  var lastDay = new Date(y, m, 0).getDate();
+  var todayS = todayStr();
+  var monthEnd = y+'-'+String(m).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+  if (monthEnd > todayS) monthEnd = todayS;
+  document.getElementById('mss-range-from').value = monthStart;
+  document.getElementById('mss-range-to').value = monthEnd;
+  document.getElementById('mss-range-result').innerHTML = '';
+  document.getElementById('mss-range-modal').style.display = 'flex';
+}
+
+function mssCloseRangeCheck() {
+  document.getElementById('mss-range-modal').style.display = 'none';
+}
+
+function mssCalcRangeCheck() {
+  var fromStr = document.getElementById('mss-range-from').value;
+  var toStr = document.getElementById('mss-range-to').value;
+  var resultEl = document.getElementById('mss-range-result');
+  if (!fromStr || !toStr || fromStr > toStr) {
+    resultEl.innerHTML = '<span style="color:#c0392b;font-weight:700;">❌ সঠিক তারিখ রেঞ্জ দিন (শুরুর তারিখ শেষের তারিখের আগে হতে হবে)</span>';
+    return;
+  }
+  resultEl.innerHTML = '⏳ হিসাব চলছে...';
+
+  var needleMachineIds = {};
+  (typeof getNeedleMachines === 'function' ? getNeedleMachines() : []).forEach(function(m){
+    if (m && m.id) needleMachineIds[m.id] = true;
+  });
+
+  // fromStr থেকে toStr পর্যন্ত যতগুলো মাস পড়ে সবগুলো বের করা
+  var months = [];
+  var d0 = new Date(fromStr), d1 = new Date(toStr);
+  var iter = new Date(d0.getFullYear(), d0.getMonth(), 1);
+  while (iter <= d1) {
+    months.push({y: iter.getFullYear(), m: iter.getMonth()+1});
+    iter.setMonth(iter.getMonth()+1);
+  }
+  if (!months.length) { resultEl.innerHTML = '❌ তারিখ ভুল'; return; }
+
+  var loaded = 0, total = 0, matchedMachines = {};
+  months.forEach(function(mk){
+    mpLoadMonth(mk.y, mk.m, function(prodData){
+      Object.keys(prodData||{}).forEach(function(mid){
+        if (!needleMachineIds[mid]) return; // শুধু Needle Section-এর মেশিন
+        var mProd = prodData[mid] || {};
+        Object.keys(mProd).forEach(function(dayNum){
+          var dayStr = mk.y+'-'+String(mk.m).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
+          if (dayStr >= fromStr && dayStr <= toStr) {
+            var v = parseFloat(mProd[dayNum]) || 0;
+            if (v) { total += v; matchedMachines[mid] = true; }
+          }
+        });
+      });
+      loaded++;
+      if (loaded === months.length) {
+        var rounded = Math.round(total * 10) / 10;
+        resultEl.innerHTML =
+          '<div style="font-size:15px;font-weight:800;color:#117a65;">✅ '+_fmtDMY(fromStr)+' থেকে '+_fmtDMY(toStr)+' পর্যন্ত মোট Production: '+rounded.toLocaleString('en-US')+' kg</div>'
+          + '<div style="font-size:11px;color:#666;margin-top:5px;">('+Object.keys(matchedMachines).length+'টি মেশিনের ডাটা পাওয়া গেছে) — এই সংখ্যাটা Machine Wise Production ও Shift Needle Use Report এর Total Production এর সাথে মিলিয়ে দেখুন। তিনটা এক হলে সবকিছু ঠিক আছে।</div>';
+      }
+    });
+  });
+}
+// ──────────────────────────────────────────────────────────────
 
 // ── প্রিন্টে সব মেশিন সিলেক্ট/ডিসিলেক্ট করার জন্য ──
 function mssToggleAllPrint(state) {
