@@ -26201,7 +26201,10 @@ function mpImportFromKnittingReport(text, evt) {
           var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
           if (!numMatch) continue;
           var kg = parseFloat(numMatch[0].replace(/,/g, ''));
-          if (isNaN(kg) || kg === 0) continue;
+          if (isNaN(kg)) continue; // ০ কেজিও রাখা হচ্ছে — যাতে রি-ইমপোর্টে আগের ভুল/পুরনো
+                                    // (non-zero) ভ্যালু ওভাররাইট হয়ে ঠিক হয়ে যায়, না হলে
+                                    // Object.assign মার্জে ০-এর দিন স্কিপ হয়ে পুরনো ভুল ডাটা
+                                    // থেকেই যেত এবং টোটাল বেশি দেখাত
           if (internalId) mObj[day] = kg;
         }
         if (internalId) {
@@ -26600,7 +26603,7 @@ function smpImportFromKnittingReport(text, machineId, resultEl) {
           var numMatch = raw.trim().match(/-?[\d,]+\.?\d*/);
           if (!numMatch) continue;
           var kg = parseFloat(numMatch[0].replace(/,/g, ''));
-          if (isNaN(kg) || kg === 0) continue;
+          if (isNaN(kg)) continue; // ০ কেজিও রাখা হচ্ছে — একই কারণে (উপরের বাল্ক ইমপোর্টের মতো)
           var d = new Date(startDate);
           d.setDate(d.getDate() + (c - 5));
           parsed.push({ y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), kg: kg });
@@ -26614,7 +26617,7 @@ function smpImportFromKnittingReport(text, machineId, resultEl) {
       return;
     }
     if (!parsed.length) {
-      resultEl.innerHTML = '<span style="color:#c0392b;">❌ মেশিনটা রিপোর্টে পাওয়া গেছে, কিন্তু কোনো Production ভ্যালু (0 ছাড়া) নেই</span>';
+      resultEl.innerHTML = '<span style="color:#c0392b;">❌ মেশিনটা রিপোর্টে পাওয়া গেছে, কিন্তু কোনো Production ভ্যালু নেই (কোনো দিনের ঘরই সংখ্যা না — খালি বা টেক্সট)</span>';
       return;
     }
 
