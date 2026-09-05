@@ -2417,6 +2417,53 @@ function iglMonthKeyOf(dateStr) {
   if (!dateStr) return '';
   return String(dateStr).slice(0,7); // "YYYY-MM"
 }
+
+// ══════════════════════════════════════════════════════
+//  NEEDLE MONTHLY B/F CHAIN — মাস লক করলে সেই মাসের Closing
+//  Balance পরের মাসের Opening B/F হিসেবে freeze হয়ে যায়।
+//  একটা মাস unlock করলে তার পরের locked মাসগুলোও cascade করে
+//  unlock হয় (কারণ তাদের Opening ঐ মাসের Closing এর উপর নির্ভরশীল),
+//  এবং pending রাখা হয় — সম্পাদিত মাসটা আবার লক করলেই তারা
+//  automatically recalculate ও re-lock হয়ে যায়।
+// ══════════════════════════════════════════════════════
+var IGL_NDL_CLOSE_KEY   = 'igl_needle_month_close';   // {"YYYY-MM": {needleId: closingQty}}
+var IGL_NDL_PENDING_KEY = 'igl_needle_relock_pending'; // {"YYYY-MM": 1}
+
+function iglNdlGetCloses()   { try { return JSON.parse(localStorage.getItem(IGL_NDL_CLOSE_KEY)   || '{}'); } catch(e){ return {}; } }
+function iglNdlSetCloses(o)  { localStorage.setItem(IGL_NDL_CLOSE_KEY, JSON.stringify(o)); if (typeof triggerAutoSave==='function') triggerAutoSave(); }
+function iglNdlGetPending()  { try { return JSON.parse(localStorage.getItem(IGL_NDL_PENDING_KEY) || '{}'); } catch(e){ return {}; } }
+function iglNdlSetPending(o) { localStorage.setItem(IGL_NDL_PENDING_KEY, JSON.stringify(o)); if (typeof triggerAutoSave==='function') triggerAutoSave(); }
+
+function iglNdlPrevMonthKey(mk) {
+  var p = mk.split('-'); var y = Number(p[0]), m = Number(p[1]) - 1;
+  if (m < 1) { m = 12; y -= 1; }
+  return y + '-' + (m < 10 ? '0'+m : m);
+}
+// একটা needle-এর জন্য monthKey-এর Opening B/F — আগের মাসের locked Closing থাকলে সেটাই,
+// নাহলে (একদম প্রথম মাস) Needle Master-এর বর্তমান bf ফিল্ডটাই আসল শুরুর ব্যালেন্স
+function iglNdlOpeningBF(needleId, monthKey) {
+  var prevKey = iglNdlPrevMonthKey(monthKey);
+  var closes = iglNdlGetCloses();
+  if (closes[prevKey] && closes[prevKey][needleId] !== undefined) return closes[prevKey][needleId];
+  var nm = ndlGetMaster();
+  var n = nm.find(function(x){ return x.id === needleId; });
+  return n ? (Number(n.bf)||0) : 0;
+}
+// একটা মাসের জন্য প্রতিটা needle-এর Closing Balance বের করো (Opening + এই মাসের Receive - এই মাসের Issue)
+function iglNdlComputeMonthClose(monthKey) {
+  var nm = ndlGetMaster();
+  var allRcvs = ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
+  var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }) : [];
+  var out = {};
+  nm.forEach(function(n){
+    var opening = iglNdlOpeningBF(n.id, monthKey);
+    var rcvSum = allRcvs.filter(function(r){ return r.needleId===n.id && iglMonthKeyOf(r.date)===monthKey; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    var issSum = allIss.filter(function(r){ return r.needleId===n.id && iglMonthKeyOf(r.date)===monthKey; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    out[n.id] = opening + rcvSum - issSum;
+  });
+  return out;
+}
+
 // dateStr লক করা মাসের মধ্যে পড়লে error message রিটার্ন করে, নাহলে null
 // (window.iglCheckBackdate এর মতোই প্যাটার্ন — Admin-কেও ছাড় দেয় না, কারণ ভুলবশত/বাগে ডাটা পরিবর্তন আটকানোই এর কাজ)
 window.iglCheckMonthLock = function(module, dateStr) {
@@ -2455,14 +2502,72 @@ function iglToggleMonthLock(module, monthKey) {
     var savedPw = localStorage.getItem(IGL_LOCK_PW_KEY) || '';
     if (!savedPw) { toast('⚠️ কোনো Unlock Passcode সেট করা নেই — প্রথমে সেট করে নিন।', 'warning'); return; }
     if (pw !== savedPw) { toast('❌ পাসকোড ভুল! আনলক করা যায়নি।', 'error'); return; }
-    delete locks[module][monthKey];
-    iglSetLocks(locks);
-    toast('🔓 ' + monthKey + ' আনলক করা হলো — এখন পরিবর্তনযোগ্য।', 'warning');
+
+    if (module === 'needle') {
+      // এই মাসের পরের যতগুলো মাস locked আছে, সবগুলো cascade করে unlock করতে হবে
+      // (কারণ তাদের Opening B/F এই মাসের Closing-এর উপর নির্ভরশীল)
+      var cascadeMonths = Object.keys(locks.needle || {}).filter(function(m){ return m > monthKey; }).sort();
+      if (cascadeMonths.length) {
+        if (!confirm('⚠️ ' + monthKey + ' আনলক করলে এর পরের locked মাসগুলোও (' + cascadeMonths.join(', ') + ') সাথে সাথে unlock হয়ে যাবে (B/F chain এর জন্য)।\n\n' + monthKey + ' এডিট শেষে আবার লক করলেই ওগুলো automatically recalculate হয়ে re-lock হয়ে যাবে।\n\nচালিয়ে যাবেন?')) return;
+      }
+      var closes = iglNdlGetCloses();
+      var pending = iglNdlGetPending();
+      delete closes[monthKey];
+      delete locks.needle[monthKey];
+      cascadeMonths.forEach(function(m){
+        delete locks.needle[m];
+        delete closes[m];
+        pending[m] = 1;
+      });
+      iglNdlSetCloses(closes);
+      iglNdlSetPending(pending);
+      iglSetLocks(locks);
+      toast('🔓 ' + monthKey + ' আনলক করা হলো' + (cascadeMonths.length ? ' (সাথে ' + cascadeMonths.join(', ') + ' ও আনলক হলো, pending re-lock)' : '') + '।', 'warning');
+    } else {
+      delete locks[module][monthKey];
+      iglSetLocks(locks);
+      toast('🔓 ' + monthKey + ' আনলক করা হলো — এখন পরিবর্তনযোগ্য।', 'warning');
+    }
   } else {
+    if (module === 'needle') {
+      var prevKey = iglNdlPrevMonthKey(monthKey);
+      var closesChk = iglNdlGetCloses();
+      var hasPrevData = iglGetAllMonthsForModule('needle').indexOf(prevKey) !== -1;
+      if (hasPrevData && !closesChk[prevKey]) {
+        toast('❌ আগে ' + prevKey + ' মাস লক করুন — B/F chain ক্রমানুসারে লক করতে হবে।', 'error');
+        return;
+      }
+    }
     if (!confirm('🔒 ' + monthKey + ' (' + IGL_LOCK_MODULES[module] + ') মাসের ডাটা স্থায়ীভাবে লক করবেন?\n\nলক করার পর এই মাসের কোনো এন্ট্রি Add/Edit/Delete করা যাবে না (Admin সহ কেউ না), শুধু আনলক পাসকোড দিয়ে আনলক করলেই পরিবর্তন করা যাবে।')) return;
     locks[module][monthKey] = 1;
-    iglSetLocks(locks);
-    toast('🔒 ' + monthKey + ' লক করা হলো।', 'success');
+
+    if (module === 'needle') {
+      var closes2 = iglNdlGetCloses();
+      closes2[monthKey] = iglNdlComputeMonthClose(monthKey);
+      var pending2 = iglNdlGetPending();
+      var relocked = [];
+      var pendingMonths = Object.keys(pending2).filter(function(m){ return m > monthKey; }).sort();
+      for (var i = 0; i < pendingMonths.length; i++) {
+        var pm = pendingMonths[i];
+        var close_pm = iglNdlComputeMonthClose(pm);
+        var negIds = Object.keys(close_pm).filter(function(id){ return close_pm[id] < 0; });
+        if (negIds.length) {
+          toast('⚠️ ' + pm + ' মাস recalculate করতে গিয়ে নেগেটিভ ব্যালেন্স পাওয়া গেছে (' + negIds.join(', ') + ') — এই মাস auto re-lock হয়নি, ম্যানুয়ালি চেক করে লক করুন।', 'warning');
+          break;
+        }
+        closes2[pm] = close_pm;
+        locks.needle[pm] = 1;
+        delete pending2[pm];
+        relocked.push(pm);
+      }
+      iglNdlSetCloses(closes2);
+      iglNdlSetPending(pending2);
+      iglSetLocks(locks);
+      toast('🔒 ' + monthKey + ' লক করা হলো' + (relocked.length ? ' (সাথে ' + relocked.join(', ') + ' ও recalculate হয়ে re-lock হলো)' : '') + '।', 'success');
+    } else {
+      iglSetLocks(locks);
+      toast('🔒 ' + monthKey + ' লক করা হলো।', 'success');
+    }
   }
   if (typeof iglRenderMonthLockUI === 'function') iglRenderMonthLockUI(module);
 }
@@ -2551,10 +2656,13 @@ function iglRenderMonthLockUI(module) {
   var months = iglGetAllMonthsForModule(module);
   var locks = iglGetLocks();
   var modLocks = locks[module] || {};
+  var pendingMk = (module === 'needle') ? iglNdlGetPending() : {};
   listEl.innerHTML = months.map(function(mk) {
     var locked = !!modLocks[mk];
+    var pending = !!pendingMk[mk];
+    var statusHtml = locked ? ' <span style="color:#c0392b;">🔒 লক করা</span>' : (pending ? ' <span style="color:#e67e22;">🔸 Pending re-lock</span>' : ' <span style="color:#888;">🔓 খোলা</span>');
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-bottom:1px solid #eee;">' +
-      '<span style="font-size:13px;font-weight:600;">' + mk + (locked?' <span style="color:#c0392b;">🔒 লক করা</span>':' <span style="color:#888;">🔓 খোলা</span>') + '</span>' +
+      '<span style="font-size:13px;font-weight:600;">' + mk + statusHtml + '</span>' +
       '<button onclick="iglToggleMonthLock(\''+module+'\',\''+mk+'\')" style="padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;color:#fff;background:'+(locked?'#7d3c98':'#1e8449')+';">'+(locked?'আনলক':'লক করুন')+'</button>' +
       '</div>';
   }).join('') || '<div style="padding:14px;color:#888;font-size:13px;">এই মডিউলে কোনো ডাটা পাওয়া যায়নি।</div>';
@@ -25134,6 +25242,8 @@ function mpLoadMonth(year, month, cb) {
 }
 
 function mpSaveMonth(year, month, dataObj) {
+  var _lkErrMP = window.iglCheckMonthLock('needle', year + '-' + String(month).padStart(2,'0') + '-01');
+  if (_lkErrMP) { if (typeof toast === 'function') toast(_lkErrMP, 'error'); return; }
   var key = _mpKey(year, month);
   window._machProdCache[key] = dataObj;
   localStorage.setItem('igl_machprod_' + key, JSON.stringify(dataObj));
@@ -35312,36 +35422,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
   // ── সিলেক্টেড তারিখের calculated B/F সব needle এ save করো ──
   async function ndlSaveAllBF(){
-    var bfDate = (document.getElementById('ndlm-bf-date')||{}).value||'';
-    if(!bfDate){ toast('আগে তারিখ সিলেক্ট করুন!','warning'); return; }
-    var p=bfDate.split('-');
-    var dateLabel = p[2]+'-'+p[1]+'-'+p[0];
-    var ok = await igl_confirm(
-      dateLabel+' তারিখ পর্যন্তের Balance সব needle এর B/F হিসেবে Save হবে।\n\nএই কাজ undo করা যাবে না!',
-      'পুরনো B/F replace হয়ে যাবে।','💾'
-    );
-    if(!ok) return;
-
-    var nm = ndlGetMaster();
-    var allRcvs = ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';});
-    var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}) : [];
-
-    var updated = 0;
-    nm.forEach(function(n){
-      var bfMaster = Number(n.bf)||0;
-      var rcvUpTo = allRcvs.filter(function(r){return r.needleId===n.id && r.date<=bfDate;}).reduce(function(s,r){return s+r.qty;},0);
-      var issUpTo = allIss.filter(function(r){return r.needleId===n.id && r.date<=bfDate;}).reduce(function(s,r){return s+r.qty;},0);
-      var newBf = bfMaster + rcvUpTo - issUpTo;
-      if(newBf !== n.bf){ n.bf = newBf; updated++; }
-    });
-    ndlSetMaster(nm);
-
-    // তারিখ clear করো এবং table refresh
-    document.getElementById('ndlm-bf-date').value = '';
-    renderNeedleMasterTable();
-    try { renderNeedleStock(); } catch(e){}
-    triggerAutoSave();
-    toast('✅ '+updated+' টি Needle এর B/F আপডেট হয়েছে! ('+dateLabel+' পর্যন্ত)', 'success');
+    toast('🔒 এই বাটন বন্ধ করা হয়েছে — শুরুর B/F স্থায়ীভাবে বসানো আছে, এটা কখনো ওভাররাইট হবে না। এখন থেকে মাসিক B/F ম্যানেজ হয় Month Lock সিস্টেম দিয়ে (Admin → 🔒 মাস লক / আনলক → 🪡 Needle Issue)।', 'warning');
+    return;
   }
 
   // ── Needle Remarks Manager ──────────────────────────────────────────────
