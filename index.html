@@ -38639,6 +38639,18 @@ function pqbDoPrint() {
     '140': 'Fukuhara Jacquard Rib 34" (5)'
   };
 
+  // ERP → সংক্ষিপ্ত "Retail" নাম (মেশিন নাম্বার সহ — নিডেল ইসু ফর্মে ও RNA-তে এটাই দেখায়)।
+  // আগে এই migration শুধু .name ঠিক করত, .retail ঠিক করত না — তাই ইসু করার সময়
+  // পুরনো/জেনেরিক .retail ("Jacquard Rib 34\"" — মেশিন নাম্বার ছাড়া, 139 ও 140 আলাদা করা যেত না)
+  // .name ঠিক থাকা সত্ত্বেও দেখানো হতো, কারণ getNeedleMachines() .retail কে অগ্রাধিকার দেয়।
+  var retailMap = {
+    '136': 'Jaq Auto 34"1(136)',
+    '137': 'Jaq S/J 34"2(137)',
+    '138': 'Jaq S/J 34"3(138)',
+    '139': 'Jaq Rib 34"4(139)',
+    '140': 'Jaq Rib 34"5(140)'
+  };
+
   // 1. retail_machines fix
   try {
     var rms = JSON.parse(localStorage.getItem('igl_retail_machines') || '[]');
@@ -38649,8 +38661,12 @@ function pqbDoPrint() {
         rm.name = erpMap[erp];
         rmChanged = true;
       }
+      if (retailMap[erp] && rm.retail !== retailMap[erp]) {
+        rm.retail = retailMap[erp];
+        rmChanged = true;
+      }
     });
-    if (rmChanged) localStorage.setItem('igl_retail_machines', JSON.stringify(rms));
+    if (rmChanged) { localStorage.setItem('igl_retail_machines', JSON.stringify(rms)); if (typeof triggerAutoSave === 'function') triggerAutoSave(); }
   } catch(e) {}
 
   // 2. needle issues fix
