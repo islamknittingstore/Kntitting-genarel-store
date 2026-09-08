@@ -1637,6 +1637,7 @@ if('serviceWorker' in navigator){
         if(data.db){
           if(data.db.groups)   DB.groups   = data.db.groups;
           if(data.db.machines) DB.machines = data.db.machines;
+          try { ensureJacquardMachinesInStore(); } catch(e) {}
 
           // Firebase load এ local pending entries merge করো — overwrite নয়
           // Deleted IDs — Firebase থেকে সরাসরি cache এ লোড (localStorage নেই)
@@ -8422,6 +8423,7 @@ async function gdriveLoadNow() {
       const data = result.data;
       if (data.groups)   DB.groups   = data.groups;
       if (data.machines) DB.machines = data.machines;
+      try { ensureJacquardMachinesInStore(); } catch(e) {}
       if (data.receives) DB.receives = data.receives;
       if (data.issues)   DB.issues   = data.issues;
       if (data.gsReqFlags) DB.gsReqFlags = data.gsReqFlags;
@@ -9941,6 +9943,11 @@ function seedData() {
       {id:'Fukuhara Rib 40\'\'(33)', no:'133', cat:'Circular', name:''},
       {id:'Fukuhara Rib 42\'\'(34)', no:'134', cat:'Circular', name:''},
       {id:'Fukuhara Rib 42\'\'(35)', no:'135', cat:'Circular', name:''},
+      {id:'Fukuhara Jacquard Auto 34\'\'(1)', no:'136', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard S/J 34\'\'(2)', no:'137', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard S/J 34\'\'(3)', no:'138', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard Rib 34\'\'(4)', no:'139', cat:'Circular', name:'18g'},
+      {id:'Fukuhara Jacquard Rib 34\'\'(5)', no:'140', cat:'Circular', name:'18g'},
       {id:'Shima Seiki ( 1 )', no:'1', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 2 )', no:'2', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 3 )', no:'3', cat:'Flat Knit', name:''},
@@ -24324,6 +24331,29 @@ const NEEDLE_MACHINES = [
 // Format: {id, erp, name, retail, gauge, section}
 // Auto-seed from NEEDLE_MACHINES if localStorage is empty
 
+// ✅ General Store এর Machine List-এ (DB.machines) Jacquard 136-140 আগে ছিল না — বিদ্যমান
+// ডাটাতেও (যেখানে seedData() আর চলবে না) একবার যোগ করে দেয়, নাহলে ওয়েল ইসু করার সময়
+// এই মেশিনগুলো Machine Number ড্রপডাউনে পাওয়া যেত না
+function ensureJacquardMachinesInStore(){
+  try {
+    if (typeof DB === 'undefined' || !DB.machines) return;
+    var jaqDefaults = [
+      {id:'Fukuhara Jacquard Auto 34\'\'(1)', no:'136', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard S/J 34\'\'(2)',   no:'137', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard S/J 34\'\'(3)',   no:'138', cat:'Circular', name:'24g'},
+      {id:'Fukuhara Jacquard Rib 34\'\'(4)',   no:'139', cat:'Circular', name:'18g'},
+      {id:'Fukuhara Jacquard Rib 34\'\'(5)',   no:'140', cat:'Circular', name:'18g'}
+    ];
+    var existingNos = {};
+    DB.machines.forEach(function(m){ if(m && m.no) existingNos[String(m.no)] = true; });
+    var missing = jaqDefaults.filter(function(m){ return !existingNos[m.no]; });
+    if (missing.length) {
+      DB.machines = DB.machines.concat(missing);
+      if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    }
+  } catch(e){}
+}
+
 function _seedRetailMachinesIfEmpty(){
   try {
     var stored = JSON.parse(localStorage.getItem('igl_retail_machines') || 'null');
@@ -28690,6 +28720,7 @@ function init() {
   try { updateBeltBearingItems(); } catch(e) { console.error('updateBeltBearingItems error:', e); }
   try { updateElectricalItems(); } catch(e) { console.error('updateElectricalItems error:', e); }
   try { updateICTItems(); } catch(e) { console.error('updateICTItems error:', e); }
+  try { ensureJacquardMachinesInStore(); } catch(e) { console.error('ensureJacquardMachinesInStore error:', e); }
   try { updateClock(); } catch(e) { console.error('clock error:', e); }
   try { setInterval(updateClock, 1000); } catch(e) {}
   // Pre-populate all group dropdowns on startup
