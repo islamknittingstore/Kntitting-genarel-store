@@ -1727,7 +1727,10 @@ if('serviceWorker' in navigator){
             }
           }
           if(data.ndb.master){
-            // rnaSection user এর সেট করা — backup থেকে overwrite করব না
+            // rnaSection সবসময় local রাখা হয় (user এর নিজের সেট করা, কখনো Firebase দিয়ে overwrite না)।
+            // machines (needle-machine mapping) — ৪টা ডিভাইস থেকে mapping হয়, তাই "local সবসময় জিতবে"
+            // এটা সঠিক না (পুরনো ডিভাইস নতুন ডিভাইসের ম্যাপিং মুছে দিতে পারে) — তাই timestamp
+            // (machinesUpdatedAt) দেখে যেটা বেশি সাম্প্রতিক (local বা remote) সেটাই রাখা হয়।
             var restoreMaster = data.ndb.master;
             try {
               var currentMaster = JSON.parse(localStorage.getItem('igl_ndl_master') || '[]');
@@ -1735,11 +1738,28 @@ if('serviceWorker' in navigator){
                 var currentMap = {};
                 currentMaster.forEach(function(n){ currentMap[n.id] = n; });
                 restoreMaster = restoreMaster.map(function(n){
-                  if(currentMap[n.id] && currentMap[n.id].rnaSection){
-                    n.rnaSection = currentMap[n.id].rnaSection; // user এর assignment রাখো
+                  var localN = currentMap[n.id];
+                  if(localN){
+                    if(localN.rnaSection){
+                      n.rnaSection = localN.rnaSection; // user এর assignment রাখো
+                    }
+                    if(Array.isArray(localN.machines)){
+                      var localTs  = localN.machinesUpdatedAt || 0;
+                      var remoteTs = n.machinesUpdatedAt || 0;
+                      if (localTs >= remoteTs) {
+                        // local সমান বা বেশি সাম্প্রতিক (বা কোনোটারই timestamp নেই, প্রথমবার) — local রাখো
+                        n.machines = localN.machines;
+                        n.machinesUpdatedAt = localTs;
+                      }
+                      // নাহলে remote বেশি সাম্প্রতিক — remote-এর machines/timestamp-ই থাকবে (n যেমন আছে তেমনই)
+                    }
                   }
                   return n;
                 });
+                // ✅ local এ আছে কিন্তু Firebase এর master এ এখনো নেই এমন needle (নতুন যোগ করা, sync হয়নি) — হারিয়ে যেতে দেওয়া যাবে না
+                var restoredIds = {}; restoreMaster.forEach(function(n){ restoredIds[n.id]=true; });
+                var missingLocalNeedles = currentMaster.filter(function(n){ return !restoredIds[n.id]; });
+                if(missingLocalNeedles.length){ restoreMaster = restoreMaster.concat(missingLocalNeedles); }
               }
             } catch(e){}
             localStorage.setItem('igl_ndl_master', JSON.stringify(restoreMaster));
@@ -30411,6 +30431,26 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     return base;
   }
   function ndlSetMaster(v){
+    // ✅ ৪টা ডিভাইস থেকে mapping করা হয় — কোনটা "সঠিক" তা ঠিকমতো বুঝতে machines পরিবর্তন
+    // হলে প্রতিটা needle-এ একটা timestamp বসানো হয়। পরে Firebase sync-এর সময় local vs
+    // remote-এর মধ্যে যেটা বেশি সাম্প্রতিক (timestamp বেশি) সেটাই জিতবে — পুরনো ডিভাইস এসে
+    // নতুন ডিভাইসের ম্যাপিং মুছে দিতে পারবে না, আবার নতুন ডিভাইস পুরনোটাকে ঠিকই ওভাররাইট করবে।
+    try{
+      var prevArr = [];
+      try { prevArr = JSON.parse(localStorage.getItem('igl_ndl_master')||'[]'); } catch(e){}
+      var prevMap = {}; prevArr.forEach(function(n){ if(n && n.id) prevMap[n.id]=n; });
+      v.forEach(function(n){
+        var prevN = prevMap[n.id];
+        var prevMachines = (prevN && Array.isArray(prevN.machines)) ? prevN.machines : [];
+        var newMachines = Array.isArray(n.machines) ? n.machines : [];
+        var changed = prevMachines.length !== newMachines.length || prevMachines.some(function(m){ return newMachines.indexOf(m) < 0; });
+        if (changed) {
+          n.machinesUpdatedAt = Date.now();
+        } else if (prevN && prevN.machinesUpdatedAt && !n.machinesUpdatedAt) {
+          n.machinesUpdatedAt = prevN.machinesUpdatedAt; // অপরিবর্তিত থাকলে আগের timestamp রাখো
+        }
+      });
+    } catch(e){}
     try{localStorage.setItem('igl_ndl_master',JSON.stringify(v));}catch(e){}
     // ✅ Needle-Machine mapping change সাথে সাথে Firebase-এ push করো, যাতে অন্য ডিভাইসেও
     // সাথে সাথে sync হয় (আগে শুধু localStorage-এ থাকতো, অন্য কোনো action না করলে Firebase-এ যেত না)
