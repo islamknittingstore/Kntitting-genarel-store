@@ -10003,6 +10003,19 @@ function seedData() {
 //  HELPERS
 // 
 function getStock(itemName) {
+  // 🛢️ Oil আইটেমের জন্য যদি আলাদা date-anchored BF (igl_oil_bf, Oil Item Ledger থেকে সেট করা)
+  // থাকে, সেটা দিয়েই হিসাব করো — সাধারণ item.bf (lifetime বেস) দিয়ে না, কারণ Oil-এর BF একটা
+  // নির্দিষ্ট তারিখ থেকে শুরু হয়, শুরু থেকে না।
+  try {
+    var oilBF = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}');
+    if (oilBF[itemName]) {
+      var anchor = oilBF[itemName];
+      var recAfter = DB.receives.filter(function(r){ return r.item===itemName && r.date >= anchor.date; }).reduce(function(s,r){ return s+(Number(r.qty)||0); }, 0);
+      var issAfter = DB.issues.filter(function(i){ return i.item===itemName && i.date >= anchor.date; }).reduce(function(s,i){ return s+(Number(i.qty)||0); }, 0);
+      return (Number(anchor.qty)||0) + recAfter - issAfter;
+    }
+  } catch(e){}
+
   var bf = 0;
   var foundInStn = false;
   if (typeof DB !== 'undefined' && DB.stnItems) {
@@ -10638,12 +10651,19 @@ function updateIssueStock() {
   const group = document.getElementById('i-group').value;
   const lastWrap = document.getElementById('i-last-issues-wrap');
   const flagWrap = document.getElementById('i-req-flag-wrap');
+  const isOilCategory = group === 'Oil';
   if (item) {
     document.getElementById('i-stock-badge').innerHTML = stockBadge(getStock(item));
-    document.getElementById('i-last-issues').innerHTML = getLastIssuesHtml(item, 5);
-    if (lastWrap) lastWrap.style.display = '';
-    if (flagWrap) flagWrap.style.display = '';
-    document.getElementById('i-req-flag').checked = isItemFlaggedForReq(group, item);
+    // ✅ Oil ক্যাটাগরির জন্য "সর্বশেষ কয়েকটা ইসু" আর "Requisition" — দুটোরই দরকার নেই
+    if (isOilCategory) {
+      if (lastWrap) lastWrap.style.display = 'none';
+      if (flagWrap) flagWrap.style.display = 'none';
+    } else {
+      document.getElementById('i-last-issues').innerHTML = getLastIssuesHtml(item, 5);
+      if (lastWrap) lastWrap.style.display = '';
+      if (flagWrap) flagWrap.style.display = '';
+      document.getElementById('i-req-flag').checked = isItemFlaggedForReq(group, item);
+    }
   } else {
     if (lastWrap) lastWrap.style.display = 'none';
     if (flagWrap) flagWrap.style.display = 'none';
@@ -10891,12 +10911,15 @@ async function saveIssue() {
 
 function clearIssueForm() {
   // Date, Slip, Group, Category — sticky (keep previous)
-  // Only reset Item, Qty, Machine
+  // Category (i-group ফিল্ড, label swap অনুযায়ী "Category") == 'Oil' হলে Group+Item+Qty ও sticky থাকবে
   const grp = document.getElementById('i-group').value;
   const cat = document.getElementById('i-category').value;
+  const isOilCategory = grp === 'Oil';
+  const prevItem = document.getElementById('i-item').value;
+  const prevQty  = document.getElementById('i-qty').value;
 
   document.getElementById('i-item').innerHTML = '<option value="">-- Select Item --</option>';
-  document.getElementById('i-qty').value = '';
+  document.getElementById('i-qty').value = isOilCategory ? prevQty : '';
   document.getElementById('i-machine-id').value = '';
   document.getElementById('i-machine-no').value = '';
   document.getElementById('i-machine-cat').value = '';
@@ -10914,6 +10937,11 @@ function clearIssueForm() {
     if (cat) {
       document.getElementById('i-category').value = cat;
       filterIItems();
+      // ✅ Oil ক্যাটাগরির জন্য Item নামও sticky রাখো (একই আইটেম বারবার ইসু হয় বলে)
+      if (isOilCategory && prevItem) {
+        document.getElementById('i-item').value = prevItem;
+        try { updateIssueStock(); } catch(e) {}
+      }
     }
   }
 
@@ -26220,6 +26248,17 @@ function oilRefreshActiveView() {
   oilShowView(window._oilActiveView || 'machine');
 }
 
+// একটা আইটেমের সর্বশেষ Receive এন্ট্রির রেট (Taka/Liter) — Oil কস্টিং হিসাবের জন্য
+function oilGetLastRate(itemName) {
+  var recs = (DB.receives||[]).filter(function(r){ return r.item === itemName && Number(r.rate) > 0; });
+  if (!recs.length) return 0;
+  recs.sort(function(a,b){
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return (b.entryTime||'').localeCompare(a.entryTime||'');
+  });
+  return Number(recs[0].rate) || 0;
+}
+
 function renderOilMonthlyProd() {
   var month = Number((document.getElementById('oil-month')||{}).value || new Date().getMonth()+1);
   var year  = Number((document.getElementById('oil-year')||{}).value  || new Date().getFullYear());
@@ -26235,11 +26274,19 @@ function renderOilMonthlyProd() {
     return d2.getMonth()+1===month && d2.getFullYear()===year && r.category === 'Knitting Oil';
   });
 
+  // প্রতিটা রেকর্ডে তার আইটেমের সর্বশেষ রেট বসিয়ে Cost (Taka) বের করে নাও
+  var _rateCache = {};
+  allOil.forEach(function(r){
+    if (!(r.item in _rateCache)) _rateCache[r.item] = oilGetLastRate(r.item);
+    r._rate = _rateCache[r.item];
+    r._cost = (Number(r.qty)||0) * r._rate;
+  });
+
   mpLoadMonth(year, month, function(prodData){
    try {
 
     function buildTable(title, machineList) {
-      if (!machineList.length) return {html:'', oil:0, prod:0};
+      if (!machineList.length) return {html:'', oil:0, prod:0, cost:0};
       var t = '<div style="margin-bottom:18px;">';
       t += '<div style="background:#1a5276;color:#fff;padding:6px 10px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;">'+title+'</div>';
       t += '<table style="font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;border:1px solid #ccc;">';
@@ -26253,12 +26300,15 @@ function renderOilMonthlyProd() {
       t += '<th style="width:44px;background:#1c2833;color:#fff;border:1px solid #ccc;">Total<br>Oil(L)</th>';
       t += '<th style="width:44px;background:#1e8449;color:#fff;border:1px solid #ccc;">Total<br>Prod(kg)</th>';
       t += '<th style="width:40px;background:#6c3483;color:#fff;border:1px solid #ccc;">Ltr/Kg</th>';
+      t += '<th style="width:50px;background:#7d6608;color:#fff;border:1px solid #ccc;">Cost(৳)</th>';
+      t += '<th style="width:44px;background:#943126;color:#fff;border:1px solid #ccc;">৳/Kg</th>';
       t += '</tr></thead><tbody>';
 
-      var secOil = 0, secProd = 0;
+      var secOil = 0, secProd = 0, secCost = 0;
       machineList.forEach(function(m){
         var mData = allOil.filter(function(r){ return r.machineNo === m.erp; });
         var rowTotal = mData.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+        var rowCost  = mData.reduce(function(s,r){return s+(r._cost||0);},0);
         var mProd = prodData[m.id] || {};
         var rowProdTotal = 0;
         t += '<tr>';
@@ -26275,23 +26325,29 @@ function renderOilMonthlyProd() {
              + (dayKg>0  ? '<div style="color:#1e8449;font-size:7.5px;word-break:break-all;">'+dayKg+'</div>'    : '')
              + '</td>';
         });
-        secOil += rowTotal; secProd += rowProdTotal;
+        secOil += rowTotal; secProd += rowProdTotal; secCost += rowCost;
         var rowRatio = rowProdTotal > 0 ? (rowTotal/rowProdTotal).toFixed(4) : '';
+        var rowTakaRatio = rowProdTotal > 0 ? (rowCost/rowProdTotal).toFixed(4) : '';
         t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;border:1px solid #ddd;">'+(rowTotal||'')+'</td>';
         t += '<td style="text-align:center;font-weight:700;background:#eafaf1;border:1px solid #ddd;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
         t += '<td style="text-align:center;font-weight:700;background:#f4ecf7;border:1px solid #ddd;">'+rowRatio+'</td>';
+        t += '<td style="text-align:center;font-weight:700;background:#fef9e7;border:1px solid #ddd;">'+(rowCost? rowCost.toFixed(1):'')+'</td>';
+        t += '<td style="text-align:center;font-weight:700;background:#fdedec;border:1px solid #ddd;">'+rowTakaRatio+'</td>';
         t += '</tr>';
       });
 
       var secRatio = secProd > 0 ? (secOil/secProd).toFixed(4) : '';
+      var secTakaRatio = secProd > 0 ? (secCost/secProd).toFixed(4) : '';
       t += '<tr style="background:#784212;color:#fff;font-weight:700;">';
       t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;">Sub Total — '+title+'</td>';
       t += '<td style="text-align:center;">'+secOil+'</td>';
       t += '<td style="text-align:center;">'+secProd.toFixed(1)+'</td>';
       t += '<td style="text-align:center;">'+secRatio+'</td>';
+      t += '<td style="text-align:center;">'+secCost.toFixed(1)+'</td>';
+      t += '<td style="text-align:center;">'+secTakaRatio+'</td>';
       t += '</tr>';
       t += '</tbody></table></div>';
-      return {html:t, oil:secOil, prod:secProd};
+      return {html:t, oil:secOil, prod:secProd, cost:secCost};
     }
 
     var page1 = [], page2 = [], page3 = [], flatKnit = [];
@@ -26307,24 +26363,25 @@ function renderOilMonthlyProd() {
     flatKnit.sort(function(a,b){ return a.id.localeCompare(b.id); });
 
     var out = '<div style="padding:10px 15px;">';
-    var grandOil = 0, grandProd = 0;
+    var grandOil = 0, grandProd = 0, grandCost = 0;
 
     var r1 = buildTable('Circular — Page 1 (ERP 8–81)', page1);
-    if (r1.html) { out += r1.html; grandOil += r1.oil; grandProd += r1.prod; }
+    if (r1.html) { out += r1.html; grandOil += r1.oil; grandProd += r1.prod; grandCost += r1.cost; }
 
     var r2 = buildTable('Circular — Page 2 (ERP 82–129)', page2);
-    if (r2.html) { out += r2.html; grandOil += r2.oil; grandProd += r2.prod; }
+    if (r2.html) { out += r2.html; grandOil += r2.oil; grandProd += r2.prod; grandCost += r2.cost; }
 
     var r3 = buildTable('Circular — Page 3 (ERP 130+)', page3);
-    if (r3.html) { out += r3.html; grandOil += r3.oil; grandProd += r3.prod; }
+    if (r3.html) { out += r3.html; grandOil += r3.oil; grandProd += r3.prod; grandCost += r3.cost; }
 
     var r4 = buildTable('Flat Knit Machines', flatKnit);
-    if (r4.html) { out += r4.html; grandOil += r4.oil; grandProd += r4.prod; }
+    if (r4.html) { out += r4.html; grandOil += r4.oil; grandProd += r4.prod; grandCost += r4.cost; }
 
     var grandRatio = grandProd > 0 ? (grandOil/grandProd).toFixed(4) : '';
-    out += '<div style="background:#117a65;color:#fff;font-weight:700;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;font-size:12px;">';
+    var grandTakaRatio = grandProd > 0 ? (grandCost/grandProd).toFixed(4) : '';
+    out += '<div style="background:#117a65;color:#fff;font-weight:700;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;">';
     out += '<span>📅 সর্বমোট (Grand Total)</span>';
-    out += '<span>Oil: '+grandOil.toFixed(2)+' Ltr &nbsp;|&nbsp; Production: '+grandProd.toFixed(1)+' kg &nbsp;|&nbsp; Ratio: '+grandRatio+' Ltr/Kg</span>';
+    out += '<span>Oil: '+grandOil.toFixed(2)+' Ltr &nbsp;|&nbsp; Production: '+grandProd.toFixed(1)+' kg &nbsp;|&nbsp; Ratio: '+grandRatio+' Ltr/Kg &nbsp;|&nbsp; Cost: ৳'+grandCost.toFixed(1)+' &nbsp;|&nbsp; ৳'+grandTakaRatio+'/Kg</span>';
     out += '</div></div>';
 
     document.getElementById('oilMonthlyProdGrid').innerHTML = out;
