@@ -4195,6 +4195,7 @@ window.iglSaveNavVisibility = function() {
           </select>
           <button class="btn btn-primary btn-sm" onclick="oilRefreshActiveView()">View</button>
           <span id="oil-bf-btn-holder"></span>
+          <button class="btn btn-sm no-print admin-only-action" style="background:#b9770e;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="oilMachineMapOpen()">🔧 Oil Machine Mapping</button>
           <button class="btn btn-sm no-print" style="background:#6c3483;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="window.print()">🖨️ Print</button>
         </div>
         <div id="oil-machine-legend" style="margin-top:8px;font-size:11px;color:#666;display:none;">
@@ -26247,6 +26248,65 @@ function renderNeedleMonthlyProd() {
 // ── Oil vs Production পেজের ৩টা বাটন কন্ট্রোলার — একসাথে একটাই ভিউ দেখাবে ──
 var OIL_ITEM_MAP = { excel: 'Excel Super Oil', textol: 'Textol Oil' };
 
+// ── Oil Machine Mapping (Admin) — কোন মেশিন Excel Super Oil, কোনটা Textol Oil ব্যবহার করে
+// তা ফিক্স করে দেওয়া। "Machine Wise Oil vs Production"-এ দুটো টেবিল এই assignment অনুযায়ী
+// আলাদা হবে — Issue রেকর্ড কী হয়েছে তার উপর নির্ভর না করে।
+function oilGetMachineMap() { try { return JSON.parse(localStorage.getItem('igl_oil_machine_map') || '{}'); } catch(e) { return {}; } }
+function oilSetMachineMap(o) { localStorage.setItem('igl_oil_machine_map', JSON.stringify(o)); if (typeof triggerAutoSave === 'function') triggerAutoSave(); }
+
+function oilMachineMapOpen() {
+  if (!window.IGL_CURRENT_USER || window.IGL_CURRENT_USER.role !== 'admin') {
+    if (typeof toast === 'function') toast('❌ শুধুমাত্র Admin এই কাজ করতে পারবেন!', 'error');
+    return;
+  }
+  var map = oilGetMachineMap(); // {erp: 'Excel Super Oil' | 'Textol Oil'}
+  var machines = getNeedleMachines().slice().sort(function(a,b){ return (parseInt(a.erp||0,10))-(parseInt(b.erp||0,10)); });
+  var rows = machines.map(function(m){
+    var cur = map[m.erp] || '';
+    function opt(val, label){ return '<option value="'+val+'"'+(cur===val?' selected':'')+'>'+label+'</option>'; }
+    return '<tr>'
+      + '<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;">'+(m.erp||'')+'</td>'
+      + '<td style="padding:5px 8px;border-bottom:1px solid #eee;">'+m.id+'</td>'
+      + '<td style="padding:5px 8px;border-bottom:1px solid #eee;">'
+      + '<select class="oil-mm-select" data-erp="'+m.erp+'" style="width:100%;padding:4px;border-radius:5px;border:1px solid #ccc;">'
+      + opt('', '— None —') + opt('Excel Super Oil', 'Excel Super Oil') + opt('Textol Oil', 'Textol Oil')
+      + '</select></td></tr>';
+  }).join('');
+
+  var modal = document.createElement('div');
+  modal.id = 'oil-mm-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = '<div style="background:#fff;border-radius:8px;max-width:520px;width:92%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="background:#b9770e;color:#fff;padding:12px 16px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">'
+    + '<span>🔧 Oil Machine Mapping</span>'
+    + '<span style="cursor:pointer;" onclick="document.getElementById(\'oil-mm-modal\').remove()">✕</span>'
+    + '</div>'
+    + '<div style="padding:10px 16px;font-size:12px;color:#666;">প্রতিটা মেশিনের জন্য কোন তেল ব্যবহার হবে সিলেক্ট করুন — Oil vs Production রিপোর্টে সেই অনুযায়ী দুটো টেবিল আলাদা হবে।</div>'
+    + '<div style="overflow-y:auto;flex:1;padding:0 16px;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<thead><tr style="background:#f8f4ea;position:sticky;top:0;"><th style="padding:5px 8px;">ERP</th><th style="padding:5px 8px;text-align:left;">Machine ID</th><th style="padding:5px 8px;">Oil Type</th></tr></thead>'
+    + '<tbody>'+rows+'</tbody></table>'
+    + '</div>'
+    + '<div style="padding:12px 16px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px;">'
+    + '<button onclick="document.getElementById(\'oil-mm-modal\').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">বাতিল</button>'
+    + '<button onclick="oilMachineMapSave()" style="padding:8px 16px;border-radius:6px;border:none;background:#1e8449;color:#fff;font-weight:700;cursor:pointer;">💾 Save</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function oilMachineMapSave() {
+  var map = {};
+  document.querySelectorAll('.oil-mm-select').forEach(function(sel){
+    var v = sel.value;
+    if (v) map[sel.getAttribute('data-erp')] = v;
+  });
+  oilSetMachineMap(map);
+  var modal = document.getElementById('oil-mm-modal');
+  if (modal) modal.remove();
+  if (typeof toast === 'function') toast('✅ Oil Machine Mapping সেভ হয়েছে।', 'success');
+  if (window._oilActiveView === 'machine') renderOilMonthlyProd();
+}
+
 function oilShowView(view) {
   window._oilActiveView = view;
   var machineEl  = document.getElementById('oilMonthlyProdGrid');
@@ -26400,21 +26460,31 @@ function renderOilMonthlyProd() {
 
     function buildItemSection(itemName, accentColor) {
       var allOil = allOilByItem[itemName];
+      // 🔧 Oil Machine Mapping অনুযায়ী শুধু এই আইটেমে assign করা মেশিনগুলোই দেখাও
+      var mMap = oilGetMachineMap();
+      var mappedFilter = function(m){ return mMap[m.erp] === itemName; };
+      var mPage1 = page1.filter(mappedFilter), mPage2 = page2.filter(mappedFilter),
+          mPage3 = page3.filter(mappedFilter), mFlatKnit = flatKnit.filter(mappedFilter);
+
       var out = '<div style="border:2px solid '+accentColor+';border-radius:6px;padding:10px;margin-bottom:22px;">';
       out += '<div style="background:'+accentColor+';color:#fff;padding:7px 12px;border-radius:4px;font-weight:700;font-size:14px;margin-bottom:10px;">🛢️ '+itemName+'</div>';
 
+      if (Object.keys(mMap).length === 0) {
+        out += '<div style="padding:12px;background:#fef9e7;border:1px solid #f1c40f;border-radius:5px;font-size:12px;color:#7d6608;margin-bottom:10px;">⚠️ কোনো মেশিন এখনো Excel/Textol-এ assign করা হয়নি — উপরের "🔧 Oil Machine Mapping" বাটন দিয়ে সেট করুন।</div>';
+      }
+
       var grandOil = 0, grandProd = 0, grandCost = 0;
 
-      var r1 = buildTable('Circular — Page 1 (ERP 8–81)', page1, allOil);
+      var r1 = buildTable('Circular — Page 1 (ERP 8–81)', mPage1, allOil);
       if (r1.html) { out += r1.html; grandOil += r1.oil; grandProd += r1.prod; grandCost += r1.cost; }
 
-      var r2 = buildTable('Circular — Page 2 (ERP 82–129)', page2, allOil);
+      var r2 = buildTable('Circular — Page 2 (ERP 82–129)', mPage2, allOil);
       if (r2.html) { out += r2.html; grandOil += r2.oil; grandProd += r2.prod; grandCost += r2.cost; }
 
-      var r3 = buildTable('Circular — Page 3 (ERP 130+)', page3, allOil);
+      var r3 = buildTable('Circular — Page 3 (ERP 130+)', mPage3, allOil);
       if (r3.html) { out += r3.html; grandOil += r3.oil; grandProd += r3.prod; grandCost += r3.cost; }
 
-      var r4 = buildTable('Flat Knit Machines', flatKnit, allOil);
+      var r4 = buildTable('Flat Knit Machines', mFlatKnit, allOil);
       if (r4.html) { out += r4.html; grandOil += r4.oil; grandProd += r4.prod; grandCost += r4.cost; }
 
       var grandTakaRatio = grandProd > 0 ? (grandCost/grandProd).toFixed(4) : '';
