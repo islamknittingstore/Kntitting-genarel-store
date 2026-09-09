@@ -10991,6 +10991,17 @@ function _gsDoExportGroupMonthlyExcelJS(){
   if (!items.length){ toast('❌ এই Category-তে কোনো আইটেম নেই','error'); return; }
 
   function bfOf(itemName){
+    // 🛢️ Oil আইটেমের জন্য date-anchored BF (igl_oil_bf, Oil Item Ledger থেকে সেট করা) থাকলে
+    // সেটা দিয়েই হিসাব করো — getStock() এর মতোই একই নিয়ম, নাহলে item.bf (lifetime base) ব্যবহার হবে
+    try {
+      var oilBF = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}');
+      if (oilBF[itemName]) {
+        var anchor = oilBF[itemName];
+        var recAfter = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date >= anchor.date && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+        var issAfter = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date >= anchor.date && x.date < monthStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+        return (Number(anchor.qty)||0) + recAfter - issAfter;
+      }
+    } catch(e){}
     var baseBf = 0;
     var itObj = items.find(function(x){ return x.name===itemName; });
     if (itObj) baseBf = Number(itObj.bf)||0;
@@ -26268,24 +26279,43 @@ function renderOilMonthlyProd() {
 
   var machines = (sec ? getNeedleMachines().filter(function(m){return m.section===sec;}) : getNeedleMachines());
 
-  // "Knitting Oil" গ্রুপের (Group লেবেল = item.category ফিল্ড, Group/Category label-swap অনুযায়ী) Issue রেকর্ড
-  var allOil = (DB.issues||[]).filter(function(r){
-    var d2 = new Date(r.date);
-    return d2.getMonth()+1===month && d2.getFullYear()===year && r.category === 'Knitting Oil';
+  // Excel Super Oil ও Textol Oil — দাম আলাদা হওয়ায় সম্পূর্ণ আলাদা টেবিলে হিসাব হয় (মেশিন লিস্ট কমন)
+  var OIL_ITEMS = ['Excel Super Oil', 'Textol Oil'];
+
+  // "Knitting Oil" গ্রুপের Issue রেকর্ড, প্রতিটা আইটেম আলাদাভাবে
+  var allOilByItem = {};
+  OIL_ITEMS.forEach(function(itemName){
+    allOilByItem[itemName] = (DB.issues||[]).filter(function(r){
+      var d2 = new Date(r.date);
+      return d2.getMonth()+1===month && d2.getFullYear()===year && r.category === 'Knitting Oil' && r.item === itemName;
+    });
   });
 
-  // প্রতিটা রেকর্ডে তার আইটেমের সর্বশেষ রেট বসিয়ে Cost (Taka) বের করে নাও
-  var _rateCache = {};
-  allOil.forEach(function(r){
-    if (!(r.item in _rateCache)) _rateCache[r.item] = oilGetLastRate(r.item);
-    r._rate = _rateCache[r.item];
-    r._cost = (Number(r.qty)||0) * r._rate;
+  // প্রতিটা আইটেমের সর্বশেষ রেট বসিয়ে Cost (Taka) বের করে নাও
+  OIL_ITEMS.forEach(function(itemName){
+    var rate = oilGetLastRate(itemName);
+    allOilByItem[itemName].forEach(function(r){
+      r._rate = rate;
+      r._cost = (Number(r.qty)||0) * rate;
+    });
   });
 
   mpLoadMonth(year, month, function(prodData){
    try {
 
-    function buildTable(title, machineList) {
+    var page1 = [], page2 = [], page3 = [], flatKnit = [];
+    machines.forEach(function(m){
+      var erp = parseInt(m.erp || 0, 10);
+      if ((m.section||'') === 'Flat Knit') { flatKnit.push(m); return; }
+      if (erp >= 130) page3.push(m);
+      else if (erp <= 81) page1.push(m);
+      else if (erp >= 82 && erp <= 129) page2.push(m);
+    });
+    function sortByErp(arr){ arr.sort(function(a,b){ return (parseInt(a.erp||0,10))-(parseInt(b.erp||0,10)); }); }
+    sortByErp(page1); sortByErp(page2); sortByErp(page3);
+    flatKnit.sort(function(a,b){ return a.id.localeCompare(b.id); });
+
+    function buildTable(title, machineList, allOil) {
       if (!machineList.length) return {html:'', oil:0, prod:0, cost:0};
       var t = '<div style="margin-bottom:18px;">';
       t += '<div style="background:#1a5276;color:#fff;padding:6px 10px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;">'+title+'</div>';
@@ -26299,9 +26329,8 @@ function renderOilMonthlyProd() {
       });
       t += '<th style="width:44px;background:#1c2833;color:#fff;border:1px solid #ccc;">Total<br>Oil(L)</th>';
       t += '<th style="width:44px;background:#1e8449;color:#fff;border:1px solid #ccc;">Total<br>Prod(kg)</th>';
-      t += '<th style="width:40px;background:#6c3483;color:#fff;border:1px solid #ccc;">Ltr/Kg</th>';
-      t += '<th style="width:50px;background:#7d6608;color:#fff;border:1px solid #ccc;">Cost(৳)</th>';
-      t += '<th style="width:44px;background:#943126;color:#fff;border:1px solid #ccc;">৳/Kg</th>';
+      t += '<th style="width:50px;background:#7d6608;color:#fff;border:1px solid #ccc;">Total<br>Cost(৳)</th>';
+      t += '<th style="width:44px;background:#943126;color:#fff;border:1px solid #ccc;">Cost/Kg<br>(৳)</th>';
       t += '</tr></thead><tbody>';
 
       var secOil = 0, secProd = 0, secCost = 0;
@@ -26326,23 +26355,19 @@ function renderOilMonthlyProd() {
              + '</td>';
         });
         secOil += rowTotal; secProd += rowProdTotal; secCost += rowCost;
-        var rowRatio = rowProdTotal > 0 ? (rowTotal/rowProdTotal).toFixed(4) : '';
         var rowTakaRatio = rowProdTotal > 0 ? (rowCost/rowProdTotal).toFixed(4) : '';
         t += '<td style="text-align:center;font-weight:700;background:#eaf4fb;border:1px solid #ddd;">'+(rowTotal||'')+'</td>';
         t += '<td style="text-align:center;font-weight:700;background:#eafaf1;border:1px solid #ddd;">'+(rowProdTotal? rowProdTotal.toFixed(1):'')+'</td>';
-        t += '<td style="text-align:center;font-weight:700;background:#f4ecf7;border:1px solid #ddd;">'+rowRatio+'</td>';
         t += '<td style="text-align:center;font-weight:700;background:#fef9e7;border:1px solid #ddd;">'+(rowCost? rowCost.toFixed(1):'')+'</td>';
         t += '<td style="text-align:center;font-weight:700;background:#fdedec;border:1px solid #ddd;">'+rowTakaRatio+'</td>';
         t += '</tr>';
       });
 
-      var secRatio = secProd > 0 ? (secOil/secProd).toFixed(4) : '';
       var secTakaRatio = secProd > 0 ? (secCost/secProd).toFixed(4) : '';
       t += '<tr style="background:#784212;color:#fff;font-weight:700;">';
       t += '<td colspan="'+(3+days.length)+'" style="text-align:right;padding:4px 8px;">Sub Total — '+title+'</td>';
       t += '<td style="text-align:center;">'+secOil+'</td>';
       t += '<td style="text-align:center;">'+secProd.toFixed(1)+'</td>';
-      t += '<td style="text-align:center;">'+secRatio+'</td>';
       t += '<td style="text-align:center;">'+secCost.toFixed(1)+'</td>';
       t += '<td style="text-align:center;">'+secTakaRatio+'</td>';
       t += '</tr>';
@@ -26350,41 +26375,39 @@ function renderOilMonthlyProd() {
       return {html:t, oil:secOil, prod:secProd, cost:secCost};
     }
 
-    var page1 = [], page2 = [], page3 = [], flatKnit = [];
-    machines.forEach(function(m){
-      var erp = parseInt(m.erp || 0, 10);
-      if ((m.section||'') === 'Flat Knit') { flatKnit.push(m); return; }
-      if (erp >= 130) page3.push(m);
-      else if (erp <= 81) page1.push(m);
-      else if (erp >= 82 && erp <= 129) page2.push(m);
-    });
-    function sortByErp(arr){ arr.sort(function(a,b){ return (parseInt(a.erp||0,10))-(parseInt(b.erp||0,10)); }); }
-    sortByErp(page1); sortByErp(page2); sortByErp(page3);
-    flatKnit.sort(function(a,b){ return a.id.localeCompare(b.id); });
+    function buildItemSection(itemName, accentColor) {
+      var allOil = allOilByItem[itemName];
+      var out = '<div style="border:2px solid '+accentColor+';border-radius:6px;padding:10px;margin-bottom:22px;">';
+      out += '<div style="background:'+accentColor+';color:#fff;padding:7px 12px;border-radius:4px;font-weight:700;font-size:14px;margin-bottom:10px;">🛢️ '+itemName+'</div>';
 
-    var out = '<div style="padding:10px 15px;">';
-    var grandOil = 0, grandProd = 0, grandCost = 0;
+      var grandOil = 0, grandProd = 0, grandCost = 0;
 
-    var r1 = buildTable('Circular — Page 1 (ERP 8–81)', page1);
-    if (r1.html) { out += r1.html; grandOil += r1.oil; grandProd += r1.prod; grandCost += r1.cost; }
+      var r1 = buildTable('Circular — Page 1 (ERP 8–81)', page1, allOil);
+      if (r1.html) { out += r1.html; grandOil += r1.oil; grandProd += r1.prod; grandCost += r1.cost; }
 
-    var r2 = buildTable('Circular — Page 2 (ERP 82–129)', page2);
-    if (r2.html) { out += r2.html; grandOil += r2.oil; grandProd += r2.prod; grandCost += r2.cost; }
+      var r2 = buildTable('Circular — Page 2 (ERP 82–129)', page2, allOil);
+      if (r2.html) { out += r2.html; grandOil += r2.oil; grandProd += r2.prod; grandCost += r2.cost; }
 
-    var r3 = buildTable('Circular — Page 3 (ERP 130+)', page3);
-    if (r3.html) { out += r3.html; grandOil += r3.oil; grandProd += r3.prod; grandCost += r3.cost; }
+      var r3 = buildTable('Circular — Page 3 (ERP 130+)', page3, allOil);
+      if (r3.html) { out += r3.html; grandOil += r3.oil; grandProd += r3.prod; grandCost += r3.cost; }
 
-    var r4 = buildTable('Flat Knit Machines', flatKnit);
-    if (r4.html) { out += r4.html; grandOil += r4.oil; grandProd += r4.prod; grandCost += r4.cost; }
+      var r4 = buildTable('Flat Knit Machines', flatKnit, allOil);
+      if (r4.html) { out += r4.html; grandOil += r4.oil; grandProd += r4.prod; grandCost += r4.cost; }
 
-    var grandRatio = grandProd > 0 ? (grandOil/grandProd).toFixed(4) : '';
-    var grandTakaRatio = grandProd > 0 ? (grandCost/grandProd).toFixed(4) : '';
-    out += '<div style="background:#117a65;color:#fff;font-weight:700;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;">';
-    out += '<span>📅 সর্বমোট (Grand Total)</span>';
-    out += '<span>Oil: '+grandOil.toFixed(2)+' Ltr &nbsp;|&nbsp; Production: '+grandProd.toFixed(1)+' kg &nbsp;|&nbsp; Ratio: '+grandRatio+' Ltr/Kg &nbsp;|&nbsp; Cost: ৳'+grandCost.toFixed(1)+' &nbsp;|&nbsp; ৳'+grandTakaRatio+'/Kg</span>';
-    out += '</div></div>';
+      var grandTakaRatio = grandProd > 0 ? (grandCost/grandProd).toFixed(4) : '';
+      out += '<div style="background:#117a65;color:#fff;font-weight:700;padding:8px 12px;border-radius:4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;">';
+      out += '<span>📅 '+itemName+' — সর্বমোট (Grand Total)</span>';
+      out += '<span>Total Production: '+grandProd.toFixed(1)+' kg &nbsp;|&nbsp; Total Oil: '+grandOil.toFixed(2)+' Ltr &nbsp;|&nbsp; Total Oil Cost: ৳'+grandCost.toFixed(1)+' &nbsp;|&nbsp; Oil Cost/Kg: ৳'+grandTakaRatio+'</span>';
+      out += '</div></div>';
+      return out;
+    }
 
-    document.getElementById('oilMonthlyProdGrid').innerHTML = out;
+    var finalOut = '<div style="padding:10px 15px;">';
+    finalOut += buildItemSection('Excel Super Oil', '#1a5276');
+    finalOut += buildItemSection('Textol Oil', '#922b21');
+    finalOut += '</div>';
+
+    document.getElementById('oilMonthlyProdGrid').innerHTML = finalOut;
    } catch(renderErr) {
      console.error('renderOilMonthlyProd error:', renderErr);
      if (typeof toast === 'function') toast('❌ গ্রিড রেন্ডার করতে সমস্যা: ' + (renderErr && renderErr.message ? renderErr.message : renderErr), 'error');
