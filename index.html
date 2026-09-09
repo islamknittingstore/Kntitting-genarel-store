@@ -22091,7 +22091,7 @@ function searchSlipWise(){
   var general = all.filter(function(r){ return r.group!=='Electrical'; });
   var series = [];
   if(electrical.length) series.push({label:'🔌 Electrical Slip', color:'#e67e22', data:electrical});
-  if(general.length) series.push({label:'🔧 General Slip (Belt & Bearing / ICT / Maintenance / Spare Parts)', color:'#2980b9', data:general});
+  if(general.length) series.push({label:'🔧 General Slip (Belt & Bearing / ICT / Maintenance / Spare Parts / Oil)', color:'#2980b9', data:general});
   window._slipqSeries = series;
   cardsEl.innerHTML = series.map(function(s, idx){
     var date = s.data[0].date;
@@ -22111,7 +22111,30 @@ function slipqShowDetails(idx){
   var s = series[idx];
   if(!s) return;
   var detailsEl = document.getElementById('slipq-details');
-  var rows = s.data.map(function(r){
+  var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
+
+  // 🛢️ Oil রেকর্ডগুলো (group==='Oil') আলাদা কার্ড না — এই একই "General Slip" টেবিলেই থাকবে,
+  // শুধু প্রতিটা মেশিনের আলাদা সারির বদলে প্রতিটা আইটেম (Excel Super Oil / Textol Oil) অনুযায়ী
+  // Total Quantity ও Remarks-এ মোট কতগুলো মেশিন — এভাবে গ্রুপ করে একটা সারিতে দেখানো হয়
+  var oilData = s.data.filter(function(r){ return r.group === 'Oil'; });
+  var otherData = s.data.filter(function(r){ return r.group !== 'Oil'; });
+
+  var byItem = {};
+  oilData.forEach(function(r){
+    if (!byItem[r.item]) byItem[r.item] = { qty: 0, machines: {} };
+    byItem[r.item].qty += Number(r.qty)||0;
+    if (r.machineNo) byItem[r.item].machines[r.machineNo] = true;
+  });
+  var oilRows = Object.keys(byItem).map(function(itemName){
+    var d = byItem[itemName];
+    var machineCount = Object.keys(d.machines).length;
+    return '<tr><td>Oil</td><td><b>'+itemName+'</b></td>'
+      + '<td style="text-align:center;">'+d.qty+'</td>'
+      + '<td>'+machineCount+'</td>'
+      + '<td>মোট '+machineCount+' টা মেশিনে ইসু হয়েছে</td></tr>';
+  }).join('');
+
+  var otherRows = otherData.map(function(r){
     // মেশিন আইডি না থাকলে (মেশিন ছাড়া অন্য কাজে ব্যবহার হলে) Remarks দেখাও, যাতে
     // স্লিপ-ওয়াইজ সার্চেও আইটেমটা কোথায় ব্যবহার হয়েছে বোঝা যায় (Issue Log-এর সাথে সামঞ্জস্যপূর্ণ)
     var midRemarks = r.machineId ? r.machineId : (r.remarks || '-');
@@ -22120,11 +22143,11 @@ function slipqShowDetails(idx){
       + '<td>'+(r.machineNo||'-')+'</td>'
       + '<td>'+midRemarks+'</td></tr>';
   }).join('');
-  var totalQty = s.data.reduce(function(sum,r){ return sum+(Number(r.qty)||0); }, 0);
+
   detailsEl.innerHTML = '<div style="font-weight:800;margin-bottom:6px;color:'+s.color+';">'+s.label+' — বিস্তারিত (তারিখ: '+fmtDate(s.data[0].date)+')</div>'
     + '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px;">'
     + '<thead><tr style="background:#f0f3f7;"><th>Category</th><th>Item</th><th>Qty</th><th>Machine No</th><th>মেশিন আইডি/রিমার্কস</th></tr></thead>'
-    + '<tbody>'+rows+'</tbody>'
+    + '<tbody>'+oilRows+otherRows+'</tbody>'
     + '<tfoot><tr style="background:#f8f9fa;font-weight:700;"><td colspan="2">TOTAL</td><td style="text-align:center;">'+totalQty+'</td><td colspan="2"></td></tr></tfoot>'
     + '</table></div>';
 }
