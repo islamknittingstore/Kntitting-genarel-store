@@ -1638,6 +1638,7 @@ if('serviceWorker' in navigator){
           if(data.db.groups)   DB.groups   = data.db.groups;
           if(data.db.machines) DB.machines = data.db.machines;
           try { ensureJacquardMachinesInStore(); } catch(e) {}
+          try { fixFlatKnitMachineNumbers(); } catch(e) {}
 
           // Firebase load এ local pending entries merge করো — overwrite নয়
           // Deleted IDs — Firebase থেকে সরাসরি cache এ লোড (localStorage নেই)
@@ -8425,6 +8426,7 @@ async function gdriveLoadNow() {
       if (data.groups)   DB.groups   = data.groups;
       if (data.machines) DB.machines = data.machines;
       try { ensureJacquardMachinesInStore(); } catch(e) {}
+      try { fixFlatKnitMachineNumbers(); } catch(e) {}
       if (data.receives) DB.receives = data.receives;
       if (data.issues)   DB.issues   = data.issues;
       if (data.gsReqFlags) DB.gsReqFlags = data.gsReqFlags;
@@ -9956,15 +9958,15 @@ function seedData() {
       {id:'Shima Seiki ( 5 )', no:'5', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 6 )', no:'6', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 7 )', no:'7', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 11 )', no:'8', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 15 )', no:'9', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 16 )', no:'10', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 17 )', no:'11', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 18 )', no:'12', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 19 )', no:'13', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 20 )', no:'14', cat:'Flat Knit', name:''},
-      {id:'Yonthin Collar/Jacquard ( 1 )', no:'15', cat:'Flat Knit', name:''},
-      {id:'Yonthin Collar/Jacquard ( 2 )', no:'16', cat:'Flat Knit', name:''}
+      {id:'Shima Seiki ( 11 )', no:'11', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 15 )', no:'15', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 16 )', no:'16', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 17 )', no:'17', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 18 )', no:'18', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 19 )', no:'19', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 20 )', no:'20', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 1 )', no:'1', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 2 )', no:'2', cat:'Flat Knit', name:''}
     ];
   }
   // ── Merge-in fix: এর আগে সেভ করা DB.machines-এ যদি Flat Knit-এর কিছু মেশিন মিসিং থাকে
@@ -9979,15 +9981,15 @@ function seedData() {
       {id:'Shima Seiki ( 5 )', no:'5', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 6 )', no:'6', cat:'Flat Knit', name:''},
       {id:'Shima Seiki ( 7 )', no:'7', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 11 )', no:'8', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 15 )', no:'9', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 16 )', no:'10', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 17 )', no:'11', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 18 )', no:'12', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 19 )', no:'13', cat:'Flat Knit', name:''},
-      {id:'Shima Seiki ( 20 )', no:'14', cat:'Flat Knit', name:''},
-      {id:'Yonthin Collar/Jacquard ( 1 )', no:'15', cat:'Flat Knit', name:''},
-      {id:'Yonthin Collar/Jacquard ( 2 )', no:'16', cat:'Flat Knit', name:''}
+      {id:'Shima Seiki ( 11 )', no:'11', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 15 )', no:'15', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 16 )', no:'16', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 17 )', no:'17', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 18 )', no:'18', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 19 )', no:'19', cat:'Flat Knit', name:''},
+      {id:'Shima Seiki ( 20 )', no:'20', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 1 )', no:'1', cat:'Flat Knit', name:''},
+      {id:'Yonthin Collar/Jacquard ( 2 )', no:'2', cat:'Flat Knit', name:''}
     ];
     if (!DB.machines) DB.machines = [];
     var existingIds = {};
@@ -24400,6 +24402,33 @@ const NEEDLE_MACHINES = [
 // ✅ General Store এর Machine List-এ (DB.machines) Jacquard 136-140 আগে ছিল না — বিদ্যমান
 // ডাটাতেও (যেখানে seedData() আর চলবে না) একবার যোগ করে দেয়, নাহলে ওয়েল ইসু করার সময়
 // এই মেশিনগুলো Machine Number ড্রপডাউনে পাওয়া যেত না
+// ✅ General Store এর Machine List-এ (DB.machines) Flat Knit মেশিনের "no" ফিল্ড আগে সিরিয়াল
+// নাম্বার (১,২,৩...) হিসেবে বসানো ছিল, আসল মেশিন নাম্বার (id-তে বন্ধনীর ভেতরের সংখ্যা, যেমন
+// "Shima Seiki ( 20 )" এর 20) থেকে আলাদা — Issue ফর্মে ভুল নাম্বার দেখাচ্ছিল। এটা ঠিক করে দেয়।
+// (Circular মেশিনের no ছোঁয়া হয় না — সেটা আগে থেকেই ঠিক আছে।)
+function fixFlatKnitMachineNumbers(){
+  try {
+    if (typeof DB === 'undefined' || !DB.machines) return;
+    var changed = false;
+    var fixed = DB.machines.map(function(m){
+      if (m && m.cat === 'Flat Knit' && m.id) {
+        var match = m.id.match(/\(\s*(\d+)\s*\)/);
+        if (match && String(m.no) !== match[1]) {
+          changed = true;
+          var m2 = Object.assign({}, m);
+          m2.no = match[1];
+          return m2;
+        }
+      }
+      return m;
+    });
+    if (changed) {
+      DB.machines = fixed;
+      if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    }
+  } catch(e){}
+}
+
 function ensureJacquardMachinesInStore(){
   try {
     if (typeof DB === 'undefined' || !DB.machines) return;
@@ -28897,6 +28926,7 @@ function init() {
   try { updateElectricalItems(); } catch(e) { console.error('updateElectricalItems error:', e); }
   try { updateICTItems(); } catch(e) { console.error('updateICTItems error:', e); }
   try { ensureJacquardMachinesInStore(); } catch(e) { console.error('ensureJacquardMachinesInStore error:', e); }
+  try { fixFlatKnitMachineNumbers(); } catch(e) { console.error('fixFlatKnitMachineNumbers error:', e); }
   try { updateClock(); } catch(e) { console.error('clock error:', e); }
   try { setInterval(updateClock, 1000); } catch(e) {}
   // Pre-populate all group dropdowns on startup
