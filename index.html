@@ -3662,6 +3662,15 @@ window.iglSaveNavVisibility = function() {
               <input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()">
             </div>
             <div class="form-group">
+              <label>Unit</label>
+              <select class="form-control" id="r-unit">
+                <option value="Pcs" selected>Pcs</option>
+                <option value="Kg">Kg</option>
+                <option value="Liter">Liter</option>
+                <option value="Set">Set</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>Rate (Unit Price)</label>
               <input type="number" class="form-control" id="r-rate" placeholder="প্রতি ইউনিট দাম (ঐচ্ছিক)" min="0" step="0.01" oninput="rCalcAmount()">
             </div>
@@ -3761,6 +3770,15 @@ window.iglSaveNavVisibility = function() {
             <div class="form-group">
               <label>Quantity *</label>
               <input type="number" class="form-control" id="i-qty" placeholder="Enter quantity" min="1">
+            </div>
+            <div class="form-group">
+              <label>Unit</label>
+              <select class="form-control" id="i-unit">
+                <option value="Pcs" selected>Pcs</option>
+                <option value="Kg">Kg</option>
+                <option value="Liter">Liter</option>
+                <option value="Set">Set</option>
+              </select>
             </div>
           </div>
           <div>
@@ -5653,8 +5671,11 @@ function ok(msg) {
               </select>
             </div>
             <button class="btn btn-outline btn-sm" onclick="clearMasterFilter()" style="height:38px;white-space:nowrap;">✕ Clear</button>
+            <button class="btn btn-outline btn-sm admin-only-action" onclick="findDuplicateItemNames()" style="height:38px;white-space:nowrap;background:#fef5e7;border-color:#e67e22;color:#a04000;">🔍 Duplicate Name Finder</button>
           </div>
         </div>
+
+        <div id="dup-item-finder-result"></div>
 
         <!-- ── Bulk Edit Panel (batch Name/B-F edit → single Firebase sync) ──
              নিচের টেবিলে সরাসরি এডিট করার সিস্টেম অপরিবর্তিত রাখা হয়েছে। এই প্যানেলটা
@@ -5692,13 +5713,13 @@ function ok(msg) {
 
         <div class="card-body" style="padding:0; max-height:520px; overflow-y:auto;">
           <table>
-            <thead><tr><th class="admin-only-action" style="width:30px;"><input type="checkbox" id="chk-all-items" onchange="toggleAllItems(this)"></th><th>SL</th><th>Category</th><th>Group</th><th>Item Name</th><th style="width:70px;text-align:center;">B/F</th><th style="width:80px;text-align:center;">Min Stock</th><th style="width:60px;text-align:center;">Hide</th><th class="admin-only-action"></th></tr></thead>
+            <thead><tr><th class="admin-only-action" style="width:30px;"><input type="checkbox" id="chk-all-items" onchange="toggleAllItems(this)"></th><th>SL</th><th>Category</th><th>Group</th><th>Item Name</th><th style="width:65px;text-align:center;">Unit</th><th style="width:70px;text-align:center;">B/F</th><th style="width:80px;text-align:center;">Min Stock</th><th style="width:60px;text-align:center;">Hide</th><th class="admin-only-action"></th></tr></thead>
             <tbody id="masterItemTable"></tbody>
           </table>
         </div>
         <div class="card-body" style="border-top:1px solid var(--border); padding:16px 20px;">
           <!-- Smart Item Entry -->
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:end;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 0.8fr 1fr auto; gap:8px; align-items:end;">
             <div>
               <label style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.4px;">Item Category *</label>
               <input list="dl-groups" type="text" class="form-control" id="new-item-group-text" placeholder="Select or type new..." oninput="onGroupInput()" autocomplete="off">
@@ -5708,6 +5729,15 @@ function ok(msg) {
               <label style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.4px;">Group</label>
               <input list="dl-categories" type="text" class="form-control" id="new-item-category" placeholder="Select or type new..." autocomplete="off">
               <datalist id="dl-categories"></datalist>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.4px;">Unit</label>
+              <select class="form-control" id="new-item-unit">
+                <option value="Pcs" selected>Pcs</option>
+                <option value="Kg">Kg</option>
+                <option value="Liter">Liter</option>
+                <option value="Set">Set</option>
+              </select>
             </div>
             <div>
               <label style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.4px;">Item Name *</label>
@@ -10646,7 +10676,13 @@ function filterIItems() {
 
 function updateReceiveStock() {
   const item = document.getElementById('r-item').value;
-  if (item) document.getElementById('r-stock-badge').innerHTML = stockBadge(getStock(item));
+  if (item) {
+    document.getElementById('r-stock-badge').innerHTML = stockBadge(getStock(item));
+    // ✅ আইটেম সিলেক্ট করলে Master-এ সেট করা Unit অটো-ফিল হবে (চাইলে বদলানো যাবে)
+    var itObj = (DB.items||[]).find(function(x){ return x.name === item; });
+    var uEl = document.getElementById('r-unit');
+    if (uEl && itObj && itObj.unit) uEl.value = itObj.unit;
+  }
 }
 
 function updateIssueStock() {
@@ -10657,6 +10693,10 @@ function updateIssueStock() {
   const isOilCategory = group === 'Oil';
   if (item) {
     document.getElementById('i-stock-badge').innerHTML = stockBadge(getStock(item));
+    // ✅ আইটেম সিলেক্ট করলে Master-এ সেট করা Unit অটো-ফিল হবে (চাইলে বদলানো যাবে)
+    var itObj = (DB.items||[]).find(function(x){ return x.name === item; });
+    var uEl = document.getElementById('i-unit');
+    if (uEl && itObj && itObj.unit) uEl.value = itObj.unit;
     // ✅ Oil ক্যাটাগরির জন্য "সর্বশেষ কয়েকটা ইসু" আর "Requisition" — দুটোরই দরকার নেই
     if (isOilCategory) {
       if (lastWrap) lastWrap.style.display = 'none';
@@ -10733,6 +10773,7 @@ function saveReceive() {
   const bill = document.getElementById('r-bill') ? document.getElementById('r-bill').value : '';
   const supplier = document.getElementById('r-supplier') ? document.getElementById('r-supplier').value : '';
   const qty = document.getElementById('r-qty').value;
+  const unit = document.getElementById('r-unit') ? document.getElementById('r-unit').value : 'Pcs';
   const rate = parseFloat(document.getElementById('r-rate').value) || 0;
   const amount = parseFloat(document.getElementById('r-amount').value) || (rate * Number(qty)) || 0;
 
@@ -10745,7 +10786,7 @@ function saveReceive() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  const rec = { id: Date.now(), date, group, category, item, chalan, bill, supplier, qty: Number(qty), rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const rec = { id: Date.now(), date, group, category, item, chalan, bill, supplier, qty: Number(qty), unit, rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -10827,6 +10868,7 @@ function clearReceiveForm() {
   if (document.getElementById('r-bill')) document.getElementById('r-bill').value = '';
   if (document.getElementById('r-supplier')) document.getElementById('r-supplier').value = '';
   document.getElementById('r-qty').value = '';
+  if (document.getElementById('r-unit')) document.getElementById('r-unit').value = 'Pcs';
   document.getElementById('r-rate').value = '';
   document.getElementById('r-amount').value = '';
   document.getElementById('r-stock-badge').innerHTML = '';
@@ -10864,6 +10906,7 @@ async function saveIssue() {
   const category = document.getElementById('i-category').value;
   const item = document.getElementById('i-item').value;
   const qty = Number(document.getElementById('i-qty').value);
+  const unit = document.getElementById('i-unit') ? document.getElementById('i-unit').value : 'Pcs';
   const rate = 0;
   const amount = 0;
   const machineNo = document.getElementById('i-machine-no').value;
@@ -10900,7 +10943,7 @@ async function saveIssue() {
     if (!ok) return;
   }
 
-  const iss = { id: Date.now(), date, slip, group, category, item, qty, rate, amount, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const iss = { id: Date.now(), date, slip, group, category, item, qty, unit, rate, amount, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -10926,6 +10969,7 @@ function clearIssueForm() {
 
   document.getElementById('i-item').innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('i-qty').value = isOilCategory ? prevQty : '';
+  if (document.getElementById('i-unit')) document.getElementById('i-unit').value = 'Pcs';
   document.getElementById('i-machine-id').value = '';
   document.getElementById('i-machine-no').value = '';
   document.getElementById('i-machine-cat').value = '';
@@ -22476,6 +22520,11 @@ function renderMaster() {
     <td><input class="editable-input" list="dl-categories" value="${item.category||''}" placeholder="Group..." onchange="updateItemCategory(${i}, this.value)"></td>
     <td><input class="editable-input" value="${item.name}" placeholder="Item Name..." onchange="updateItemName(${i}, this.value)"></td>
     <td style="text-align:center;">
+      <select style="width:70px;padding:3px;border:1px solid #d5d8dc;border-radius:5px;font-size:11px;" onchange="updateItemUnit(${i}, this.value)">
+        ${['Pcs','Kg','Liter','Set'].map(u => `<option value="${u}"${(item.unit||'Pcs')===u?' selected':''}>${u}</option>`).join('')}
+      </select>
+    </td>
+    <td style="text-align:center;">
       <input type="number" min="0" value="${item.bf||0}"
         style="width:60px;text-align:center;border:1px solid #d5d8dc;border-radius:5px;padding:3px 4px;font-size:12px;font-weight:700;color:#6c3483;"
         onchange="updateItemBF(${i}, this.value)"
@@ -22495,7 +22544,7 @@ function renderMaster() {
       </button>
     </td>
     <td class="admin-only-action"><button class="btn-del" onclick="deleteItem(${i})">✕</button></td>
-  </tr>`).join('') || '<tr><td colspan="9" class="no-data">'+(activeGroup||activeCat ? 'এই Filter-এ কোনো Item নেই' : 'No items found')+'</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="10" class="no-data">'+(activeGroup||activeCat ? 'এই Filter-এ কোনো Item নেই' : 'No items found')+'</td></tr>';
 
   // Also refresh form dropdowns so Receive/Issue pages stay in sync
   _refreshAllGroupDropdowns();
@@ -22680,6 +22729,58 @@ function updateItemCategory(idx, val) {
   toast(`✅ Category "${oldCat||'(খালি)'}" → "${newCat||'(খালি)'}" — ${count}টি আইটেমে আপডেট হয়েছে`, 'success');
 }
 
+// ── Update item Unit (Pcs/Kg/Liter/Set) ──
+// ── Duplicate Item Name Finder (Admin) — একই নামে একাধিক আইটেম (যেমন Pcs vs Set আলাদা
+// আইটেম কিন্তু নাম একই) খুঁজে বের করে, যাতে ম্যানুয়ালি নাম বদলে আলাদা করা যায় ──
+function findDuplicateItemNames() {
+  var items = DB.items || [];
+  var byName = {};
+  items.forEach(function(it, idx){
+    var key = (it.name||'').trim().toLowerCase();
+    if (!key) return;
+    if (!byName[key]) byName[key] = [];
+    byName[key].push({item: it, idx: idx});
+  });
+  var dupGroups = Object.keys(byName).map(function(k){ return byName[k]; }).filter(function(arr){ return arr.length > 1; });
+  var container = document.getElementById('dup-item-finder-result');
+  if (!dupGroups.length) {
+    container.innerHTML = '<div style="margin:10px 12px;padding:12px;background:#eafaf1;border:1px solid #1e8449;border-radius:6px;color:#1e8449;font-size:13px;">✅ একই নামে ডুপ্লিকেট কোনো আইটেম পাওয়া যায়নি।</div>';
+    return;
+  }
+  // সবচেয়ে বেশি ডুপ্লিকেট যেই গ্রুপে (যেমন Electrical) সেটা আগে দেখাও
+  dupGroups.sort(function(a,b){ return b.length - a.length; });
+  var html = '<div style="margin:10px 12px;padding:12px;background:#fef9e7;border:1px solid #f1c40f;border-radius:6px;">';
+  html += '<div style="font-weight:700;color:#7d6608;margin-bottom:8px;">⚠️ একই নামে '+dupGroups.length+'টি আইটেম-নাম, একাধিকবার পাওয়া গেছে — নিচে যেগুলো Pcs/Set/অন্য ইউনিট অনুযায়ী ভিন্ন জিনিস, সেগুলোর নাম ম্যানুয়ালি বদলে (যেমন "Switch — Set") আলাদা করে দিন।</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;">';
+  html += '<thead><tr style="background:#f0f3f7;"><th style="padding:5px;text-align:left;">Item Name</th><th style="padding:5px;">Category</th><th style="padding:5px;">Group</th><th style="padding:5px;">Unit</th><th style="padding:5px;">B/F</th></tr></thead><tbody>';
+  dupGroups.forEach(function(arr){
+    html += '<tr><td colspan="5" style="padding:6px 5px;background:#fdebd0;font-weight:700;border-top:2px solid #e67e22;">"'+arr[0].item.name+'" — '+arr.length+'টি এন্ট্রি</td></tr>';
+    arr.forEach(function(entry){
+      var it = entry.item;
+      html += '<tr>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #eee;">'+it.name+'</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #eee;text-align:center;">'+(it.group||'-')+'</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #eee;text-align:center;">'+(it.category||'-')+'</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">'+(it.unit||'Pcs')+'</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #eee;text-align:center;">'+(it.bf||0)+'</td>'
+        + '</tr>';
+    });
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  container.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function updateItemUnit(idx, val) {
+  const items = DB.items;
+  const newUnit = val || 'Pcs';
+  if (items[idx].unit === newUnit) return;
+  items[idx].unit = newUnit;
+  DB.items = items;
+  renderMaster();
+  triggerAutoSave();
+}
+
 // ── Update item B/F (Brought Forward / opening balance) ──
 function updateItemBF(idx, val) {
   const items = DB.items;
@@ -22859,6 +22960,7 @@ function populateMasterDataLists() {
 function addItem() {
   const groupText = (document.getElementById('new-item-group-text').value || '').trim();
   const category  = (document.getElementById('new-item-category').value || '').trim();
+  const unit      = (document.getElementById('new-item-unit') ? document.getElementById('new-item-unit').value : '') || 'Pcs';
   const name      = (document.getElementById('new-item-name').value || '').trim();
 
   if (!groupText) { toast('Please enter Item Category!', 'warning'); return; }
@@ -22877,13 +22979,14 @@ function addItem() {
   }
 
   const arr = DB.items;
-  arr.push({ group: groupText, category, name });
+  arr.push({ group: groupText, category, name, unit });
   DB.items = arr;
 
   // Clear fields
   document.getElementById('new-item-group-text').value = '';
   document.getElementById('new-item-category').value = '';
   document.getElementById('new-item-name').value = '';
+  if (document.getElementById('new-item-unit')) document.getElementById('new-item-unit').value = 'Pcs';
   const hint = document.getElementById('master-item-hint');
   if (hint) hint.style.display = 'none';
 
