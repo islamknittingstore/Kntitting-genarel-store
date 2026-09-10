@@ -10490,7 +10490,7 @@ function populateFormDropdowns() {
   const imNo = document.getElementById('i-machine-no');
   if (imNo) {
     imNo.innerHTML = '<option value="">-- Select Machine No. --</option>';
-    DB.machines.forEach(m => imNo.innerHTML += `<option value="${m.no}">${m.no}</option>`);
+    DB.machines.forEach(m => imNo.innerHTML += `<option value="${m.no}" data-cat="${m.cat}" data-id="${(m.id||'').replace(/"/g,'&quot;')}">${m.no} — ${m.cat}</option>`);
   }
 
   // Machine Category dropdown (unique categories)
@@ -10681,11 +10681,14 @@ function onIssueReqFlagChange() {
 }
 
 function fillMachineByNo() {
-  const no = document.getElementById('i-machine-no').value;
-  const m = DB.machines.find(m => m.no === no);
-  if (m) {
-    document.getElementById('i-machine-id').value = m.id;
-    document.getElementById('i-machine-cat').value = m.cat;
+  // ✅ একই Machine No. Circular ও Flat Knit দুই ক্যাটাগরিতেই থাকতে পারে (যেমন "1", "2"...) —
+  // তাই শুধু .no দিয়ে খুঁজলে ভুল মেশিন (সাধারণত Circular-টা) ধরা পড়ে। সিলেক্ট করা <option>-এর
+  // data-cat/data-id থেকেই সঠিক মেশিনটা নিশ্চিতভাবে বসাও।
+  const imNo = document.getElementById('i-machine-no');
+  const selOpt = imNo.selectedOptions && imNo.selectedOptions[0];
+  if (selOpt && selOpt.value) {
+    document.getElementById('i-machine-id').value = selOpt.getAttribute('data-id') || '';
+    document.getElementById('i-machine-cat').value = selOpt.getAttribute('data-cat') || '';
   } else {
     document.getElementById('i-machine-id').value = '';
     document.getElementById('i-machine-cat').value = '';
@@ -10698,7 +10701,7 @@ function fillMachineByCat() {
   const imNo = document.getElementById('i-machine-no');
   imNo.innerHTML = '<option value="">-- Select Machine No. --</option>';
   const filtered = cat ? DB.machines.filter(m => m.cat === cat) : DB.machines;
-  filtered.forEach(m => imNo.innerHTML += `<option value="${m.no}">${m.no}</option>`);
+  filtered.forEach(m => imNo.innerHTML += `<option value="${m.no}" data-cat="${m.cat}" data-id="${(m.id||'').replace(/"/g,'&quot;')}">${m.no} — ${m.cat}</option>`);
   document.getElementById('i-machine-id').value = '';
 }
 
@@ -28903,7 +28906,7 @@ function init() {
     var imNo = document.getElementById('i-machine-no');
     if (imNo) {
       imNo.innerHTML = '<option value="">-- Select Machine No. --</option>';
-      DB.machines.forEach(function(m){ imNo.innerHTML += '<option value="'+m.no+'">'+m.no+'</option>'; });
+      DB.machines.forEach(function(m){ imNo.innerHTML += '<option value="'+m.no+'" data-cat="'+m.cat+'" data-id="'+(m.id||'').replace(/"/g,'&quot;')+'">'+m.no+' — '+m.cat+'</option>'; });
     }
     var imCat = document.getElementById('i-machine-cat');
     if (imCat) {
