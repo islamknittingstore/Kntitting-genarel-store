@@ -1435,7 +1435,13 @@ if('serviceWorker' in navigator){
         });
       }
       if (typeof DB !== 'undefined') {
-        if (_mergedGsItems.length !== (DB.items||[]).length) DB.items = _mergedGsItems;
+        if (_mergedGsItems.length !== (DB.items||[]).length) {
+          DB.items = _mergedGsItems;
+          // ⚠️ Save-time merge-এও items বদলে যেতে পারে (অন্য ডিভাইসের নতুন/রিনেম করা আইটেম
+          // যোগ হলে) — Master Data পেজ খোলা থাকলে সাথে সাথে রি-রেন্ডার করো, নাহলে row
+          // index পুরনো থেকে যাবে ──
+          try { if (typeof renderMaster === 'function' && document.getElementById('masterItemTable')) renderMaster(); } catch(e) {}
+        }
         if (_mergedGsGroups.length !== _localGsGroups.length) DB.groups = _mergedGsGroups;
       }
 
@@ -1715,6 +1721,13 @@ if('serviceWorker' in navigator){
             var _recentLocalItemEdit = window._gsItemsLocalEditTs && (Date.now() - window._gsItemsLocalEditTs < 4000);
             if (!_recentLocalItemEdit) {
               DB.items = _incomingGsItems;
+              // ⚠️⚠️ BUG FIX: আগে এখানে DB.items বদলে গেলেও Master Data টেবিল (renderMaster)
+              // আবার render হতো না। ফলে স্ক্রিনে থাকা প্রতিটা row-এর onclick/onchange-এ
+              // বাঁধা index পুরনো array-এর সাথে বেঁধে থাকত। এই সময়ের মধ্যে কেউ rename/delete
+              // করলে ভুল আইটেমের ওপর গিয়ে প্রয়োগ হতো — এটাই "রিনেম করতে গিয়ে অন্য একটা
+              // আইটেম তৈরি হয়ে যাওয়া" সমস্যার আসল কারণ। এখন Master Data পেজ খোলা থাকলে
+              // items বদলানোর সাথে সাথেই টেবিল রি-রেন্ডার হবে, তাই index সবসময় সঠিক থাকবে ──
+              try { if (typeof renderMaster === 'function' && document.getElementById('masterItemTable')) renderMaster(); } catch(e) {}
             }
           }
         }
@@ -8680,9 +8693,15 @@ const DB = {
     }
     if (pre.length === 0) return stored;
     // Merge missing preItems — deletedIds-এ থাকা (ইচ্ছাকৃত ডিলিট করা) preItem আবার resurrect করা যাবে না
+    // ⚠️⚠️ BUG FIX: আগে এখানে it.id দিয়ে ম্যাচ করা হতো, কিন্তু addItem()-এ তৈরি হওয়া
+    // কাস্টম আইটেমের কোনো id-ই থাকে না (undefined) — ফলে একাধিক id-বিহীন আইটেম একই
+    // vMap[undefined] key-তে collide করত এবং rename/delete করা seed item মাঝে মাঝে
+    // "missing" হিসেবে ভুল করে আবার যোগ হয়ে যেত (ডিলিট করলেও ফিরে আসা বাগের মূল কারণ)।
+    // এখন সারা অ্যাপের বাকি সব জায়গার মতোই Group+Name-কে item-এর identity হিসেবে
+    // ব্যবহার করা হচ্ছে (General Store item-এর কোনো নিজস্ব id নেই) ──
     const storedMap = {};
-    stored.forEach(function(it){ storedMap[it.id] = true; });
-    const missing = pre.filter(function(it){ return !storedMap[it.id] && _notDeleted(it); });
+    stored.forEach(function(it){ storedMap[(it.group||'')+'||'+(it.name||'')] = true; });
+    const missing = pre.filter(function(it){ return !storedMap[(it.group||'')+'||'+(it.name||'')] && _notDeleted(it); });
     if (missing.length > 0) {
       const merged = stored.concat(missing);
       try { localStorage.setItem('igl_items', JSON.stringify(merged)); } catch(e) {}
@@ -8692,13 +8711,17 @@ const DB = {
   },
   set items(v) {
     const pre = window.preItems || [];
+    // ⚠️⚠️ BUG FIX: আগে vMap it.id দিয়ে তৈরি হতো — কাস্টম আইটেমের id না থাকায়
+    // (undefined) ভুল ম্যাচ হয়ে rename/delete করা seed item আবার duplicate হয়ে
+    // যোগ হয়ে যেত। এখন Group+Name দিয়েই identity ধরা হচ্ছে (getter-এর সাথে সামঞ্জস্যপূর্ণ) ──
     const vMap = {};
-    v.forEach(function(it){ vMap[it.id] = true; });
+    v.forEach(function(it){ vMap[(it.group||'')+'||'+(it.name||'')] = true; });
     var _localDelS = {};
     try { _localDelS = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
     const missing = pre.filter(function(it){
-      if (vMap[it.id]) return false;
-      var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+      var k = (it.group||'') + '||' + (it.name||'');
+      if (vMap[k]) return false;
+      var delKey = 'gs_item:' + k;
       return !_localDelS[delKey];
     });
     _set('igl_items', v.concat(missing));
@@ -18226,45 +18249,11 @@ function binSet(arr) {
   localStorage.setItem('igl_bin', JSON.stringify(arr));
 }
 
-// ── Deleted IDs tracker — Firebase এ save হয়, সব device share করে ──
-// Format: { "rcv:123": true, "iss:456": true, "ndl:789": true, "ndlrcv:101": true }
-// ── Deleted IDs — সরাসরি Firebase এ, localStorage নেই ──
-// In-memory cache — Firebase থেকে load এর পর এখানে থাকে
-var _fbDelIdsCache = {};
-
-
-function iglDelIdsAdd(prefix, id) {
-  var key = prefix + ':' + String(id);
-  _fbDelIdsCache[key] = true;
-  // ✅ localStorage-এও সরাসরি (synchronous) সেভ করো — পেজ লোডের একদম শুরুতে চলা
-  // preItems bootstrap merge (Firebase load হওয়ার আগেই) এই লোকাল লিস্টটা চেক করে,
-  // যাতে ডিলিট করা/রিনেম করা মূল ৫৯১টা seed আইটেম আবার resurrect না হয়ে যায়।
-  try {
-    var _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}');
-    _localDel[key] = true;
-    localStorage.setItem('igl_local_deleted_ids', JSON.stringify(_localDel));
-  } catch(e) {}
-  // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
-  try {
-    var _upd = {};
-    _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
-    _upd['igl_erp/ts'] = Date.now(); // অন্য ডিভাইসকে জানাও
-    _fbDb.ref().update(_upd);
-  } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
-}
-
-function iglDelIdsRemove(prefix, id) {
-  var key = prefix + ':' + String(id);
-  delete _fbDelIdsCache[key];
-  // সরাসরি Firebase থেকে মুছো
-  try {
-    _fbDb.ref('igl_erp/deletedIds/' + key.replace(/:/g, '__')).remove();
-  } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
-}
-
-function iglIsDeleted(prefix, id) {
-  return !!_fbDelIdsCache[prefix + ':' + String(id)];
-}
+// ── ⚠️ BUG FIX: iglDelIdsAdd/iglDelIdsRemove/iglIsDeleted ও _fbDelIdsCache
+// আগে এখানে আবার ডিক্লেয়ার হতো (উপরে একবার সংজ্ঞায়িত হওয়ার পরেও)। "var _fbDelIdsCache = {}"
+// দ্বিতীয়বার চললে shared deletedIds cache যেকোনো মুহূর্তে নিঃশব্দে খালি হয়ে যাওয়ার ঝুঁকি
+// তৈরি করত। ফাংশনগুলো উপরে (deletedIds tracker সেকশনে) আগে থেকেই সংজ্ঞায়িত আছে,
+// তাই এখানে শুধু ডুপ্লিকেট সরানো হলো — আচরণে কোনো পরিবর্তন নেই। ──
 
 // Item bin এ পাঠাও
 function binAdd(type, item, label) {
