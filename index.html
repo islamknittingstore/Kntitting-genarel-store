@@ -1174,7 +1174,16 @@ if('serviceWorker' in navigator){
     try { existingItems = JSON.parse(existing); } catch(e) {}
     var existingMap = {};
     existingItems.forEach(function(it){ existingMap[it.id] = true; });
-    var newItems = (window.preItems||preItems).filter(function(it){ return !existingMap[it.id]; });
+    // ✅ যেসব seed আইটেম ইউজার ইচ্ছাকৃতভাবে ডিলিট/রিনেম করেছেন (gs_item:group||name key
+    // হিসেবে লোকালি সেভ করা), সেগুলো এখানে আবার resurrect করা যাবে না
+    var _localDelIds = {};
+    try { _localDelIds = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
+    var newItems = (window.preItems||preItems).filter(function(it){
+      if (existingMap[it.id]) return false;
+      var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+      if (_localDelIds[delKey]) return false;
+      return true;
+    });
     if (newItems.length > 0) {
       _set('igl_items', existingItems.concat(newItems));
       console.log('Merged ' + newItems.length + ' new preItems into localStorage');
@@ -8136,7 +8145,14 @@ async function _loadFromFile() {
       var pre = window.preItems || [];
       var preMap = {};
       items.forEach(function(it){ if(it.id) preMap[it.id]=true; if(it.name) preMap[it.name]=true; });
-      var missing = pre.filter(function(it){ return !preMap[it.id] && !preMap[it.name]; });
+      var _localDelIds2 = {};
+      try { _localDelIds2 = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e3) {}
+      var missing = pre.filter(function(it){
+        if (preMap[it.id] || preMap[it.name]) return false;
+        var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+        if (_localDelIds2[delKey]) return false;
+        return true;
+      });
       localStorage.setItem('igl_items', JSON.stringify(items.concat(missing)));
     } catch(e) {
       try { localStorage.setItem('igl_items', JSON.stringify(items)); } catch(e2) {}
@@ -8653,16 +8669,20 @@ const DB = {
     const pre = window.preItems || [];
     let stored = [];
     try { stored = JSON.parse(localStorage.getItem('igl_items') || '[]'); } catch(e) {}
+    var _localDelG = {};
+    try { _localDelG = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
+    function _notDeleted(it) { return !_localDelG['gs_item:' + (it.group||'') + '||' + (it.name||'')]; }
     // If stored is empty but pre has data, use pre and save it
     if (stored.length === 0 && pre.length > 0) {
-      try { localStorage.setItem('igl_items', JSON.stringify(pre)); } catch(e) {}
-      return pre;
+      var preFiltered = pre.filter(_notDeleted);
+      try { localStorage.setItem('igl_items', JSON.stringify(preFiltered)); } catch(e) {}
+      return preFiltered;
     }
     if (pre.length === 0) return stored;
-    // Merge missing preItems
+    // Merge missing preItems — deletedIds-এ থাকা (ইচ্ছাকৃত ডিলিট করা) preItem আবার resurrect করা যাবে না
     const storedMap = {};
     stored.forEach(function(it){ storedMap[it.id] = true; });
-    const missing = pre.filter(function(it){ return !storedMap[it.id]; });
+    const missing = pre.filter(function(it){ return !storedMap[it.id] && _notDeleted(it); });
     if (missing.length > 0) {
       const merged = stored.concat(missing);
       try { localStorage.setItem('igl_items', JSON.stringify(merged)); } catch(e) {}
@@ -8674,7 +8694,13 @@ const DB = {
     const pre = window.preItems || [];
     const vMap = {};
     v.forEach(function(it){ vMap[it.id] = true; });
-    const missing = pre.filter(function(it){ return !vMap[it.id]; });
+    var _localDelS = {};
+    try { _localDelS = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
+    const missing = pre.filter(function(it){
+      if (vMap[it.id]) return false;
+      var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+      return !_localDelS[delKey];
+    });
     _set('igl_items', v.concat(missing));
     // এই ডিভাইসে General Store item-এ এইমাত্র local এডিট হলো (rename/B-F/Category/add/delete) —
     // সময়টা মনে রাখো, যাতে fbLoadAll() এই এডিট Firebase-এ পুরোপুরি sync হওয়ার আগেই
@@ -13009,6 +13035,14 @@ async function iglCleanStnNode() {
 function iglDelIdsAdd(prefix, id) {
   var key = prefix + ':' + String(id);
   _fbDelIdsCache[key] = true;
+  // ✅ localStorage-এও সরাসরি (synchronous) সেভ করো — পেজ লোডের একদম শুরুতে চলা
+  // preItems bootstrap merge (Firebase load হওয়ার আগেই) এই লোকাল লিস্টটা চেক করে,
+  // যাতে ডিলিট করা/রিনেম করা মূল ৫৯১টা seed আইটেম আবার resurrect না হয়ে যায়।
+  try {
+    var _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}');
+    _localDel[key] = true;
+    localStorage.setItem('igl_local_deleted_ids', JSON.stringify(_localDel));
+  } catch(e) {}
   // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
   try {
     var _upd = {};
@@ -18202,6 +18236,14 @@ var _fbDelIdsCache = {};
 function iglDelIdsAdd(prefix, id) {
   var key = prefix + ':' + String(id);
   _fbDelIdsCache[key] = true;
+  // ✅ localStorage-এও সরাসরি (synchronous) সেভ করো — পেজ লোডের একদম শুরুতে চলা
+  // preItems bootstrap merge (Firebase load হওয়ার আগেই) এই লোকাল লিস্টটা চেক করে,
+  // যাতে ডিলিট করা/রিনেম করা মূল ৫৯১টা seed আইটেম আবার resurrect না হয়ে যায়।
+  try {
+    var _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}');
+    _localDel[key] = true;
+    localStorage.setItem('igl_local_deleted_ids', JSON.stringify(_localDel));
+  } catch(e) {}
   // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
   try {
     var _upd = {};
@@ -24271,7 +24313,13 @@ function doImport(event) {
           var pre = window.preItems || [];
           var preMap = {};
           items.forEach(function(it){ if(it.id) preMap[it.id] = true; if(it.name) preMap[it.name] = true; });
-          var missing = pre.filter(function(it){ return !preMap[it.id] && !preMap[it.name]; });
+          var _localDelR = {};
+          try { _localDelR = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(er3) {}
+          var missing = pre.filter(function(it){
+            if (preMap[it.id] || preMap[it.name]) return false;
+            var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+            return !_localDelR[delKey];
+          });
           var merged = items.concat(missing);
           localStorage.setItem('igl_items', JSON.stringify(merged));
         } catch(er) {
