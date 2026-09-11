@@ -11149,6 +11149,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
     var catTotalRows = []; // এই ক্যাটেগরির প্রতিটা আইটেমের Total রো ট্র্যাক করা হয়, শেষে Grand Total-এর জন্য
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
+      // 📦 Quantity-এর ঘরেই উপরে সংখ্যা, নিচে Unit (Pcs/Set/ইত্যাদি) — একটা কাস্টম নাম্বার
+      // ফরম্যাট দিয়ে, যাতে আসল ভ্যালু সংখ্যাই থাকে (SUM/Balance ফর্মুলা ঠিক থাকে), শুধু দেখানোর
+      // সময় Unit যোগ হয়
+      var qtyFmt = '0"\n' + (it.unit||'Pcs') + '"';
+      function setQtyCell(cell, value){
+        cell.value = value;
+        cell.numFmt = qtyFmt;
+        cell.alignment = Object.assign({}, cell.alignment, {wrapText:true, vertical:'middle', horizontal:'center'});
+      }
       var itemHeaderRow = rowNum;
       ws.getCell(rowNum,1).value = it.name + ' (' + (it.unit||'Pcs') + ')';
       ws.getCell(rowNum,1).font = {bold:true};
@@ -11157,8 +11166,9 @@ function _gsDoExportGroupMonthlyExcelJS(){
 
       var bfRow = rowNum;
       ws.getCell(rowNum,1).value = 'B/F';
-      ws.getCell(rowNum,11).value = bf;
+      setQtyCell(ws.getCell(rowNum,11), bf);
       styleDataRow(ws.getRow(rowNum), 12);
+      ws.getRow(rowNum).height = 28;
       rowNum++;
 
       var prevBalRow = bfRow;
@@ -11177,18 +11187,19 @@ function _gsDoExportGroupMonthlyExcelJS(){
           ws.getCell(rowNum,3).value = e.d.supplier||'';
           ws.getCell(rowNum,4).value = e.d.chalan||'';
           ws.getCell(rowNum,5).value = e.d.bill||'';
-          ws.getCell(rowNum,6).value = Number(e.d.qty);
+          setQtyCell(ws.getCell(rowNum,6), Number(e.d.qty));
           runningBal += Number(e.d.qty); sumRecv += Number(e.d.qty);
-          ws.getCell(rowNum,11).value = { formula: 'K'+prevBalRow+'+F'+rowNum, result: runningBal };
+          setQtyCell(ws.getCell(rowNum,11), { formula: 'K'+prevBalRow+'+F'+rowNum, result: runningBal });
         } else {
           ws.getCell(rowNum,8).value = e.d.slip||'';
           ws.getCell(rowNum,9).value = e.d.machineId||'';
-          ws.getCell(rowNum,10).value = Number(e.d.qty);
+          setQtyCell(ws.getCell(rowNum,10), Number(e.d.qty));
           runningBal -= Number(e.d.qty); sumIss += Number(e.d.qty);
-          ws.getCell(rowNum,11).value = { formula: 'K'+prevBalRow+'-J'+rowNum, result: runningBal };
+          setQtyCell(ws.getCell(rowNum,11), { formula: 'K'+prevBalRow+'-J'+rowNum, result: runningBal });
           if (e.d.remarks) ws.getCell(rowNum,12).value = e.d.remarks;
         }
         styleDataRow(ws.getRow(rowNum), 12);
+        ws.getRow(rowNum).height = 28;
         prevBalRow = rowNum;
         rowNum++;
       });
@@ -11196,14 +11207,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
       var totalRow = rowNum;
       ws.getCell(rowNum,1).value = 'Total';
       if (firstTxnRow>=0){
-        ws.getCell(rowNum,6).value = { formula:'SUM(F'+firstTxnRow+':F'+lastTxnRow+')', result: sumRecv };
-        ws.getCell(rowNum,10).value = { formula:'SUM(J'+firstTxnRow+':J'+lastTxnRow+')', result: sumIss };
-        ws.getCell(rowNum,11).value = { formula:'K'+prevBalRow, result: runningBal };
+        setQtyCell(ws.getCell(rowNum,6), { formula:'SUM(F'+firstTxnRow+':F'+lastTxnRow+')', result: sumRecv });
+        setQtyCell(ws.getCell(rowNum,10), { formula:'SUM(J'+firstTxnRow+':J'+lastTxnRow+')', result: sumIss });
+        setQtyCell(ws.getCell(rowNum,11), { formula:'K'+prevBalRow, result: runningBal });
       } else {
-        ws.getCell(rowNum,11).value = { formula:'K'+prevBalRow, result: runningBal };
+        setQtyCell(ws.getCell(rowNum,11), { formula:'K'+prevBalRow, result: runningBal });
       }
       ws.getRow(rowNum).font = {bold:true};
       styleDataRow(ws.getRow(rowNum), 12);
+      ws.getRow(rowNum).height = 28;
       applyBlockOuterBorder(ws, itemHeaderRow, totalRow, 1, 12);
       catTotalRows.push({row: totalRow, recv: sumRecv, iss: sumIss, bal: runningBal});
       rowNum += 2; // পরের আইটেমের আগে ফাঁকা লাইন
@@ -11450,6 +11462,14 @@ function gsRenderPreviewExcelJS(wb){
         if (val && typeof val==='object' && val.result!==undefined) val = val.result;
         if (val && typeof val==='object' && val.formula!==undefined) val = val.result!==undefined?val.result:'';
         var text = (val===null||val===undefined) ? '' : String(val);
+        // 📦 Quantity/Balance ঘরের numFmt-এ Unit বসানো থাকলে (যেমন 0"\nPcs") — প্রিভিউতেও
+        // উপরে সংখ্যা, নিচে ছোট করে Unit দেখাও (Excel ফাইলে যেমন দেখাবে ঠিক তেমনই)
+        if (cell.numFmt && typeof val === 'number') {
+          var unitMatch = cell.numFmt.match(/^0"\n([^"]*)"$/);
+          if (unitMatch) {
+            text = '<div>'+text+'</div><div style="font-size:10px;color:#777;font-weight:normal;">'+unitMatch[1]+'</div>';
+          }
+        }
         var style = 'padding:4px 8px;font-size:12px;white-space:nowrap;';
         // ExcelJS border style অনুযায়ী প্রতিটা পাশের thickness আলাদাভাবে বসানো হয় —
         // thin ভিতরের লাইনের জন্য, medium/thick ব্লকের বাইরের চারপাশের মোটা বর্ডারের জন্য
