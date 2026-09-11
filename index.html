@@ -3578,8 +3578,8 @@ window.iglSaveNavVisibility = function() {
         <div class="card-body" style="padding:0;">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Item</th><th>Category</th><th>Stock</th><th>Status</th></tr></thead>
-              <tbody id="lowStockTable"><tr><td colspan="4" class="no-data">Loading...</td></tr></tbody>
+              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Stock</th><th>Status</th></tr></thead>
+              <tbody id="lowStockTable"><tr><td colspan="5" class="no-data">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -3668,6 +3668,11 @@ window.iglSaveNavVisibility = function() {
                 <option value="Kg">Kg</option>
                 <option value="Liter">Liter</option>
                 <option value="Set">Set</option>
+                <option value="Box">Box</option>
+                <option value="Roll">Roll</option>
+                <option value="Packet">Packet</option>
+                <option value="Meter">Meter</option>
+                <option value="Coil">Coil</option>
               </select>
             </div>
             <div class="form-group">
@@ -3778,6 +3783,11 @@ window.iglSaveNavVisibility = function() {
                 <option value="Kg">Kg</option>
                 <option value="Liter">Liter</option>
                 <option value="Set">Set</option>
+                <option value="Box">Box</option>
+                <option value="Roll">Roll</option>
+                <option value="Packet">Packet</option>
+                <option value="Meter">Meter</option>
+                <option value="Coil">Coil</option>
               </select>
             </div>
           </div>
@@ -3889,7 +3899,7 @@ window.iglSaveNavVisibility = function() {
           <table>
             <thead>
               <tr>
-                <th>SL</th><th>Item Category</th><th>Item Name</th>
+                <th>SL</th><th>Item Category</th><th>Item Name</th><th>Unit</th>
                 <th>Total Received</th><th>Total Issued</th><th>Stock in Hand</th><th>Status</th>
               </tr>
             </thead>
@@ -3948,7 +3958,7 @@ window.iglSaveNavVisibility = function() {
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Date</th><th>Category</th><th>Item Grp.</th><th>Item</th><th>Challan No.</th><th>Bill No.</th><th>Quantity</th><th>Rate</th><th>Amount</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Date</th><th>Category</th><th>Item Grp.</th><th>Item</th><th>Challan No.</th><th>Bill No.</th><th>Quantity</th><th>Unit</th><th>Rate</th><th>Amount</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="receiveLogTable"></tbody>
           </table>
@@ -4051,7 +4061,7 @@ window.iglSaveNavVisibility = function() {
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>SL</th><th>Slip No.</th><th>Date</th><th>Category</th><th>Item Grp.</th><th>Item</th><th>Qty</th><th>Machine No.</th><th>Machine ID</th><th>Machine Cat.</th><th>Remarks</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
+              <tr><th>SL</th><th>Slip No.</th><th>Date</th><th>Category</th><th>Item Grp.</th><th>Item</th><th>Qty</th><th>Unit</th><th>Machine No.</th><th>Machine ID</th><th>Machine Cat.</th><th>Remarks</th><th class="no-print admin-col" style="display:none;">Entry By</th><th class="no-print admin-col" style="display:none;font-size:11px;">Entry Time</th><th class="no-print">Delete</th></tr>
             </thead>
             <tbody id="issueLogTable"></tbody>
           </table>
@@ -5737,6 +5747,11 @@ function ok(msg) {
                 <option value="Kg">Kg</option>
                 <option value="Liter">Liter</option>
                 <option value="Set">Set</option>
+                <option value="Box">Box</option>
+                <option value="Roll">Roll</option>
+                <option value="Packet">Packet</option>
+                <option value="Meter">Meter</option>
+                <option value="Coil">Coil</option>
               </select>
             </div>
             <div>
@@ -11122,7 +11137,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
 
     var h1 = [cat+' Item Details','Date','ReceiveDetail','','','','','Issue Detail','','','Balance','Remarks'];
     h1.forEach(function(v,i){ ws.getCell(4,i+1).value = v; });
-    var h2 = ['','','Supplier','Challan No.','Bill No.','Quantity Pcs','','Slip No.','Machine particular','Quantity Pcs','Pcs',''];
+    var h2 = ['','','Supplier','Challan No.','Bill No.','Quantity','','Slip No.','Machine particular','Quantity','Balance',''];
     h2.forEach(function(v,i){ ws.getCell(5,i+1).value = v; });
     ws.mergeCells(4,1,5,1); ws.mergeCells(4,2,5,2);
     ws.mergeCells(4,3,4,7); ws.mergeCells(4,8,4,10);
@@ -11135,7 +11150,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
     catItems.forEach(function(it){
       var bf = bfOf(it.name);
       var itemHeaderRow = rowNum;
-      ws.getCell(rowNum,1).value = it.name;
+      ws.getCell(rowNum,1).value = it.name + ' (' + (it.unit||'Pcs') + ')';
       ws.getCell(rowNum,1).font = {bold:true};
       styleDataRow(ws.getRow(rowNum), 12);
       rowNum++;
@@ -11225,7 +11240,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   wsSum.getCell(2,1).value = monthLabel;
   wsSum.mergeCells(2,1,2,6);
   wsSum.getCell(2,1).font = {bold:true};
-  var sumHeader = ['Grope Name & Item Description','B/F','Rcvd pcs','Issued pcs','Balance','Unit'];
+  var sumHeader = ['Grope Name & Item Description','B/F','Rcvd Qty','Issued Qty','Balance','Unit'];
   sumHeader.forEach(function(v,i){ wsSum.getCell(4,i+1).value = v; });
   styleHeaderRow(wsSum.getRow(4));
   wsSum.views = [{state:'frozen', ySplit:4}];
@@ -21542,7 +21557,7 @@ function renderDashboard() {
   });
   const lt = document.getElementById('lowStockTable');
   if (lowRows.length === 0) {
-    lt.innerHTML = '<tr><td colspan="4" class="no-data">✅ All items have sufficient stock</td></tr>';
+    lt.innerHTML = '<tr><td colspan="5" class="no-data">✅ All items have sufficient stock</td></tr>';
   } else {
     lt.innerHTML = lowRows.map(r => {
       const ms = r.minStock || 0;
@@ -21551,7 +21566,7 @@ function renderDashboard() {
         : '<span class="badge badge-low">LOW</span>';
       const minLabel = ms > 0 ? ' <span style="font-size:10px;color:#888;">(min:'+ms+')</span>' : '';
       return `<tr>
-        <td><b>${r.name}</b></td><td>${r.group}</td><td><b>${r.stock}</b>${minLabel}</td>
+        <td><b>${r.name}</b></td><td>${r.group}</td><td style="text-align:center;color:#666;">${r.unit||'Pcs'}</td><td><b>${r.stock}</b>${minLabel}</td>
         <td>${badge}</td>
       </tr>`;
     }).join('');
@@ -21601,14 +21616,14 @@ function quickSearch() {
     });
     if (matches.length > 0) {
       html += '<div style="font-size:11px;font-weight:700;color:#5d6d7e;text-transform:uppercase;letter-spacing:0.5px;padding:8px 4px 4px;">🏷️ Item Stock</div>';
-      html += '<div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Group</th><th>Received</th><th>Issued</th><th>Stock</th><th>Status</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Group</th><th>Unit</th><th>Received</th><th>Issued</th><th>Stock</th><th>Status</th></tr></thead><tbody>';
       matches.forEach(function(i){
         var rec = DB.receives.filter(function(r){return r.item===i.name;}).reduce(function(s,r){return s+r.qty;},0);
         var iss = DB.issues.filter(function(r){return r.item===i.name;}).reduce(function(s,r){return s+r.qty;},0);
         var stk = rec - iss;
         var cls = stk<=0?'badge-out':stk<=10?'badge-low':'badge-ok';
         var lbl = stk<=0?'OUT':stk<=10?'LOW':'OK';
-        html += '<tr><td><b>'+i.name+'</b></td><td>'+i.group+'</td><td>'+(i.category||'-')+'</td><td>'+rec+'</td><td>'+iss+'</td><td><b style="color:'+(stk<=0?'#c0392b':stk<=10?'#b7950b':'#117a65')+'">'+stk+'</b></td><td><span class="badge '+cls+'">'+lbl+'</span></td></tr>';
+        html += '<tr><td><b>'+i.name+'</b></td><td>'+i.group+'</td><td>'+(i.category||'-')+'</td><td style="text-align:center;color:#666;">'+(i.unit||'Pcs')+'</td><td>'+rec+'</td><td>'+iss+'</td><td><b style="color:'+(stk<=0?'#c0392b':stk<=10?'#b7950b':'#117a65')+'">'+stk+'</b></td><td><span class="badge '+cls+'">'+lbl+'</span></td></tr>';
       });
       html += '</tbody></table></div>';
     } else if (_qsTab === 'item') {
@@ -21624,9 +21639,9 @@ function quickSearch() {
     if (chalanRecs.length > 0) {
       var totalQty = chalanRecs.reduce(function(s,r){return s+r.qty;},0);
       html += '<div style="font-size:11px;font-weight:700;color:#5d6d7e;text-transform:uppercase;letter-spacing:0.5px;padding:12px 4px 4px;">📄 Chalan No. — Receive Records &nbsp;<span style="background:#d6eaf8;color:#1a5276;padding:2px 10px;border-radius:12px;font-size:11px;">'+chalanRecs.length+' records | Total Qty: '+totalQty+'</span></div>';
-      html += '<div class="table-wrap"><table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Category</th><th>Item</th><th>Supplier</th><th>Qty</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>SL</th><th>Date</th><th>Challan No.</th><th>Category</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Unit</th></tr></thead><tbody>';
       chalanRecs.forEach(function(r,i){
-        html += '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+r.chalan+'</b></td><td>'+r.group+'</td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td></tr>';
+        html += '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+r.chalan+'</b></td><td>'+r.group+'</td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td><td style="text-align:center;color:#666;">'+(r.unit||'Pcs')+'</td></tr>';
       });
       html += '</tbody></table></div>';
     } else if (_qsTab === 'chalan') {
@@ -21642,9 +21657,9 @@ function quickSearch() {
     if (slipIss.length > 0) {
       var totalIssQty = slipIss.reduce(function(s,r){return s+r.qty;},0);
       html += '<div style="font-size:11px;font-weight:700;color:#5d6d7e;text-transform:uppercase;letter-spacing:0.5px;padding:12px 4px 4px;">🧾 Issue Slip No. — Issue Records &nbsp;<span style="background:#fdedec;color:#922b21;padding:2px 10px;border-radius:12px;font-size:11px;">'+slipIss.length+' records | Total Qty: '+totalIssQty+'</span></div>';
-      html += '<div class="table-wrap"><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Group</th><th>Item</th><th>Machine/Dept</th><th>Qty</th><th>Remarks</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Group</th><th>Item</th><th>Machine/Dept</th><th>Qty</th><th>Unit</th><th>Remarks</th></tr></thead><tbody>';
       slipIss.forEach(function(r,i){
-        html += '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+r.slip+'</span></td><td>'+r.group+'</td><td><b>'+r.item+'</b></td><td>'+(r.machineId||r.machineNo||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td></tr>';
+        html += '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+r.slip+'</span></td><td>'+r.group+'</td><td><b>'+r.item+'</b></td><td>'+(r.machineId||r.machineNo||'-')+'</td><td><b>'+r.qty+'</b></td><td style="text-align:center;color:#666;">'+(r.unit||'Pcs')+'</td><td>'+(r.remarks||'-')+'</td></tr>';
       });
       html += '</tbody></table></div>';
     } else if (_qsTab === 'slip') {
@@ -21726,7 +21741,7 @@ function renderStock(){
   var items=_activeStockGroup?all.filter(function(i){return i.group===_activeStockGroup;}):all;
   if(q)items=items.filter(function(i){return i.name.toLowerCase().includes(q)||(i.group||'').toLowerCase().includes(q);});
   if(titleEl)titleEl.textContent=_activeStockGroup?('Item Stock - '+_activeStockGroup):'Item Stock Status - All Categories';
-  if(all.length===0){tbody.innerHTML='<tr><td colspan="7" class="no-data">No items. Refresh.</td></tr>';if(statsEl)statsEl.style.display='none';return;}
+  if(all.length===0){tbody.innerHTML='<tr><td colspan="8" class="no-data">No items. Refresh.</td></tr>';if(statsEl)statsEl.style.display='none';return;}
   var rows=items.map(function(item){
     var rcv=DB.receives.filter(function(r){
       if(r.item!==item.name)return false;
@@ -21742,7 +21757,7 @@ function renderStock(){
     }).reduce(function(s,i){return s+i.qty;},0);
     return{item:item,rec:rcv,iss:iss,stk:(Number(item.bf)||0)+rcv-iss};
   });
-  if(!rows.length){tbody.innerHTML='<tr><td colspan=7 class=no-data>No items</td></tr>';
+  if(!rows.length){tbody.innerHTML='<tr><td colspan=8 class=no-data>No items</td></tr>';
     if(statsEl)statsEl.style.display='none';if(infoEl)infoEl.textContent='';return;}
   var tR=0,tI=0,tS=0,lC=0,sl=1;
   tbody.innerHTML=rows.map(function(r){
@@ -21754,9 +21769,9 @@ function renderStock(){
     tR+=rc;tI+=is;tS+=st;if(minS>0&&st<=minS&&st>0)lC++;if(st<=0)lC++;
     var td='<b style=color:'+sc+'>'+st+'</b>';
     var sp='<span class="badge '+cl+'">'+lb+'</span>';
-    return '<tr><td>'+(sl++)+'</td><td>'+it.group+'</td><td><b>'+it.name+'</b></td><td>'+rc+'</td><td>'+is+'</td><td>'+td+'</td><td>'+sp+'</td></tr>';
+    return '<tr><td>'+(sl++)+'</td><td>'+it.group+'</td><td><b>'+it.name+'</b></td><td style="text-align:center;color:#666;">'+(it.unit||'Pcs')+'</td><td>'+rc+'</td><td>'+is+'</td><td>'+td+'</td><td>'+sp+'</td></tr>';
   }).join('');
-  tbody.innerHTML+='<tr class=total-row><td colspan=3>Total</td><td>'+tR+'</td><td>'+tI+'</td><td>'+tS+'</td><td></td></tr>';
+  tbody.innerHTML+='<tr class=total-row><td colspan=4>Total</td><td>'+tR+'</td><td>'+tI+'</td><td>'+tS+'</td><td></td></tr>';
   if(statsEl){statsEl.style.display='block';document.getElementById('sg-items').textContent=rows.length;document.getElementById('sg-rec').textContent=tR;document.getElementById('sg-iss').textContent=tI;document.getElementById('sg-stk').textContent=tS;document.getElementById('sg-low').textContent=lC;}
   if(infoEl&&(dateFrom||dateTo||q)){infoEl.innerHTML='<b>Filter active: '+rows.length+' items</b>';} else if(infoEl){infoEl.textContent='';}
 }
@@ -21935,13 +21950,13 @@ function exportStockCSV() {
   var allItems = DB.items;
   var items = _activeStockGroup ? allItems.filter(function(i){ return i.group === _activeStockGroup; }) : allItems;
   var groupLabel = _activeStockGroup ? ('_' + _activeStockGroup.replace(/\s+/g,'_')) : '';
-  var csv = 'SL,Category,Item,Total Received,Total Issued,Stock in Hand,Status\n';
+  var csv = 'SL,Category,Item,Unit,Total Received,Total Issued,Stock in Hand,Status\n';
   items.forEach(function(item, i) {
     var rec = DB.receives.filter(function(r){ return r.item === item.name; }).reduce(function(s,r){return s+r.qty;},0);
     var iss = DB.issues.filter(function(r){ return r.item === item.name; }).reduce(function(s,r){return s+r.qty;},0);
     var stk = rec - iss;
     var status = stk <= 0 ? 'STOCK OUT' : stk <= 10 ? 'LOW' : 'OK';
-    csv += `${i+1},"${item.group}","${item.name}",${rec},${iss},${stk},${status}\n`;
+    csv += `${i+1},"${item.group}","${item.name}","${item.unit||'Pcs'}",${rec},${iss},${stk},${status}\n`;
   });
   downloadFile(csv, `IGL_Stock${groupLabel}_${todayStr()}.csv`, 'text/csv');
 }
@@ -22044,7 +22059,7 @@ function renderReceiveLog() {
   document.getElementById('print-date-receive').textContent = 'Print Date: ' + fmtDate(todayStr());
   const tbody = document.getElementById('receiveLogTable');
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" class="no-data">
+    tbody.innerHTML = `<tr><td colspan="12" class="no-data">
       ${q ? `No records found for "${q}"` : 'No records found'}
     </td></tr>`;
     document.getElementById('receiveLogSummary').textContent = '';
@@ -22072,6 +22087,7 @@ function renderReceiveLog() {
     <td><span style="font-weight:600;color:#1a5276;">${hl(r.chalan||'-', q)}</span></td>
     <td>${(r.bill && String(r.bill).trim()) ? `<span style="font-weight:600;color:#1a5276;">${hl(r.bill, q)}</span>` : `<span style="background:#fef5e7;color:#b9770e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ বিল বাকি</span>`}</td>
     <td><b style="color:#1a5276;">${r.qty}</b></td>
+    <td style="text-align:center;color:#666;">${r.unit||'Pcs'}</td>
     <td style="text-align:right;">${r.rate ? Number(r.rate).toLocaleString() : '-'}</td>
     <td style="text-align:right;font-weight:600;">${r.amount ? Number(r.amount).toLocaleString() : '-'}</td>
     ${entryByCell}
@@ -22271,7 +22287,7 @@ function renderIssueLog() {
   document.getElementById('print-date-issue').textContent = 'Print Date: ' + fmtDate(todayStr());
   const tbody = document.getElementById('issueLogTable');
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="no-data">
+    tbody.innerHTML = `<tr><td colspan="13" class="no-data">
       ${q ? `No records found for "${q}"` : 'No records found'}
     </td></tr>`;
     document.getElementById('issueLogSummary').textContent = '';
@@ -22298,6 +22314,7 @@ function renderIssueLog() {
     <td><span style="background:#fdf2f8;color:#922b21;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${hl(r.category||'-', q)}</span></td>
     <td><b>${hl(r.item, q)}</b></td>
     <td><b style="color:#922b21;">${r.qty}</b></td>
+    <td style="text-align:center;color:#666;">${r.unit||'Pcs'}</td>
     <td>${hl(r.machineNo||'-', q)}</td>
     <td>${hl(r.machineId||'-', q)}</td>
     <td>${hl(r.machineCat||'-', q)}</td>
@@ -22521,7 +22538,7 @@ function renderMaster() {
     <td><input class="editable-input" value="${item.name}" placeholder="Item Name..." onchange="updateItemName(${i}, this.value)"></td>
     <td style="text-align:center;">
       <select style="width:70px;padding:3px;border:1px solid #d5d8dc;border-radius:5px;font-size:11px;" onchange="updateItemUnit(${i}, this.value)">
-        ${['Pcs','Kg','Liter','Set'].map(u => `<option value="${u}"${(item.unit||'Pcs')===u?' selected':''}>${u}</option>`).join('')}
+        ${['Pcs','Kg','Liter','Set','Box','Roll','Packet','Meter','Coil'].map(u => `<option value="${u}"${(item.unit||'Pcs')===u?' selected':''}>${u}</option>`).join('')}
       </select>
     </td>
     <td style="text-align:center;">
@@ -24018,26 +24035,26 @@ function exportFullExcel() {
   html += '</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
 
   // ── Sheet 1: Receive Log ──
-  html += '<table id="sh1"><tr><td colspan="8" style="font-size:14pt;font-weight:bold;background:#1a5276;color:white;">IGL Store ERP — Receive Log | '+xEsc(now)+'</td></tr>';
-  html += '<tr style="background:#1a5276;color:white;font-weight:bold;"><td>SL</td><td>Date</td><td>Category</td><td>Group</td><td>Item</td><td>Challan No.</td><td>Supplier</td><td>Qty</td></tr>';
+  html += '<table id="sh1"><tr><td colspan="9" style="font-size:14pt;font-weight:bold;background:#1a5276;color:white;">IGL Store ERP — Receive Log | '+xEsc(now)+'</td></tr>';
+  html += '<tr style="background:#1a5276;color:white;font-weight:bold;"><td>SL</td><td>Date</td><td>Category</td><td>Group</td><td>Item</td><td>Challan No.</td><td>Supplier</td><td>Qty</td><td>Unit</td></tr>';
   DB.receives.forEach(function(r,i){
-    html += '<tr>'+td(i+1)+td(fmtDate(r.date))+td(r.group)+td(r.category||'')+tdB(r.item)+td(r.chalan||'')+td(r.supplier||'')+tdB(r.qty)+'</tr>';
+    html += '<tr>'+td(i+1)+td(fmtDate(r.date))+td(r.group)+td(r.category||'')+tdB(r.item)+td(r.chalan||'')+td(r.supplier||'')+tdB(r.qty)+td(r.unit||'Pcs')+'</tr>';
   });
   var recTot = DB.receives.reduce(function(s,r){return s+r.qty;},0);
-  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="7" align="right">Total</td>'+tdB(recTot)+'</tr></table>';
+  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="7" align="right">Total</td>'+tdB(recTot)+'<td></td></tr></table>';
 
   // ── Sheet 2: Issue Log ──
-  html += '<table id="sh2"><tr><td colspan="10" style="font-size:14pt;font-weight:bold;background:#922b21;color:white;">IGL Store ERP — Issue Log | '+xEsc(now)+'</td></tr>';
-  html += '<tr style="background:#922b21;color:white;font-weight:bold;"><td>SL</td><td>Date</td><td>Slip No.</td><td>Category</td><td>Group</td><td>Item</td><td>Qty</td><td>Machine/Dept</td><td>Machine No</td><td>Remarks</td></tr>';
+  html += '<table id="sh2"><tr><td colspan="11" style="font-size:14pt;font-weight:bold;background:#922b21;color:white;">IGL Store ERP — Issue Log | '+xEsc(now)+'</td></tr>';
+  html += '<tr style="background:#922b21;color:white;font-weight:bold;"><td>SL</td><td>Date</td><td>Slip No.</td><td>Category</td><td>Group</td><td>Item</td><td>Qty</td><td>Unit</td><td>Machine/Dept</td><td>Machine No</td><td>Remarks</td></tr>';
   DB.issues.forEach(function(r,i){
-    html += '<tr>'+td(i+1)+td(fmtDate(r.date))+tdB(r.slip||'')+td(r.group)+td(r.category||'')+tdB(r.item)+tdB(r.qty)+td(r.machineId||'')+td(r.machineNo||'')+td(r.remarks||'')+'</tr>';
+    html += '<tr>'+td(i+1)+td(fmtDate(r.date))+tdB(r.slip||'')+td(r.group)+td(r.category||'')+tdB(r.item)+tdB(r.qty)+td(r.unit||'Pcs')+td(r.machineId||'')+td(r.machineNo||'')+td(r.remarks||'')+'</tr>';
   });
   var issTot = DB.issues.reduce(function(s,r){return s+r.qty;},0);
-  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="6" align="right">Total</td>'+tdB(issTot)+'<td colspan="3"></td></tr></table>';
+  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="6" align="right">Total</td>'+tdB(issTot)+'<td colspan="4"></td></tr></table>';
 
   // ── Sheet 3: Stock Report ──
-  html += '<table id="sh3"><tr><td colspan="8" style="font-size:14pt;font-weight:bold;background:#117a65;color:white;">IGL Store ERP — Current Stock Report | '+xEsc(now)+'</td></tr>';
-  html += '<tr style="background:#117a65;color:white;font-weight:bold;"><td>SL</td><td>Category</td><td>Group</td><td>Item</td><td>Total Receive</td><td>Total Issue</td><td>Current Stock</td><td>Status</td></tr>';
+  html += '<table id="sh3"><tr><td colspan="9" style="font-size:14pt;font-weight:bold;background:#117a65;color:white;">IGL Store ERP — Current Stock Report | '+xEsc(now)+'</td></tr>';
+  html += '<tr style="background:#117a65;color:white;font-weight:bold;"><td>SL</td><td>Category</td><td>Group</td><td>Item</td><td>Unit</td><td>Total Receive</td><td>Total Issue</td><td>Current Stock</td><td>Status</td></tr>';
   var tR=0,tI=0,tS=0;
   DB.items.forEach(function(it,i){
     var rec = DB.receives.filter(function(r){return r.item===it.name;}).reduce(function(s,r){return s+r.qty;},0);
@@ -24046,9 +24063,9 @@ function exportFullExcel() {
     tR+=rec; tI+=iss; tS+=stk;
     var bg = stk<=0?'background:#fdedec;':stk<=10?'background:#fef9e7;':'';
     var status = stk<=0?'STOCK OUT':stk<=10?'LOW':'OK';
-    html += '<tr style="'+bg+'">'+td(i+1)+td(it.group||'')+td(it.category||'-')+tdB(it.name)+td(rec)+td(iss)+tdB(stk,'color:'+(stk<=0?'#c0392b':stk<=10?'#b7950b':'#117a65'))+td(status)+'</tr>';
+    html += '<tr style="'+bg+'">'+td(i+1)+td(it.group||'')+td(it.category||'-')+tdB(it.name)+td(it.unit||'Pcs')+td(rec)+td(iss)+tdB(stk,'color:'+(stk<=0?'#c0392b':stk<=10?'#b7950b':'#117a65'))+td(status)+'</tr>';
   });
-  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="4" align="right">Total</td>'+tdB(tR)+tdB(tI)+tdB(tS)+'<td></td></tr></table>';
+  html += '<tr style="background:#1c2833;color:white;font-weight:bold;"><td colspan="5" align="right">Total</td>'+tdB(tR)+tdB(tI)+tdB(tS)+'<td></td></tr></table>';
 
   // ── Sheet 4: Stationery ──
   var stnItems = DB.stnItems.filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; });
