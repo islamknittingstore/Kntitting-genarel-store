@@ -1718,7 +1718,14 @@ if('serviceWorker' in navigator){
             // এই মুহূর্তে overwrite না করে সেই এডিট রক্ষা করা হচ্ছে — পরের ts pulse-এ
             // remote এমনিতেই sync হয়ে যাবে (receives/issues-এ যেভাবে pending-merge করা
             // হয়, items-এর জন্য এটা সেই একই সুরক্ষার সরল সংস্করণ)।
-            var _recentLocalItemEdit = window._gsItemsLocalEditTs && (Date.now() - window._gsItemsLocalEditTs < 4000);
+            // ⚠️⚠️ BUG FIX: window._gsItemsLocalEditTs রিলোডে হারিয়ে যায়, তাই এখন
+            // localStorage-এ সেভ থাকা টাইমস্ট্যাম্পটাও চেক করা হচ্ছে (fallback) — এতে
+            // ডিলিট/এডিট করার পরপরই রিলোড দিলেও এই গার্ড কাজ করবে। উইন্ডো একটু বাড়িয়ে
+            // ৮ সেকেন্ড করা হলো, যাতে রিলোড + Firebase রি-কানেক্টের সময়টুকুও কভার হয় ──
+            var _persistedEditTs = 0;
+            try { _persistedEditTs = Number(localStorage.getItem('igl_gs_items_edit_ts')) || 0; } catch(e) {}
+            var _lastGsEditTs = window._gsItemsLocalEditTs || _persistedEditTs;
+            var _recentLocalItemEdit = _lastGsEditTs && (Date.now() - _lastGsEditTs < 8000);
             if (!_recentLocalItemEdit) {
               DB.items = _incomingGsItems;
               // ⚠️⚠️ BUG FIX: আগে এখানে DB.items বদলে গেলেও Master Data টেবিল (renderMaster)
@@ -8728,7 +8735,14 @@ const DB = {
     // এই ডিভাইসে General Store item-এ এইমাত্র local এডিট হলো (rename/B-F/Category/add/delete) —
     // সময়টা মনে রাখো, যাতে fbLoadAll() এই এডিট Firebase-এ পুরোপুরি sync হওয়ার আগেই
     // পুরনো remote data দিয়ে overwrite করে না ফেলে (দেখুন fbLoadAll-এর db.items merge গার্ড)
+    // ⚠️⚠️ BUG FIX: আগে এই টাইমস্ট্যাম্প শুধু window ভ্যারিয়েবলে থাকত, যেটা রিলোড
+    // দিলেই হারিয়ে যেত। ফলে কেউ ডিলিট/এডিট করার সাথে সাথে (কয়েক সেকেন্ডের মধ্যে)
+    // পেজ রিলোড দিলে — Firebase sync (debounce ~1.2s) শেষ হওয়ার আগেই fbLoadAll()
+    // পুরনো (stale) remote আইটেম লিস্ট দিয়ে লোকাল ডিলিট/এডিট মুছে দিত, আর ডিলিট করা
+    // আইটেম আবার ফিরে আসত। এখন localStorage-এও সেভ করা হচ্ছে, যাতে রিলোডের পরেও
+    // এই গার্ড কাজ করে ──
     window._gsItemsLocalEditTs = Date.now();
+    try { localStorage.setItem('igl_gs_items_edit_ts', String(window._gsItemsLocalEditTs)); } catch(e) {}
   },
   get stnItems() {
     // Firebase থেকে লোড হলে সেটা দাও, না হলে built-in default
@@ -22716,11 +22730,16 @@ function updateItemName(idx, val) {
   // Duplicate check within same group
   const dup = items.find((it, j) => j !== idx && it.name === newName && it.group === grp);
   if (dup) { toast('এই নামে একটি আইটেম আগে থেকেই আছে!', 'warning'); renderMaster(); return; }
+  // ⚠️⚠️ BUG FIX: আগে এখানে DB.items = items বসানোর পরে iglDelIdsAdd কল হতো —
+  // কিন্তু DB.items-এর setter নিজেই preItems (৫৯১টা seed) থেকে "missing" আইটেম
+  // মার্জ করে, আর সেই merge পুরনো নামের delId এখনো localStorage-এ যোগ না হওয়া
+  // অবস্থাতেই চলত। ফলে rename করার সাথে সাথেই পুরনো seed আইটেমটা (পুরনো নামে)
+  // আবার resurrect হয়ে নতুন নামের পাশাপাশি ডুপ্লিকেট আইটেম হিসেবে যোগ হয়ে যেত।
+  // এখন আগে delId যোগ করা হচ্ছে, তারপর DB.items = items বসানো হচ্ছে — যাতে
+  // setter-এর নিজের missing-merge চেক এই মুহূর্তেই পুরনো নামটাকে বাদ দিতে পারে ──
+  if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', grp+'||'+oldName);
   items[idx].name = newName;
   DB.items = items;
-  // পুরনো নাম-key-কে deletedIds-এ যোগ করো — যাতে merge-fetch-এর সময় stale remote
-  // কপি (পুরনো নামে) নতুন আইটেম হিসেবে আবার যোগ না হয়ে যায়
-  if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', grp+'||'+oldName);
 
   // Cascade the rename into historical Receive/Issue records so nothing
   // gets orphaned from its stock/report calculations
