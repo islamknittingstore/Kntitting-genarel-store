@@ -8805,6 +8805,23 @@ const DB = {
 // 
 //  SEED DEFAULT DATA (if empty)
 // 
+// ⚠️⚠️ BUG FIX: নিচের ৫টা migration ফাংশন (updateSparePartsItems/updateMaintenanceItems/
+// updateBeltBearingItems/updateElectricalItems/updateICTItems) প্রতিটা সেই group-এর সব
+// item সরিয়ে হার্ডকোড লিস্ট দিয়ে বদলে দেয় (init()-এ প্রতি লোডে কল হয়, কিন্তু নিজের
+// localStorage version flag চেক করে সাধারণত একবারই কাজ করে)। সমস্যা: এই flag শুধু
+// এই ব্রাউজারেই থাকে, Firebase-এ sync হয় না — তাই অন্য কোনো ডিভাইসে (যেখানে flag এখনো
+// সেট হয়নি) এটা চললে, User আগে ডিলিট করা আইটেমও হার্ডকোড লিস্ট থেকে আবার তৈরি হয়ে সব
+// ডিভাইসে ফিরে আসত — এটাই ছিল "বার বার ডিলিট করেও Flexible Ploe/PVC Pipe যাচ্ছে না"
+// সমস্যার আসল কারণ। এখন হার্ডকোড লিস্ট থেকে merge করার আগে locally-deleted আইটেম বাদ
+// দেওয়া হচ্ছে ──
+function _filterOutLocallyDeletedGsItems(arr) {
+  var _localDel = {};
+  try { _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
+  return arr.filter(function(it) {
+    var k = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
+    return !_localDel[k];
+  });
+}
 function updateSparePartsItems() {
   const SP_VERSION = 'igl_spareparts_v1';
   if (localStorage.getItem(SP_VERSION)) return;
@@ -8942,7 +8959,7 @@ function updateSparePartsItems() {
   ];
 
   const otherItems = DB.items.filter(i => i.group !== 'Spare Parts');
-  DB.items = [...otherItems, ...newItems];
+  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
   localStorage.setItem(SP_VERSION, '1');
 }
 
@@ -9012,7 +9029,7 @@ function updateMaintenanceItems() {
   ];
 
   const otherItems = DB.items.filter(i => i.group !== 'Maintenance');
-  DB.items = [...otherItems, ...newItems];
+  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
   localStorage.setItem(MAINT_VERSION, '1');
 }
 
@@ -9162,7 +9179,7 @@ function updateBeltBearingItems() {
 
   // Add new Belt & Bearing items (keep all other groups intact)
   const otherItems = DB.items.filter(i => i.group !== 'Belt & Bearing');
-  DB.items = [...otherItems, ...newItems];
+  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
 
   // Add group if not exists
   const groups = DB.groups;
@@ -9529,7 +9546,7 @@ function updateElectricalItems() {
 
   // Keep all non-Electrical items, then add new Electrical items
   const otherItems = DB.items.filter(i => i.group !== 'Electrical');
-  DB.items = [...otherItems, ...newElectricalItems];
+  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newElectricalItems)];
 
   // Mark as done so it never runs again
   localStorage.setItem(ELEC_VERSION, '1');
@@ -9564,7 +9581,7 @@ function updateICTItems() {
 
   // Remove old ICT items (if any) and add new ones
   const otherItems = DB.items.filter(i => i.group !== 'ICT Equipment');
-  DB.items = [...otherItems, ...newICTItems];
+  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newICTItems)];
 
   localStorage.setItem(ICT_VERSION, '1');
 }
