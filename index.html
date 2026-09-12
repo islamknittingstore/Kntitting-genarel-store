@@ -1718,6 +1718,18 @@ if('serviceWorker' in navigator){
             }
           }
         }
+
+        // ✅✅ CRITICAL FIX ⚠️⚠️ — মূল db data (items/groups/receives/issues) নিরাপদে
+        // বসে যাওয়ার পরপরই এখানেই _fbInitialLoadDone = true সেট করো। আগে এই flag-টা
+        // অনেক পরে (সব dashboard/report render হওয়ার পর) সেট হতো — নিচের render calls-এর
+        // মধ্যে ২টা (updateDashboard/renderStock) try/catch ছাড়া ছিল, ওগুলোর যেকোনো একটায়
+        // error হলে পুরো fbLoadAll() থেমে catch()-এ চলে যেত আর _fbInitialLoadDone কখনোই
+        // true হতো না — ফলে fbSaveAll() স্থায়ীভাবে "data loss protection" গার্ডে আটকে
+        // যেত এবং এরপর থেকে কোনো delete/add/edit-ই Firebase এ sync হতো না (শুধু local এ
+        // থাকতো), তাই next load/sync এ ডিলিট করা আইটেম আবার ফিরে আসতো। এখন core data
+        // বসার সাথে সাথেই flag true হয়ে যায়, তাই পরের কোনো render error সেভকে ব্লক করতে পারবে না।
+        window._fbInitialLoadDone = true;
+
         if(data.ndb){
           if(data.ndb.needles){
             // NDB.needles এও local pending merge করো
@@ -1882,8 +1894,8 @@ if('serviceWorker' in navigator){
         //  তাকে logout/login বা page reload করতে হতো)
         try { if(window.IGL_CURRENT_USER && typeof iglApplyPermissions === 'function') iglApplyPermissions(); } catch(e){}
 
-        if(typeof updateDashboard === 'function') updateDashboard();
-        if(typeof renderStock === 'function') renderStock();
+        try { if(typeof updateDashboard === 'function') updateDashboard(); } catch(e){ console.warn('updateDashboard error:', e); }
+        try { if(typeof renderStock === 'function') renderStock(); } catch(e){ console.warn('renderStock error:', e); }
         // Firebase load এর পর সব needle/issue/receive report refresh করো
         // যাতে অন্য device এ restore/entry করলে এই device এও সাথে সাথে দেখা যায়
         try { if(typeof nmiRenderLog         ==='function') nmiRenderLog(); }         catch(e){}
