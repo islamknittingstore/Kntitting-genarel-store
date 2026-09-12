@@ -10662,7 +10662,7 @@ function filterRCategory() {
   document.getElementById('r-stock-badge').innerHTML = '';
   if (!g) return;
 
-  const cats = [...new Set(DB.items.filter(i => i.group === g && i.category).map(i => i.category))];
+  const cats = [...new Set(DB.items.filter(i => i.group === g && i.category && !i.hidden).map(i => i.category))];
   if (cats.length > 0) {
     cats.forEach(c => rc.innerHTML += `<option value="${c}">${c}</option>`);
   }
@@ -10677,7 +10677,7 @@ function filterRItems() {
   ri.innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('r-stock-badge').innerHTML = '';
   if (!g) return;
-  let items = DB.items.filter(i => i.group === g);
+  let items = DB.items.filter(i => i.group === g && !i.hidden);
   if (cat) items = items.filter(i => i.category === cat);
   if (items.length === 0) {
     ri.innerHTML = '<option value="" disabled>No items in this group</option>';
@@ -10699,7 +10699,7 @@ function filterICategory() {
   document.getElementById('i-stock-badge').innerHTML = '';
   if (!g) return;
 
-  const cats = [...new Set(DB.items.filter(i => i.group === g && i.category).map(i => i.category))];
+  const cats = [...new Set(DB.items.filter(i => i.group === g && i.category && !i.hidden).map(i => i.category))];
   if (cats.length > 0) {
     cats.forEach(c => ic.innerHTML += `<option value="${c}">${c}</option>`);
   }
@@ -10714,7 +10714,7 @@ function filterIItems() {
   ii.innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('i-stock-badge').innerHTML = '';
   if (!g) return;
-  let items = DB.items.filter(i => i.group === g);
+  let items = DB.items.filter(i => i.group === g && !i.hidden);
   if (cat) items = items.filter(i => i.category === cat);
   if (items.length === 0) {
     ii.innerHTML = '<option value="" disabled>No items in this group</option>';
