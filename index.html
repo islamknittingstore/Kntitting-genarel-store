@@ -3312,7 +3312,7 @@ window.iglSaveNavVisibility = function() {
     <span id="json-label" style="display:none;"></span>
 
     <!-- Info button -->
-    <button onclick="toggleSyncPanel()" title="Sync Status Details" style="font-size:11px;padding:3px 8px;border-radius:12px;border:none;background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;margin-left:2px;">📊</button>
+    <button class="admin-only-action" onclick="toggleSyncPanel()" title="Sync Status Details" style="font-size:11px;padding:3px 8px;border-radius:12px;border:none;background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;margin-left:2px;">📊</button>
 
     <!-- Sync Panel Popup -->
     <div id="syncPanel" style="display:none;position:absolute;top:42px;right:0;width:310px;background:#1a2332;border:1px solid #2c3e50;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:9999;padding:14px 16px;font-size:12px;color:#cdd;">
@@ -5934,7 +5934,7 @@ function ok(msg) {
       </div>
     </div>
 
-    <div class="card">
+    <div class="card gs-item-master-hide">
       <div class="card-header" style="background:#fef9e7; color:#7d6608;">Data Management</div>
       <div class="card-body">
         <p style="color:var(--text-light); font-size:12px; margin-bottom:15px;">
@@ -5943,7 +5943,12 @@ function ok(msg) {
         <div class="action-bar">
           <button class="btn btn-warning" onclick="exportData(); return false;">Full Data Backup (JSON)</button>
           <button class="btn btn-outline" onclick="importData(); return false;">Restore from Backup</button>
-          <button class="btn btn-danger" onclick="confirmClearAll()">Delete All Data</button>
+          <!-- ⚠️ "Delete All Data" বাটন ইচ্ছাকৃতভাবে হাইড করা হয়েছে (ব্যবহারকারীর অনুরোধে) —
+               শুধু Admin পাসওয়ার্ড জানলেই যেন কেউ ভুলবশত/ইচ্ছাকৃতভাবে সব ডাটা মুছে দিতে
+               না পারে। ফাংশন (confirmClearAll) অক্ষত আছে, শুধু বাটনটা style="display:none"
+               দিয়ে লুকানো — পরে দরকার হলে এই style="display:none" অংশটা সরিয়ে দিলেই আবার
+               বাটনটা ফিরে আসবে। -->
+          <button class="btn btn-danger" onclick="confirmClearAll()" style="display:none;" title="নিরাপত্তার জন্য হাইড করা হয়েছে">Delete All Data</button>
         </div>
       </div>
     </div>
