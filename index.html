@@ -139,6 +139,11 @@ if('serviceWorker' in navigator){
 
   /* Admin-only UI elements — hidden for regular users */
   body.igl-user-regular .admin-only-action { display: none !important; }
+  /* ⚠️ General Store "Item Master" restricted permission — শুধু Add/Edit Item দেখানোর জন্য।
+     এই CSS-টা উপরের admin-only-action রুলের পরে আসছে বলেই (একই specificity + !important
+     হলে stylesheet-এ পরেরটা জেতে) নিচের নিয়মগুলো ঠিকমতো override করবে। */
+  body.igl-gs-item-master-only .gs-item-master-hide { display: none !important; }
+  body.igl-gs-item-master-only .gs-item-add-btn { display: inline-block !important; }
 
   /*  Navbar  */
   .navbar {
@@ -2791,6 +2796,7 @@ window.iglLogout = function(){
 
 // Available permissions list
 var IGL_PERMISSIONS = {
+  'gs_item_master':   '📦 General Store — Item Master (শুধু Add/Edit Item)',
   'stn_requisition':  '📋 Stationery Requisition',
   'stn_req_record':   '🗂️ Stationery Requisition Record',
   'stn_item_master':   '📦 STN Item Master',
@@ -2874,6 +2880,16 @@ function iglApplyPermissions() {
   // Daily Report
   var drgNav = document.getElementById('nav-needle-daily-report');
   if (drgNav) drgNav.style.display = (isAdmin || iglHasPermission('daily_report')) ? '' : 'none';
+
+  // ── General Store — Item Master (শুধু Add/Edit) — নন-এডমিন যাকে আলাদাভাবে
+  // এই পারমিশন দেওয়া হয়েছে, সে শেয়ার্ড Master Data পাসওয়ার্ড ছাড়াই সরাসরি
+  // "Item Master (Add/Edit)" নামে একটা সীমিত ভিউ-তে ঢুকতে পারবে (দেখুন showPage())।
+  // body.igl-gs-item-master-only ক্লাসটা CSS-এ বাকি সব Master Data অপশন হাইড করে
+  // আর শুধু Add বাটন + item row-এর Name/Category/Unit/B-F ফিল্ড দেখায়।
+  var gsItemMasterOnly = !isAdmin && iglHasPermission('gs_item_master');
+  document.body.classList.toggle('igl-gs-item-master-only', gsItemMasterOnly);
+  var gsimNav = document.getElementById('nav-master-gsonly');
+  if (gsimNav) gsimNav.style.display = gsItemMasterOnly ? '' : 'none';
 
   // নোট: Machine Wise + Production / Machine Set Summary / Set Replace —
   // sidebar-এ দেখাবে কি না তা এখন থেকে শুধু "👁️ Menu Visibility" চেকবক্স দিয়ে নিয়ন্ত্রিত হয় (উপরের iglApplyNavHide())।
@@ -3406,6 +3422,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-issue-log"><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
       <li id="nav-monthly"><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
       <li id="nav-oil-production"><a href="#" onclick="showPage('oil_production', this); oilShowView('machine'); return false;"><span class="icon">🛢️</span> Oil vs Production</a></li>
+      <li id="nav-master-gsonly" style="display:none;"><a href="#" onclick="showPage('master', this); return false;"><span class="icon">🗄️</span> Item Master (Add/Edit)</a></li>
     </ul>
   </div>
 
@@ -5640,7 +5657,7 @@ function ok(msg) {
         <p>Manage item groups, item names and machine information</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-outline btn-sm" onclick="_masterChangePwDialog()" style="border-color:#2980b9;color:#2980b9;">🔑 Change Password</button>
+        <button class="btn btn-outline btn-sm gs-item-master-hide" onclick="_masterChangePwDialog()" style="border-color:#2980b9;color:#2980b9;">🔑 Change Password</button>
         <button class="btn btn-sm admin-only-action" onclick="openEditPermModal()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;">✏️ Edit Permission</button>
         <button class="btn btn-sm admin-only-action" onclick="openMonthLockModal()" style="background:linear-gradient(135deg,#943126,#c0392b);color:#fff;">🔒 Month Lock</button>
         <button class="btn btn-sm admin-only-action" onclick="showDeleteByDateModal()" style="background:linear-gradient(135deg,#6c3483,#8e44ad);color:#fff;">🗓️ Delete by Date</button>
@@ -5650,7 +5667,7 @@ function ok(msg) {
     </div>
 
     <!-- localStorage Meter -->
-    <div class="card" style="margin-bottom:20px;">
+    <div class="card gs-item-master-hide" style="margin-bottom:20px;">
       <div class="card-header" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;">
         💾 Local Storage মিটার
       </div>
@@ -5683,7 +5700,7 @@ function ok(msg) {
 
     <div style="display:flex;gap:8px;margin-bottom:14px;">
       <button id="master-tab-items" class="btn btn-sm" onclick="masterSetListTab('items')" style="background:#1a5276;color:#fff;padding:9px 20px;border-radius:20px;border:none;font-weight:700;">📦 Items</button>
-      <button id="master-tab-machines" class="btn btn-sm" onclick="masterSetListTab('machines')" style="background:#eaf4fb;color:#1a5276;padding:9px 20px;border-radius:20px;border:1px solid #2980b9;font-weight:700;">⚙️ Machines</button>
+      <button id="master-tab-machines" class="btn btn-sm gs-item-master-hide" onclick="masterSetListTab('machines')" style="background:#eaf4fb;color:#1a5276;padding:9px 20px;border-radius:20px;border:1px solid #2980b9;font-weight:700;">⚙️ Machines</button>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr; gap:20px;" id="masterListsGrid">
@@ -5789,7 +5806,7 @@ function ok(msg) {
               <label style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.4px;">Item Name *</label>
               <input type="text" class="form-control" id="new-item-name" placeholder="Enter item name...">
             </div>
-            <button class="btn btn-success btn-sm admin-only-action" onclick="addItem()" style="height:38px; padding:0 18px; white-space:nowrap;">➕ Add</button>
+            <button class="btn btn-success btn-sm admin-only-action gs-item-add-btn" onclick="addItem()" style="height:38px; padding:0 18px; white-space:nowrap;">➕ Add</button>
           </div>
           <div id="master-item-hint" style="margin-top:6px; font-size:11px; color:#2980b9; display:none;">
             💡 New Category/Group will be created automatically
@@ -5798,7 +5815,7 @@ function ok(msg) {
       </div>
 
       <!-- Machines -->
-      <div class="card" id="master-machines-card" style="display:none;">
+      <div class="card gs-item-master-hide" id="master-machines-card" style="display:none;">
         <div class="card-header" style="background:#f0f3f7;">Machine List
           <div style="margin-left:auto; display:flex; gap:6px;">
             <button class="btn btn-outline btn-sm admin-only-action" onclick="selectAllMachines()">Select All</button>
@@ -5890,7 +5907,7 @@ function ok(msg) {
 
 
     <!-- BULK MACHINE IMPORT CARD -->
-    <div class="card">
+    <div class="card gs-item-master-hide">
       <div class="card-header" style="background:#eaf4fb; color:#1a5276;">Bulk Machine Import (Excel / CSV)</div>
       <div class="card-body">
         <p style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
@@ -10337,7 +10354,13 @@ function restoreGroupStates() {
 function showPage(name, el) {
   // ── Centralized password check (Master Data + Needle Master + Needle Map) ──
   if (name === 'master' || name === 'needle_master_page' || name === 'needle_mapping') {
-    if (!_masterUnlocked) {
+    // ⚠️ যাকে admin আলাদাভাবে শুধু "General Store Item Master" পারমিশন দিয়েছে, সে শেয়ার্ড
+    // পাসওয়ার্ড না জেনেও সরাসরি Master Data পেজে ঢুকতে পারবে — কিন্তু ঢোকার পর তার জন্য
+    // শুধু Add/Edit Item দেখা যাবে, বাকি সব অপশন CSS দিয়ে (igl-gs-item-master-only ক্লাস) হাইড থাকবে।
+    var _gsItemMasterBypass = (name === 'master') &&
+      window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role !== 'admin' &&
+      (typeof iglHasPermission === 'function' && iglHasPermission('gs_item_master'));
+    if (!_masterUnlocked && !_gsItemMasterBypass) {
       _masterAskPasswordFor(name, el);
       return;
     }
@@ -11100,7 +11123,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var monthLabel = monShort[month-1]+'-'+String(year).slice(-2);
   function dmy(dateStr){ if(!dateStr) return ''; var p=dateStr.split('-'); return p[2]+'-'+monShort[Number(p[1])-1]+'-'+p[0].slice(-2); }
 
-  var items = (DB.items||[]).filter(function(it){ return it.group === group; });
+  var items = (DB.items||[]).filter(function(it){ return it.group === group && !it.hidden; });
   if (!items.length){ toast('❌ এই Category-তে কোনো আইটেম নেই','error'); return; }
 
   function bfOf(itemName){
@@ -22445,7 +22468,7 @@ function mrFilterCategory() {
   const mc = document.getElementById('mr-category');
   mc.innerHTML = '<option value="">-- All Categories --</option>';
   if (g) {
-    const cats = [...new Set(DB.items.filter(i => i.group === g && i.category).map(i => i.category))];
+    const cats = [...new Set(DB.items.filter(i => i.group === g && i.category && !i.hidden).map(i => i.category))];
     cats.forEach(c => mc.innerHTML += `<option value="${c}">${c}</option>`);
   }
   mrFilterItems();
@@ -22457,7 +22480,7 @@ function mrFilterItems() {
   const mi = document.getElementById('mr-item');
   mi.innerHTML = '<option value="">-- Select Item --</option>';
   if (!g) return;
-  let items = DB.items.filter(i => i.group === g);
+  let items = DB.items.filter(i => i.group === g && !i.hidden);
   if (cat) items = items.filter(i => i.category === cat);
   items.forEach(i => { mi.innerHTML += `<option value="${i.name}">${i.name}</option>`; });
 }
