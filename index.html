@@ -1658,7 +1658,18 @@ if('serviceWorker' in navigator){
               var cacheKey = k.replace(/__/g, ':');
               _allDelIds[cacheKey] = true;
             });
-            _fbDelIdsCache = _allDelIds; // cache update
+            // ⚠️⚠️ Rename/Delete Race-Condition Duplicate Fix ⚠️⚠️
+            // আগে এখানে সরাসরি _fbDelIdsCache = _allDelIds (রিমোট কপি দিয়ে সম্পূর্ণ
+            // replace) করা হতো। কিন্তু item rename/delete করার সাথে সাথেই in-memory
+            // cache-এ (iglDelIdsAdd) এন্ট্রি বসে, আর Firebase-এ সেটা লেখা হয় একটা
+            // আলাদা async কলে (কোনো retry/await ছাড়া)। যদি সেই write সম্পূর্ণ হওয়ার
+            // আগেই (নেটওয়ার্ক ধীর হলে, বা অন্য কোনো কারণে) fbLoadAll() আবার চলে, তাহলে
+            // এই লাইনটা "এইমাত্র রিনেম/ডিলিট করা" এন্ট্রি মুছে ফেলত (যেহেতু রিমোট কপিতে
+            // তখনো সেটা নেই) — ফলে পরের save-এ পুরনো নামের আইটেমটা আবার "মিসিং" মনে হয়ে
+            // merge-এ যোগ হয়ে যেত, আর DUPLICATE (পুরনো + নতুন দুটোই) তৈরি হতো। এখন local
+            // cache-কে (যেটাই বেশি আপডেটেড) রিমোটের সাথে union করা হয় — কোনোটাই হারায় না।
+            _fbDelIdsCache = Object.assign({}, _allDelIds, _fbDelIdsCache || {});
+            _allDelIds = _fbDelIdsCache;
           } else {
             // deletedIds node না থাকলে cache খালি করবো না — memory-তে যা আছে রাখো
             // এতে delete করা item ফিরে আসবে না
