@@ -1435,13 +1435,7 @@ if('serviceWorker' in navigator){
         });
       }
       if (typeof DB !== 'undefined') {
-        if (_mergedGsItems.length !== (DB.items||[]).length) {
-          DB.items = _mergedGsItems;
-          // ⚠️ Save-time merge-এও items বদলে যেতে পারে (অন্য ডিভাইসের নতুন/রিনেম করা আইটেম
-          // যোগ হলে) — Master Data পেজ খোলা থাকলে সাথে সাথে রি-রেন্ডার করো, নাহলে row
-          // index পুরনো থেকে যাবে ──
-          try { if (typeof renderMaster === 'function' && document.getElementById('masterItemTable')) renderMaster(); } catch(e) {}
-        }
+        if (_mergedGsItems.length !== (DB.items||[]).length) DB.items = _mergedGsItems;
         if (_mergedGsGroups.length !== _localGsGroups.length) DB.groups = _mergedGsGroups;
       }
 
@@ -1718,23 +1712,9 @@ if('serviceWorker' in navigator){
             // এই মুহূর্তে overwrite না করে সেই এডিট রক্ষা করা হচ্ছে — পরের ts pulse-এ
             // remote এমনিতেই sync হয়ে যাবে (receives/issues-এ যেভাবে pending-merge করা
             // হয়, items-এর জন্য এটা সেই একই সুরক্ষার সরল সংস্করণ)।
-            // ⚠️⚠️ BUG FIX: window._gsItemsLocalEditTs রিলোডে হারিয়ে যায়, তাই এখন
-            // localStorage-এ সেভ থাকা টাইমস্ট্যাম্পটাও চেক করা হচ্ছে (fallback) — এতে
-            // ডিলিট/এডিট করার পরপরই রিলোড দিলেও এই গার্ড কাজ করবে। উইন্ডো একটু বাড়িয়ে
-            // ৮ সেকেন্ড করা হলো, যাতে রিলোড + Firebase রি-কানেক্টের সময়টুকুও কভার হয় ──
-            var _persistedEditTs = 0;
-            try { _persistedEditTs = Number(localStorage.getItem('igl_gs_items_edit_ts')) || 0; } catch(e) {}
-            var _lastGsEditTs = window._gsItemsLocalEditTs || _persistedEditTs;
-            var _recentLocalItemEdit = _lastGsEditTs && (Date.now() - _lastGsEditTs < 8000);
+            var _recentLocalItemEdit = window._gsItemsLocalEditTs && (Date.now() - window._gsItemsLocalEditTs < 4000);
             if (!_recentLocalItemEdit) {
               DB.items = _incomingGsItems;
-              // ⚠️⚠️ BUG FIX: আগে এখানে DB.items বদলে গেলেও Master Data টেবিল (renderMaster)
-              // আবার render হতো না। ফলে স্ক্রিনে থাকা প্রতিটা row-এর onclick/onchange-এ
-              // বাঁধা index পুরনো array-এর সাথে বেঁধে থাকত। এই সময়ের মধ্যে কেউ rename/delete
-              // করলে ভুল আইটেমের ওপর গিয়ে প্রয়োগ হতো — এটাই "রিনেম করতে গিয়ে অন্য একটা
-              // আইটেম তৈরি হয়ে যাওয়া" সমস্যার আসল কারণ। এখন Master Data পেজ খোলা থাকলে
-              // items বদলানোর সাথে সাথেই টেবিল রি-রেন্ডার হবে, তাই index সবসময় সঠিক থাকবে ──
-              try { if (typeof renderMaster === 'function' && document.getElementById('masterItemTable')) renderMaster(); } catch(e) {}
             }
           }
         }
@@ -8700,15 +8680,9 @@ const DB = {
     }
     if (pre.length === 0) return stored;
     // Merge missing preItems — deletedIds-এ থাকা (ইচ্ছাকৃত ডিলিট করা) preItem আবার resurrect করা যাবে না
-    // ⚠️⚠️ BUG FIX: আগে এখানে it.id দিয়ে ম্যাচ করা হতো, কিন্তু addItem()-এ তৈরি হওয়া
-    // কাস্টম আইটেমের কোনো id-ই থাকে না (undefined) — ফলে একাধিক id-বিহীন আইটেম একই
-    // vMap[undefined] key-তে collide করত এবং rename/delete করা seed item মাঝে মাঝে
-    // "missing" হিসেবে ভুল করে আবার যোগ হয়ে যেত (ডিলিট করলেও ফিরে আসা বাগের মূল কারণ)।
-    // এখন সারা অ্যাপের বাকি সব জায়গার মতোই Group+Name-কে item-এর identity হিসেবে
-    // ব্যবহার করা হচ্ছে (General Store item-এর কোনো নিজস্ব id নেই) ──
     const storedMap = {};
-    stored.forEach(function(it){ storedMap[(it.group||'')+'||'+(it.name||'')] = true; });
-    const missing = pre.filter(function(it){ return !storedMap[(it.group||'')+'||'+(it.name||'')] && _notDeleted(it); });
+    stored.forEach(function(it){ storedMap[it.id] = true; });
+    const missing = pre.filter(function(it){ return !storedMap[it.id] && _notDeleted(it); });
     if (missing.length > 0) {
       const merged = stored.concat(missing);
       try { localStorage.setItem('igl_items', JSON.stringify(merged)); } catch(e) {}
@@ -8718,31 +8692,20 @@ const DB = {
   },
   set items(v) {
     const pre = window.preItems || [];
-    // ⚠️⚠️ BUG FIX: আগে vMap it.id দিয়ে তৈরি হতো — কাস্টম আইটেমের id না থাকায়
-    // (undefined) ভুল ম্যাচ হয়ে rename/delete করা seed item আবার duplicate হয়ে
-    // যোগ হয়ে যেত। এখন Group+Name দিয়েই identity ধরা হচ্ছে (getter-এর সাথে সামঞ্জস্যপূর্ণ) ──
     const vMap = {};
-    v.forEach(function(it){ vMap[(it.group||'')+'||'+(it.name||'')] = true; });
+    v.forEach(function(it){ vMap[it.id] = true; });
     var _localDelS = {};
     try { _localDelS = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
     const missing = pre.filter(function(it){
-      var k = (it.group||'') + '||' + (it.name||'');
-      if (vMap[k]) return false;
-      var delKey = 'gs_item:' + k;
+      if (vMap[it.id]) return false;
+      var delKey = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
       return !_localDelS[delKey];
     });
     _set('igl_items', v.concat(missing));
     // এই ডিভাইসে General Store item-এ এইমাত্র local এডিট হলো (rename/B-F/Category/add/delete) —
     // সময়টা মনে রাখো, যাতে fbLoadAll() এই এডিট Firebase-এ পুরোপুরি sync হওয়ার আগেই
     // পুরনো remote data দিয়ে overwrite করে না ফেলে (দেখুন fbLoadAll-এর db.items merge গার্ড)
-    // ⚠️⚠️ BUG FIX: আগে এই টাইমস্ট্যাম্প শুধু window ভ্যারিয়েবলে থাকত, যেটা রিলোড
-    // দিলেই হারিয়ে যেত। ফলে কেউ ডিলিট/এডিট করার সাথে সাথে (কয়েক সেকেন্ডের মধ্যে)
-    // পেজ রিলোড দিলে — Firebase sync (debounce ~1.2s) শেষ হওয়ার আগেই fbLoadAll()
-    // পুরনো (stale) remote আইটেম লিস্ট দিয়ে লোকাল ডিলিট/এডিট মুছে দিত, আর ডিলিট করা
-    // আইটেম আবার ফিরে আসত। এখন localStorage-এও সেভ করা হচ্ছে, যাতে রিলোডের পরেও
-    // এই গার্ড কাজ করে ──
     window._gsItemsLocalEditTs = Date.now();
-    try { localStorage.setItem('igl_gs_items_edit_ts', String(window._gsItemsLocalEditTs)); } catch(e) {}
   },
   get stnItems() {
     // Firebase থেকে লোড হলে সেটা দাও, না হলে built-in default
@@ -8805,23 +8768,6 @@ const DB = {
 // 
 //  SEED DEFAULT DATA (if empty)
 // 
-// ⚠️⚠️ BUG FIX: নিচের ৫টা migration ফাংশন (updateSparePartsItems/updateMaintenanceItems/
-// updateBeltBearingItems/updateElectricalItems/updateICTItems) প্রতিটা সেই group-এর সব
-// item সরিয়ে হার্ডকোড লিস্ট দিয়ে বদলে দেয় (init()-এ প্রতি লোডে কল হয়, কিন্তু নিজের
-// localStorage version flag চেক করে সাধারণত একবারই কাজ করে)। সমস্যা: এই flag শুধু
-// এই ব্রাউজারেই থাকে, Firebase-এ sync হয় না — তাই অন্য কোনো ডিভাইসে (যেখানে flag এখনো
-// সেট হয়নি) এটা চললে, User আগে ডিলিট করা আইটেমও হার্ডকোড লিস্ট থেকে আবার তৈরি হয়ে সব
-// ডিভাইসে ফিরে আসত — এটাই ছিল "বার বার ডিলিট করেও Flexible Ploe/PVC Pipe যাচ্ছে না"
-// সমস্যার আসল কারণ। এখন হার্ডকোড লিস্ট থেকে merge করার আগে locally-deleted আইটেম বাদ
-// দেওয়া হচ্ছে ──
-function _filterOutLocallyDeletedGsItems(arr) {
-  var _localDel = {};
-  try { _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}'); } catch(e) {}
-  return arr.filter(function(it) {
-    var k = 'gs_item:' + (it.group||'') + '||' + (it.name||'');
-    return !_localDel[k];
-  });
-}
 function updateSparePartsItems() {
   const SP_VERSION = 'igl_spareparts_v1';
   if (localStorage.getItem(SP_VERSION)) return;
@@ -8959,7 +8905,7 @@ function updateSparePartsItems() {
   ];
 
   const otherItems = DB.items.filter(i => i.group !== 'Spare Parts');
-  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
+  DB.items = [...otherItems, ...newItems];
   localStorage.setItem(SP_VERSION, '1');
 }
 
@@ -9029,7 +8975,7 @@ function updateMaintenanceItems() {
   ];
 
   const otherItems = DB.items.filter(i => i.group !== 'Maintenance');
-  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
+  DB.items = [...otherItems, ...newItems];
   localStorage.setItem(MAINT_VERSION, '1');
 }
 
@@ -9179,7 +9125,7 @@ function updateBeltBearingItems() {
 
   // Add new Belt & Bearing items (keep all other groups intact)
   const otherItems = DB.items.filter(i => i.group !== 'Belt & Bearing');
-  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newItems)];
+  DB.items = [...otherItems, ...newItems];
 
   // Add group if not exists
   const groups = DB.groups;
@@ -9546,7 +9492,7 @@ function updateElectricalItems() {
 
   // Keep all non-Electrical items, then add new Electrical items
   const otherItems = DB.items.filter(i => i.group !== 'Electrical');
-  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newElectricalItems)];
+  DB.items = [...otherItems, ...newElectricalItems];
 
   // Mark as done so it never runs again
   localStorage.setItem(ELEC_VERSION, '1');
@@ -9581,7 +9527,7 @@ function updateICTItems() {
 
   // Remove old ICT items (if any) and add new ones
   const otherItems = DB.items.filter(i => i.group !== 'ICT Equipment');
-  DB.items = [...otherItems, ..._filterOutLocallyDeletedGsItems(newICTItems)];
+  DB.items = [...otherItems, ...newICTItems];
 
   localStorage.setItem(ICT_VERSION, '1');
 }
@@ -18280,11 +18226,45 @@ function binSet(arr) {
   localStorage.setItem('igl_bin', JSON.stringify(arr));
 }
 
-// ── ⚠️ BUG FIX: iglDelIdsAdd/iglDelIdsRemove/iglIsDeleted ও _fbDelIdsCache
-// আগে এখানে আবার ডিক্লেয়ার হতো (উপরে একবার সংজ্ঞায়িত হওয়ার পরেও)। "var _fbDelIdsCache = {}"
-// দ্বিতীয়বার চললে shared deletedIds cache যেকোনো মুহূর্তে নিঃশব্দে খালি হয়ে যাওয়ার ঝুঁকি
-// তৈরি করত। ফাংশনগুলো উপরে (deletedIds tracker সেকশনে) আগে থেকেই সংজ্ঞায়িত আছে,
-// তাই এখানে শুধু ডুপ্লিকেট সরানো হলো — আচরণে কোনো পরিবর্তন নেই। ──
+// ── Deleted IDs tracker — Firebase এ save হয়, সব device share করে ──
+// Format: { "rcv:123": true, "iss:456": true, "ndl:789": true, "ndlrcv:101": true }
+// ── Deleted IDs — সরাসরি Firebase এ, localStorage নেই ──
+// In-memory cache — Firebase থেকে load এর পর এখানে থাকে
+var _fbDelIdsCache = {};
+
+
+function iglDelIdsAdd(prefix, id) {
+  var key = prefix + ':' + String(id);
+  _fbDelIdsCache[key] = true;
+  // ✅ localStorage-এও সরাসরি (synchronous) সেভ করো — পেজ লোডের একদম শুরুতে চলা
+  // preItems bootstrap merge (Firebase load হওয়ার আগেই) এই লোকাল লিস্টটা চেক করে,
+  // যাতে ডিলিট করা/রিনেম করা মূল ৫৯১টা seed আইটেম আবার resurrect না হয়ে যায়।
+  try {
+    var _localDel = JSON.parse(localStorage.getItem('igl_local_deleted_ids') || '{}');
+    _localDel[key] = true;
+    localStorage.setItem('igl_local_deleted_ids', JSON.stringify(_localDel));
+  } catch(e) {}
+  // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
+  try {
+    var _upd = {};
+    _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
+    _upd['igl_erp/ts'] = Date.now(); // অন্য ডিভাইসকে জানাও
+    _fbDb.ref().update(_upd);
+  } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
+}
+
+function iglDelIdsRemove(prefix, id) {
+  var key = prefix + ':' + String(id);
+  delete _fbDelIdsCache[key];
+  // সরাসরি Firebase থেকে মুছো
+  try {
+    _fbDb.ref('igl_erp/deletedIds/' + key.replace(/:/g, '__')).remove();
+  } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
+}
+
+function iglIsDeleted(prefix, id) {
+  return !!_fbDelIdsCache[prefix + ':' + String(id)];
+}
 
 // Item bin এ পাঠাও
 function binAdd(type, item, label) {
@@ -22747,16 +22727,11 @@ function updateItemName(idx, val) {
   // Duplicate check within same group
   const dup = items.find((it, j) => j !== idx && it.name === newName && it.group === grp);
   if (dup) { toast('এই নামে একটি আইটেম আগে থেকেই আছে!', 'warning'); renderMaster(); return; }
-  // ⚠️⚠️ BUG FIX: আগে এখানে DB.items = items বসানোর পরে iglDelIdsAdd কল হতো —
-  // কিন্তু DB.items-এর setter নিজেই preItems (৫৯১টা seed) থেকে "missing" আইটেম
-  // মার্জ করে, আর সেই merge পুরনো নামের delId এখনো localStorage-এ যোগ না হওয়া
-  // অবস্থাতেই চলত। ফলে rename করার সাথে সাথেই পুরনো seed আইটেমটা (পুরনো নামে)
-  // আবার resurrect হয়ে নতুন নামের পাশাপাশি ডুপ্লিকেট আইটেম হিসেবে যোগ হয়ে যেত।
-  // এখন আগে delId যোগ করা হচ্ছে, তারপর DB.items = items বসানো হচ্ছে — যাতে
-  // setter-এর নিজের missing-merge চেক এই মুহূর্তেই পুরনো নামটাকে বাদ দিতে পারে ──
-  if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', grp+'||'+oldName);
   items[idx].name = newName;
   DB.items = items;
+  // পুরনো নাম-key-কে deletedIds-এ যোগ করো — যাতে merge-fetch-এর সময় stale remote
+  // কপি (পুরনো নামে) নতুন আইটেম হিসেবে আবার যোগ না হয়ে যায়
+  if (typeof iglDelIdsAdd === 'function') iglDelIdsAdd('gs_item', grp+'||'+oldName);
 
   // Cascade the rename into historical Receive/Issue records so nothing
   // gets orphaned from its stock/report calculations
