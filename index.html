@@ -22952,11 +22952,25 @@ async function deleteSelectedItems() {
 
   var arr = DB.items;
   toDelete.forEach(function(idx) {
-    var di = arr[idx]; if (di) binAdd('store_item', di, 'Store Item — '+(di.name||''));
+    var di = arr[idx];
+    if (di) {
+      binAdd('store_item', di, 'Store Item — '+(di.name||''));
+      // ⚠️ Shared deletedIds ট্র্যাকারে যোগ করো — নাহলে এই আইটেম fbLoadAll()-এর
+      // resurrect-merge লজিকের কারণে আবার ফিরে আসবে (deleteItem()-এর মতো একই ফিক্স)
+      if (typeof iglDelIdsAdd === 'function') {
+        iglDelIdsAdd('gs_item', (di.group||'')+'||'+(di.name||''));
+      }
+    }
     arr.splice(idx, 1);
   });
   DB.items = arr;
   triggerAutoSave();
+  // ✅ ডিলিট একটা destructive action — সাথে সাথে Firebase-এ পাঠাও, নাহলে দ্রুত
+  // পেজ রিলোড/বন্ধ করলে ডিলিট Firebase-এ পৌঁছানোর আগেই পুরনো ডাটা ফিরে আসতে পারে
+  if (typeof window.fbSaveAll === 'function') {
+    clearTimeout(window._fbSaveTimer);
+    window.fbSaveAll();
+  }
   renderMaster();
   _refreshAllGroupDropdowns();
   toast(toDelete.length + ' item(s) deleted.', 'warning');
@@ -22972,9 +22986,19 @@ async function deleteGroupItems() {
   if (!ok) return;
   DB.items.filter(function(i){ return i.group===grp; }).forEach(function(item){
     binAdd('store_item', item, 'Store Item — '+(item.name||''));
+    // ⚠️ Shared deletedIds ট্র্যাকারে যোগ করো — নাহলে এই আইটেম fbLoadAll()-এর
+    // resurrect-merge লজিকের কারণে আবার ফিরে আসবে (deleteItem()-এর মতো একই ফিক্স)
+    if (typeof iglDelIdsAdd === 'function') {
+      iglDelIdsAdd('gs_item', (item.group||'')+'||'+(item.name||''));
+    }
   });
   DB.items = DB.items.filter(function(i) { return i.group !== grp; });
   triggerAutoSave();
+  // ✅ ডিলিট একটা destructive action — সাথে সাথে Firebase-এ পাঠাও
+  if (typeof window.fbSaveAll === 'function') {
+    clearTimeout(window._fbSaveTimer);
+    window.fbSaveAll();
+  }
   renderMaster();
   toast('All items in "' + grp + '" deleted.', 'warning');
 }
