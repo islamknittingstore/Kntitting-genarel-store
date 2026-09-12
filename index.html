@@ -23080,6 +23080,13 @@ async function deleteItem(i) {
   }
   arr.splice(i, 1); DB.items = arr;
   triggerAutoSave();
+  // ✅ ডিলিট একটা গুরুত্বপূর্ণ/destructive action — সাধারণ ১.২ সেকেন্ড debounce এর জন্য
+  // অপেক্ষা না করে সাথে সাথে Firebase-এ পাঠিয়ে দাও, নাহলে দ্রুত পেজ রিলোড/বন্ধ করলে
+  // ডিলিট Firebase-এ পৌঁছানোর আগেই পুরনো ডাটা আবার লোড হয়ে ফিরে আসতে পারে
+  if (typeof window.fbSaveAll === 'function') {
+    clearTimeout(window._fbSaveTimer);
+    window.fbSaveAll();
+  }
   renderMaster();
   _refreshAllGroupDropdowns();
   toast('Item deleted', 'warning');
