@@ -38568,6 +38568,17 @@ function openEditModal(type, id) {
   modal.onclick = function(e){ if(e.target===modal) closeEditModal(); };
 }
 
+// ── Receive/Issue Edit Modal-এ Unit ড্রপডাউন — মূল Receive/Issue ফর্মের
+// (i-unit/r-unit) ইউনিট লিস্টের সাথে মিলিয়ে। রেকর্ডের বর্তমান ইউনিট যদি এই
+// প্রি-ডিফাইনড লিস্টে না থাকে (পুরনো/কাস্টম ইউনিট), সেটাকেও একটা অপশন হিসেবে
+// যোগ করে দেওয়া হয় — যাতে ড্রপডাউন দেখানোর কারণে কোনো ডাটা পরিবর্তন/হারিয়ে না যায়।
+function _gsUnitOptions(current) {
+  var units = ['Pcs','Kg','Liter','Set','Box','Roll','Packet','Meter','Coil'];
+  var cur = current || 'Pcs';
+  if (units.indexOf(cur) === -1) units.push(cur);
+  return units.map(function(u){ return '<option value="'+u+'"'+(u===cur?' selected':'')+'>'+u+'</option>'; }).join('');
+}
+
 // ── Receive Form ────────────────────────────────────
 function buildReceiveEditForm(e) {
   var groups = DB.groups;
@@ -38602,7 +38613,7 @@ function buildReceiveEditForm(e) {
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🔢 পরিমাণ *</label>'
         +'<input type="number" id="edit-r-qty" value="'+e.qty+'" class="form-control" min="1" style="font-weight:700;font-size:16px;"></div>'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📏 একক (Unit)</label>'
-        +'<input type="text" id="edit-r-unit" value="'+(e.unit||'Pcs')+'" class="form-control" placeholder="Pcs / Liter / Kg ইত্যাদি"></div>'
+        +'<select id="edit-r-unit" class="form-control">'+_gsUnitOptions(e.unit)+'</select></div>'
     +'</div>'
     +'<div>'
       +'<label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Supplier</label>'
@@ -38675,7 +38686,7 @@ function buildIssueEditForm(e) {
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🔢 পরিমাণ *</label>'
         +'<input type="number" id="edit-i-qty" value="'+e.qty+'" class="form-control" min="1" style="font-weight:700;font-size:16px;"></div>'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📏 একক (Unit)</label>'
-        +'<input type="text" id="edit-i-unit" value="'+(e.unit||'Pcs')+'" class="form-control" placeholder="Pcs / Liter / Kg ইত্যাদি"></div>'
+        +'<select id="edit-i-unit" class="form-control">'+_gsUnitOptions(e.unit)+'</select></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Machine No.</label>'
