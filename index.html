@@ -1293,7 +1293,14 @@ if('serviceWorker' in navigator){
     window._fbPendingRetryDone = true;
     var hasPending = localStorage.getItem('igl_fb_pending') === '1';
     if (hasPending && navigator.onLine && typeof window.fbSaveAll === 'function') {
-      toast('⚠️ Pending data Firebase এ sync হচ্ছে...', 'warning');
+      // ⚠️ Admin-এর জন্য টোস্টের ভেতরেই "বিস্তারিত দেখুন" লিংক — ক্লিক করলে একটা টেবিলে
+      // দেখাবে ঠিক কোন কোন ডাটা ক্যাটাগরিতে কতগুলো রেকর্ড এখন sync হওয়ার অপেক্ষায় আছে।
+      var _isAdminPend = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+      var _pendMsg = '⚠️ Pending data Firebase এ sync হচ্ছে...';
+      if (_isAdminPend) {
+        _pendMsg += ' <a href="#" onclick="if(typeof iglShowPendingSyncDetails===\'function\')iglShowPendingSyncDetails();return false;" style="color:#fff;text-decoration:underline;font-weight:700;">বিস্তারিত দেখুন</a>';
+      }
+      toast(_pendMsg, 'warning', 8000);
       window.fbSaveAll();
     }
   };
@@ -1338,16 +1345,17 @@ if('serviceWorker' in navigator){
       _fbDb.ref('igl_erp/pkg/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
       _fbDb.ref('igl_erp/db/items').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
       _fbDb.ref('igl_erp/db/groups').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
-      _fbDb.ref('igl_erp/deletedIds').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; })
+      _fbDb.ref('igl_erp/deletedIds').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; }),
+      _fbDb.ref('igl_erp/ndb/needles').once('value').then(function(s){ return s.val(); }).catch(function(){ return null; })
     ]).then(function(remoteArr){
-      _fbSaveAllWithMerge(remoteArr[0], remoteArr[1], remoteArr[2], remoteArr[3], remoteArr[4]);
+      _fbSaveAllWithMerge(remoteArr[0], remoteArr[1], remoteArr[2], remoteArr[3], remoteArr[4], remoteArr[5]);
     }).catch(function(){
       // Remote fetch ব্যর্থ হলেও local data দিয়ে সেভ চালিয়ে যাও — আগের মতোই আচরণ
-      _fbSaveAllWithMerge(null, null, null, null, null);
+      _fbSaveAllWithMerge(null, null, null, null, null, null);
     });
   };
 
-  function _fbSaveAllWithMerge(remoteStnItems, remotePkgItems, remoteGsItems, remoteGsGroups, remoteDeletedIds){
+  function _fbSaveAllWithMerge(remoteStnItems, remotePkgItems, remoteGsItems, remoteGsGroups, remoteDeletedIds, remoteNeedles){
     try {
       // ── deletedIds Merge Fix ⚠️⚠️ ── আগে এই ডিভাইসের নিজের (হয়তো stale) local cache
       // দিয়ে পুরো deletedIds node overwrite হতো — ফলে অন্য ডিভাইসে করা delete (Issue/Receive/
@@ -1469,7 +1477,16 @@ if('serviceWorker' in navigator){
           issues:   _safeIss
         },
         ndb: {
-          needles: _skipNeedles ? undefined : _safeNdl,
+          // ⚠️⚠️ CRITICAL FIX ⚠️⚠️ — আগে এখানে "undefined" পাঠানো হতো যখন local NDB.needles
+          // খালি থাকত (_skipNeedles=true) — কিন্তু Firebase JS SDK-তে কোনো ফিল্ডের মান
+          // "undefined" হলে .set() সাথে সাথে (synchronously) একটা Error throw করে, নেটওয়ার্ক
+          // পর্যন্ত পৌঁছানোরও আগেই! এর ফলে পুরো save() ব্যর্থ হতো — শুধু needles-এর জন্য না,
+          // items delete সহ পুরো data (items/groups/receives/issues সবকিছু) Firebase-এ
+          // যেতোই না, স্ট্যাটাস "❌ Error" (লাল) দেখাতো, নেট থাকা সত্ত্বেও। এখন undefined-এর
+          // বদলে Firebase-এর বর্তমান আসল needles কপি (আলাদাভাবে fetch করা remoteNeedles)
+          // পাঠানো হয় — এতে সিঙ্ক আর ব্যর্থ হবে না, আর আসল needles ডাটাও ভুলবশত খালি
+          // হয়ে মুছে যাবে না (_skipNeedles-এর মূল উদ্দেশ্যও অক্ষত থাকল)।
+          needles: _skipNeedles ? (Array.isArray(remoteNeedles) ? remoteNeedles : []) : _safeNdl,
           master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
         },
         stn: {
@@ -1516,6 +1533,7 @@ if('serviceWorker' in navigator){
         .then(function(){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
+          window._fbLastSyncError = null;
           // সফল save এর পর counts আপডেট করো — যাতে normal item add/delete এ false-positive না হয়
           window._fbLastKnownItemsCount    = _itemsArr.length;
           window._fbLastKnownGroupsCount   = _groupsArr.length;
@@ -1529,11 +1547,13 @@ if('serviceWorker' in navigator){
         })
         .catch(function(e){
           fbStatus('error', '❌ Sync failed');
+          window._fbLastSyncError = (e && e.message) ? e.message : String(e);
           fbMarkPending();
           console.error(e);
         });
     } catch(e){
       fbStatus('error', '❌ Error');
+      window._fbLastSyncError = (e && e.message) ? e.message : String(e);
       fbMarkPending();
       console.error(e);
     }
@@ -11015,6 +11035,19 @@ async function saveIssue() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
   if (!machineNo && !remarks.trim()) { toast('মেশিন নাম্বার সিলেক্ট করুন, অথবা রিমার্কস-এ কিছু লিখুন!', 'warning'); return; }
+
+  // ⚠️ Duplicate Machine-Item Issue Warning — একই তারিখে একই মেশিনে একই আইটেম আগে থেকেই
+  // ইস্যু করা থাকলে এখন সতর্ক করা হয় (যেমন ভুলবশত ডাবল-এন্ট্রি হয়ে যাওয়া, একই Slip-এ একই
+  // মেশিন দুইবার) — ব্যবহারকারী নিশ্চিত করলে তবেই ইস্যু হবে, নাহলে থেমে যাবে।
+  if (machineNo) {
+    var _dupIssue = (DB.issues||[]).some(function(r){
+      return r.date === date && r.machineNo === machineNo && (r.item||'').trim().toLowerCase() === item.trim().toLowerCase();
+    });
+    if (_dupIssue) {
+      var _dupOk = await igl_confirm('⚠️ একই তারিখে (' + fmtDate(date) + ') মেশিন ' + machineNo + '-এ "' + item + '" আগে থেকেই ইস্যু করা আছে! আবার ইস্যু করবেন?', '', '⚠️');
+      if (!_dupOk) return;
+    }
+  }
 
   const stock = getStock(item);
   var _isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
@@ -36469,6 +36502,64 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     p.style.display = isOpen ? 'none' : 'block';
     if (!isOpen) _syncRefreshAll();
   }
+
+  // ── Admin: "Pending Sync" বিস্তারিত টেবিল ──
+  // ⚠️ এই সিস্টেমে fbSaveAll() প্রতিবার পুরো ডাটাসেট (delta/diff না) Firebase-এ পাঠায়,
+  // তাই ঠিক কোন একক রেকর্ড pending সেটা আলাদা করে ট্র্যাক করা হয় না। এই টেবিলটা
+  // Admin-কে দেখায় — এই মুহূর্তে ডিভাইসের মেমোরিতে (local) প্রতিটা ক্যাটাগরিতে কত
+  // রেকর্ড আছে, যেগুলো এখন Firebase-এ sync হওয়ার অপেক্ষায় (pending) আছে।
+  window.iglShowPendingSyncDetails = function() {
+    var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    if (!isAdmin) { toast('❌ শুধু Admin এই তথ্য দেখতে পারবে।', 'error'); return; }
+
+    var rows = [];
+    function cnt(label, val) {
+      var n = 0;
+      if (Array.isArray(val)) n = val.length;
+      else if (val && typeof val === 'object') n = Object.keys(val).length;
+      rows.push({ label: label, n: n });
+    }
+    try { cnt('General Store — Items', DB.items); } catch(e){}
+    try { cnt('General Store — Groups', DB.groups); } catch(e){}
+    try { cnt('General Store — Machines', DB.machines); } catch(e){}
+    try { cnt('General Store — Receive এন্ট্রি', DB.receives); } catch(e){}
+    try { cnt('General Store — Issue এন্ট্রি', DB.issues); } catch(e){}
+    try { cnt('Needle — Issue এন্ট্রি', NDB.needles); } catch(e){}
+    try { cnt('Needle — Master', JSON.parse(localStorage.getItem('igl_ndl_master')||'[]')); } catch(e){}
+    try { cnt('Needle — Receive এন্ট্রি', typeof ndlGetRcv==='function' ? ndlGetRcv() : JSON.parse(localStorage.getItem('igl_ndl_rcv')||'[]')); } catch(e){}
+    try { cnt('Drop/Set Needle Register', DB.dropNeedle); } catch(e){}
+    try { cnt('Stationery — Items', DB.stnItems); } catch(e){}
+    try { cnt('Stationery — Requisitions', DB.stnRequisitions||DB.requisitions); } catch(e){}
+    try { cnt('Packaging — Items', DB.pkgItems); } catch(e){}
+    try { cnt('Packaging — Requisitions', DB.pkgRequisitions); } catch(e){}
+    try { cnt('Recycle Bin এন্ট্রি', JSON.parse(localStorage.getItem('igl_bin')||'[]')); } catch(e){}
+
+    var lastErr = window._fbLastSyncError ? String(window._fbLastSyncError) : '—';
+    var tableRows = rows.map(function(r){
+      return '<tr><td style="padding:6px 10px;border-bottom:1px solid #2c3e50;">'+r.label+'</td>'
+           + '<td style="padding:6px 10px;border-bottom:1px solid #2c3e50;text-align:center;font-weight:700;color:#f1c40f;">'+r.n+'</td></tr>';
+    }).join('');
+
+    var overlay = document.createElement('div');
+    overlay.id = 'pending-sync-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+    overlay.innerHTML =
+      '<div style="background:#1a2332;border:1px solid #2c3e50;border-radius:10px;max-width:480px;width:92%;max-height:80vh;overflow:auto;padding:18px 20px;color:#cdd;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+      +   '<b style="color:#fff;font-size:15px;">⏳ Pending Sync — বিস্তারিত</b>'
+      +   '<button onclick="document.getElementById(\'pending-sync-overlay\').remove()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;">×</button>'
+      + '</div>'
+      + '<div style="font-size:11px;color:#8899aa;margin-bottom:10px;">নিচের প্রতিটা ক্যাটাগরির বর্তমান (এই ডিভাইসের মেমোরিতে থাকা) মোট রেকর্ড সংখ্যা — এই পুরো ডাটাসেটটাই Firebase-এ sync হওয়ার অপেক্ষায় আছে (এই সিস্টেমে আলাদা করে শুধু "নতুন/পরিবর্তিত" রেকর্ড ট্র্যাক করা হয় না, তাই এককভাবে কোনটা নতুন তা এখানে আলাদা দেখানো সম্ভব নয়)।</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+      +   '<thead><tr><th style="text-align:left;padding:6px 10px;border-bottom:2px solid #2c3e50;color:#fff;">ক্যাটাগরি</th><th style="padding:6px 10px;border-bottom:2px solid #2c3e50;color:#fff;">রেকর্ড সংখ্যা</th></tr></thead>'
+      +   '<tbody>'+tableRows+'</tbody>'
+      + '</table>'
+      + '<div style="margin-top:12px;font-size:11px;color:#e67e22;">সর্বশেষ Sync Error: '+lastErr+'</div>'
+      + '<button onclick="if(window.fbSaveAll)window.fbSaveAll();document.getElementById(\'pending-sync-overlay\').remove();" style="width:100%;margin-top:12px;padding:9px;border:none;border-radius:8px;background:linear-gradient(135deg,#1e8449,#27ae60);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">💾 এখনই আবার Sync করার চেষ্টা করুন</button>'
+      + '</div>';
+    overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
+  };
 
   // Close panel if clicking outside
   document.addEventListener('click', function(e) {
