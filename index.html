@@ -22355,7 +22355,11 @@ function renderIssueLog() {
   if (q) {
     var searchMode = window._ilogSearchMode || 'item';
     if (searchMode === 'slip') {
-      data = data.filter(r => (r.slip||'').toLowerCase() === q);
+      // ⚠️ ফিক্স: শুধু বাম পাশ (q) trim করা হতো, কিন্তু রেকর্ডের র.slip নিজে trim করা
+      // হতো না। কোনো এন্ট্রির Slip নাম্বারে ভুলবশত আগে/পরে স্পেস (space) থেকে গেলে
+      // (বিশেষ করে Edit করার সময়), Exact Match সার্চে সেই এন্ট্রিটা বাদ পড়ে যেত —
+      // এটাই সম্ভবত ১৯টার মধ্যে ১টা মেশিন সার্চে "মিসিং" দেখানোর কারণ।
+      data = data.filter(r => (r.slip||'').toLowerCase().trim() === q);
     } else {
       data = data.filter(r => (r.item||'').toLowerCase().includes(q));
     }
@@ -38597,9 +38601,12 @@ function buildReceiveEditForm(e) {
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🔢 পরিমাণ *</label>'
         +'<input type="number" id="edit-r-qty" value="'+e.qty+'" class="form-control" min="1" style="font-weight:700;font-size:16px;"></div>'
-      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Supplier</label>'
-        +'<input type="text" id="edit-r-supplier" value="'+(e.supplier||'')+'" class="form-control" placeholder="Supplier Name"></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📏 একক (Unit)</label>'
+        +'<input type="text" id="edit-r-unit" value="'+(e.unit||'Pcs')+'" class="form-control" placeholder="Pcs / Liter / Kg ইত্যাদি"></div>'
     +'</div>'
+    +'<div>'
+      +'<label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Supplier</label>'
+        +'<input type="text" id="edit-r-supplier" value="'+(e.supplier||'')+'" class="form-control" placeholder="Supplier Name"></div>'
     +'<div style="background:#fff3cd;border-left:3px solid #f39c12;padding:8px 12px;border-radius:5px;font-size:11px;color:#7d6608;">⚠️ Item পরিবর্তন করলে Stock Balance পরিবর্তন হবে।</div>'
   +'</div>';
 }
@@ -38667,15 +38674,18 @@ function buildIssueEditForm(e) {
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🔢 পরিমাণ *</label>'
         +'<input type="number" id="edit-i-qty" value="'+e.qty+'" class="form-control" min="1" style="font-weight:700;font-size:16px;"></div>'
-      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Machine No.</label>'
-        +'<select id="edit-i-machineNo" class="form-control"><option value="">-- Select --</option>'+mOpts+'</select></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📏 একক (Unit)</label>'
+        +'<input type="text" id="edit-i-unit" value="'+(e.unit||'Pcs')+'" class="form-control" placeholder="Pcs / Liter / Kg ইত্যাদি"></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏭 Machine No.</label>'
+        +'<select id="edit-i-machineNo" class="form-control"><option value="">-- Select --</option>'+mOpts+'</select></div>'
       +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🆔 Machine ID</label>'
         +'<input type="text" id="edit-i-machineId" value="'+(e.machineId||'')+'" class="form-control"></div>'
-      +'<div><label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📝 Remarks</label>'
-        +'<input type="text" id="edit-i-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
     +'</div>'
+    +'<div>'
+      +'<label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📝 Remarks</label>'
+        +'<input type="text" id="edit-i-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
     +'<div style="background:#fdf2f8;border-left:3px solid #9b59b6;padding:8px 12px;border-radius:5px;font-size:11px;color:#6c3483;">⚠️ Item বা Quantity পরিবর্তন করলে Stock Balance পরিবর্তন হবে।</div>'
   +'</div>';
 }
@@ -38821,6 +38831,7 @@ async function saveEditEntry() {
     var category = (document.getElementById('edit-r-category')||{}).value||'';
     var item     = (document.getElementById('edit-r-item')||{}).value||'';
     var qty      = Number((document.getElementById('edit-r-qty')||{}).value||0);
+    var unit     = (document.getElementById('edit-r-unit')||{}).value||'Pcs';
     var chalan   = (document.getElementById('edit-r-chalan')||{}).value||'';
     var bill     = (document.getElementById('edit-r-bill')||{}).value||'';
     var supplier = (document.getElementById('edit-r-supplier')||{}).value||'';
@@ -38842,7 +38853,7 @@ async function saveEditEntry() {
     var ok = await igl_confirm('Receive এন্ট্রি আপডেট করবেন?', '', '✏️');
     if (!ok) return;
 
-    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, chalan, bill, supplier, rate, amount, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, group, category, item, qty, unit, chalan, bill, supplier, rate, amount, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     DB.receives = arr;
     gsSaveSupplierName(supplier);
     triggerAutoSave();
@@ -38855,11 +38866,12 @@ async function saveEditEntry() {
 
   } else if (_editType === 'issue') {
     var date      = (document.getElementById('edit-i-date')||{}).value||'';
-    var slip      = (document.getElementById('edit-i-slip')||{}).value||'';
+    var slip      = ((document.getElementById('edit-i-slip')||{}).value||'').trim();
     var group     = (document.getElementById('edit-i-group')||{}).value||'';
     var category  = (document.getElementById('edit-i-category')||{}).value||'';
     var item      = (document.getElementById('edit-i-item')||{}).value||'';
     var qty       = Number((document.getElementById('edit-i-qty')||{}).value||0);
+    var unit      = (document.getElementById('edit-i-unit')||{}).value||'Pcs';
     var machineNo = (document.getElementById('edit-i-machineNo')||{}).value||'';
     var machineId = (document.getElementById('edit-i-machineId')||{}).value||'';
     var remarks   = (document.getElementById('edit-i-remarks')||{}).value||'';
@@ -38885,7 +38897,7 @@ async function saveEditEntry() {
     var machineCat = mc ? mc.cat : (arr[idx].machineCat || '');
     if (!machineId && mc) machineId = mc.id;
 
-    arr[idx] = Object.assign({}, arr[idx], { date, slip, group, category, item, qty, machineNo, machineId, machineCat, remarks, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
+    arr[idx] = Object.assign({}, arr[idx], { date, slip, group, category, item, qty, unit, machineNo, machineId, machineCat, remarks, editedAt: new Date().toISOString(), editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : '' });
     DB.issues = arr;
     triggerAutoSave();
     try { renderIssueLog(); } catch(e){}
