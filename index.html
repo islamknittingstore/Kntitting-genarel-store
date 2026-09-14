@@ -1224,6 +1224,34 @@ if('serviceWorker' in navigator){
   var _fbApp = firebase.initializeApp(firebaseConfig);
   var _fbDb  = firebase.database();
 
+  // ── Firebase RTDB Key Sanitizer ──────────────────────────────────────
+  // Firebase key-তে এই ক্যারেক্টারগুলো থাকতে পারে না: . # $ / [ ]
+  // আইটেমের নামে এগুলো (বিশেষ করে "/" — যেমন "PVC Pipe-1/2 Inchi") থাকলে
+  // deletedIds ট্র্যাকারে সেই key ব্যবহার করতে গিয়ে Firebase "set failed:
+  // value argument contains an invalid key" error দিয়ে পুরো save/delete
+  // ব্যর্থ করে দিত। এই ফাংশন দুটো সেই invalid ক্যারেক্টারগুলোকে reversible
+  // ভাবে encode/decode করে, যাতে key সবসময় valid থাকে আর ডিলিট কখনো আটকে না যায়।
+  function iglFbKeySafe(str) {
+    return String(str)
+      .replace(/:/g, '__')
+      .replace(/\./g, '%2E')
+      .replace(/#/g, '%23')
+      .replace(/\$/g, '%24')
+      .replace(/\//g, '%2F')
+      .replace(/\[/g, '%5B')
+      .replace(/\]/g, '%5D');
+  }
+  function iglFbKeyUnsafe(str) {
+    return String(str)
+      .replace(/%2E/g, '.')
+      .replace(/%23/g, '#')
+      .replace(/%24/g, '$')
+      .replace(/%2F/g, '/')
+      .replace(/%5B/g, '[')
+      .replace(/%5D/g, ']')
+      .replace(/__/g, ':');
+  }
+
   function fbStatus(type, text){
     var el = document.getElementById('autosaveStatus');
     var tx = document.getElementById('autosaveText');
@@ -1364,7 +1392,7 @@ if('serviceWorker' in navigator){
       // delete আর হারাতে পারবে না।
       var _remoteDelCache = {};
       if (remoteDeletedIds) {
-        Object.keys(remoteDeletedIds).forEach(function(k){ _remoteDelCache[k.replace(/__/g, ':')] = true; });
+        Object.keys(remoteDeletedIds).forEach(function(k){ _remoteDelCache[iglFbKeyUnsafe(k)] = true; });
       }
       var _localDelCacheForMerge = (typeof _fbDelIdsCache !== 'undefined') ? _fbDelIdsCache : {};
       var _delCache = Object.assign({}, _remoteDelCache, _localDelCacheForMerge);
@@ -1382,7 +1410,7 @@ if('serviceWorker' in navigator){
       // যাতে fbSaveAll overwrite করলেও deletedIds না হারায়
       var _delIdsForSave = {};
       Object.keys(_delCache).forEach(function(k){
-        _delIdsForSave[k.replace(/:/g, '__')] = true;
+        _delIdsForSave[iglFbKeySafe(k)] = true;
       });
 
       // local item list (deleted বাদে)
@@ -1680,7 +1708,7 @@ if('serviceWorker' in navigator){
             // Firebase এর deletedIds সরাসরি in-memory cache এ রাখো
             // key format Firebase এ: "rcv__123" → cache এ: "rcv:123"
             Object.keys(data.deletedIds).forEach(function(k) {
-              var cacheKey = k.replace(/__/g, ':');
+              var cacheKey = iglFbKeyUnsafe(k);
               _allDelIds[cacheKey] = true;
             });
             // ⚠️⚠️ Rename/Delete Race-Condition Duplicate Fix ⚠️⚠️
@@ -13129,7 +13157,7 @@ function iglDelIdsAdd(prefix, id) {
   // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
   try {
     var _upd = {};
-    _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
+    _upd['igl_erp/deletedIds/' + iglFbKeySafe(key)] = true;
     _upd['igl_erp/ts'] = Date.now(); // অন্য ডিভাইসকে জানাও
     _fbDb.ref().update(_upd);
   } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
@@ -13140,7 +13168,7 @@ function iglDelIdsRemove(prefix, id) {
   delete _fbDelIdsCache[key];
   // সরাসরি Firebase থেকে মুছো
   try {
-    _fbDb.ref('igl_erp/deletedIds/' + key.replace(/:/g, '__')).remove();
+    _fbDb.ref('igl_erp/deletedIds/' + iglFbKeySafe(key)).remove();
   } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
 }
 
@@ -15745,7 +15773,7 @@ async function stnBulkDelete(type) {
     // memory cache আপডেট
     _fbDelIdsCache[cacheKey] = true;
     // batch update object এ যোগ করো
-    batchUpdate['igl_erp/deletedIds/' + cacheKey.replace(/:/g, '__')] = true;
+    batchUpdate['igl_erp/deletedIds/' + iglFbKeySafe(cacheKey)] = true;
     if (type === 'RECEIVE') {
       binAdd('stn_receive', entry, 'Stn Receive — ' + (entry.item || ''));
       DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
@@ -18330,7 +18358,7 @@ function iglDelIdsAdd(prefix, id) {
   // সরাসরি Firebase এ লেখো + timestamp আপডেট করো যাতে অন্য ডিভাইস সাথে সাথে sync হয়
   try {
     var _upd = {};
-    _upd['igl_erp/deletedIds/' + key.replace(/:/g, '__')] = true;
+    _upd['igl_erp/deletedIds/' + iglFbKeySafe(key)] = true;
     _upd['igl_erp/ts'] = Date.now(); // অন্য ডিভাইসকে জানাও
     _fbDb.ref().update(_upd);
   } catch(e) { console.warn('iglDelIdsAdd firebase error:', e); }
@@ -18341,7 +18369,7 @@ function iglDelIdsRemove(prefix, id) {
   delete _fbDelIdsCache[key];
   // সরাসরি Firebase থেকে মুছো
   try {
-    _fbDb.ref('igl_erp/deletedIds/' + key.replace(/:/g, '__')).remove();
+    _fbDb.ref('igl_erp/deletedIds/' + iglFbKeySafe(key)).remove();
   } catch(e) { console.warn('iglDelIdsRemove firebase error:', e); }
 }
 
@@ -19920,7 +19948,7 @@ async function pkgBulkDelete(type) {
     // memory cache আপডেট
     _fbDelIdsCache[cacheKey] = true;
     // batch update object এ যোগ করো
-    batchUpdate['igl_erp/deletedIds/' + cacheKey.replace(/:/g, '__')] = true;
+    batchUpdate['igl_erp/deletedIds/' + iglFbKeySafe(cacheKey)] = true;
     if (type === 'RECEIVE') {
       binAdd('pkg_receive', entry, 'Stn Receive — ' + (entry.item || ''));
       DB.receives = DB.receives.filter(function(r){ return r.id !== id; });
