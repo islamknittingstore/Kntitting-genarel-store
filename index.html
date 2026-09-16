@@ -6998,18 +6998,23 @@ function ok(msg) {
           <span style="font-size:11px;opacity:0.75;">—</span>
           <input type="date" class="form-control" id="nst-to" onchange="renderNeedleStock()" title="To Date" style="width:135px;background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.4);">
           <button onclick="document.getElementById('nst-from').value='';document.getElementById('nst-to').value='';renderNeedleStock();" title="তারিখ ক্লিয়ার" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>
+          <button id="nst-retail-toggle-btn" class="btn btn-sm" onclick="toggleNstRetailView()" title="New Set Needle ইসু বাদ দিয়ে শুধু খুচরা ইসুর Receive/Issue/Balance দেখাবে (B/F আগের মতোই থাকবে)" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">🧾 খুচরা ইসু ভিউ</button>
           <button class="btn btn-outline btn-sm" onclick="window.print()" style="color:#fff;border-color:#fff;">🖨️</button>
           <button class="btn btn-sm" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportStockExcel()">📊 Excel</button>
           <button class="btn btn-sm" style="background:#8e44ad;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlStockRegister('new')">📋 Stock Register</button>
           <button class="btn btn-sm" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlConsolidated('new')">📊 Consolidated Register</button>
         </div>
       </div>
+      <!-- Retail-only mode badge — screen ও print দুটোতেই দেখাবে, যাতে প্রিন্ট করা রিপোর্টে বোঝা যায় এটা কোন হিসাব -->
+      <div id="nst-mode-badge" style="display:none;background:#fdebd0;color:#7d6608;font-size:12px;font-weight:700;padding:6px 16px;border-bottom:1px solid #f5cba7;">
+        🧾 এই রিপোর্টে শুধু <b>খুচরা ইসু</b> (New Set Needle বাদে) হিসাব করা হয়েছে — Issue ও Balance কলাম সে অনুযায়ী। B/F আগের মতোই (সব ইসু ধরে) হিসাব করা।
+      </div>
       <!-- Date filter info bar -->
       <div id="nst-date-info" style="display:none;background:#ebf5fb;padding:6px 16px;font-size:12px;color:#1a5276;border-bottom:1px solid #d6eaf8;">
         <span id="nst-date-info-text"></span>
       </div>
       <div class="card-body" style="padding:0;"><div class="table-scroll">
-        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th>Type</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th style="color:#e74c3c;">Issue</th><th>Balance</th><th>Status</th></tr></thead>
+        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th>Type</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th id="nst-issue-th" style="color:#e74c3c;">Issue</th><th id="nst-balance-th">Balance</th><th>Status</th></tr></thead>
         <tbody id="needleStockTable"></tbody></table>
       </div></div>
     </div>
@@ -34445,6 +34450,27 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if (isNew) renderNeedleStock(); else renderUsedNeedleStock();
   }
 
+  // ── খুচরা ইসু ভিউ (New Set Needle বাদে) — "Needle Stock New" পেজের টগল ──
+  // ON করলে Issue/Balance কলামে New Set Needle Log-এর ইসু বাদ দিয়ে হিসাব হয়,
+  // যাতে শুধু খুচরা (retail) ইসুর ভিত্তিতে প্রিন্ট করা যায়। B/F আগের মতোই
+  // (সব ধরনের ইসু ধরে) হিসাব হয় — শুধু বর্তমান পিরিয়ডের Issue/Balance বদলায়।
+  var _nstRetailOnly = false;
+  function toggleNstRetailView(){
+    _nstRetailOnly = !_nstRetailOnly;
+    var btn = document.getElementById('nst-retail-toggle-btn');
+    if(btn){
+      btn.style.background = _nstRetailOnly ? '#e67e22' : 'rgba(255,255,255,0.2)';
+      btn.textContent = _nstRetailOnly ? '🧾 খুচরা ইসু ভিউ (ON)' : '🧾 খুচরা ইসু ভিউ';
+    }
+    var badge = document.getElementById('nst-mode-badge');
+    if(badge) badge.style.display = _nstRetailOnly ? '' : 'none';
+    var issueTh = document.getElementById('nst-issue-th');
+    if(issueTh) issueTh.innerHTML = _nstRetailOnly ? 'Issue (খুচরা)' : 'Issue';
+    var balTh = document.getElementById('nst-balance-th');
+    if(balTh) balTh.innerHTML = _nstRetailOnly ? 'Balance (খুচরা)' : 'Balance';
+    renderNeedleStock();
+  }
+
   function renderNeedleStock(){
     var typ=(document.getElementById('nst-type')||{}).value||'';
     var srch=((document.getElementById('nst-search')||{}).value||'').toLowerCase();
@@ -34452,7 +34478,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var toDate=(document.getElementById('nst-to')||{}).value||'';
     var nm=ndlGetMaster();
     var allRcvs=ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
-    var allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }):[];
+    // ⚠️ B/F হিসাবের জন্য সব ধরনের ইসু (New Set সহ) — allIssFull ব্যবহার হয়
+    var allIssFull=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }):[];
+    // বর্তমান পিরিয়ডের Issue/Balance-এর জন্য — খুচরা ভিউ ON থাকলে New Set বাদ
+    var allIss = _nstRetailOnly ? allIssFull.filter(function(r){ return r.type !== 'newset'; }) : allIssFull;
 
     // Date filter — যদি from/to দেওয়া থাকে তাহলে filter করো
     var rcvs = fromDate||toDate ? allRcvs.filter(function(r){
@@ -34495,7 +34524,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       // fromDate থাকলে — fromDate এর আগের receive কে B/F তে যোগ করো, আগের issue বিয়োগ করো
       if(fromDate){
         var bfRcv=allRcvs.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
-        var bfIss=allIss.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
+        var bfIss=allIssFull.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
         bf = bf + bfRcv - bfIss;
       }
       var rcv=rcvs.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
@@ -36524,6 +36553,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   <script>
   // ══ SYNC PANEL FUNCTIONS ══
   function toggleSyncPanel() {
+    // ⚠️ Sync Status প্যানেল শুধু Admin দেখবে — এখানে Firebase বন্ধ/Save/Load এর মতো
+    // sensitive action আছে, তাই সাধারণ User থেকে এই পপআপ সম্পূর্ণ হাইড থাকবে
+    var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+    if (!isAdmin) return;
     var p = document.getElementById('syncPanel');
     if (!p) return;
     var isOpen = p.style.display !== 'none';
