@@ -6997,8 +6997,8 @@ function ok(msg) {
           <input type="date" class="form-control" id="nst-from" onchange="renderNeedleStock()" title="From Date" style="width:135px;background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.4);">
           <span style="font-size:11px;opacity:0.75;">—</span>
           <input type="date" class="form-control" id="nst-to" onchange="renderNeedleStock()" title="To Date" style="width:135px;background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.4);">
-          <button onclick="document.getElementById('nst-from').value='';document.getElementById('nst-to').value='';renderNeedleStock();" title="তারিখ ক্লিয়ার" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>
-          <button class="btn btn-outline btn-sm" onclick="window.print()" style="color:#fff;border-color:#fff;">🖨️</button>
+          <button onclick="document.getElementById('nst-from').value='';document.getElementById('nst-to').value='';renderNeedleStock();" title="তারিখ ক্লিয়ার — প্রথম থেকে সব দেখাবে" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>
+          <button class="btn btn-outline btn-sm" onclick="openNstPrintSelect()" style="color:#fff;border-color:#fff;">🖨️</button>
           <button class="btn btn-sm" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportStockExcel()">📊 Excel</button>
           <button class="btn btn-sm" style="background:#8e44ad;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlStockRegister('new')">📋 Stock Register</button>
           <button class="btn btn-sm" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlConsolidated('new')">📊 Consolidated Register</button>
@@ -7009,9 +7009,39 @@ function ok(msg) {
         <span id="nst-date-info-text"></span>
       </div>
       <div class="card-body" style="padding:0;"><div class="table-scroll">
-        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th>Type</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th style="color:#d35400;">Set Change</th><th style="color:#c0392b;">Breakage</th><th style="color:#e74c3c;">Total Issue</th><th>Balance</th><th>Status</th></tr></thead>
+        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th class="nst-col-newset" style="color:#d35400;">Set Change</th><th class="nst-col-broken" style="color:#c0392b;">Breakage</th><th class="nst-col-afterwash" style="color:#1a5276;">After Wash</th><th class="nst-col-designing" style="color:#1e8449;">Design</th><th class="nst-col-flatknit" style="color:#9a7d0a;">Flat Knit</th><th style="color:#e74c3c;">Total Issue</th><th>Balance</th><th>Status</th></tr></thead>
         <tbody id="needleStockTable"></tbody></table>
       </div></div>
+    </div>
+
+    <!-- 🖨️ Needle Stock New — Print Selection Modal: শুধু টিক দেওয়া নিডেল ও ইসু টাইপ প্রিন্ট হবে -->
+    <div id="nstPrintModal" class="no-print" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:8px;max-width:760px;width:92%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#2980b9,#3498db);color:#fff;padding:12px 18px;font-weight:700;display:flex;align-items:center;justify-content:space-between;">
+          🖨️ প্রিন্ট সিলেকশন
+          <button onclick="closeNstPrintSelect()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
+        </div>
+        <div style="padding:14px 18px;overflow-y:auto;flex:1;">
+          <div style="margin-bottom:16px;">
+            <div style="font-weight:700;color:#2c3e50;margin-bottom:8px;">১) ইসু টাইপ সিলেক্ট করুন — শুধু টিক দেওয়া কলাম প্রিন্ট হবে</div>
+            <div id="nstPrintTypeList" style="display:flex;flex-wrap:wrap;gap:14px;"></div>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#2c3e50;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+              <span>২) নিডেল/সিংকার সিলেক্ট করুন — শুধু টিক দেওয়া আইটেম প্রিন্ট হবে</span>
+              <span>
+                <button onclick="nstPrintSelectAllNeedles(true)" style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid #ccc;background:#f4f6f7;cursor:pointer;">সব সিলেক্ট</button>
+                <button onclick="nstPrintSelectAllNeedles(false)" style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid #ccc;background:#f4f6f7;cursor:pointer;">সব বাদ</button>
+              </span>
+            </div>
+            <div id="nstPrintNeedleList" style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;"></div>
+          </div>
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px;">
+          <button onclick="closeNstPrintSelect()" style="background:#95a5a6;color:#fff;border:none;border-radius:4px;padding:7px 16px;cursor:pointer;">✖ বাতিল</button>
+          <button onclick="nstConfirmPrint()" style="background:#27ae60;color:#fff;border:none;border-radius:4px;padding:7px 16px;cursor:pointer;font-weight:700;">🖨️ প্রিন্ট করুন</button>
+        </div>
+      </div>
     </div>
 
     <!-- USED Stock Card -->
@@ -34438,11 +34468,27 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     renderNdlRcvLog();triggerAutoSave();toast('Deleted','warning');
   }
 
+  var _nstDefaultDateApplied = false;
   function switchNeedleStockTab(tab) {
     var isNew = tab === 'new';
     document.getElementById('nst-card-new').style.display  = isNew ? '' : 'none';
     document.getElementById('nst-card-used').style.display = isNew ? 'none' : '';
-    if (isNew) renderNeedleStock(); else renderUsedNeedleStock();
+    if (isNew) {
+      // ডিফল্ট হিসেবে রানিং মাস (এই মাসের ১ তারিখ থেকে আজ পর্যন্ত) — শুধু প্রথমবার
+      if (!_nstDefaultDateApplied) {
+        var fEl=document.getElementById('nst-from'), tEl=document.getElementById('nst-to');
+        if (fEl && tEl) {
+          var today = new Date();
+          var y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+          fEl.value = y+'-'+m+'-01';
+          tEl.value = y+'-'+m+'-'+d;
+        }
+        _nstDefaultDateApplied = true;
+      }
+      renderNeedleStock();
+    } else {
+      renderUsedNeedleStock();
+    }
   }
 
   function renderNeedleStock(){
@@ -34487,9 +34533,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var list=nm;
     if(typ)list=list.filter(function(n){return n.type===typ;});
     if(srch)list=list.filter(function(n){return (n.name||n.code).toLowerCase().indexOf(srch)>=0;});
+    // 🖨️ প্রিন্ট সিলেকশন সক্রিয় থাকলে — শুধু টিক দেওয়া নিডেল দেখাও
+    if(_nstPrintCheckedNeedleIds) list=list.filter(function(n){return _nstPrintCheckedNeedleIds.indexOf(n.id)!==-1;});
     var tb=document.getElementById('needleStockTable');if(!tb)return;
-    if(!list.length){tb.innerHTML='<tr><td colspan="10" class="no-data">No data</td></tr>';return;}
-    var grandBf=0,grandRcv=0,grandSet=0,grandBrk=0,grandIss=0,grandBal=0;
+    if(!list.length){tb.innerHTML='<tr><td colspan="12" class="no-data">No data</td></tr>';return;}
+    var grandBf=0,grandRcv=0,grandSet=0,grandBrk=0,grandAw=0,grandDs=0,grandFk=0,grandIss=0,grandBal=0;
     var rows=list.map(function(n,i){
       var bf=Number(n.bf)||0;
       // fromDate থাকলে — fromDate এর আগের receive কে B/F তে যোগ করো, আগের issue বিয়োগ করো
@@ -34502,34 +34550,121 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var nIss=iss.filter(function(r){return r.needleId===n.id;});
       var setq=nIss.filter(function(r){return r.type==='newset';}).reduce(function(s,r){return s+r.qty;},0);
       var brkq=nIss.filter(function(r){return r.type==='broken';}).reduce(function(s,r){return s+r.qty;},0);
+      var awq=nIss.filter(function(r){return r.type==='afterwash';}).reduce(function(s,r){return s+r.qty;},0);
+      var dsq=nIss.filter(function(r){return r.type==='designing';}).reduce(function(s,r){return s+r.qty;},0);
+      var fkq=nIss.filter(function(r){return r.type==='flatknit';}).reduce(function(s,r){return s+r.qty;},0);
       var isq=nIss.reduce(function(s,r){return s+r.qty;},0);
       var bal=bf+rcv-isq;
-      grandBf+=bf;grandRcv+=rcv;grandSet+=setq;grandBrk+=brkq;grandIss+=isq;grandBal+=bal;
+      grandBf+=bf;grandRcv+=rcv;grandSet+=setq;grandBrk+=brkq;grandAw+=awq;grandDs+=dsq;grandFk+=fkq;grandIss+=isq;grandBal+=bal;
       var st=bal<=0?'<span style="color:#e74c3c;font-weight:700;">OUT</span>':bal<=10?'<span style="color:#e67e22;font-weight:700;">LOW</span>':'<span style="color:#117a65;font-weight:700;">OK</span>';
       return '<tr>'
         +'<td style="text-align:center;">'+(i+1)+'</td>'
         +'<td><b>'+(n.name||n.code)+'</b></td>'
-        +'<td><span style="background:'+(n.type==='Needle'?'#2980b9':'#8e44ad')+';color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;">'+n.type+'</span></td>'
         +'<td style="text-align:center;color:#6c3483;font-weight:700;">'+bf+'</td>'
         +'<td style="text-align:center;color:#117a65;font-weight:700;">'+rcv+'</td>'
-        +'<td style="text-align:center;color:#d35400;font-weight:700;">'+setq+'</td>'
-        +'<td style="text-align:center;color:#c0392b;font-weight:700;">'+brkq+'</td>'
+        +'<td class="nst-col-newset" style="text-align:center;color:#d35400;font-weight:700;">'+setq+'</td>'
+        +'<td class="nst-col-broken" style="text-align:center;color:#c0392b;font-weight:700;">'+brkq+'</td>'
+        +'<td class="nst-col-afterwash" style="text-align:center;color:#1a5276;font-weight:700;">'+awq+'</td>'
+        +'<td class="nst-col-designing" style="text-align:center;color:#1e8449;font-weight:700;">'+dsq+'</td>'
+        +'<td class="nst-col-flatknit" style="text-align:center;color:#9a7d0a;font-weight:700;">'+fkq+'</td>'
         +'<td style="text-align:center;color:#e74c3c;font-weight:700;">'+isq+'</td>'
         +'<td style="text-align:center;font-weight:700;font-size:15px;">'+bal+'</td>'
         +'<td style="text-align:center;">'+st+'</td>'
         +'</tr>';
     });
     rows.push('<tr style="background:#1c2833;color:#fff;font-weight:bold;">'
-      +'<td colspan="3" style="text-align:right;padding-right:10px;">Grand Total</td>'
+      +'<td colspan="2" style="text-align:right;padding-right:10px;">Grand Total</td>'
       +'<td style="text-align:center;">'+grandBf+'</td>'
       +'<td style="text-align:center;">'+grandRcv+'</td>'
-      +'<td style="text-align:center;">'+grandSet+'</td>'
-      +'<td style="text-align:center;">'+grandBrk+'</td>'
+      +'<td class="nst-col-newset" style="text-align:center;">'+grandSet+'</td>'
+      +'<td class="nst-col-broken" style="text-align:center;">'+grandBrk+'</td>'
+      +'<td class="nst-col-afterwash" style="text-align:center;">'+grandAw+'</td>'
+      +'<td class="nst-col-designing" style="text-align:center;">'+grandDs+'</td>'
+      +'<td class="nst-col-flatknit" style="text-align:center;">'+grandFk+'</td>'
       +'<td style="text-align:center;">'+grandIss+'</td>'
       +'<td style="text-align:center;font-size:16px;">'+grandBal+'</td>'
       +'<td></td></tr>');
     tb.innerHTML=rows.join('');
+    // 🖨️ প্রিন্ট সিলেকশনে টাইপ কলাম বাদ দেওয়া থাকলে — নতুন করে রেন্ডার হওয়া সেলগুলোতেও তা প্রয়োগ করো
+    if(_nstPrintCheckedTypes){
+      _nstTypeDefs.forEach(function(t){
+        var show = _nstPrintCheckedTypes.indexOf(t.key)!==-1;
+        document.querySelectorAll('.nst-col-'+t.key).forEach(function(el){ el.style.display = show ? '' : 'none'; });
+      });
+    }
   }
+
+  // ── 🖨️ Print Selection: শুধু টিক দেওয়া নিডেল ও ইসু টাইপ প্রিন্ট হবে ──
+  var _nstTypeDefs = [
+    {key:'newset',    label:'Set Change'},
+    {key:'broken',    label:'Breakage'},
+    {key:'afterwash', label:'After Wash'},
+    {key:'designing', label:'Design'},
+    {key:'flatknit',  label:'Flat Knit'}
+  ];
+  var _nstPrintCheckedTypes = null;      // null = filter inactive (সব কলাম দেখাবে)
+  var _nstPrintCheckedNeedleIds = null;  // null = filter inactive (সব নিডেল দেখাবে)
+
+  function openNstPrintSelect(){
+    var nm=ndlGetMaster();
+    var typ=(document.getElementById('nst-type')||{}).value||'';
+    var srch=((document.getElementById('nst-search')||{}).value||'').toLowerCase();
+    var list=nm;
+    if(typ)list=list.filter(function(n){return n.type===typ;});
+    if(srch)list=list.filter(function(n){return (n.name||n.code).toLowerCase().indexOf(srch)>=0;});
+
+    // ইসু টাইপ চেকবক্স তৈরি করো (আগের সিলেকশন থাকলে সেটাই, নাহলে সব টিক দেওয়া ডিফল্ট)
+    var typeHtml = _nstTypeDefs.map(function(t){
+      var checked = (!_nstPrintCheckedTypes || _nstPrintCheckedTypes.indexOf(t.key)!==-1) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;"><input type="checkbox" id="nstPrintType_'+t.key+'" '+checked+'> '+t.label+'</label>';
+    }).join('');
+    document.getElementById('nstPrintTypeList').innerHTML = typeHtml;
+
+    // নিডেল চেকবক্স তৈরি করো
+    var needleHtml = list.map(function(n){
+      var checked = (!_nstPrintCheckedNeedleIds || _nstPrintCheckedNeedleIds.indexOf(n.id)!==-1) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="checkbox" class="nst-print-needle-cb" id="nstPrintNeedle_'+n.id+'" '+checked+'> '+(n.name||n.code)+'</label>';
+    }).join('');
+    document.getElementById('nstPrintNeedleList').innerHTML = needleHtml || '<span style="color:#999;font-size:12px;">কোনো নিডেল পাওয়া যায়নি</span>';
+
+    document.getElementById('nstPrintModal').style.display = 'flex';
+  }
+
+  function closeNstPrintSelect(){
+    document.getElementById('nstPrintModal').style.display = 'none';
+  }
+
+  function nstPrintSelectAllNeedles(state){
+    document.querySelectorAll('.nst-print-needle-cb').forEach(function(cb){ cb.checked = state; });
+  }
+
+  function nstConfirmPrint(){
+    var checkedTypes = [];
+    _nstTypeDefs.forEach(function(t){
+      var cb = document.getElementById('nstPrintType_'+t.key);
+      if(cb && cb.checked) checkedTypes.push(t.key);
+    });
+    var checkedIds = [];
+    document.querySelectorAll('.nst-print-needle-cb').forEach(function(cb){
+      if(cb.checked) checkedIds.push(cb.id.replace('nstPrintNeedle_',''));
+    });
+    _nstPrintCheckedTypes = checkedTypes;
+    _nstPrintCheckedNeedleIds = checkedIds;
+    document.getElementById('nstPrintModal').style.display = 'none';
+    renderNeedleStock(); // ফিল্টার প্রয়োগ করে টেবিল রি-রেন্ডার + কলাম হাইড (render function এর ভেতরেই হয়)
+    setTimeout(function(){ window.print(); }, 60);
+  }
+
+  // প্রিন্ট শেষ হলে — সিলেকশন ফিল্টার রিসেট করে আবার সম্পূর্ণ টেবিল দেখাও
+  window.addEventListener('afterprint', function(){
+    if(_nstPrintCheckedTypes===null && _nstPrintCheckedNeedleIds===null) return;
+    _nstPrintCheckedTypes = null;
+    _nstPrintCheckedNeedleIds = null;
+    _nstTypeDefs.forEach(function(t){
+      document.querySelectorAll('.nst-col-'+t.key).forEach(function(el){ el.style.display=''; });
+    });
+    if(typeof renderNeedleStock==='function') renderNeedleStock();
+  });
 
   function renderUsedNeedleStock(){
     var sec=(document.getElementById('nst-used-section')||{}).value||'';
@@ -36163,17 +36298,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var nm=ndlGetMaster();
     var rcvs=ndlGetRcv();
     var iss=(typeof NDB!=='undefined')?NDB.needles:[];
-    var rows=[['#','Code','Type','B/F','Receive','Set Change','Breakage','Total Issue','Balance','Status']];
+    var rows=[['#','Code','B/F','Receive','Set Change','Breakage','After Wash','Design','Flat Knit','Total Issue','Balance','Status']];
     nm.forEach(function(n,i){
       var bf=Number(n.bf)||0;
       var rcv=rcvs.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
       var nIss=iss.filter(function(r){return r.needleId===n.id;});
       var setq=nIss.filter(function(r){return r.type==='newset';}).reduce(function(s,r){return s+r.qty;},0);
       var brkq=nIss.filter(function(r){return r.type==='broken';}).reduce(function(s,r){return s+r.qty;},0);
+      var awq=nIss.filter(function(r){return r.type==='afterwash';}).reduce(function(s,r){return s+r.qty;},0);
+      var dsq=nIss.filter(function(r){return r.type==='designing';}).reduce(function(s,r){return s+r.qty;},0);
+      var fkq=nIss.filter(function(r){return r.type==='flatknit';}).reduce(function(s,r){return s+r.qty;},0);
       var isq=nIss.reduce(function(s,r){return s+r.qty;},0);
       var bal=bf+rcv-isq;
       var st=bal<=0?'OUT':bal<=10?'LOW':'OK';
-      rows.push([i+1,n.code,n.type,bf,rcv,setq,brkq,isq,bal,st]);
+      rows.push([i+1,n.code,bf,rcv,setq,brkq,awq,dsq,fkq,isq,bal,st]);
     });
     _dlCsv(rows,'Needle_Stock');
   }
