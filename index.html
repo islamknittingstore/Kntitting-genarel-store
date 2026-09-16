@@ -6998,23 +6998,18 @@ function ok(msg) {
           <span style="font-size:11px;opacity:0.75;">—</span>
           <input type="date" class="form-control" id="nst-to" onchange="renderNeedleStock()" title="To Date" style="width:135px;background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.4);">
           <button onclick="document.getElementById('nst-from').value='';document.getElementById('nst-to').value='';renderNeedleStock();" title="তারিখ ক্লিয়ার" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>
-          <button id="nst-retail-toggle-btn" class="btn btn-sm" onclick="toggleNstRetailView()" title="New Set Needle ইসু বাদ দিয়ে শুধু খুচরা ইসুর Receive/Issue/Balance দেখাবে (B/F আগের মতোই থাকবে)" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">🧾 খুচরা ইসু ভিউ</button>
           <button class="btn btn-outline btn-sm" onclick="window.print()" style="color:#fff;border-color:#fff;">🖨️</button>
           <button class="btn btn-sm" style="background:#1e7e34;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="exportStockExcel()">📊 Excel</button>
           <button class="btn btn-sm" style="background:#8e44ad;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlStockRegister('new')">📋 Stock Register</button>
           <button class="btn btn-sm" style="background:#1a5276;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;" onclick="showNdlConsolidated('new')">📊 Consolidated Register</button>
         </div>
       </div>
-      <!-- Retail-only mode badge — screen ও print দুটোতেই দেখাবে, যাতে প্রিন্ট করা রিপোর্টে বোঝা যায় এটা কোন হিসাব -->
-      <div id="nst-mode-badge" style="display:none;background:#fdebd0;color:#7d6608;font-size:12px;font-weight:700;padding:6px 16px;border-bottom:1px solid #f5cba7;">
-        🧾 এই রিপোর্টে শুধু <b>খুচরা ইসু</b> (New Set Needle বাদে) হিসাব করা হয়েছে — Issue ও Balance কলাম সে অনুযায়ী। B/F আগের মতোই (সব ইসু ধরে) হিসাব করা।
-      </div>
       <!-- Date filter info bar -->
       <div id="nst-date-info" style="display:none;background:#ebf5fb;padding:6px 16px;font-size:12px;color:#1a5276;border-bottom:1px solid #d6eaf8;">
         <span id="nst-date-info-text"></span>
       </div>
       <div class="card-body" style="padding:0;"><div class="table-scroll">
-        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th>Type</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th id="nst-issue-th" style="color:#e74c3c;">Issue</th><th id="nst-balance-th">Balance</th><th>Status</th></tr></thead>
+        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th>Type</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th style="color:#d35400;">Set Change</th><th style="color:#c0392b;">Breakage</th><th style="color:#e74c3c;">Total Issue</th><th>Balance</th><th>Status</th></tr></thead>
         <tbody id="needleStockTable"></tbody></table>
       </div></div>
     </div>
@@ -34450,27 +34445,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if (isNew) renderNeedleStock(); else renderUsedNeedleStock();
   }
 
-  // ── খুচরা ইসু ভিউ (New Set Needle বাদে) — "Needle Stock New" পেজের টগল ──
-  // ON করলে Issue/Balance কলামে New Set Needle Log-এর ইসু বাদ দিয়ে হিসাব হয়,
-  // যাতে শুধু খুচরা (retail) ইসুর ভিত্তিতে প্রিন্ট করা যায়। B/F আগের মতোই
-  // (সব ধরনের ইসু ধরে) হিসাব হয় — শুধু বর্তমান পিরিয়ডের Issue/Balance বদলায়।
-  var _nstRetailOnly = false;
-  function toggleNstRetailView(){
-    _nstRetailOnly = !_nstRetailOnly;
-    var btn = document.getElementById('nst-retail-toggle-btn');
-    if(btn){
-      btn.style.background = _nstRetailOnly ? '#e67e22' : 'rgba(255,255,255,0.2)';
-      btn.textContent = _nstRetailOnly ? '🧾 খুচরা ইসু ভিউ (ON)' : '🧾 খুচরা ইসু ভিউ';
-    }
-    var badge = document.getElementById('nst-mode-badge');
-    if(badge) badge.style.display = _nstRetailOnly ? '' : 'none';
-    var issueTh = document.getElementById('nst-issue-th');
-    if(issueTh) issueTh.innerHTML = _nstRetailOnly ? 'Issue (খুচরা)' : 'Issue';
-    var balTh = document.getElementById('nst-balance-th');
-    if(balTh) balTh.innerHTML = _nstRetailOnly ? 'Balance (খুচরা)' : 'Balance';
-    renderNeedleStock();
-  }
-
   function renderNeedleStock(){
     var typ=(document.getElementById('nst-type')||{}).value||'';
     var srch=((document.getElementById('nst-search')||{}).value||'').toLowerCase();
@@ -34478,10 +34452,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var toDate=(document.getElementById('nst-to')||{}).value||'';
     var nm=ndlGetMaster();
     var allRcvs=ndlGetRcv().filter(function(r){ return (r.needleStockType||'new')==='new'; });
-    // ⚠️ B/F হিসাবের জন্য সব ধরনের ইসু (New Set সহ) — allIssFull ব্যবহার হয়
-    var allIssFull=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }):[];
-    // বর্তমান পিরিয়ডের Issue/Balance-এর জন্য — খুচরা ভিউ ON থাকলে New Set বাদ
-    var allIss = _nstRetailOnly ? allIssFull.filter(function(r){ return r.type !== 'newset'; }) : allIssFull;
+    var allIss=(typeof NDB!=='undefined')?NDB.needles.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; }):[];
 
     // Date filter — যদি from/to দেওয়া থাকে তাহলে filter করো
     var rcvs = fromDate||toDate ? allRcvs.filter(function(r){
@@ -34517,20 +34488,23 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(typ)list=list.filter(function(n){return n.type===typ;});
     if(srch)list=list.filter(function(n){return (n.name||n.code).toLowerCase().indexOf(srch)>=0;});
     var tb=document.getElementById('needleStockTable');if(!tb)return;
-    if(!list.length){tb.innerHTML='<tr><td colspan="8" class="no-data">No data</td></tr>';return;}
-    var grandBf=0,grandRcv=0,grandIss=0,grandBal=0;
+    if(!list.length){tb.innerHTML='<tr><td colspan="10" class="no-data">No data</td></tr>';return;}
+    var grandBf=0,grandRcv=0,grandSet=0,grandBrk=0,grandIss=0,grandBal=0;
     var rows=list.map(function(n,i){
       var bf=Number(n.bf)||0;
       // fromDate থাকলে — fromDate এর আগের receive কে B/F তে যোগ করো, আগের issue বিয়োগ করো
       if(fromDate){
         var bfRcv=allRcvs.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
-        var bfIss=allIssFull.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
+        var bfIss=allIss.filter(function(r){return r.needleId===n.id && r.date<fromDate;}).reduce(function(s,r){return s+r.qty;},0);
         bf = bf + bfRcv - bfIss;
       }
       var rcv=rcvs.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
-      var isq=iss.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
+      var nIss=iss.filter(function(r){return r.needleId===n.id;});
+      var setq=nIss.filter(function(r){return r.type==='newset';}).reduce(function(s,r){return s+r.qty;},0);
+      var brkq=nIss.filter(function(r){return r.type==='broken';}).reduce(function(s,r){return s+r.qty;},0);
+      var isq=nIss.reduce(function(s,r){return s+r.qty;},0);
       var bal=bf+rcv-isq;
-      grandBf+=bf;grandRcv+=rcv;grandIss+=isq;grandBal+=bal;
+      grandBf+=bf;grandRcv+=rcv;grandSet+=setq;grandBrk+=brkq;grandIss+=isq;grandBal+=bal;
       var st=bal<=0?'<span style="color:#e74c3c;font-weight:700;">OUT</span>':bal<=10?'<span style="color:#e67e22;font-weight:700;">LOW</span>':'<span style="color:#117a65;font-weight:700;">OK</span>';
       return '<tr>'
         +'<td style="text-align:center;">'+(i+1)+'</td>'
@@ -34538,6 +34512,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td><span style="background:'+(n.type==='Needle'?'#2980b9':'#8e44ad')+';color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;">'+n.type+'</span></td>'
         +'<td style="text-align:center;color:#6c3483;font-weight:700;">'+bf+'</td>'
         +'<td style="text-align:center;color:#117a65;font-weight:700;">'+rcv+'</td>'
+        +'<td style="text-align:center;color:#d35400;font-weight:700;">'+setq+'</td>'
+        +'<td style="text-align:center;color:#c0392b;font-weight:700;">'+brkq+'</td>'
         +'<td style="text-align:center;color:#e74c3c;font-weight:700;">'+isq+'</td>'
         +'<td style="text-align:center;font-weight:700;font-size:15px;">'+bal+'</td>'
         +'<td style="text-align:center;">'+st+'</td>'
@@ -34547,6 +34523,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       +'<td colspan="3" style="text-align:right;padding-right:10px;">Grand Total</td>'
       +'<td style="text-align:center;">'+grandBf+'</td>'
       +'<td style="text-align:center;">'+grandRcv+'</td>'
+      +'<td style="text-align:center;">'+grandSet+'</td>'
+      +'<td style="text-align:center;">'+grandBrk+'</td>'
       +'<td style="text-align:center;">'+grandIss+'</td>'
       +'<td style="text-align:center;font-size:16px;">'+grandBal+'</td>'
       +'<td></td></tr>');
@@ -36185,14 +36163,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var nm=ndlGetMaster();
     var rcvs=ndlGetRcv();
     var iss=(typeof NDB!=='undefined')?NDB.needles:[];
-    var rows=[['#','Code','Type','B/F','Receive','Issue','Balance','Status']];
+    var rows=[['#','Code','Type','B/F','Receive','Set Change','Breakage','Total Issue','Balance','Status']];
     nm.forEach(function(n,i){
       var bf=Number(n.bf)||0;
       var rcv=rcvs.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
-      var isq=iss.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
+      var nIss=iss.filter(function(r){return r.needleId===n.id;});
+      var setq=nIss.filter(function(r){return r.type==='newset';}).reduce(function(s,r){return s+r.qty;},0);
+      var brkq=nIss.filter(function(r){return r.type==='broken';}).reduce(function(s,r){return s+r.qty;},0);
+      var isq=nIss.reduce(function(s,r){return s+r.qty;},0);
       var bal=bf+rcv-isq;
       var st=bal<=0?'OUT':bal<=10?'LOW':'OK';
-      rows.push([i+1,n.code,n.type,bf,rcv,isq,bal,st]);
+      rows.push([i+1,n.code,n.type,bf,rcv,setq,brkq,isq,bal,st]);
     });
     _dlCsv(rows,'Needle_Stock');
   }
