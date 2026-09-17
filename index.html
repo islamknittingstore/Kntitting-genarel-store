@@ -7519,6 +7519,13 @@ function ok(msg) {
           <button class="btn btn-success btn-sm" onclick="addWorker()" style="height:38px;padding:0 18px;">➕ Add</button>
         </div>
       </div>
+      <!-- 🔍 হারানো (Orphan) সুপারভাইজার — কাউকে Delete করার পর যদি Shift Needle Use
+           Report-এ তার কলাম ফাঁকা হয়ে যায়, এখান থেকে সেই পুরনো ID দিয়েই আবার
+           রিস্টোর করা যাবে, ফলে হিস্টোরিক্যাল ডাটা আবার রিপোর্টে ফিরে আসবে। -->
+      <div class="card-body" style="border-top:1px solid var(--border);background:#fef9e7;">
+        <div style="font-size:12px;font-weight:700;color:#7d6608;margin-bottom:6px;">🔍 হারানো (Orphan) সুপারভাইজার — Delete করার পর রিপোর্টের কলাম ফাঁকা হয়ে গেলে এখান থেকে রিস্টোর করুন</div>
+        <div id="nurOrphanList" style="font-size:12px;"></div>
+      </div>
     </div>
 
   </div>
@@ -35017,9 +35024,27 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td style="text-align:center;"><input type="checkbox" class="wk-chk" data-id="'+w.id+'"></td>'
         +'<td style="text-align:center;">'+(i+1)+'</td>'
         +'<td>'+w.name+'</td>'
-        +'<td><button class="btn btn-sm" style="background:#e74c3c;color:#fff;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;" data-wid="'+w.id+'" onclick="deleteWorker(this.dataset.wid)">Del</button></td>'
+        +'<td style="white-space:nowrap;"><button class="btn btn-sm" style="background:#2980b9;color:#fff;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;margin-right:4px;" data-wid="'+w.id+'" onclick="renameWorker(this.dataset.wid)" title="নাম বদলাতে চাইলে Rename করুন — এতে পুরনো সব রিপোর্ট/হিস্টোরি ঠিক থাকবে। ডিলিট করে নতুন করে যুক্ত করলে পুরনো রিপোর্ট ফাঁকা হয়ে যাবে।">✏️ Rename</button><button class="btn btn-sm" style="background:#e74c3c;color:#fff;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;" data-wid="'+w.id+'" onclick="deleteWorker(this.dataset.wid)">Del</button></td>'
         +'</tr>';
     }).join('');
+    if(typeof renderOrphanSupervisorPanel==='function') renderOrphanSupervisorPanel();
+  }
+
+  // ✏️ Rename — নাম বদলালেও একই ID থাকে, ফলে Shift Needle Use Report-এর সব পুরনো ডাটা
+  // ঠিক থাকে (ডিলিট করে নতুন যুক্ত করলে যেটা হয় না — নতুন ID হওয়ায় পুরনো রিপোর্ট ফাঁকা দেখায়)
+  function renameWorker(id){
+    var workers=getWorkers();
+    var w=workers.find(function(x){return x.id===id;});
+    if(!w){toast('Supervisor পাওয়া যায়নি!','warning');return;}
+    var newName=prompt('নতুন সুপারভাইজার নাম লিখুন:', w.name);
+    if(newName===null) return;
+    newName=newName.trim();
+    if(!newName){toast('নাম খালি রাখা যাবে না!','warning');return;}
+    w.name=newName;
+    setWorkers(workers);
+    renderMasterWorkers();
+    populateWorkerDrops();
+    toast('✅ নাম পরিবর্তন হয়েছে: '+newName+' — সব পুরনো রিপোর্টও ঠিক থাকবে','success');
   }
 
   function addWorker(){
@@ -35052,6 +35077,64 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     renderMasterWorkers();
     populateWorkerDrops();
     toast('Deleted '+ids.length+' worker(s)','warning');
+  }
+
+  // ── 🔍 হারানো (Orphan) সুপারভাইজার খুঁজে বের করা ──────────────
+  // Supervisor-কে Master থেকে ডিলিট করলেও পুরনো Needle Issue রেকর্ডে তার ID
+  // থেকেই যায় (ডাটা হারায় না) — কিন্তু Master-এ ID না থাকায় Shift Needle Use
+  // Report-এ কলামই তৈরি হয় না, ফলে দেখতে "ডাটা গায়েব" মনে হয়। এই টুল সেই
+  // orphan ID গুলো খুঁজে বের করে, এবং একই ID দিয়ে আবার Master-এ যুক্ত করে
+  // (নাম যা-ই দিন) — ID মিলে যাওয়ায় পুরনো সব ডাটা রিপোর্টে ফিরে আসবে।
+  function findOrphanSupervisors(){
+    var workers=getWorkers();
+    var knownIds=workers.map(function(w){return w.id;});
+    var iss=(typeof NDB!=='undefined')?NDB.needles:[];
+    var orphanMap={};
+    iss.forEach(function(r){
+      if(!r.worker) return;
+      if(knownIds.indexOf(r.worker)!==-1) return;
+      if(!orphanMap[r.worker]) orphanMap[r.worker]={count:0,first:r.date,last:r.date};
+      orphanMap[r.worker].count++;
+      if(r.date<orphanMap[r.worker].first) orphanMap[r.worker].first=r.date;
+      if(r.date>orphanMap[r.worker].last) orphanMap[r.worker].last=r.date;
+    });
+    return orphanMap;
+  }
+
+  function renderOrphanSupervisorPanel(){
+    var panel=document.getElementById('nurOrphanList');
+    if(!panel) return;
+    var orphans=findOrphanSupervisors();
+    var ids=Object.keys(orphans);
+    if(!ids.length){
+      panel.innerHTML='<div style="padding:10px;color:#117a65;font-size:12px;">✅ কোনো হারানো (orphan) সুপারভাইজার নেই — Shift Needle Use Report ঠিক আছে।</div>';
+      return;
+    }
+    panel.innerHTML=ids.map(function(id){
+      var o=orphans[id];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eee;flex-wrap:wrap;">'
+        +'<div style="flex:1;min-width:200px;font-size:12px;">'
+          +'<b style="color:#e74c3c;">⚠️ হারানো ID:</b> <code style="font-size:11px;background:#f4f4f4;padding:1px 4px;">'+id+'</code><br>'
+          +'<span style="color:#666;">'+o.count+'টি এন্ট্রি — '+o.first+' থেকে '+o.last+' পর্যন্ত</span>'
+        +'</div>'
+        +'<input type="text" placeholder="যে নামে রিস্টোর করবেন..." id="nurOrphanName_'+id+'" style="padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;min-width:160px;">'
+        +'<button class="btn btn-sm" style="background:#27ae60;color:#fff;border:none;border-radius:4px;padding:5px 12px;cursor:pointer;" onclick="restoreOrphanSupervisor(\''+id+'\')">♻️ রিস্টোর করুন</button>'
+      +'</div>';
+    }).join('');
+  }
+
+  function restoreOrphanSupervisor(id){
+    var nameInput=document.getElementById('nurOrphanName_'+id);
+    var name=((nameInput&&nameInput.value)||'').trim();
+    if(!name){toast('একটা নাম লিখুন!','warning');return;}
+    var workers=getWorkers();
+    if(workers.find(function(w){return w.id===id;})){toast('এই ID আগে থেকেই মাস্টারে আছে!','warning');return;}
+    workers.push({id:id,name:name}); // ⚠️ পুরনো (orphan) ID-টাই ব্যবহার হচ্ছে, যাতে হিস্টোরিক্যাল ডাটা ঠিক লিংক হয়
+    setWorkers(workers);
+    renderMasterWorkers();
+    populateWorkerDrops();
+    renderOrphanSupervisorPanel();
+    toast('✅ রিস্টোর হয়েছে: '+name+' — Shift Needle Use Report রিফ্রেশ করে দেখুন','success');
   }
 
   function toggleAllWorkers(cb){
