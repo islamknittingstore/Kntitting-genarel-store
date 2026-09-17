@@ -728,6 +728,20 @@ if('serviceWorker' in navigator){
     #page-needle_monthly { padding:0 !important; }
     #needleMonthlyGrid, #usedNeedleMonthlyGrid { overflow:visible !important; max-height:none !important; height:auto !important; }
     #needleMonthlyGrid div, #usedNeedleMonthlyGrid div { overflow:visible !important; }
+
+    /* Needle/Sinker Stock — New: প্রিন্টে উপরের বড় পেজ-টাইটেল ও সাবটাইটেল বাদ,
+       শুধু কার্ড-হেডার ("🆕 Needle Stock — New") ও তারিখ ফিল্টার লাইন থাকবে —
+       ফলে উপরের অতিরিক্ত জায়গা বেঁচে যায়। এবং B&W প্রিন্টারে সব লেখা কালো/বোল্ড
+       হয়ে স্পষ্ট বোঝা যায় (কালার টেক্সট গ্রেস্কেলে হারিয়ে যাওয়ার সমস্যা এড়াতে)। */
+    #page-needle_stock .page-header { display: none !important; }
+    #nst-card-new * {
+      color: #000 !important;
+      -webkit-text-stroke: 0.2px #000 !important;
+    }
+    #nst-card-new th, #nst-card-new td { font-weight: 700 !important; }
+    #nst-card-new .card-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000 !important; }
+    #nst-card-new thead th { background: #ddd !important; color: #000 !important; border: 1px solid #000 !important; }
+    #nst-card-new tbody td { border: 0.5px solid #666 !important; }
     #page-needle_monthly .card-body { overflow:visible !important; max-height:none !important; height:auto !important; }
     #needleMonthlyGrid > div { page-break-inside: avoid !important; break-inside: avoid !important; }
     #usedNeedleMonthlyGrid > div { page-break-inside: avoid !important; break-inside: avoid !important; }
@@ -34522,7 +34536,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         if(fromDate && toDate) msg += fmtD(fromDate) + ' থেকে ' + fmtD(toDate) + ' পর্যন্ত';
         else if(fromDate) msg += fmtD(fromDate) + ' থেকে (শেষ নির্দিষ্ট নেই)';
         else msg += fmtD(toDate) + ' পর্যন্ত';
-        msg += ' — <b>B/F = ' + (fromDate ? 'তারিখের আগের ব্যালেন্স' : 'সব B/F') + '</b>';
         infoText.innerHTML = msg;
         infoBar.style.display = '';
       } else {
