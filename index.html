@@ -35018,7 +35018,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function renderMasterWorkers(){
     var workers=getWorkers();
     var tb=document.getElementById('masterWorkerTable');if(!tb)return;
-    if(!workers.length){tb.innerHTML='<tr><td colspan="4" class="no-data">No workers</td></tr>';return;}
+    if(!workers.length){
+      tb.innerHTML='<tr><td colspan="4" class="no-data">No workers</td></tr>';
+      if(typeof renderOrphanSupervisorPanel==='function') renderOrphanSupervisorPanel();
+      return;
+    }
     tb.innerHTML=workers.map(function(w,i){
       return '<tr>'
         +'<td style="text-align:center;"><input type="checkbox" class="wk-chk" data-id="'+w.id+'"></td>'
@@ -35042,6 +35046,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!newName){toast('নাম খালি রাখা যাবে না!','warning');return;}
     w.name=newName;
     setWorkers(workers);
+    if(typeof triggerAutoSave==='function') triggerAutoSave(); // ⚠️ Firebase-এ সাথে সাথে পুশ — নাহলে পরের সিঙ্কে পুরনো নাম ফিরে আসতে পারে
     renderMasterWorkers();
     populateWorkerDrops();
     toast('✅ নাম পরিবর্তন হয়েছে: '+newName+' — সব পুরনো রিপোর্টও ঠিক থাকবে','success');
@@ -35056,6 +35061,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
     workers.push({id:'w'+Date.now(),name:name});
     setWorkers(workers);
+    if(typeof triggerAutoSave==='function') triggerAutoSave(); // ⚠️ Firebase-এ সাথে সাথে পুশ
     renderMasterWorkers();
     populateWorkerDrops();
     document.getElementById('new-worker-name').value='';
@@ -35064,6 +35070,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
   function deleteWorker(id){
     setWorkers(getWorkers().filter(function(w){return w.id!==id;}));
+    if(typeof triggerAutoSave==='function') triggerAutoSave(); // ⚠️ Firebase-এ সাথে সাথে পুশ — নাহলে ডিলিট করা এন্ট্রি পরের সিঙ্কে ফিরে আসতে পারে
     renderMasterWorkers();
     populateWorkerDrops();
     toast('Deleted','warning');
@@ -35074,6 +35081,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!chks.length){toast('কোনো worker select করুন','warning');return;}
     var ids=[].map.call(chks,function(c){return c.dataset.id;});
     setWorkers(getWorkers().filter(function(w){return ids.indexOf(w.id)<0;}));
+    if(typeof triggerAutoSave==='function') triggerAutoSave(); // ⚠️ Firebase-এ সাথে সাথে পুশ
     renderMasterWorkers();
     populateWorkerDrops();
     toast('Deleted '+ids.length+' worker(s)','warning');
@@ -35131,6 +35139,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(workers.find(function(w){return w.id===id;})){toast('এই ID আগে থেকেই মাস্টারে আছে!','warning');return;}
     workers.push({id:id,name:name}); // ⚠️ পুরনো (orphan) ID-টাই ব্যবহার হচ্ছে, যাতে হিস্টোরিক্যাল ডাটা ঠিক লিংক হয়
     setWorkers(workers);
+    if(typeof triggerAutoSave==='function') triggerAutoSave(); // ⚠️ Firebase-এ সাথে সাথে পুশ
     renderMasterWorkers();
     populateWorkerDrops();
     renderOrphanSupervisorPanel();
