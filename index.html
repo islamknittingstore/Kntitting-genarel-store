@@ -7009,7 +7009,7 @@ function ok(msg) {
         <span id="nst-date-info-text"></span>
       </div>
       <div class="card-body" style="padding:0;"><div class="table-scroll">
-        <table><thead><tr><th>#</th><th>Needle/Sinker Code</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th class="nst-col-newset" style="color:#d35400;">Set Change</th><th class="nst-col-broken" style="color:#c0392b;">Breakage</th><th class="nst-col-afterwash" style="color:#1a5276;">After Wash</th><th class="nst-col-designing" style="color:#1e8449;">Design</th><th class="nst-col-flatknit" style="color:#9a7d0a;">Flat Knit</th><th style="color:#e74c3c;">Total Issue</th><th>Balance</th><th>Status</th></tr></thead>
+        <table><thead><tr><th style="width:32px;">#</th><th style="width:150px;">Needle/Sinker Code</th><th style="color:#6c3483;">B/F</th><th style="color:#117a65;">Receive</th><th class="nst-col-newset" style="color:#d35400;">Set Change</th><th class="nst-col-broken" style="color:#c0392b;">Breakage</th><th class="nst-col-afterwash" style="color:#1a5276;">Servicing</th><th class="nst-col-designing" style="color:#1e8449;">Design</th><th class="nst-col-flatknit" style="color:#9a7d0a;">Flat Knit</th><th style="color:#e74c3c;">Total Issue</th><th>Balance</th><th>Status</th></tr></thead>
         <tbody id="needleStockTable"></tbody></table>
       </div></div>
     </div>
@@ -34598,7 +34598,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   var _nstTypeDefs = [
     {key:'newset',    label:'Set Change'},
     {key:'broken',    label:'Breakage'},
-    {key:'afterwash', label:'After Wash'},
+    {key:'afterwash', label:'Servicing'},
     {key:'designing', label:'Design'},
     {key:'flatknit',  label:'Flat Knit'}
   ];
@@ -36298,7 +36298,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var nm=ndlGetMaster();
     var rcvs=ndlGetRcv();
     var iss=(typeof NDB!=='undefined')?NDB.needles:[];
-    var rows=[['#','Code','B/F','Receive','Set Change','Breakage','After Wash','Design','Flat Knit','Total Issue','Balance','Status']];
+    var rows=[['#','Code','B/F','Receive','Set Change','Breakage','Servicing','Design','Flat Knit','Total Issue','Balance','Status']];
     nm.forEach(function(n,i){
       var bf=Number(n.bf)||0;
       var rcv=rcvs.filter(function(r){return r.needleId===n.id;}).reduce(function(s,r){return s+r.qty;},0);
