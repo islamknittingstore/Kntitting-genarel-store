@@ -1566,6 +1566,9 @@ if('serviceWorker' in navigator){
           pkgDepts:        JSON.parse(localStorage.getItem('igl_pkg_depts') || 'null'),
           pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'),
           gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
+          gsBrands:        JSON.parse(localStorage.getItem('igl_gs_brands') || '[]'),
+          gsCountries:     JSON.parse(localStorage.getItem('igl_gs_countries') || '[]'),
+          gsItemBrandCountry: JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'),
           gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
           gsReqFlags:      JSON.parse(localStorage.getItem('igl_gs_req_flags') || '{}'),
           masterPw:        localStorage.getItem('igl_master_pw') || '',
@@ -1967,6 +1970,15 @@ if('serviceWorker' in navigator){
           if(data.settings.pkgDepts && data.settings.pkgDepts.length) { localStorage.setItem('igl_pkg_depts', JSON.stringify(data.settings.pkgDepts)); if(typeof pkgPopulateDeptDropdown==='function') pkgPopulateDeptDropdown(); }
           if(data.settings.pkgSuppliers && data.settings.pkgSuppliers.length) { localStorage.setItem('igl_pkg_suppliers', JSON.stringify(data.settings.pkgSuppliers)); if(typeof pkgPopulateSupplierDatalist==='function') pkgPopulateSupplierDatalist(); }
           if(data.settings.gsSuppliers && data.settings.gsSuppliers.length) { localStorage.setItem('igl_gs_suppliers', JSON.stringify(data.settings.gsSuppliers)); if(typeof gsPopulateSupplierDatalist==='function') gsPopulateSupplierDatalist(); }
+          if(data.settings.gsBrands && data.settings.gsBrands.length) { localStorage.setItem('igl_gs_brands', JSON.stringify(data.settings.gsBrands)); if(typeof gsPopulateBrandDatalist==='function') gsPopulateBrandDatalist(); }
+          if(data.settings.gsCountries && data.settings.gsCountries.length) { localStorage.setItem('igl_gs_countries', JSON.stringify(data.settings.gsCountries)); if(typeof gsPopulateCountryDatalist==='function') gsPopulateCountryDatalist(); }
+          if(data.settings.gsItemBrandCountry) {
+            // ⚠️ union merge — এই ডিভাইসে এইমাত্র সেভ হওয়া কিন্তু এখনো sync না হওয়া
+            // item-brand/country ম্যাপিং হারাবে না
+            var _localIbc = {}; try { _localIbc = JSON.parse(localStorage.getItem('igl_gs_item_brand_country')||'{}'); } catch(e){}
+            var _mergedIbc = Object.assign({}, data.settings.gsItemBrandCountry, _localIbc);
+            localStorage.setItem('igl_gs_item_brand_country', JSON.stringify(_mergedIbc));
+          }
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
           if(data.settings.gsReqFlags && Object.keys(data.settings.gsReqFlags).length) { localStorage.setItem('igl_gs_req_flags', JSON.stringify(data.settings.gsReqFlags)); }
           if(data.settings.masterPw) { localStorage.setItem('igl_master_pw', data.settings.masterPw); }
@@ -3790,6 +3802,16 @@ window.iglSaveNavVisibility = function() {
               <label>Supplier Name</label>
               <input type="text" class="form-control" id="r-supplier" placeholder="Supplier name (optional)" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)">
               <datalist id="r-supplier-list"></datalist>
+            </div>
+            <div class="form-group">
+              <label>Brand Name</label>
+              <input type="text" class="form-control" id="r-brand" placeholder="Brand name (optional)" autocomplete="off" list="r-brand-list" onchange="gsSaveBrandName(this.value)">
+              <datalist id="r-brand-list"></datalist>
+            </div>
+            <div class="form-group">
+              <label>Country Of Origin</label>
+              <input type="text" class="form-control" id="r-country" placeholder="Country of origin (optional)" autocomplete="off" list="r-country-list" onchange="gsSaveCountryName(this.value)">
+              <datalist id="r-country-list"></datalist>
             </div>
             <div class="form-group">
               <label>Quantity *</label>
@@ -10781,6 +10803,94 @@ function gsPopulateSupplierDatalist() {
   dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
 }
 
+// ── General Store Receive: Brand Name মনে রাখা (datalist + per-item auto-fill) ──
+function gsGetBrands() {
+  var list;
+  try { list = JSON.parse(localStorage.getItem('igl_gs_brands') || '[]'); } catch(e) { list = []; }
+  return list;
+}
+function gsSaveBrandName(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  var list = gsGetBrands();
+  if (list.indexOf(name) === -1) {
+    list.unshift(name);
+    if (list.length > 50) list = list.slice(0, 50);
+    try { localStorage.setItem('igl_gs_brands', JSON.stringify(list)); } catch(e) {}
+    gsPopulateBrandDatalist();
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  }
+}
+function gsPopulateBrandDatalist() {
+  var dl = document.getElementById('r-brand-list');
+  if (!dl) return;
+  var list = gsGetBrands();
+  dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
+}
+
+// ── General Store Receive: Country Of Origin মনে রাখা (datalist + per-item auto-fill) ──
+function gsGetCountries() {
+  var list;
+  try { list = JSON.parse(localStorage.getItem('igl_gs_countries') || '[]'); } catch(e) { list = []; }
+  return list;
+}
+function gsSaveCountryName(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  var list = gsGetCountries();
+  if (list.indexOf(name) === -1) {
+    list.unshift(name);
+    if (list.length > 50) list = list.slice(0, 50);
+    try { localStorage.setItem('igl_gs_countries', JSON.stringify(list)); } catch(e) {}
+    gsPopulateCountryDatalist();
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  }
+}
+function gsPopulateCountryDatalist() {
+  var dl = document.getElementById('r-country-list');
+  if (!dl) return;
+  var list = gsGetCountries();
+  dl.innerHTML = list.map(function(s){ return '<option value="'+s+'">'; }).join('');
+}
+
+// ── প্রতিটি আইটেমের জন্য আলাদাভাবে সর্বশেষ Supplier/Brand/Country মনে রাখা ──
+// একবার কোনো আইটেমের জন্য Supplier/Brand/Country লিখে Receive সেভ করলে, পরের বার
+// সেই আইটেম সিলেক্ট করলেই এগুলো স্বয়ংক্রিয়ভাবে বসে যাবে (চাইলে বদলানো যাবে)।
+function gsGetItemBrandCountryMap() {
+  try { return JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'); } catch(e) { return {}; }
+}
+function gsSaveItemBrandCountry(itemName, brand, country, supplier) {
+  if (!itemName) return;
+  if (!brand && !country && !supplier) return;
+  var map = gsGetItemBrandCountryMap();
+  var existing = map[itemName] || {};
+  map[itemName] = {
+    brand:    brand    ? brand    : existing.brand    || '',
+    country:  country  ? country  : existing.country  || '',
+    supplier: supplier ? supplier : existing.supplier || ''
+  };
+  try { localStorage.setItem('igl_gs_item_brand_country', JSON.stringify(map)); } catch(e) {}
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+// item সিলেক্ট করার সময় (updateReceiveStock এর ভেতর থেকে কল হয়) Supplier/Brand/Country auto-fill
+function gsAutoFillItemBrandCountry(itemName) {
+  var brandEl = document.getElementById('r-brand');
+  var countryEl = document.getElementById('r-country');
+  var supplierEl = document.getElementById('r-supplier');
+  if (!brandEl || !countryEl) return;
+  var map = gsGetItemBrandCountryMap();
+  var info = map[itemName];
+  brandEl.value = (info && info.brand) ? info.brand : '';
+  countryEl.value = (info && info.country) ? info.country : '';
+  if (supplierEl) supplierEl.value = (info && info.supplier) ? info.supplier : '';
+}
+// item name দিয়ে সরাসরি সর্বশেষ Supplier/Brand/Country তথ্য বের করা — Requisition
+// রিপোর্টে Available Stock/Supplier/Brand/Country কলাম অটো-ফিল করার জন্য ব্যবহার হয়
+function gsGetItemBrandCountryInfo(itemName) {
+  var map = gsGetItemBrandCountryMap();
+  return map[itemName] || {brand:'', country:'', supplier:''};
+}
+
 // ── Issue Goods Remarks memory (মেশিন নাম্বার ছাড়া ইস্যুর জন্য) ─────
 function gsGetIssueRemarks() {
   try {
@@ -10896,6 +11006,8 @@ function updateReceiveStock() {
     var itObj = (DB.items||[]).find(function(x){ return x.name === item; });
     var uEl = document.getElementById('r-unit');
     if (uEl && itObj && itObj.unit) uEl.value = itObj.unit;
+    // ✅ এই আইটেমের জন্য আগে লেখা Brand Name / Country Of Origin থাকলে অটো-ফিল হবে
+    if (typeof gsAutoFillItemBrandCountry === 'function') gsAutoFillItemBrandCountry(item);
   }
 }
 
@@ -10986,6 +11098,8 @@ function saveReceive() {
   const chalan = document.getElementById('r-chalan').value;
   const bill = document.getElementById('r-bill') ? document.getElementById('r-bill').value : '';
   const supplier = document.getElementById('r-supplier') ? document.getElementById('r-supplier').value : '';
+  const brand = document.getElementById('r-brand') ? document.getElementById('r-brand').value.trim() : '';
+  const country = document.getElementById('r-country') ? document.getElementById('r-country').value.trim() : '';
   const qty = document.getElementById('r-qty').value;
   const unit = document.getElementById('r-unit') ? document.getElementById('r-unit').value : 'Pcs';
   const rate = parseFloat(document.getElementById('r-rate').value) || 0;
@@ -11000,11 +11114,14 @@ function saveReceive() {
   if (!item) { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || Number(qty) <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
 
-  const rec = { id: Date.now(), date, group, category, item, chalan, bill, supplier, qty: Number(qty), unit, rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  const rec = { id: Date.now(), date, group, category, item, chalan, bill, supplier, brand, country, qty: Number(qty), unit, rate, amount, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
   const arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
   gsSaveSupplierName(supplier);
+  gsSaveBrandName(brand);
+  gsSaveCountryName(country);
+  gsSaveItemBrandCountry(item, brand, country, supplier);
 
   gsAutoSyncRow('receive', rec);
   toast(`✅ Receive saved! ${item} - Qty: ${qty}`, 'success');
@@ -11081,6 +11198,8 @@ function clearReceiveForm() {
   document.getElementById('r-chalan').value = '';
   if (document.getElementById('r-bill')) document.getElementById('r-bill').value = '';
   if (document.getElementById('r-supplier')) document.getElementById('r-supplier').value = '';
+  if (document.getElementById('r-brand')) document.getElementById('r-brand').value = '';
+  if (document.getElementById('r-country')) document.getElementById('r-country').value = '';
   document.getElementById('r-qty').value = '';
   if (document.getElementById('r-unit')) document.getElementById('r-unit').value = 'Pcs';
   document.getElementById('r-rate').value = '';
@@ -11564,28 +11683,68 @@ function _gsDoExportGroupMonthlyExcelJS(){
   styleDataRow(wsRI.getRow(riRow), 6);
 
   // ===================================================================
-  // Requisition শীট — খালি টেমপ্লেট
+  // Requisition শীট — ইউজারের দেওয়া নমুনা ফরম্যাট অনুযায়ী (SI No, Item Description,
+  // Item Type, Used For, Required quantity, Unit, Unit Price, Target Price,
+  // Available Stock, Name Of Supplier, Brand Name, Country Of Origin)
   // ===================================================================
   var wsReq = wb.addWorksheet('Requisition');
-  wsReq.columns = [{width:5},{width:26},{width:16},{width:12},{width:14},{width:12},{width:16},{width:18}];
-  wsReq.getCell(1,1).value = 'Islam Garments Ltd. — Requisition Slip';
-  wsReq.mergeCells(1,1,1,8);
+  wsReq.columns = [{width:6},{width:28},{width:14},{width:14},{width:14},{width:8},{width:12},{width:12},{width:14},{width:20},{width:14},{width:14}];
+  wsReq.getCell(1,1).value = 'Islam Garments Ltd. — Requisition Form';
+  wsReq.mergeCells(1,1,1,12);
   wsReq.getCell(1,1).font = titleFont;
   wsReq.getCell(2,1).value = group+' — '+monthLabel;
-  wsReq.mergeCells(2,1,2,8);
-  var reqH = ['SL','Item Name','Used For','Required Qty','Supplier','Brand','Country of Origin','Remarks'];
+  wsReq.mergeCells(2,1,2,12);
+  var reqH = ['SI No','Item Description','Item Type','Used For','Required quantity','Unit','Unit Price','Target Price','Available Stock\n(if any)','Name Of Supplier\n(if needed)','Brand Name','Country Of Origin'];
   reqH.forEach(function(v,i){ wsReq.getCell(4,i+1).value = v; });
   styleHeaderRow(wsReq.getRow(4));
-  // Issue Form থেকে "Requisition দরকার" টিক দেওয়া আইটেমগুলো এখানে অটো বসে যাবে
-  var reqFlaggedItems = items
-    .filter(function(it){ return isItemFlaggedForReq(group, it.name); })
-    .map(function(it){ return it.name; });
+  wsReq.getRow(4).alignment = {wrapText:true, vertical:'middle', horizontal:'center'};
+
+  // Issue Form থেকে "Requisition দরকার" টিক দেওয়া আইটেমগুলো এখানে অটো বসে যাবে,
+  // সাথে Item Type/Unit/Available Stock/Supplier/Brand/Country ও স্বয়ংক্রিয়ভাবে ভরে যাবে
+  var reqFlaggedItems = items.filter(function(it){ return isItemFlaggedForReq(group, it.name); });
   var reqRowCount = Math.max(15, reqFlaggedItems.length);
-  for (var k=1;k<=reqRowCount;k++){
-    wsReq.getCell(4+k,1).value = k;
-    if (reqFlaggedItems[k-1]) wsReq.getCell(4+k,2).value = reqFlaggedItems[k-1];
-    styleDataRow(wsReq.getRow(4+k), 8);
+  var reqFirstDataRow = 5, reqLastDataRow = 4 + reqRowCount;
+  for (var k=1; k<=reqRowCount; k++){
+    var rr = 4 + k;
+    var it = reqFlaggedItems[k-1];
+    wsReq.getCell(rr,1).value = k; // SI No
+    if (it) {
+      wsReq.getCell(rr,2).value = it.name;                 // Item Description
+      wsReq.getCell(rr,3).value = it.category || '';        // Item Type
+      wsReq.getCell(rr,6).value = it.unit || 'Pcs';          // Unit
+      // Unit Price — এই আইটেমের সবচেয়ে সাম্প্রতিক Receive-এর Rate (রেফারেন্স হিসেবে, চাইলে বদলানো যাবে)
+      var lastRcv = (DB.receives||[]).filter(function(r){ return r.item===it.name && Number(r.rate)>0; })
+                      .sort(function(a,b){ return new Date(b.date)-new Date(a.date); })[0];
+      if (lastRcv) wsReq.getCell(rr,7).value = Number(lastRcv.rate)||0;
+      // Target Price = Required quantity × Unit Price (ফর্মুলা — Required quantity ম্যানুয়ালি লিখলে অটো হিসাব হবে)
+      wsReq.getCell(rr,8).value = { formula: 'E'+rr+'*G'+rr, result: 0 };
+      // Available Stock — বর্তমান স্টক ব্যালেন্স
+      wsReq.getCell(rr,9).value = (typeof getStock==='function') ? (getStock(it.name)||0) : '';
+      // Name Of Supplier / Brand Name / Country Of Origin — আগে Receive-এ যা লেখা হয়েছিল তা থেকে
+      var ibc = (typeof gsGetItemBrandCountryInfo==='function') ? gsGetItemBrandCountryInfo(it.name) : {};
+      wsReq.getCell(rr,10).value = ibc.supplier || '';
+      wsReq.getCell(rr,11).value = ibc.brand || '';
+      wsReq.getCell(rr,12).value = ibc.country || '';
+    } else {
+      // খালি রো — ম্যানুয়ালি নতুন আইটেম লেখার জন্য, তাতেও Target Price ফর্মুলা কাজ করবে
+      wsReq.getCell(rr,8).value = { formula: 'E'+rr+'*G'+rr, result: 0 };
+    }
+    styleDataRow(wsReq.getRow(rr), 12);
   }
+
+  // Total- রো: Required quantity ও Target Price কলামের যোগফল
+  var reqTotalRow = reqLastDataRow + 1;
+  wsReq.getCell(reqTotalRow,4).value = 'Total-';
+  wsReq.getCell(reqTotalRow,5).value = { formula: 'SUM(E'+reqFirstDataRow+':E'+reqLastDataRow+')', result: 0 };
+  wsReq.getCell(reqTotalRow,8).value = { formula: 'SUM(H'+reqFirstDataRow+':H'+reqLastDataRow+')', result: 0 };
+  wsReq.getRow(reqTotalRow).font = {bold:true};
+  styleDataRow(wsReq.getRow(reqTotalRow), 12);
+
+  // Total Target- /= রো (সাইন/অ্যাপ্রুভালের জন্য খালি লাইন)
+  var reqGrandRow = reqTotalRow + 2;
+  wsReq.getCell(reqGrandRow,3).value = 'Total Target- /=';
+  wsReq.getCell(reqGrandRow,8).value = { formula: 'H'+reqTotalRow, result: 0 };
+  wsReq.getRow(reqGrandRow).font = {bold:true};
 
   var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'.xlsx';
 
