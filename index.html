@@ -1529,7 +1529,11 @@ if('serviceWorker' in navigator){
           // পাঠানো হয় — এতে সিঙ্ক আর ব্যর্থ হবে না, আর আসল needles ডাটাও ভুলবশত খালি
           // হয়ে মুছে যাবে না (_skipNeedles-এর মূল উদ্দেশ্যও অক্ষত থাকল)।
           needles: _skipNeedles ? (Array.isArray(remoteNeedles) ? remoteNeedles : []) : _safeNdl,
-          master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]')
+          master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]'),
+          // ⚠️ Supervisor/Worker List — আগে এই ফিল্ডটা Firebase save-এ পাঠানোই হতো না,
+          // ফলে এক ডিভাইসে Supervisor Add/Rename/Delete করলে Firebase-এ কখনো যেতো না,
+          // আর অন্য ডিভাইসে সেই পরিবর্তন দেখাই যেতো না। এখন যুক্ত করা হলো।
+          workers: JSON.parse(localStorage.getItem('igl_ndl_workers') || '[]')
         },
         stn: {
           // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
@@ -1863,6 +1867,26 @@ if('serviceWorker' in navigator){
               }
             } catch(e){}
             localStorage.setItem('igl_ndl_master', JSON.stringify(restoreMaster));
+          }
+          // ⚠️ Supervisor/Worker List — আগে fbLoadAll এ এই ফিল্ডটা restore হতোই না
+          // (কারণ save-সাইডেই এটা পাঠানো হতো না)। এখন remote workers নেয়া হয়, আর এই
+          // ডিভাইসে থাকা কিন্তু remote-এ এখনো sync না হওয়া (নতুন Add করা) worker যেন
+          // হারিয়ে না যায় তাই local-only entry গুলো union করে যোগ করা হয় (needle master
+          // এর মতোই একই প্যাটার্ন)।
+          if(data.ndb.workers){
+            var restoreWorkers = data.ndb.workers;
+            try {
+              var currentWorkers = JSON.parse(localStorage.getItem('igl_ndl_workers') || '[]');
+              if(currentWorkers.length > 0){
+                var restoredWorkerIds = {}; restoreWorkers.forEach(function(w){ restoredWorkerIds[w.id]=true; });
+                var missingLocalWorkers = currentWorkers.filter(function(w){ return !restoredWorkerIds[w.id]; });
+                if(missingLocalWorkers.length){ restoreWorkers = restoreWorkers.concat(missingLocalWorkers); }
+              }
+            } catch(e){}
+            localStorage.setItem('igl_ndl_workers', JSON.stringify(restoreWorkers));
+            if(typeof needleWorkers !== 'undefined') needleWorkers = restoreWorkers;
+            if(typeof renderMasterWorkers === 'function') renderMasterWorkers();
+            if(typeof populateWorkerDrops === 'function') populateWorkerDrops();
           }
         }
         if(data.stn){
