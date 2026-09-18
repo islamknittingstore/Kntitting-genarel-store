@@ -1162,6 +1162,9 @@ if('serviceWorker' in navigator){
       0% { background-position: 0% 50%; }
       100% { background-position: 100% 50%; }
     }
+    /* Monthly Report → Summary প্রিভিউ: item name cell-এ hover করলে বোঝা যাবে
+       ডাবল-ক্লিক করলে Requisition-এ যুক্ত করার অপশন আসবে */
+    .gmr-req-clickable:hover { background:#fdf3d8 !important; text-decoration:underline dotted; }
 </style>
 <script>
 // ===== PRE-LOADED DATA =====
@@ -2895,6 +2898,7 @@ window.iglLogout = function(){
 // Available permissions list
 var IGL_PERMISSIONS = {
   'gs_item_master':   '📦 General Store — Item Master (শুধু Add/Edit Item)',
+  'gs_req_delete':    '🗑️ General Store — Requisition Item ডিলিট',
   'stn_requisition':  '📋 Stationery Requisition',
   'stn_req_record':   '🗂️ Stationery Requisition Record',
   'stn_item_master':   '📦 STN Item Master',
@@ -4254,7 +4258,7 @@ window.iglSaveNavVisibility = function() {
       <div class="card-body no-print">
         <p style="font-size:12px;color:#666;margin-top:0;">আপনার দেওয়া নমুনা ফরম্যাট অনুযায়ী (Summary + Rcv &amp; Issue + প্রতি গ্রুপের লেজার + Requisition) — একই স্টাইলে প্রতি মাসে ক্যাটেগরি বেছে ডাউনলোড করুন।</p>
         <div class="month-select">
-          <select class="form-control" id="gmr-group"></select>
+          <select class="form-control" id="gmr-group" onchange="gsRenderReqFlagList()"></select>
           <select class="form-control" id="gmr-month">
             <option value="1">January</option><option value="2">February</option>
             <option value="3">March</option><option value="4">April</option>
@@ -4266,6 +4270,50 @@ window.iglSaveNavVisibility = function() {
           <input type="number" class="form-control" id="gmr-year" value="2026" min="2020" max="2050">
           <button class="btn btn-primary" onclick="gsExportGroupMonthlyExcel()" style="background:#1e8449;">📥 Excel Download</button>
           <button class="btn btn-outline" onclick="gsPreviewGroupMonthly()">👁️ পেজেই দেখুন (Preview)</button>
+        </div>
+      </div>
+    </div>
+    <!-- 🗑️ বর্তমান Requisition List — যেসব আইটেম Issue করার সময় "Requisition দরকার"
+         টিক দেওয়া হয়েছে, সেগুলো এখানে দেখা যাবে। ডিলিট করার সুযোগ শুধু Admin ও
+         'gs_req_delete' পারমিশনপ্রাপ্ত ইউজারদের জন্য। -->
+    <div class="card" id="gmr-reqlist-card">
+      <div class="card-header" style="background:#fef5e7;">
+        <span>📋 বর্তমান Requisition List — <span id="gmr-reqlist-group-label"></span></span>
+        <button class="btn btn-sm no-print" style="margin-left:auto;background:#ccc;" onclick="gsRenderReqFlagList()">🔄 রিফ্রেশ</button>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th style="width:40px;">#</th><th>Item Name</th><th style="width:90px;">Required Qty</th><th style="width:90px;">Action</th></tr></thead>
+            <tbody id="gmr-reqlist-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- 🖱️ Summary-তে ডাবল-ক্লিক করলে এই মোডাল আসবে — সংক্ষিপ্ত ৩ মাসের B/F/Receive/Issue
+         ট্রেন্ড দেখিয়ে, তারপর "Requisition এ যুক্ত করুন" বাটন দিয়ে কনফার্ম করা যাবে। -->
+    <div id="gsReqPreviewModal" class="no-print" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:8px;max-width:480px;width:92%;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#d68910,#f39c12);color:#fff;padding:12px 18px;font-weight:700;display:flex;align-items:center;justify-content:space-between;">
+          <span id="gsReqPreviewTitle">📋 Item</span>
+          <button onclick="gsCloseReqPreviewModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
+        </div>
+        <div style="padding:14px 18px;">
+          <div style="font-size:12px;color:#666;margin-bottom:8px;">সাম্প্রতিক ৩ মাসের B/F, Receive, Issue, Balance ট্রেন্ড:</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="background:#f4f4f4;">
+              <th style="padding:5px;border:1px solid #ddd;">Month</th>
+              <th style="padding:5px;border:1px solid #ddd;">B/F</th>
+              <th style="padding:5px;border:1px solid #ddd;">Receive</th>
+              <th style="padding:5px;border:1px solid #ddd;">Issue</th>
+              <th style="padding:5px;border:1px solid #ddd;">Balance</th>
+            </tr></thead>
+            <tbody id="gsReqPreviewBody" style="text-align:center;"></tbody>
+          </table>
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px;">
+          <button onclick="gsCloseReqPreviewModal()" style="background:#95a5a6;color:#fff;border:none;border-radius:4px;padding:7px 16px;cursor:pointer;">❌ বাতিল</button>
+          <button onclick="gsConfirmReqFromModal()" style="background:#27ae60;color:#fff;border:none;border-radius:4px;padding:7px 16px;cursor:pointer;font-weight:700;">📋 Requisition এ যুক্ত করুন</button>
         </div>
       </div>
     </div>
@@ -11711,6 +11759,10 @@ function _gsDoExportGroupMonthlyExcelJS(){
     if (it) {
       wsReq.getCell(rr,2).value = it.name;                 // Item Description
       wsReq.getCell(rr,3).value = it.category || '';        // Item Type
+      // Required quantity — Monthly Report পেজের "বর্তমান Requisition List" প্যানেলে
+      // যা লিখে সেভ করা হয়েছে, তা এখানে অটো বসে যাবে (চাইলে Excel-এ গিয়েও বদলানো যাবে)
+      var reqQty = (typeof getReqQty==='function') ? getReqQty(group, it.name) : '';
+      if (reqQty) wsReq.getCell(rr,5).value = Number(reqQty)||0;
       wsReq.getCell(rr,6).value = it.unit || 'Pcs';          // Unit
       // Unit Price — এই আইটেমের সবচেয়ে সাম্প্রতিক Receive-এর Rate (রেফারেন্স হিসেবে, চাইলে বদলানো যাবে)
       var lastRcv = (DB.receives||[]).filter(function(r){ return r.item===it.name && Number(r.rate)>0; })
@@ -11749,7 +11801,7 @@ function _gsDoExportGroupMonthlyExcelJS(){
   var fname = group.replace(/[^a-zA-Z0-9]/g,'_')+'_Ac_'+monShort[month-1]+'-'+String(year).slice(-2)+'.xlsx';
 
   if (window._gsExportMode === 'preview'){
-    gsRenderPreviewExcelJS(wb);
+    gsRenderPreviewExcelJS(wb, group, items);
     toast('👁️ Preview তৈরি হয়েছে (real formula ও বর্ডার সহ)', 'success');
   } else {
     wb.xlsx.writeBuffer().then(function(buffer){
@@ -11767,11 +11819,15 @@ function _gsDoExportGroupMonthlyExcelJS(){
 }
 
 // ── ExcelJS ওয়ার্কবুক পেজেই প্রিভিউ করার জন্য (বর্ডার/কালার সহ HTML রেন্ডার) ──
-function gsRenderPreviewExcelJS(wb){
+function gsRenderPreviewExcelJS(wb, group, items){
   var card = document.getElementById('gmr-preview-card');
   var tabsEl = document.getElementById('gmr-preview-tabs');
   var contentEl = document.getElementById('gmr-preview-content');
   if (!card || !tabsEl || !contentEl) return;
+  // Summary শীটে কোন cell গুলো আসলে item name (ডাবল-ক্লিক করে Requisition-এ যুক্ত
+  // করার জন্য) তা যাচাই করতে — item নামগুলোর একটা quick-lookup সেট বানানো হয়
+  var itemNameSet = {};
+  (items||[]).forEach(function(it){ itemNameSet[it.name] = true; });
 
   function argbToCss(argb){
     if (!argb) return '';
@@ -11843,7 +11899,15 @@ function gsRenderPreviewExcelJS(wb){
         if (cell.font && cell.font.color) style += 'color:'+argbToCss(cell.font.color.argb)+';';
         var tag = (cell.font && cell.font.bold) ? 'td' : 'td';
         var cls = headerLevel >= 0 ? ' class="gmr-sh gmr-sh-lvl'+(headerLevel+1)+'"' : '';
-        html += '<'+tag+cls+' style="'+style+'"'+(rowspan>1?' rowspan="'+rowspan+'"':'')+(colspan>1?' colspan="'+colspan+'"':'')+'>'+text+'</'+tag+'>';
+        // 🖱️ Summary শীটে, item name-এর ঠিক cell-এ ডাবল-ক্লিক করলে Requisition-এ
+        // যুক্ত করার পপআপ আসবে — column A এবং text টা known item name হলেই কাজ করবে
+        var dblclickAttr = '';
+        if (ws.name === 'Summary' && c === 1 && itemNameSet[text]) {
+          style += 'cursor:pointer;';
+          cls += ' gmr-req-clickable';
+          dblclickAttr = ' title="ডাবল-ক্লিক করে Requisition-এ যুক্ত করুন" ondblclick="gsReqPromptFromSummary(\''+String(group).replace(/'/g,"\\'")+'\',\''+text.replace(/'/g,"\\'")+'\')"';
+        }
+        html += '<'+tag+cls+' style="'+style+'"'+(rowspan>1?' rowspan="'+rowspan+'"':'')+(colspan>1?' colspan="'+colspan+'"':'')+dblclickAttr+'>'+text+'</'+tag+'>';
       }
       html += '</tr>';
     }
@@ -22369,6 +22433,7 @@ function populateLogFilters() {
     var curG = gmrEl.value;
     gmrEl.innerHTML = gsGroups.map(function(g){ return '<option value="'+g+'">'+g+'</option>'; }).join('');
     if (gsGroups.indexOf(curG) !== -1) gmrEl.value = curG;
+    if (typeof gsRenderReqFlagList === 'function') gsRenderReqFlagList();
   }
 }
 
@@ -23028,7 +23093,31 @@ function isItemFlaggedForReq(group, itemName) {
 function setItemReqFlag(group, itemName, flag) {
   var flags = Object.assign({}, DB.gsReqFlags || {});
   var key = gsReqFlagKey(group, itemName);
-  if (flag) flags[key] = true; else delete flags[key];
+  if (flag) {
+    // আগে qty লেখা থাকলে (object আকারে সেভ করা) সেটা যেন হারিয়ে না যায়
+    var existing = flags[key];
+    var existingQty = (existing && typeof existing === 'object') ? existing.qty : '';
+    flags[key] = { qty: existingQty || '' };
+  } else {
+    delete flags[key];
+  }
+  DB.gsReqFlags = flags;
+  triggerAutoSave();
+}
+// ── Required Quantity — যেই আইটেমের জন্য "Requisition দরকার" টিক দেওয়া আছে,
+// তার জন্য কত পিস/ইউনিট লাগবে তা এখানে সেভ করা হয় (Monthly Report পেজের
+// "বর্তমান Requisition List" থেকে সরাসরি লেখা যায়) — Excel export-এর সময়
+// "Required quantity" কলামে এটাই অটো-ফিল হয়ে যাবে। ─────────────────────
+function getReqQty(group, itemName) {
+  var flags = DB.gsReqFlags || {};
+  var v = flags[gsReqFlagKey(group, itemName)];
+  return (v && typeof v === 'object' && v.qty) ? v.qty : '';
+}
+function setReqQty(group, itemName, qty) {
+  var flags = Object.assign({}, DB.gsReqFlags || {});
+  var key = gsReqFlagKey(group, itemName);
+  // qty লেখার সাথে সাথে flag-টাও (না থাকলে) সেট হয়ে যাবে, যাতে আইটেমটা লিস্টে থেকে যায়
+  flags[key] = { qty: qty || '' };
   DB.gsReqFlags = flags;
   triggerAutoSave();
 }
@@ -23038,9 +23127,127 @@ function _renameReqFlagKey(group, oldName, newName) {
   var oldKey = gsReqFlagKey(group, oldName);
   if (!DB.gsReqFlags[oldKey]) return;
   var flags = Object.assign({}, DB.gsReqFlags);
+  var oldVal = flags[oldKey]; // { qty: ... } — নাম বদলালেও qty যেন হারিয়ে না যায়
   delete flags[oldKey];
-  flags[gsReqFlagKey(group, newName)] = true;
+  flags[gsReqFlagKey(group, newName)] = (oldVal && typeof oldVal === 'object') ? oldVal : { qty: '' };
   DB.gsReqFlags = flags;
+}
+
+// ── 🗑️ Monthly Report পেজে "বর্তমান Requisition List" প্যানেল — যেসব আইটেম
+// "Requisition দরকার" টিক দেওয়া আছে সেগুলো দেখায়, আর Admin/permission থাকা
+// ইউজার চাইলে সরাসরি ডিলিট (unflag) করতে পারবে ──────────────────────────
+function gsRenderReqFlagList() {
+  var tb = document.getElementById('gmr-reqlist-table');
+  if (!tb) return;
+  var group = (document.getElementById('gmr-group')||{}).value || '';
+  var lbl = document.getElementById('gmr-reqlist-group-label');
+  if (lbl) lbl.textContent = group || '(কোনো গ্রুপ সিলেক্ট করা নেই)';
+  var canDelete = (typeof iglHasPermission === 'function') && iglHasPermission('gs_req_delete');
+  var flaggedItems = (DB.items||[]).filter(function(it){
+    return it.group === group && isItemFlaggedForReq(group, it.name);
+  });
+  if (!flaggedItems.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="no-data">কোনো আইটেম Requisition-এর জন্য টিক দেওয়া নেই</td></tr>';
+    return;
+  }
+  tb.innerHTML = flaggedItems.map(function(it, i){
+    var gEsc = group.replace(/'/g,"\\'");
+    var nEsc = it.name.replace(/'/g,"\\'");
+    var delBtn = canDelete
+      ? '<button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="gsDeleteReqFlagItem(\''+gEsc+'\',\''+nEsc+'\')">🗑️ Delete</button>'
+      : '<span style="color:#aaa;font-size:11px;">🔒 Admin/Permission প্রয়োজন</span>';
+    var qtyVal = getReqQty(group, it.name);
+    var qtyInput = '<input type="number" min="0" step="1" value="'+qtyVal+'" placeholder="qty" style="width:80px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;" onchange="setReqQty(\''+gEsc+'\',\''+nEsc+'\', this.value)">';
+    return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+it.name+'</td><td style="text-align:center;">'+qtyInput+'</td><td>'+delBtn+'</td></tr>';
+  }).join('');
+}
+
+// ডিলিট করার আগে permission আবারও যাচাই করা হয় (UI বাটন hide করা থাকলেও ডাইরেক্ট
+// ফাংশন-কলের বিরুদ্ধে সুরক্ষা)
+function gsDeleteReqFlagItem(group, itemName) {
+  if (!(typeof iglHasPermission === 'function' && iglHasPermission('gs_req_delete'))) {
+    toast('❌ এই কাজের জন্য Admin অনুমতি প্রয়োজন','warning');
+    return;
+  }
+  if (!confirm('"'+itemName+'" — Requisition লিস্ট থেকে বাদ দিতে চান?')) return;
+  setItemReqFlag(group, itemName, false);
+  gsRenderReqFlagList();
+  toast('✅ Requisition লিস্ট থেকে বাদ দেওয়া হয়েছে: '+itemName,'success');
+}
+
+// ── নির্দিষ্ট আইটেমের নির্দিষ্ট মাসের B/F, Receive, Issue, Balance হিসাব —
+// gsMonthlyItemSummary(itemName, year, month) — Requisition প্রিভিউ মোডালে
+// সাম্প্রতিক ৩ মাসের ট্রেন্ড দেখানোর জন্য ব্যবহার হয়। bfOf()-এর একই লজিক,
+// কিন্তু কোনো নির্দিষ্ট মাসের জন্য standalone ভাবে কল করা যায়। ──────────
+function gsMonthlyItemSummary(itemName, year, month) {
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var mStart = year+'-'+String(month).padStart(2,'0')+'-01';
+  var mEnd   = year+'-'+String(month).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+  var itObj = (DB.items||[]).find(function(x){ return x.name===itemName; });
+  var bf = itObj ? (Number(itObj.bf)||0) : 0;
+  try {
+    var oilBF = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}');
+    if (oilBF[itemName]) {
+      var anchor = oilBF[itemName];
+      var recAfterAnchor = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date >= anchor.date && x.date < mStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+      var issAfterAnchor = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date >= anchor.date && x.date < mStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+      bf = (Number(anchor.qty)||0) + recAfterAnchor - issAfterAnchor;
+    } else {
+      var rPrior = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date < mStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+      var iPrior = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date < mStart; }).reduce(function(s,x){return s+Number(x.qty);},0);
+      bf = bf + rPrior - iPrior;
+    }
+  } catch(e){}
+  var recv = (DB.receives||[]).filter(function(x){ return x.item===itemName && x.date>=mStart && x.date<=mEnd; }).reduce(function(s,x){return s+Number(x.qty);},0);
+  var iss  = (DB.issues||[]).filter(function(x){ return x.item===itemName && x.date>=mStart && x.date<=mEnd; }).reduce(function(s,x){return s+Number(x.qty);},0);
+  return { bf: bf, recv: recv, iss: iss, bal: bf + recv - iss };
+}
+
+// 🖱️ Monthly Report → Summary প্রিভিউতে কোনো আইটেমের নামের উপর ডাবল-ক্লিক করলে
+// এই পপআপ আসবে — সাম্প্রতিক ৩ মাসের B/F/Receive/Issue/Balance ট্রেন্ড দেখিয়ে,
+// "Requisition এ যুক্ত করুন" চাপলে সেই আইটেম Requisition লিস্টে যুক্ত হয়ে যাবে।
+function gsReqPromptFromSummary(group, itemName) {
+  if (isItemFlaggedForReq(group, itemName)) {
+    toast('ℹ️ "'+itemName+'" আগে থেকেই Requisition লিস্টে আছে','info');
+    return;
+  }
+  var month = Number((document.getElementById('gmr-month')||{}).value || (new Date().getMonth()+1));
+  var year  = Number((document.getElementById('gmr-year')||{}).value  || new Date().getFullYear());
+  var monShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var rowsHtml = '';
+  for (var i=2; i>=0; i--) {
+    var mm = month - i, yy = year;
+    while (mm <= 0) { mm += 12; yy -= 1; }
+    var s = gsMonthlyItemSummary(itemName, yy, mm);
+    rowsHtml += '<tr>'
+      +'<td style="padding:5px;border:1px solid #ddd;">'+monShort[mm-1]+'-'+String(yy).slice(-2)+'</td>'
+      +'<td style="padding:5px;border:1px solid #ddd;color:#6c3483;">'+s.bf+'</td>'
+      +'<td style="padding:5px;border:1px solid #ddd;color:#117a65;">'+s.recv+'</td>'
+      +'<td style="padding:5px;border:1px solid #ddd;color:#e74c3c;">'+s.iss+'</td>'
+      +'<td style="padding:5px;border:1px solid #ddd;font-weight:700;">'+s.bal+'</td>'
+      +'</tr>';
+  }
+  document.getElementById('gsReqPreviewTitle').textContent = '📋 ' + itemName;
+  document.getElementById('gsReqPreviewBody').innerHTML = rowsHtml;
+  var modal = document.getElementById('gsReqPreviewModal');
+  modal.dataset.group = group;
+  modal.dataset.item = itemName;
+  modal.style.display = 'flex';
+}
+
+function gsCloseReqPreviewModal() {
+  var modal = document.getElementById('gsReqPreviewModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function gsConfirmReqFromModal() {
+  var modal = document.getElementById('gsReqPreviewModal');
+  if (!modal) return;
+  var group = modal.dataset.group, itemName = modal.dataset.item;
+  setItemReqFlag(group, itemName, true);
+  if (typeof gsRenderReqFlagList === 'function') gsRenderReqFlagList();
+  gsCloseReqPreviewModal();
+  toast('✅ Requisition-এ যুক্ত হয়েছে: '+itemName,'success');
 }
 
 // ── নির্দিষ্ট আইটেমের সাম্প্রতিক কয়েকটা Issue রেকর্ড (তারিখ + Qty) — Issue Form-এ
