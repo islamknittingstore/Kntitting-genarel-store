@@ -35963,8 +35963,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
           if (isAdmin) {
             swapCell = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে এই দিনের কোয়ান্টিটি আগের/পরের কাজের দিনে সোয়াপ করুন (এক ক্লিকে সাইকেল হবে)" style="cursor:pointer;background:'+(swapDir?'#f39c12':'#ddd')+';color:'+(swapDir?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 3px;font-size:8px;margin-left:2px;">'+swapIcon+'</button>';
-          } else if (swapDir) {
-            swapCell = ' <span style="font-size:8px;color:#f39c12;" title="সোয়াপ চালু আছে">'+swapIcon+'</span>';
           }
         }
         html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+swapCell+'</td>';
@@ -36065,8 +36063,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var swapIconOld = swapDirOld==='prev' ? '◀' : swapDirOld==='next' ? '▶' : '🔀';
           if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
             swapCellOld = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirOld?'#f39c12':'#ddd')+';color:'+(swapDirOld?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 2px;font-size:7px;margin-left:1px;">'+swapIconOld+'</button>';
-          } else if (swapDirOld) {
-            swapCellOld = ' <span style="font-size:7px;color:#f39c12;">'+swapIconOld+'</span>';
           }
         }
         html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+swapCellOld+'</td>';
@@ -36182,8 +36178,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var swapIconJaq = swapDirJaq==='prev' ? '◀' : swapDirJaq==='next' ? '▶' : '🔀';
           if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
             swapCellJaq = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirJaq?'#f39c12':'#ddd')+';color:'+(swapDirJaq?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 2px;font-size:7px;margin-left:1px;">'+swapIconJaq+'</button>';
-          } else if (swapDirJaq) {
-            swapCellJaq = ' <span style="font-size:7px;color:#f39c12;">'+swapIconJaq+'</span>';
           }
         }
         html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';
@@ -38462,8 +38456,6 @@ function renderNdlStockRegister() {
       var swapIconSr = swapDirSr==='prev' ? '◀' : swapDirSr==='next' ? '▶' : '🔀';
       if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
         swapBtnSr = ' <button onclick="event.stopPropagation();nurCycleOffDaySwap(\''+dtStr+'\');renderNdlStockRegister();" title="ক্লিক করে এই দিনের হিসাব আগের/পরের কাজের দিনে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirSr?'#f39c12':'#ddd')+';color:'+(swapDirSr?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 4px;font-size:9px;margin-left:3px;">'+swapIconSr+'</button>';
-      } else if (swapDirSr) {
-        swapBtnSr = ' <span style="font-size:9px;color:#f39c12;">'+swapIconSr+'</span>';
       }
     }
     rows.push(
@@ -38590,8 +38582,6 @@ function renderNdlConsolidatedInner(mode, month, year, body, fullHistory){
       var swapIconCon = swapDirCon==='prev' ? '◀' : swapDirCon==='next' ? '▶' : '🔀';
       if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
         swapBtnCon = ' <button onclick="nurCycleOffDaySwap(\''+dtStr+'\');renderNdlConsolidated();" title="ক্লিক করে এই দিনের হিসাব আগের/পরের কাজের দিনে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirCon?'#f39c12':'#ddd')+';color:'+(swapDirCon?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 4px;font-size:9px;margin-left:3px;">'+swapIconCon+'</button>';
-      } else if (swapDirCon) {
-        swapBtnCon = ' <span style="font-size:9px;color:#f39c12;">'+swapIconCon+'</span>';
       }
     }
     rows.push('<tr style="background:'+rowBg+';">'+C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>'+swapBtnCon,'min-width:90px;font-size:12px;')+C('<span style="color:'+(hasAct?'#6c3483':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+dayBF+'</span>','min-width:65px;')+C(totRcv>0?'<span onclick="ndlConShowDayDetail(\''+mode+'\',\''+dtStr+'\')" style="color:#117a65;font-weight:700;cursor:pointer;text-decoration:underline dotted;" title="ক্লিক করে এই তারিখের needle-wise বিস্তারিত দেখুন">'+totRcv+'</span>':'','min-width:65px;')+C(slipNos?'<span style="color:#7d6608;font-size:11px;">'+slipNos+'</span>':'','min-width:90px;')+C('<span style="color:'+(hasAct?'#1d8348':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+bfPlusRcv+'</span>','min-width:75px;')+C(totIss>0?'<span style="color:#e74c3c;font-weight:700;">'+totIss+'</span>':'','min-width:65px;')+C('<span style="color:'+(runBal<0?'#e74c3c':(hasAct?'#1a5276':'#aaa'))+';font-weight:'+(hasAct?'700':'400')+';">'+runBal+'</span>','min-width:65px;')+C(issRemarks?'<span style="color:#7d6608;font-size:11px;">'+issRemarks+'</span>':'','text-align:left;min-width:110px;')+'</tr>');
