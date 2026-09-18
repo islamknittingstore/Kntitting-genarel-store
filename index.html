@@ -35675,6 +35675,72 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nurIsHoliday(dayStr) {
     return nurGetHolidays().indexOf(dayStr) >= 0;
   }
+
+  // ── 🔀 Off-Day Swap (Admin এক ক্লিক) ─────────────────────────────────
+  // Friday/Holiday-তে নিডেল এন্ট্রি হলেও Shift Needle Use Report-এ সেই দিন খালি
+  // দেখাবে, আর কোয়ান্টিটি Admin-এর বেছে নেওয়া আগের/পরের দিনের সাথে যোগ হয়ে
+  // দেখাবে। শুধু এই রিপোর্টের ডিসপ্লেতে প্রভাব ফেলে — আসল NDB.needles ডাটা
+  // (তারিখ, স্টক হিসাব) অপরিবর্তিত থাকে।
+  var NUR_OFFDAY_SWAP_FB_PATH = 'igl_erp/ndb/offDaySwaps';
+  function nurGetOffDaySwaps() {
+    try { return JSON.parse(localStorage.getItem('igl_nur_offday_swap')||'{}'); } catch(e){ return {}; }
+  }
+  function nurSaveOffDaySwaps(obj) {
+    localStorage.setItem('igl_nur_offday_swap', JSON.stringify(obj));
+    try{
+      if (typeof firebase !== 'undefined') {
+        firebase.database().ref(NUR_OFFDAY_SWAP_FB_PATH).set(obj).catch(function(err){
+          console.error('Off-day swap Firebase sync failed:', err);
+        });
+      }
+    }catch(e){ console.error('Off-day swap Firebase sync error:', e); }
+  }
+  function nurSyncOffDaySwapsFromFirebase(cb) {
+    try{
+      if (typeof firebase === 'undefined') { if (cb) cb(); return; }
+      firebase.database().ref(NUR_OFFDAY_SWAP_FB_PATH).once('value').then(function(snap){
+        var fbObj = snap.val() || {};
+        var localObj = nurGetOffDaySwaps();
+        var merged = Object.assign({}, fbObj, localObj); // এই ডিভাইসের সাম্প্রতিক পরিবর্তন প্রাধান্য পাবে
+        localStorage.setItem('igl_nur_offday_swap', JSON.stringify(merged));
+        if (JSON.stringify(merged) !== JSON.stringify(fbObj)) {
+          firebase.database().ref(NUR_OFFDAY_SWAP_FB_PATH).set(merged).catch(function(){});
+        }
+        if (cb) cb();
+      }).catch(function(err){
+        console.error('Off-day swap Firebase load failed:', err);
+        if (cb) cb();
+      });
+    }catch(e){ if (cb) cb(); }
+  }
+  // রেকর্ডের আসল তারিখ থেকে — রিপোর্টে "কোন দিনের কলামে" দেখানো হবে তা বের করে
+  function nurEffectiveDisplayDate(rawDate) {
+    var isFri = new Date(rawDate).getDay() === 5;
+    var isHol = nurIsHoliday(rawDate);
+    if (!isFri && !isHol) return rawDate;
+    var dir = nurGetOffDaySwaps()[rawDate];
+    if (!dir) return rawDate;
+    var dt = new Date(rawDate);
+    dt.setDate(dt.getDate() + (dir === 'prev' ? -1 : 1));
+    return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  }
+  // Admin এক ক্লিকে সাইকেল করবে: কোনো সোয়াপ নেই → ◀ আগের দিনে → পরের দিনে ▶ → আবার বন্ধ
+  function nurCycleOffDaySwap(dateStr) {
+    if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin')) {
+      toast('❌ শুধু Admin এই সোয়াপ করতে পারবেন','warning');
+      return;
+    }
+    nurSyncOffDaySwapsFromFirebase(function(){
+      var swaps = Object.assign({}, nurGetOffDaySwaps());
+      var cur = swaps[dateStr];
+      var next = !cur ? 'prev' : (cur === 'prev' ? 'next' : null);
+      if (next) swaps[dateStr] = next; else delete swaps[dateStr];
+      nurSaveOffDaySwaps(swaps);
+      var msg = next === 'prev' ? '◀ আগের দিনে যোগ হবে' : next === 'next' ? 'পরের দিনে যোগ হবে ▶' : 'সোয়াপ বন্ধ করা হয়েছে (নিজের দিনেই দেখাবে)';
+      toast('✅ '+dateStr+' — '+msg, 'success');
+      renderNeedleUseReport();
+    });
+  }
   function nurAddHoliday() {
     var val = document.getElementById('nur-holiday-input').value;
     if (!val) { toast('তারিখ দিন!','warning'); return; }
@@ -35758,6 +35824,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         try { renderNeedleUseReport(); } catch(e){}
       });
     }
+    // 🔀 Off-day swap ম্যাপও একইভাবে ব্যাকগ্রাউন্ডে সিঙ্ক করে নাও (অন্য ডিভাইসে করা সোয়াপ যেন দেখা যায়)
+    if (!window.__nurOffDaySwapSynced) {
+      window.__nurOffDaySwapSynced = true;
+      nurSyncOffDaySwapsFromFirebase(function(){
+        try { renderNeedleUseReport(); } catch(e){}
+      });
+    }
 
     // পুরনো মাস হলে Firebase থেকে load করো
     var reqMonthStart = year+'-'+(month<10?'0':'')+month+'-01';
@@ -35817,8 +35890,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     function getQ(day,typeKey,wId,ndlType){
       return filtered.filter(function(r){
-        // date match
-        if(r.date!==day) return false;
+        // date match — off-day swap থাকলে effective date ব্যবহার হবে
+        if(nurEffectiveDisplayDate(r.date)!==day) return false;
         // worker match (blank worker মানে সব)
         if(wId && r.worker && r.worker!==wId) return false;
         // needleType match
@@ -35876,12 +35949,25 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var isFri=new Date(day).getDay()===5;
         var isHol=nurIsHoliday(day);
         var hasData=filtered.some(function(r){
-          return r.date===day
+          return nurEffectiveDisplayDate(r.date)===day
             && (r.needleType||'new').toLowerCase()===ndlType
             && types.some(function(t){return t.key===r.type;});
         });
         html+='<tr class="'+((isFri||isHol)?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">'; 
-        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+'</td>';
+        // 🔀 Off-day (Friday/Holiday) হলে — এই দিনের এন্ট্রি আগের/পরের কাজের দিনে
+        // সোয়াপ করার বাটন (শুধু Admin ক্লিক করতে পারবে)
+        var swapCell = '';
+        if (isFri || isHol) {
+          var swapDir = nurGetOffDaySwaps()[day];
+          var swapIcon = swapDir==='prev' ? '◀' : swapDir==='next' ? '▶' : '🔀';
+          var isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
+          if (isAdmin) {
+            swapCell = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে এই দিনের কোয়ান্টিটি আগের/পরের কাজের দিনে সোয়াপ করুন (এক ক্লিকে সাইকেল হবে)" style="cursor:pointer;background:'+(swapDir?'#f39c12':'#ddd')+';color:'+(swapDir?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 3px;font-size:8px;margin-left:2px;">'+swapIcon+'</button>';
+          } else if (swapDir) {
+            swapCell = ' <span style="font-size:8px;color:#f39c12;" title="সোয়াপ চালু আছে">'+swapIcon+'</span>';
+          }
+        }
+        html+='<td style="padding:2px 5px;border:1px solid #ddd;font-size:8px;white-space:nowrap;text-align:center;">'+dayLabel+swapCell+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -35971,9 +36057,19 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       days.forEach(function(day){
         var dayLabel=(function(){var d=new Date(day);var dd=String(d.getDate()).padStart(2,'0');var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];var yy=String(d.getFullYear()).slice(2);return dd+' '+mm+' '+yy;})();
         var isFri=new Date(day).getDay()===5;
-        var hasData=filtered.some(function(r){return r.date===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
+        var hasData=filtered.some(function(r){return nurEffectiveDisplayDate(r.date)===day&&(r.needleType||'new')==='new'&&types.some(function(t){return t.key===r.type;});});
         var isOff=isFri||nurIsHoliday(day);
-        html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
+        var swapCellOld = '';
+        if (isOff) {
+          var swapDirOld = nurGetOffDaySwaps()[day];
+          var swapIconOld = swapDirOld==='prev' ? '◀' : swapDirOld==='next' ? '▶' : '🔀';
+          if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
+            swapCellOld = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirOld?'#f39c12':'#ddd')+';color:'+(swapDirOld?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 2px;font-size:7px;margin-left:1px;">'+swapIconOld+'</button>';
+          } else if (swapDirOld) {
+            swapCellOld = ' <span style="font-size:7px;color:#f39c12;">'+swapIconOld+'</span>';
+          }
+        }
+        html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';         html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+swapCellOld+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -36052,7 +36148,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       function getQjaq(day, typeKey, wId) {
         return filtered.filter(function(r){
-          if (r.date!==day) return false;
+          if (nurEffectiveDisplayDate(r.date)!==day) return false;
           if ((r.needleType||'new').toLowerCase()==='used') return false;
           var w = r.worker || r.workerId || r.shift || '';
           if (wId && w && w!==wId) return false;
@@ -36078,10 +36174,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       days.forEach(function(day){
         var dayLabel=(function(){ var d=new Date(day); var dd=String(d.getDate()).padStart(2,'0'); var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; var yy=String(d.getFullYear()).slice(2); return dd+' '+mm+' '+yy; })();
         var isFri=new Date(day).getDay()===5;
-        var hasData=filtered.some(function(r){ return r.date===day && (r.needleType||'new')==='new'; });
+        var hasData=filtered.some(function(r){ return nurEffectiveDisplayDate(r.date)===day && (r.needleType||'new')==='new'; });
         var isOff=isFri||nurIsHoliday(day);
+        var swapCellJaq = '';
+        if (isOff) {
+          var swapDirJaq = nurGetOffDaySwaps()[day];
+          var swapIconJaq = swapDirJaq==='prev' ? '◀' : swapDirJaq==='next' ? '▶' : '🔀';
+          if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
+            swapCellJaq = ' <button onclick="nurCycleOffDaySwap(\''+day+'\')" title="ক্লিক করে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirJaq?'#f39c12':'#ddd')+';color:'+(swapDirJaq?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 2px;font-size:7px;margin-left:1px;">'+swapIconJaq+'</button>';
+          } else if (swapDirJaq) {
+            swapCellJaq = ' <span style="font-size:7px;color:#f39c12;">'+swapIconJaq+'</span>';
+          }
+        }
         html+='<tr class="'+(isOff?'nur-offday':'')+'" style="'+(hasData?'':'color:#bbb;')+'">';
-        html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+'</td>';
+        html+='<td style="padding:2px 4px;border:1px solid #ddd;font-size:7.5px;white-space:nowrap;text-align:center;width:68px;max-width:68px;min-width:68px;">'+dayLabel+swapCellJaq+'</td>';
         types.forEach(function(t){
           var rowT=0;
           workers.forEach(function(w){
@@ -38336,8 +38442,8 @@ function renderNdlStockRegister() {
     var dd=(d<10?'0':'')+d;
     var dtStr=year+'-'+mm+'-'+dd;
     var dispDate=dd+'/'+mm+'/'+year;
-    var dayRcvs=monthRcvs.filter(function(r){return r.date===dtStr;});
-    var dayIss=monthIss.filter(function(r){return r.date===dtStr;});
+    var dayRcvs=monthRcvs.filter(function(r){return (typeof nurEffectiveDisplayDate==='function'?nurEffectiveDisplayDate(r.date):r.date)===dtStr;});
+    var dayIss=monthIss.filter(function(r){return (typeof nurEffectiveDisplayDate==='function'?nurEffectiveDisplayDate(r.date):r.date)===dtStr;});
     var totRcv=dayRcvs.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     var totIss=dayIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     grandRcv+=totRcv; grandIss+=totIss;
@@ -38348,9 +38454,21 @@ function renderNdlStockRegister() {
     var issRemarks=dayIss.map(function(r){return r.remarks||'';}).filter(Boolean).join('; ');
     var hasAct=totRcv>0||totIss>0;
     var rowBg=hasAct?(d%2===0?'#fef9e7':'#fffde7'):(d%2===0?'#f8f9fa':'#ffffff');
+    var isOffSr = (new Date(dtStr).getDay()===5) || (typeof nurIsHoliday==='function' && nurIsHoliday(dtStr));
+    if (isOffSr) rowBg = '#c4c4c4'; // অফ-ডে (শুক্রবার/ছুটি) সবসময় ধূসর দেখাবে, অডিটে সহজে চেনার জন্য
+    var swapBtnSr = '';
+    if (isOffSr && typeof nurGetOffDaySwaps==='function') {
+      var swapDirSr = nurGetOffDaySwaps()[dtStr];
+      var swapIconSr = swapDirSr==='prev' ? '◀' : swapDirSr==='next' ? '▶' : '🔀';
+      if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
+        swapBtnSr = ' <button onclick="event.stopPropagation();nurCycleOffDaySwap(\''+dtStr+'\');renderNdlStockRegister();" title="ক্লিক করে এই দিনের হিসাব আগের/পরের কাজের দিনে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirSr?'#f39c12':'#ddd')+';color:'+(swapDirSr?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 4px;font-size:9px;margin-left:3px;">'+swapIconSr+'</button>';
+      } else if (swapDirSr) {
+        swapBtnSr = ' <span style="font-size:9px;color:#f39c12;">'+swapIconSr+'</span>';
+      }
+    }
     rows.push(
       '<tr data-bg="'+rowBg+'" style="background:'+rowBg+';cursor:pointer;" onclick="ndlSrToggleRow(this)" title="ক্লিক করে সবুজ করে মার্ক করুন (খাতায় লেখা হয়ে গেলে)">'
-      +C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>','min-width:90px;font-size:12px;')
+      +C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>'+swapBtnSr,'min-width:90px;font-size:12px;')
       +C('<span style="color:'+(hasAct?'#6c3483':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+dayBF+'</span>','min-width:65px;')
       +C(totRcv>0?'<span style="color:#117a65;font-weight:700;">'+totRcv+'</span>':'','min-width:65px;')
       +C(slipNos?'<span style="color:#7d6608;font-size:11px;">'+slipNos+'</span>':'','min-width:80px;')
@@ -38452,8 +38570,8 @@ function renderNdlConsolidatedInner(mode, month, year, body, fullHistory){
     var dd=(d<10?'0':'')+d;
     var dtStr=year+'-'+mm+'-'+dd;
     var dispDate=dd+'/'+mm+'/'+year;
-    var dayRcvs=monthRcvs.filter(function(r){return r.date===dtStr;});
-    var dayIss=monthIss.filter(function(r){return r.date===dtStr;});
+    var dayRcvs=monthRcvs.filter(function(r){return (typeof nurEffectiveDisplayDate==='function'?nurEffectiveDisplayDate(r.date):r.date)===dtStr;});
+    var dayIss=monthIss.filter(function(r){return (typeof nurEffectiveDisplayDate==='function'?nurEffectiveDisplayDate(r.date):r.date)===dtStr;});
     var totRcv=dayRcvs.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     var totIss=dayIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     grandRcv+=totRcv;grandIss+=totIss;
@@ -38464,7 +38582,19 @@ function renderNdlConsolidatedInner(mode, month, year, body, fullHistory){
     var issRemarks=[...new Set(dayIss.map(function(r){return r.remarks||'';}).filter(Boolean))].join('; ');
     var hasAct=totRcv>0||totIss>0;
     var rowBg=hasAct?(d%2===0?'#fef9e7':'#fffde7'):(d%2===0?'#f8f9fa':'#ffffff');
-    rows.push('<tr style="background:'+rowBg+';">'+C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>','min-width:90px;font-size:12px;')+C('<span style="color:'+(hasAct?'#6c3483':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+dayBF+'</span>','min-width:65px;')+C(totRcv>0?'<span onclick="ndlConShowDayDetail(\''+mode+'\',\''+dtStr+'\')" style="color:#117a65;font-weight:700;cursor:pointer;text-decoration:underline dotted;" title="ক্লিক করে এই তারিখের needle-wise বিস্তারিত দেখুন">'+totRcv+'</span>':'','min-width:65px;')+C(slipNos?'<span style="color:#7d6608;font-size:11px;">'+slipNos+'</span>':'','min-width:90px;')+C('<span style="color:'+(hasAct?'#1d8348':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+bfPlusRcv+'</span>','min-width:75px;')+C(totIss>0?'<span style="color:#e74c3c;font-weight:700;">'+totIss+'</span>':'','min-width:65px;')+C('<span style="color:'+(runBal<0?'#e74c3c':(hasAct?'#1a5276':'#aaa'))+';font-weight:'+(hasAct?'700':'400')+';">'+runBal+'</span>','min-width:65px;')+C(issRemarks?'<span style="color:#7d6608;font-size:11px;">'+issRemarks+'</span>':'','text-align:left;min-width:110px;')+'</tr>');
+    var isOffCon = (new Date(dtStr).getDay()===5) || (typeof nurIsHoliday==='function' && nurIsHoliday(dtStr));
+    if (isOffCon) rowBg = '#c4c4c4'; // অফ-ডে (শুক্রবার/ছুটি) সবসময় ধূসর দেখাবে, অডিটে সহজে চেনার জন্য
+    var swapBtnCon = '';
+    if (isOffCon && typeof nurGetOffDaySwaps==='function') {
+      var swapDirCon = nurGetOffDaySwaps()[dtStr];
+      var swapIconCon = swapDirCon==='prev' ? '◀' : swapDirCon==='next' ? '▶' : '🔀';
+      if (window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') {
+        swapBtnCon = ' <button onclick="nurCycleOffDaySwap(\''+dtStr+'\');renderNdlConsolidated();" title="ক্লিক করে এই দিনের হিসাব আগের/পরের কাজের দিনে সোয়াপ করুন" style="cursor:pointer;background:'+(swapDirCon?'#f39c12':'#ddd')+';color:'+(swapDirCon?'#fff':'#555')+';border:none;border-radius:3px;padding:0px 4px;font-size:9px;margin-left:3px;">'+swapIconCon+'</button>';
+      } else if (swapDirCon) {
+        swapBtnCon = ' <span style="font-size:9px;color:#f39c12;">'+swapIconCon+'</span>';
+      }
+    }
+    rows.push('<tr style="background:'+rowBg+';">'+C('<b style="color:'+(hasAct?'#1a5276':'#555')+';">'+dispDate+'</b>'+swapBtnCon,'min-width:90px;font-size:12px;')+C('<span style="color:'+(hasAct?'#6c3483':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+dayBF+'</span>','min-width:65px;')+C(totRcv>0?'<span onclick="ndlConShowDayDetail(\''+mode+'\',\''+dtStr+'\')" style="color:#117a65;font-weight:700;cursor:pointer;text-decoration:underline dotted;" title="ক্লিক করে এই তারিখের needle-wise বিস্তারিত দেখুন">'+totRcv+'</span>':'','min-width:65px;')+C(slipNos?'<span style="color:#7d6608;font-size:11px;">'+slipNos+'</span>':'','min-width:90px;')+C('<span style="color:'+(hasAct?'#1d8348':'#aaa')+';font-weight:'+(hasAct?'700':'400')+';">'+bfPlusRcv+'</span>','min-width:75px;')+C(totIss>0?'<span style="color:#e74c3c;font-weight:700;">'+totIss+'</span>':'','min-width:65px;')+C('<span style="color:'+(runBal<0?'#e74c3c':(hasAct?'#1a5276':'#aaa'))+';font-weight:'+(hasAct?'700':'400')+';">'+runBal+'</span>','min-width:65px;')+C(issRemarks?'<span style="color:#7d6608;font-size:11px;">'+issRemarks+'</span>':'','text-align:left;min-width:110px;')+'</tr>');
   }
   var finalBal=openBF+grandRcv-grandIss;
   rows.push('<tr style="background:#1c2833;color:#fff;font-weight:bold;"><td style="padding:9px 10px;border:1px solid #555;">মোট</td>'+C('','border:1px solid #555;')+C('<span style="color:#a9dfbf;">'+grandRcv+'</span>','border:1px solid #555;')+C('','border:1px solid #555;')+C('','border:1px solid #555;')+C('<span style="color:#f1948a;">'+grandIss+'</span>','border:1px solid #555;')+C('<span style="color:'+(finalBal<0?'#f1948a':'#f9e79f')+';">'+finalBal+'</span>','border:1px solid #555;')+C('','border:1px solid #555;')+'</tr>');
