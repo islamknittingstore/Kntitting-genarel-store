@@ -35542,10 +35542,24 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
   // ── Off Day / Holiday Manager (Admin Only) ──────────────
   var NUR_OFFDAY_FB_PATH = 'igl_erp/ndb/offdays';
+  // ⚡ পারফরমেন্স ক্যাশ — Shift Needle Use Report-এ প্রতিটা সেল/রেকর্ডের জন্য
+  // localStorage.getItem + JSON.parse বারবার কল হলে পেজ লোড অনেক স্লো হয়ে যায়
+  // (হাজার হাজার বার কল হতে পারে)। তাই এই তিনটা ডাটাসেট (off-days, holidays,
+  // off-day swaps) মেমোরিতে ক্যাশ করে রাখা হয় — একবার localStorage থেকে পড়ে,
+  // পরের বার সরাসরি ক্যাশ থেকে রিটার্ন করে। যেকোনো সেভ/সিঙ্কের সময় ক্যাশ আপডেট
+  // হয়ে যায়, তাই পুরনো ডাটা দেখানোর ঝুঁকি নেই।
+  var _nurOffDaysCache = null;
+  var _nurHolidaysCache = null;
+  var _nurOffDaySwapsCache = null;
+
   function nurGetOffDays() {
-    try { return JSON.parse(localStorage.getItem('igl_nur_offdays')||'[]'); } catch(e){ return []; }
+    if (_nurOffDaysCache === null) {
+      try { _nurOffDaysCache = JSON.parse(localStorage.getItem('igl_nur_offdays')||'[]'); } catch(e){ _nurOffDaysCache = []; }
+    }
+    return _nurOffDaysCache;
   }
   function nurSaveOffDays(arr) {
+    _nurOffDaysCache = arr;
     localStorage.setItem('igl_nur_offdays', JSON.stringify(arr));
     // Firebase-এ persist করো, যাতে ফাইল আপডেট/ক্যাশ ক্লিয়ার/অন্য ডিভাইসেও ডাটা হারিয়ে না যায়
     try{
@@ -35568,6 +35582,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var merged = localArr.slice();
         fbArr.forEach(function(d){ if (merged.indexOf(d) < 0) merged.push(d); });
         merged.sort();
+        _nurOffDaysCache = merged;
         localStorage.setItem('igl_nur_offdays', JSON.stringify(merged));
         if (merged.length !== fbArr.length) {
           firebase.database().ref(NUR_OFFDAY_FB_PATH).set(merged).catch(function(){});
@@ -35639,9 +35654,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // ফ্রাইডের মতো ধূসর দেখাবে) ──
   var NUR_HOLIDAY_FB_PATH = 'igl_erp/ndb/holidays';
   function nurGetHolidays() {
-    try { return JSON.parse(localStorage.getItem('igl_nur_holidays')||'[]'); } catch(e){ return []; }
+    if (_nurHolidaysCache === null) {
+      try { _nurHolidaysCache = JSON.parse(localStorage.getItem('igl_nur_holidays')||'[]'); } catch(e){ _nurHolidaysCache = []; }
+    }
+    return _nurHolidaysCache;
   }
   function nurSaveHolidays(arr) {
+    _nurHolidaysCache = arr;
     localStorage.setItem('igl_nur_holidays', JSON.stringify(arr));
     try{
       if (typeof firebase !== 'undefined') {
@@ -35661,6 +35680,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var merged = localArr.slice();
         fbArr.forEach(function(d){ if (merged.indexOf(d) < 0) merged.push(d); });
         merged.sort();
+        _nurHolidaysCache = merged;
         localStorage.setItem('igl_nur_holidays', JSON.stringify(merged));
         if (merged.length !== fbArr.length) {
           firebase.database().ref(NUR_HOLIDAY_FB_PATH).set(merged).catch(function(){});
@@ -35683,9 +35703,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // (তারিখ, স্টক হিসাব) অপরিবর্তিত থাকে।
   var NUR_OFFDAY_SWAP_FB_PATH = 'igl_erp/ndb/offDaySwaps';
   function nurGetOffDaySwaps() {
-    try { return JSON.parse(localStorage.getItem('igl_nur_offday_swap')||'{}'); } catch(e){ return {}; }
+    if (_nurOffDaySwapsCache === null) {
+      try { _nurOffDaySwapsCache = JSON.parse(localStorage.getItem('igl_nur_offday_swap')||'{}'); } catch(e){ _nurOffDaySwapsCache = {}; }
+    }
+    return _nurOffDaySwapsCache;
   }
   function nurSaveOffDaySwaps(obj) {
+    _nurOffDaySwapsCache = obj;
     localStorage.setItem('igl_nur_offday_swap', JSON.stringify(obj));
     try{
       if (typeof firebase !== 'undefined') {
@@ -35702,6 +35726,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         var fbObj = snap.val() || {};
         var localObj = nurGetOffDaySwaps();
         var merged = Object.assign({}, fbObj, localObj); // এই ডিভাইসের সাম্প্রতিক পরিবর্তন প্রাধান্য পাবে
+        _nurOffDaySwapsCache = merged;
         localStorage.setItem('igl_nur_offday_swap', JSON.stringify(merged));
         if (JSON.stringify(merged) !== JSON.stringify(fbObj)) {
           firebase.database().ref(NUR_OFFDAY_SWAP_FB_PATH).set(merged).catch(function(){});
