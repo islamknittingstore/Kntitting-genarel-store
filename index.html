@@ -1512,6 +1512,28 @@ if('serviceWorker' in navigator){
         return;
       }
 
+      // ⚠️⚠️ CRITICAL FIX ⚠️⚠️ — নিচের data অবজেক্টে ২০+টা localStorage key থেকে
+      // JSON.parse করা হয়, কোনো try/catch ছাড়া। এদের মধ্যে যেকোনো ONE key যদি
+      // কোনোভাবে corrupted/invalid JSON হয়ে যায় (যেমন সেভের মাঝপথে ব্রাউজার বন্ধ
+      // হওয়া, স্টোরেজ কোটা সমস্যা, বা ম্যানুয়াল এডিট) — তাহলে পুরো data object
+      // বানানোর সময়ই exception throw হয়ে .set() পর্যন্ত পৌঁছানোরও আগে পুরো save()
+      // ব্যর্থ হয়ে যায়। এতে status "❌ Error" (লাল) দেখায়, pending mark হয়ে যায়,
+      // আর পরের প্রতিটা রিট্রাই একই corrupted key-তে গিয়ে একই এরর দেয় — ফলে
+      // চিরস্থায়ীভাবে লাল থেকে যায়, কোনো ডাটাই আর সিঙ্ক হয় না (items/groups/
+      // receives/issues সহ সবকিছু আটকে যায়, শুধু ওই একটা corrupted key-র কারণে)।
+      // এখন প্রতিটা key আলাদাভাবে safe-parse হয় — কোনো একটা corrupted থাকলে শুধু
+      // সেটাই fallback ব্যবহার করবে (এবং console এ warning দেখাবে), বাকি সব ঠিকমতো
+      // সেভ হতে থাকবে।
+      function _fbSafeParse(key, fallback) {
+        var raw = localStorage.getItem(key);
+        if (raw == null) return fallback;
+        try { return JSON.parse(raw); }
+        catch(e) {
+          console.warn('⚠️ Corrupted localStorage key detected, fallback ব্যবহার হচ্ছে:', key, e);
+          return fallback;
+        }
+      }
+
       var data = {
         ts: Date.now(),
         db: {
@@ -1532,11 +1554,11 @@ if('serviceWorker' in navigator){
           // পাঠানো হয় — এতে সিঙ্ক আর ব্যর্থ হবে না, আর আসল needles ডাটাও ভুলবশত খালি
           // হয়ে মুছে যাবে না (_skipNeedles-এর মূল উদ্দেশ্যও অক্ষত থাকল)।
           needles: _skipNeedles ? (Array.isArray(remoteNeedles) ? remoteNeedles : []) : _safeNdl,
-          master:  JSON.parse(localStorage.getItem('igl_ndl_master') || '[]'),
+          master:  _fbSafeParse('igl_ndl_master', []),
           // ⚠️ Supervisor/Worker List — আগে এই ফিল্ডটা Firebase save-এ পাঠানোই হতো না,
           // ফলে এক ডিভাইসে Supervisor Add/Rename/Delete করলে Firebase-এ কখনো যেতো না,
           // আর অন্য ডিভাইসে সেই পরিবর্তন দেখাই যেতো না। এখন যুক্ত করা হলো।
-          workers: JSON.parse(localStorage.getItem('igl_ndl_workers') || '[]')
+          workers: _fbSafeParse('igl_ndl_workers', [])
         },
         stn: {
           // issues/receives এখন db.issues/db.receives এ আছে — duplicate এড়াতে এখানে রাখা হচ্ছে না
@@ -1550,35 +1572,35 @@ if('serviceWorker' in navigator){
           requisitions: (typeof DB !== 'undefined') ? (DB.pkgRequisitions||{}) : {}
         },
         ndlRcv: _safeNdlRcv,
-        rnaManage: JSON.parse(localStorage.getItem('igl_rna_manage') || '{}'),
-        bin: JSON.parse(localStorage.getItem('igl_bin') || '[]'),
+        rnaManage: _fbSafeParse('igl_rna_manage', {}),
+        bin: _fbSafeParse('igl_bin', []),
         // Drop Design Needle Register — শুধুমাত্র তথ্যগত রেকর্ড (মেকানিক্যাল জমা/ফেরত),
         // কোনো স্টক/ব্যালেন্স ক্যালকুলেশনে যোগ হয় না — stn.recordOnly এর মতোই স্বতন্ত্র
-        dropNeedle: JSON.parse(localStorage.getItem('igl_drop_needle') || '[]'),
+        dropNeedle: _fbSafeParse('igl_drop_needle', []),
         // deletedIds — fbSaveAll এ include করো যাতে overwrite এ না হারায়
         deletedIds: _delIdsForSave,
         settings: {
-          userPermissions: JSON.parse(localStorage.getItem('igl_user_permissions') || '{}'),
-          usersOverride:   JSON.parse(localStorage.getItem('igl_users_override')   || 'null'),
+          userPermissions: _fbSafeParse('igl_user_permissions', {}),
+          usersOverride:   _fbSafeParse('igl_users_override', null),
           printBold:       localStorage.getItem('igl_print_bold') || '0',
-          retailMachines:  JSON.parse(localStorage.getItem('igl_retail_machines')  || '[]'),
+          retailMachines:  _fbSafeParse('igl_retail_machines', []),
           ndlVer:          localStorage.getItem('igl_ndl_ver') || '',
-          navHidden:       JSON.parse(localStorage.getItem('igl_nav_hidden') || '{}'),
-          stnDepts:        JSON.parse(localStorage.getItem('igl_stn_depts') || 'null'),
-          stnSuppliers:    JSON.parse(localStorage.getItem('igl_stn_suppliers') || '[]'),
-          pkgDepts:        JSON.parse(localStorage.getItem('igl_pkg_depts') || 'null'),
-          pkgSuppliers:    JSON.parse(localStorage.getItem('igl_pkg_suppliers') || '[]'),
-          gsSuppliers:     JSON.parse(localStorage.getItem('igl_gs_suppliers') || '[]'),
-          gsBrands:        JSON.parse(localStorage.getItem('igl_gs_brands') || '[]'),
-          gsCountries:     JSON.parse(localStorage.getItem('igl_gs_countries') || '[]'),
-          gsItemBrandCountry: JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'),
-          gsIssueRemarks:  JSON.parse(localStorage.getItem('igl_store_issue_remarks') || '[]'),
-          gsReqFlags:      JSON.parse(localStorage.getItem('igl_gs_req_flags') || '{}'),
+          navHidden:       _fbSafeParse('igl_nav_hidden', {}),
+          stnDepts:        _fbSafeParse('igl_stn_depts', null),
+          stnSuppliers:    _fbSafeParse('igl_stn_suppliers', []),
+          pkgDepts:        _fbSafeParse('igl_pkg_depts', null),
+          pkgSuppliers:    _fbSafeParse('igl_pkg_suppliers', []),
+          gsSuppliers:     _fbSafeParse('igl_gs_suppliers', []),
+          gsBrands:        _fbSafeParse('igl_gs_brands', []),
+          gsCountries:     _fbSafeParse('igl_gs_countries', []),
+          gsItemBrandCountry: _fbSafeParse('igl_gs_item_brand_country', {}),
+          gsIssueRemarks:  _fbSafeParse('igl_store_issue_remarks', []),
+          gsReqFlags:      _fbSafeParse('igl_gs_req_flags', {}),
           masterPw:        localStorage.getItem('igl_master_pw') || '',
-          needleRemarks:   JSON.parse(localStorage.getItem('igl_needle_remarks') || '[]'),
-          monthLocks:      JSON.parse(localStorage.getItem('igl_month_locks') || '{}'),
+          needleRemarks:   _fbSafeParse('igl_needle_remarks', []),
+          monthLocks:      _fbSafeParse('igl_month_locks', {}),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || '',
-          oilBF:           JSON.parse(localStorage.getItem('igl_oil_bf') || '{}')
+          oilBF:           _fbSafeParse('igl_oil_bf', {})
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -10907,15 +10929,19 @@ function gsPopulateCountryDatalist() {
 // ── প্রতিটি আইটেমের জন্য আলাদাভাবে সর্বশেষ Supplier/Brand/Country মনে রাখা ──
 // একবার কোনো আইটেমের জন্য Supplier/Brand/Country লিখে Receive সেভ করলে, পরের বার
 // সেই আইটেম সিলেক্ট করলেই এগুলো স্বয়ংক্রিয়ভাবে বসে যাবে (চাইলে বদলানো যাবে)।
+// ⚠️ আইটেমের নাম সরাসরি key হিসেবে ব্যবহার করা যায় না — নামে "." "#" "$" "/" "[" "]"
+// থাকলে (যেমন "0.25 Inchi") Firebase key হিসেবে reject করে পুরো save() ব্যর্থ করে
+// দেয় (ঠিক deletedIds-এ যেই সমস্যা হয়েছিল)। তাই iglFbKeySafe() দিয়ে sanitize করা হয়।
 function gsGetItemBrandCountryMap() {
   try { return JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'); } catch(e) { return {}; }
 }
 function gsSaveItemBrandCountry(itemName, brand, country, supplier) {
   if (!itemName) return;
   if (!brand && !country && !supplier) return;
+  var safeKey = (typeof iglFbKeySafe === 'function') ? iglFbKeySafe(itemName) : itemName;
   var map = gsGetItemBrandCountryMap();
-  var existing = map[itemName] || {};
-  map[itemName] = {
+  var existing = map[safeKey] || {};
+  map[safeKey] = {
     brand:    brand    ? brand    : existing.brand    || '',
     country:  country  ? country  : existing.country  || '',
     supplier: supplier ? supplier : existing.supplier || ''
@@ -10929,8 +10955,9 @@ function gsAutoFillItemBrandCountry(itemName) {
   var countryEl = document.getElementById('r-country');
   var supplierEl = document.getElementById('r-supplier');
   if (!brandEl || !countryEl) return;
+  var safeKey = (typeof iglFbKeySafe === 'function') ? iglFbKeySafe(itemName) : itemName;
   var map = gsGetItemBrandCountryMap();
-  var info = map[itemName];
+  var info = map[safeKey];
   brandEl.value = (info && info.brand) ? info.brand : '';
   countryEl.value = (info && info.country) ? info.country : '';
   if (supplierEl) supplierEl.value = (info && info.supplier) ? info.supplier : '';
@@ -10938,8 +10965,9 @@ function gsAutoFillItemBrandCountry(itemName) {
 // item name দিয়ে সরাসরি সর্বশেষ Supplier/Brand/Country তথ্য বের করা — Requisition
 // রিপোর্টে Available Stock/Supplier/Brand/Country কলাম অটো-ফিল করার জন্য ব্যবহার হয়
 function gsGetItemBrandCountryInfo(itemName) {
+  var safeKey = (typeof iglFbKeySafe === 'function') ? iglFbKeySafe(itemName) : itemName;
   var map = gsGetItemBrandCountryMap();
-  return map[itemName] || {brand:'', country:'', supplier:''};
+  return map[safeKey] || {brand:'', country:'', supplier:''};
 }
 
 // ── Issue Goods Remarks memory (মেশিন নাম্বার ছাড়া ইস্যুর জন্য) ─────
