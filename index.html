@@ -1593,7 +1593,7 @@ if('serviceWorker' in navigator){
           gsSuppliers:     _fbSafeParse('igl_gs_suppliers', []),
           gsBrands:        _fbSafeParse('igl_gs_brands', []),
           gsCountries:     _fbSafeParse('igl_gs_countries', []),
-          gsItemBrandCountry: _fbSafeParse('igl_gs_item_brand_country', {}),
+          gsItemBrandCountry: (typeof gsGetItemBrandCountryMap === 'function') ? gsGetItemBrandCountryMap() : _fbSafeParse('igl_gs_item_brand_country', {}),
           gsIssueRemarks:  _fbSafeParse('igl_store_issue_remarks', []),
           gsReqFlags:      _fbSafeParse('igl_gs_req_flags', {}),
           masterPw:        localStorage.getItem('igl_master_pw') || '',
@@ -1999,9 +1999,16 @@ if('serviceWorker' in navigator){
           if(data.settings.gsCountries && data.settings.gsCountries.length) { localStorage.setItem('igl_gs_countries', JSON.stringify(data.settings.gsCountries)); if(typeof gsPopulateCountryDatalist==='function') gsPopulateCountryDatalist(); }
           if(data.settings.gsItemBrandCountry) {
             // ⚠️ union merge — এই ডিভাইসে এইমাত্র সেভ হওয়া কিন্তু এখনো sync না হওয়া
-            // item-brand/country ম্যাপিং হারাবে না
-            var _localIbc = {}; try { _localIbc = JSON.parse(localStorage.getItem('igl_gs_item_brand_country')||'{}'); } catch(e){}
-            var _mergedIbc = Object.assign({}, data.settings.gsItemBrandCountry, _localIbc);
+            // item-brand/country ম্যাপিং হারাবে না। দুই দিকের key-ই sanitize করে নেওয়া
+            // হয় (remote-এ পুরনো unsafe key থাকলেও যেন সমস্যা না করে)।
+            var _localIbc = (typeof gsGetItemBrandCountryMap === 'function') ? gsGetItemBrandCountryMap() : {};
+            var _remoteIbcRaw = data.settings.gsItemBrandCountry;
+            var _remoteIbc = {};
+            Object.keys(_remoteIbcRaw).forEach(function(k){
+              var safeK = (typeof iglFbKeySafe === 'function') ? iglFbKeySafe(k) : k;
+              _remoteIbc[safeK] = _remoteIbcRaw[k];
+            });
+            var _mergedIbc = Object.assign({}, _remoteIbc, _localIbc);
             localStorage.setItem('igl_gs_item_brand_country', JSON.stringify(_mergedIbc));
           }
           if(data.settings.gsIssueRemarks && data.settings.gsIssueRemarks.length) { localStorage.setItem('igl_store_issue_remarks', JSON.stringify(data.settings.gsIssueRemarks)); if(typeof gsPopulateIssueRemarksList==='function') gsPopulateIssueRemarksList(); }
@@ -10933,7 +10940,24 @@ function gsPopulateCountryDatalist() {
 // থাকলে (যেমন "0.25 Inchi") Firebase key হিসেবে reject করে পুরো save() ব্যর্থ করে
 // দেয় (ঠিক deletedIds-এ যেই সমস্যা হয়েছিল)। তাই iglFbKeySafe() দিয়ে sanitize করা হয়।
 function gsGetItemBrandCountryMap() {
-  try { return JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'); } catch(e) { return {}; }
+  var map;
+  try { map = JSON.parse(localStorage.getItem('igl_gs_item_brand_country') || '{}'); } catch(e) { map = {}; }
+  // ⚠️ SELF-HEALING MIGRATION — এই ফিচারের আগের ভার্সনে আইটেমের raw নাম (dot/slash সহ)
+  // সরাসরি key হিসেবে সেভ হয়ে গিয়েছিল, যা localStorage-এ থেকে গেছে। শুধু নতুন এন্ট্রি
+  // safe key দিয়ে সেভ করলেই যথেষ্ট না — পুরনো unsafe key প্রতিবার Firebase save-এ গিয়ে
+  // reject হতেই থাকবে। তাই এখানে প্রতিবার read করার সময় সব key sanitize করে, বদলানো
+  // থাকলে সাথে সাথে localStorage-এও ঠিক করে লিখে দেওয়া হয় (একবার হলেই permanent fix)।
+  var needsMigration = false;
+  var cleanMap = {};
+  Object.keys(map).forEach(function(k){
+    var safeK = (typeof iglFbKeySafe === 'function') ? iglFbKeySafe(k) : k;
+    if (safeK !== k) needsMigration = true;
+    cleanMap[safeK] = cleanMap[safeK] ? Object.assign({}, cleanMap[safeK], map[k]) : map[k];
+  });
+  if (needsMigration) {
+    try { localStorage.setItem('igl_gs_item_brand_country', JSON.stringify(cleanMap)); } catch(e) {}
+  }
+  return cleanMap;
 }
 function gsSaveItemBrandCountry(itemName, brand, country, supplier) {
   if (!itemName) return;
