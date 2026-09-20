@@ -1600,7 +1600,9 @@ if('serviceWorker' in navigator){
           needleRemarks:   _fbSafeParse('igl_needle_remarks', []),
           monthLocks:      _fbSafeParse('igl_month_locks', {}),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || '',
-          oilBF:           _fbSafeParse('igl_oil_bf', {})
+          oilBF:           _fbSafeParse('igl_oil_bf', {}),
+          oilStoreTransfers: _fbSafeParse('igl_oil_store_transfers', []),
+          oilStoreAdjust:    _fbSafeParse('igl_oil_store_adjust', {})
         }
       };
       _fbDb.ref('igl_erp').set(data)
@@ -2022,6 +2024,16 @@ if('serviceWorker' in navigator){
           if(data.settings.lockPasscode) { localStorage.setItem('igl_lock_unlock_pw', data.settings.lockPasscode); }
           // 🛢️ Oil BF — একই নিরাপত্তা: খালি ডাটা দিয়ে ওভাররাইট না করে, Firebase-এ আসলেই কিছু থাকলেই শুধু apply করো
           if(data.settings.oilBF && Object.keys(data.settings.oilBF).length) { localStorage.setItem('igl_oil_bf', JSON.stringify(data.settings.oilBF)); }
+          if(data.settings.oilStoreTransfers) {
+            // union merge by id — এই ডিভাইসে এইমাত্র যোগ করা কিন্তু এখনো sync না হওয়া এন্ট্রি হারাবে না
+            var _localOst = []; try { _localOst = JSON.parse(localStorage.getItem('igl_oil_store_transfers')||'[]'); } catch(e){}
+            var _remoteOst = data.settings.oilStoreTransfers;
+            var _remoteOstIds = {}; _remoteOst.forEach(function(t){ _remoteOstIds[t.id]=true; });
+            var _mergedOst = _remoteOst.concat(_localOst.filter(function(t){ return !_remoteOstIds[t.id]; }));
+            localStorage.setItem('igl_oil_store_transfers', JSON.stringify(_mergedOst));
+          }
+          if(data.settings.oilStoreAdjust) { localStorage.setItem('igl_oil_store_adjust', JSON.stringify(data.settings.oilStoreAdjust)); }
+          if (typeof renderOilStoreTransfer === 'function') { try { renderOilStoreTransfer(); } catch(e){} }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
             try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
@@ -3553,6 +3565,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-issue-log"><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
       <li id="nav-monthly"><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
       <li id="nav-oil-production"><a href="#" onclick="showPage('oil_production', this); oilShowView('machine'); return false;"><span class="icon">🛢️</span> Oil vs Production</a></li>
+      <li id="nav-extra-feature"><a href="#" onclick="showPage('extra_feature', this); renderOilStoreTransfer(); return false;"><span class="icon">🧩</span> Extra Feature</a></li>
       <li id="nav-master-gsonly" style="display:none;"><a href="#" onclick="showPage('master', this); return false;"><span class="icon">🗄️</span> Item Master (Add/Edit)</a></li>
     </ul>
   </div>
@@ -4470,6 +4483,66 @@ window.iglSaveNavVisibility = function() {
       <div class="card-body" style="padding:0;overflow-x:auto;">
         <div id="oilMonthlyProdGrid"></div>
         <div id="oilLedgerSection"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🧩 EXTRA FEATURE — Oil Store Transfer (গোডাউন থেকে মেশিন ফ্লোরে ওয়েল আনার হিসাব) -->
+  <div class="page" id="page-extra_feature">
+    <div class="page-header">
+      <h2>🧩 Extra Feature — Oil Store হিসাব</h2>
+      <p>গোডাউন থেকে মেশিন ফ্লোরে যে ওয়েল আনা হয়, তার আলাদা হিসাব — খাতায় লেখার দরকার নেই</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="oilStoreBalanceCards"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="background:linear-gradient(135deg,#117a65,#1e8449);color:#fff;">
+        ➕ গোডাউন থেকে ওয়েল আনা — নতুন এন্ট্রি
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+          <div class="form-group">
+            <label>তারিখ</label>
+            <input type="date" class="form-control" id="ost-date">
+          </div>
+          <div class="form-group">
+            <label>ওয়েল টাইপ</label>
+            <select class="form-control" id="ost-type">
+              <option value="excel">Excel Super Oil</option>
+              <option value="textol">Textol Oil</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>কোয়ান্টিটি (লিটার)</label>
+            <input type="number" class="form-control" id="ost-qty" placeholder="যেমন 35" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <button class="btn btn-success" style="width:100%;height:38px;" onclick="addOilStoreTransfer()">➕ যোগ করুন</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <span>📋 ট্রান্সফার লগ</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select class="form-control" id="ost-filter-type" style="width:150px;" onchange="renderOilStoreTransfer()">
+            <option value="">সব টাইপ</option>
+            <option value="excel">Excel Super Oil</option>
+            <option value="textol">Textol Oil</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>তারিখ</th><th>ওয়েল টাইপ</th><th>কোয়ান্টিটি (লিটার)</th><th class="no-print">Action</th></tr></thead>
+            <tbody id="oilStoreTransferTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -27353,6 +27426,129 @@ function renderOilMonthlyProd() {
 // ── Oil Item Ledger (Date Wise Receive & Issue, একবার BF বসালে Receive/Issue নিজে থেকেই বসবে) ──
 function oilGetBFMap() { try { return JSON.parse(localStorage.getItem('igl_oil_bf') || '{}'); } catch(e) { return {}; } }
 function oilSetBFMap(o) { localStorage.setItem('igl_oil_bf', JSON.stringify(o)); if (typeof triggerAutoSave === 'function') triggerAutoSave(); }
+
+// ══════════════════════════════════════════════════════════════════════
+// 🧩 Extra Feature — Oil Store Transfer (গোডাউন → মেশিন ফ্লোর হিসাব)
+// General Store-এর আসল Stock Report/Balance থেকে সম্পূর্ণ আলাদা, স্বতন্ত্র হিসাব।
+// "মোট রিসিভ" আসল Receive Log থেকে (read-only, শুধু দেখার জন্য) হিসাব হয়, আর
+// "ট্রান্সফার আউট" (গোডাউন থেকে যা আনা হলো) এখানেই নতুন করে লগ হয়। কোনোটাই
+// আসল Issue/Stock ক্যালকুলেশনে যোগ হয় না — সম্পূর্ণ প্যারালাল/স্বতন্ত্র ব্যবস্থা।
+// ══════════════════════════════════════════════════════════════════════
+var OIL_STORE_TYPES = {
+  excel:  { label: 'Excel Super Oil', itemName: 'Excel Super Oil', color: '#1a5276' },
+  textol: { label: 'Textol Oil',      itemName: 'Textol Oil',      color: '#922b21' }
+};
+
+function getOilStoreTransfers() {
+  try { return JSON.parse(localStorage.getItem('igl_oil_store_transfers') || '[]'); } catch(e) { return []; }
+}
+function setOilStoreTransfers(arr) {
+  localStorage.setItem('igl_oil_store_transfers', JSON.stringify(arr));
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+function getOilStoreAdjust() {
+  try { return JSON.parse(localStorage.getItem('igl_oil_store_adjust') || '{}'); } catch(e) { return {}; }
+}
+function setOilStoreAdjustValue(type, val) {
+  var adj = getOilStoreAdjust();
+  adj[type] = Number(val) || 0;
+  localStorage.setItem('igl_oil_store_adjust', JSON.stringify(adj));
+  if (typeof triggerAutoSave === 'function') triggerAutoSave();
+  renderOilStoreTransfer();
+  toast('✅ Opening balance আপডেট হয়েছে', 'success');
+}
+// আসল Receive Log থেকে (শুধু পড়ার জন্য) — এই আইটেমটার এ পর্যন্ত মোট কত রিসিভ হয়েছে
+function getOilTotalReceived(type) {
+  var itemName = (OIL_STORE_TYPES[type]||{}).itemName || '';
+  if (!itemName || typeof DB === 'undefined') return 0;
+  return (DB.receives||[]).filter(function(r){ return (r.item||'').trim().toLowerCase() === itemName.toLowerCase(); })
+    .reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0);
+}
+function getOilTotalTransferred(type) {
+  return getOilStoreTransfers().filter(function(t){ return t.type===type; })
+    .reduce(function(s,t){ return s + (Number(t.qty)||0); }, 0);
+}
+function getOilStoreBalance(type) {
+  var adj = getOilStoreAdjust();
+  return getOilTotalReceived(type) + (Number(adj[type])||0) - getOilTotalTransferred(type);
+}
+
+function addOilStoreTransfer() {
+  var date = (document.getElementById('ost-date')||{}).value;
+  var type = (document.getElementById('ost-type')||{}).value;
+  var qty  = Number((document.getElementById('ost-qty')||{}).value);
+  if (!date) { toast('তারিখ দিন!', 'warning'); return; }
+  if (!qty || qty <= 0) { toast('সঠিক কোয়ান্টিটি দিন!', 'warning'); return; }
+  var arr = getOilStoreTransfers();
+  arr.push({ id: 'ost'+Date.now(), date: date, type: type, qty: qty });
+  setOilStoreTransfers(arr);
+  document.getElementById('ost-qty').value = '';
+  renderOilStoreTransfer();
+  toast('✅ যোগ হয়েছে: '+qty+' লিটার ('+OIL_STORE_TYPES[type].label+')', 'success');
+}
+function deleteOilStoreTransfer(id) {
+  if (!confirm('এই এন্ট্রিটা ডিলিট করতে চান?')) return;
+  setOilStoreTransfers(getOilStoreTransfers().filter(function(t){ return t.id!==id; }));
+  renderOilStoreTransfer();
+  toast('ডিলিট হয়েছে', 'warning');
+}
+
+function renderOilStoreTransfer() {
+  var dEl = document.getElementById('ost-date');
+  if (dEl && !dEl.value) dEl.value = todayStr();
+
+  // ব্যালেন্স কার্ড (Excel + Textol)
+  var cardsEl = document.getElementById('oilStoreBalanceCards');
+  if (cardsEl) {
+    cardsEl.innerHTML = Object.keys(OIL_STORE_TYPES).map(function(type){
+      var t = OIL_STORE_TYPES[type];
+      var rcv = getOilTotalReceived(type);
+      var out = getOilTotalTransferred(type);
+      var adj = Number(getOilStoreAdjust()[type]) || 0;
+      var bal = rcv + adj - out;
+      return '<div class="card">'
+        +'<div class="card-header" style="background:'+t.color+';color:#fff;">🛢️ '+t.label+'</div>'
+        +'<div class="card-body">'
+          +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span>মোট রিসিভ (Receive Log থেকে)</span><b style="color:#117a65;">'+rcv.toFixed(2)+' L</b></div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span>মোট আনা হয়েছে (ফ্লোরে)</span><b style="color:#e74c3c;">'+out.toFixed(2)+' L</b></div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px;">'
+            +'<span>Opening Balance অ্যাডজাস্ট</span>'
+            +'<input type="number" value="'+adj+'" style="width:90px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;" onchange="setOilStoreAdjustValue(\''+type+'\', this.value)">'
+          +'</div>'
+          +'<div style="border-top:2px solid #eee;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">'
+            +'<span style="font-weight:700;">গোডাউনে বর্তমান মজুদ</span>'
+            +'<span style="font-size:20px;font-weight:700;color:'+(bal<0?'#e74c3c':'#1a5276')+';">'+bal.toFixed(2)+' L</span>'
+          +'</div>'
+        +'</div></div>';
+    }).join('');
+  }
+
+  // লগ টেবিল
+  var tb = document.getElementById('oilStoreTransferTable');
+  if (!tb) return;
+  var filterType = (document.getElementById('ost-filter-type')||{}).value || '';
+  var list = getOilStoreTransfers().slice().sort(function(a,b){ return b.date.localeCompare(a.date) || b.id.localeCompare(a.id); });
+  if (filterType) list = list.filter(function(t){ return t.type===filterType; });
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="no-data">কোনো এন্ট্রি নেই</td></tr>'; return; }
+  tb.innerHTML = list.map(function(t, i){
+    var typeInfo = OIL_STORE_TYPES[t.type] || {label:t.type, color:'#555'};
+    return '<tr>'
+      +'<td style="text-align:center;">'+(i+1)+'</td>'
+      +'<td>'+fmtDateDisplay(t.date)+'</td>'
+      +'<td><span style="background:'+typeInfo.color+';color:#fff;border-radius:10px;padding:2px 10px;font-size:12px;">'+typeInfo.label+'</span></td>'
+      +'<td style="text-align:center;font-weight:700;">'+Number(t.qty).toFixed(2)+' L</td>'
+      +'<td class="no-print" style="text-align:center;"><button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="deleteOilStoreTransfer(\''+t.id+'\')">🗑️</button></td>'
+      +'</tr>';
+  }).join('');
+}
+// তারিখ 17 Sep 2026 স্টাইলে দেখানোর জন্য (অ্যাপের বাকি জায়গায় যেভাবে দেখায়)
+function fmtDateDisplay(dateStr) {
+  if (!dateStr) return '';
+  try {
+    var d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+  } catch(e) { return dateStr; }
+}
 
 function oilSetItemBF(itemName) {
   var map = oilGetBFMap();
