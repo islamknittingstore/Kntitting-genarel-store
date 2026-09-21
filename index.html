@@ -4532,8 +4532,24 @@ window.iglSaveNavVisibility = function() {
             </select>
           </div>
           <div class="form-group">
+            <label>শিফট</label>
+            <select class="form-control" id="ost-shift">
+              <option value="A Shift">A Shift</option>
+              <option value="B Shift">B Shift</option>
+              <option value="C Shift">C Shift</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>নাম</label>
+            <select class="form-control" id="ost-name">
+              <option value="Joynal">Joynal</option>
+              <option value="Najmul">Najmul</option>
+              <option value="Masum">Masum</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label>কোয়ান্টিটি (লিটার)</label>
-            <input type="number" class="form-control" id="ost-qty" placeholder="যেমন 35" min="0" step="0.01">
+            <input type="number" class="form-control" id="ost-qty" placeholder="যেমন 35" min="0" step="0.01" value="35">
           </div>
           <div class="form-group">
             <button class="btn btn-success" style="width:100%;height:38px;" onclick="addOilStoreTransfer()">➕ যোগ করুন</button>
@@ -4557,7 +4573,7 @@ window.iglSaveNavVisibility = function() {
       <div class="card-body" style="padding:0;">
         <div class="table-scroll">
           <table>
-            <thead><tr><th>#</th><th>তারিখ</th><th>ওয়েল টাইপ</th><th>কোয়ান্টিটি (লিটার)</th><th class="no-print">Action</th></tr></thead>
+            <thead><tr><th>#</th><th>তারিখ</th><th>ওয়েল টাইপ</th><th>শিফট</th><th>নাম</th><th>কোয়ান্টিটি (লিটার)</th><th class="no-print">Action</th></tr></thead>
             <tbody id="oilStoreTransferTable"></tbody>
           </table>
         </div>
@@ -27608,15 +27624,17 @@ function getOilStoreBalance(type) {
 function addOilStoreTransfer() {
   var date = (document.getElementById('ost-date')||{}).value;
   var type = (document.getElementById('ost-type')||{}).value;
+  var shift = (document.getElementById('ost-shift')||{}).value;
+  var name = (document.getElementById('ost-name')||{}).value;
   var qty  = Number((document.getElementById('ost-qty')||{}).value);
   if (!date) { toast('তারিখ দিন!', 'warning'); return; }
   if (!qty || qty <= 0) { toast('সঠিক কোয়ান্টিটি দিন!', 'warning'); return; }
   var arr = getOilStoreTransfers();
-  arr.push({ id: 'ost'+Date.now(), date: date, type: type, qty: qty });
+  arr.push({ id: 'ost'+Date.now(), date: date, type: type, shift: shift, name: name, qty: qty });
   setOilStoreTransfers(arr);
-  document.getElementById('ost-qty').value = '';
+  document.getElementById('ost-qty').value = '35'; // ডিফল্ট আবার ৩৫ এ ফিরে যাবে
   renderOilStoreTransfer();
-  toast('✅ যোগ হয়েছে: '+qty+' লিটার ('+OIL_STORE_TYPES[type].label+')', 'success');
+  toast('✅ যোগ হয়েছে: '+qty+' লিটার ('+OIL_STORE_TYPES[type].label+' — '+shift+', '+name+')', 'success');
 }
 function deleteOilStoreTransfer(id) {
   if (!confirm('এই এন্ট্রিটা ডিলিট করতে চান?')) return;
@@ -27628,6 +27646,8 @@ function deleteOilStoreTransfer(id) {
 function renderOilStoreTransfer() {
   var dEl = document.getElementById('ost-date');
   if (dEl && !dEl.value) dEl.value = todayStr();
+  var qEl = document.getElementById('ost-qty');
+  if (qEl && !qEl.value) qEl.value = '35';
 
   // ব্যালেন্স কার্ড (Excel + Textol)
   var cardsEl = document.getElementById('oilStoreBalanceCards');
@@ -27661,13 +27681,15 @@ function renderOilStoreTransfer() {
   var filterType = (document.getElementById('ost-filter-type')||{}).value || '';
   var list = getOilStoreTransfers().slice().sort(function(a,b){ return b.date.localeCompare(a.date) || b.id.localeCompare(a.id); });
   if (filterType) list = list.filter(function(t){ return t.type===filterType; });
-  if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="no-data">কোনো এন্ট্রি নেই</td></tr>'; return; }
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="7" class="no-data">কোনো এন্ট্রি নেই</td></tr>'; return; }
   tb.innerHTML = list.map(function(t, i){
     var typeInfo = OIL_STORE_TYPES[t.type] || {label:t.type, color:'#555'};
     return '<tr>'
       +'<td style="text-align:center;">'+(i+1)+'</td>'
       +'<td>'+fmtDateDisplay(t.date)+'</td>'
       +'<td><span style="background:'+typeInfo.color+';color:#fff;border-radius:10px;padding:2px 10px;font-size:12px;">'+typeInfo.label+'</span></td>'
+      +'<td style="text-align:center;">'+(t.shift||'-')+'</td>'
+      +'<td style="text-align:center;">'+(t.name||'-')+'</td>'
       +'<td style="text-align:center;font-weight:700;">'+Number(t.qty).toFixed(2)+' L</td>'
       +'<td class="no-print" style="text-align:center;"><button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="deleteOilStoreTransfer(\''+t.id+'\')">🗑️</button></td>'
       +'</tr>';
