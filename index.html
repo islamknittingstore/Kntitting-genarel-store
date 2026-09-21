@@ -27617,8 +27617,7 @@ function getOilTotalTransferred(type) {
     .reduce(function(s,t){ return s + (Number(t.qty)||0); }, 0);
 }
 function getOilStoreBalance(type) {
-  var adj = getOilStoreAdjust();
-  return getOilTotalReceived(type) + (Number(adj[type])||0) - getOilTotalTransferred(type);
+  return getOilTotalReceived(type) - getOilTotalTransferred(type);
 }
 
 function addOilStoreTransfer() {
@@ -27656,16 +27655,17 @@ function renderOilStoreTransfer() {
       var t = OIL_STORE_TYPES[type];
       var rcv = getOilTotalReceived(type);
       var out = getOilTotalTransferred(type);
-      var adj = Number(getOilStoreAdjust()[type]) || 0;
-      var bal = rcv + adj - out;
+      var bal = rcv - out;
+      var gsBal = (typeof getStock==='function') ? getStock(t.itemName) : 0;
+      var mismatch = Math.abs(gsBal - bal) > 0.01;
       return '<div class="card">'
         +'<div class="card-header" style="background:'+t.color+';color:#fff;">🛢️ '+t.label+'</div>'
         +'<div class="card-body">'
           +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span>মোট রিসিভ (Receive Log থেকে)</span><b style="color:#117a65;">'+rcv.toFixed(2)+' L</b></div>'
           +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span>মোট আনা হয়েছে (ফ্লোরে)</span><b style="color:#e74c3c;">'+out.toFixed(2)+' L</b></div>'
-          +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px;">'
-            +'<span>Opening Balance অ্যাডজাস্ট</span>'
-            +'<input type="number" value="'+adj+'" style="width:90px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;" onchange="setOilStoreAdjustValue(\''+type+'\', this.value)">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px;padding:6px 8px;background:'+(mismatch?'#fdecea':'#eafaf1')+';border-radius:4px;">'
+            +'<span title="General Store-এর আসল Stock Report থেকে — এখানে মিলিয়ে দেখুন ড্রাম থেকে আনা ৩৫ লিটার General Store-এ Issue করা হয়েছে কিনা">General Store বর্তমান ব্যালেন্স</span>'
+            +'<b style="color:'+(mismatch?'#e74c3c':'#117a65')+';">'+gsBal.toFixed(2)+' L'+(mismatch?' ⚠️':' ✓')+'</b>'
           +'</div>'
           +'<div style="border-top:2px solid #eee;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">'
             +'<span style="font-weight:700;">বর্তমান মজুদ</span>'
