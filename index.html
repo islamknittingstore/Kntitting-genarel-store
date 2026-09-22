@@ -3583,7 +3583,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-issue-log"><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
       <li id="nav-monthly"><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
       <li id="nav-oil-production"><a href="#" onclick="showPage('oil_production', this); oilShowView('machine'); return false;"><span class="icon">🛢️</span> Oil vs Production</a></li>
-      <li id="nav-extra-feature"><a href="#" onclick="showPage('extra_feature', this); renderOilStoreTransfer(); renderExtraMaterials(); return false;"><span class="icon">🧩</span> Extra Feature</a></li>
+      <li id="nav-extra-feature"><a href="#" onclick="showPage('extra_feature', this); return false;"><span class="icon">🧩</span> Extra Feature</a></li>
       <li id="nav-master-gsonly" style="display:none;"><a href="#" onclick="showPage('master', this); return false;"><span class="icon">🗄️</span> Item Master (Add/Edit)</a></li>
     </ul>
   </div>
@@ -4506,10 +4506,38 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!-- 🧩 EXTRA FEATURE — Oil Store Transfer (Oil Drum থেকে মেশিন ফ্লোরে ওয়েল আনার হিসাব) -->
+  <!-- 🧩 EXTRA FEATURE — ল্যান্ডিং পেজ, দুইটা বাটন দিয়ে আলাদা সাব-পেজে যাওয়া যাবে -->
   <div class="page" id="page-extra_feature">
     <div class="page-header">
-      <h2>🧩 Extra Feature — Oil Store হিসাব</h2>
-      <p>Oil Drum থেকে মেশিন ফ্লোরে যে ওয়েল আনা হয়, তার আলাদা হিসাব — খাতায় লেখার দরকার নেই</p>
+      <h2>🧩 Extra Feature</h2>
+      <p>General Store-এর বাইরের বাড়তি হিসাবপত্র — নিচের বাটন থেকে বেছে নিন</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:700px;">
+      <div class="card" style="cursor:pointer;transition:transform 0.15s;" onclick="showPage('extra_oil', document.getElementById('nav-extra-feature')); renderOilStoreTransfer();" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="card-header" style="background:linear-gradient(135deg,#117a65,#1e8449);color:#fff;font-size:16px;padding:18px;">🛢️ Oil Drum হিসাব</div>
+        <div class="card-body" style="text-align:center;padding:24px;">
+          <div style="font-size:40px;margin-bottom:10px;">🛢️</div>
+          <p style="color:#666;font-size:13px;margin:0;">Excel Super Oil ও Textol Oil — Drum থেকে ফ্লোরে আনার হিসাব</p>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer;transition:transform 0.15s;" onclick="showPage('extra_material', document.getElementById('nav-extra-feature')); renderExtraMaterials();" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="card-header" style="background:linear-gradient(135deg,#6c3483,#8e44ad);color:#fff;font-size:16px;padding:18px;">📦 Extra Materials হিসাব</div>
+        <div class="card-body" style="text-align:center;padding:24px;">
+          <div style="font-size:40px;margin-bottom:10px;">📦</div>
+          <p style="color:#666;font-size:13px;margin:0;">নিজস্ব আইটেম তৈরি, B/F, Receive ও Issue — General Store থেকে সম্পূর্ণ আলাদা</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🛢️ Oil Drum হিসাব — আলাদা সাব-পেজ -->
+  <div class="page" id="page-extra_oil">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>🛢️ Oil Drum হিসাব</h2>
+        <p>Oil Drum থেকে মেশিন ফ্লোরে যে ওয়েল আনা হয়, তার আলাদা হিসাব — খাতায় লেখার দরকার নেই</p>
+      </div>
+      <button class="btn btn-outline no-print" onclick="showPage('extra_feature', document.getElementById('nav-extra-feature'));">⬅️ Extra Feature-এ ফিরুন</button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="oilStoreBalanceCards"></div>
@@ -4579,20 +4607,24 @@ window.iglSaveNavVisibility = function() {
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         📦 Extra Materials — General Store থেকে সম্পূর্ণ আলাদা মিনি ইনভেন্টরি
-         (নিজস্ব Item, B/F, Receive, Issue — কোনো ডাটা General Store এর সাথে
-         শেয়ার হয় না) ═══════════════════════════════════════════════════ -->
-    <div class="card" style="margin-top:24px;border-top:4px solid #8e44ad;">
+  <!-- 📦 Extra Materials হিসাব — আলাদা সাব-পেজ (General Store থেকে সম্পূর্ণ স্বতন্ত্র) -->
+  <div class="page" id="page-extra_material">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>📦 Extra Materials হিসাব</h2>
+        <p>General Store থেকে সম্পূর্ণ স্বতন্ত্র — নিজস্ব Item তৈরি, B/F, Receive ও Issue এখানেই হবে</p>
+      </div>
+      <button class="btn btn-outline no-print" onclick="showPage('extra_feature', document.getElementById('nav-extra-feature'));">⬅️ Extra Feature-এ ফিরুন</button>
+    </div>
+
+    <div class="card">
       <div class="card-header" style="background:linear-gradient(135deg,#6c3483,#8e44ad);color:#fff;">
-        📦 Extra Materials — আলাদা মালামাল হিসাব
+        ➕ নতুন Item যোগ
       </div>
       <div class="card-body">
-        <p style="font-size:12px;color:#666;margin:0 0 12px;">General Store থেকে সম্পূর্ণ স্বতন্ত্র — নিজস্ব Item তৈরি, B/F, Receive ও Issue এখানেই হবে</p>
-
-        <!-- নতুন Item যোগ -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;background:#f8f4fb;padding:12px;border-radius:6px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;">
           <div class="form-group">
             <label>Category</label>
             <input type="text" class="form-control" id="exm-new-category" placeholder="যেমন: Packing" list="exm-category-list" autocomplete="off">
@@ -4626,14 +4658,22 @@ window.iglSaveNavVisibility = function() {
             <label>B/F (শুরুর ব্যালান্স)</label>
             <input type="number" class="form-control" id="exm-new-bf" placeholder="0" min="0" step="0.01">
           </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>📍 কোথায় রাখা হয়েছে (নোট)</label>
+            <input type="text" class="form-control" id="exm-new-note" placeholder="যেমন: গোডাউনের ২য় তাক, বাম পাশের র‍্যাক">
+          </div>
           <div class="form-group">
             <button class="btn btn-success" style="width:100%;height:38px;" onclick="addExtraMaterial()">➕ আইটেম যোগ করুন</button>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- ব্যালেন্স সামারি -->
-      <div class="card-body" style="padding:0;border-top:1px solid var(--border);">
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="background:#eafaf1;">
+        <span>📊 ব্যালেন্স সামারি</span>
+      </div>
+      <div class="card-body" style="padding:0;">
         <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <select class="form-control" id="exm-sum-filter-cat" style="width:160px;" onchange="renderExtraMaterials()">
             <option value="">সব Category</option>
@@ -4644,14 +4684,18 @@ window.iglSaveNavVisibility = function() {
         </div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>#</th><th>Category</th><th>Group</th><th>আইটেম</th><th>Unit</th><th>B/F</th><th>মোট Receive</th><th>মোট Issue</th><th>বর্তমান ব্যালেন্স</th><th class="no-print">Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Category</th><th>Group</th><th>আইটেম</th><th>📍 কোথায় রাখা</th><th>Unit</th><th>B/F</th><th>মোট Receive</th><th>মোট Issue</th><th>বর্তমান ব্যালেন্স</th><th class="no-print">Action</th></tr></thead>
             <tbody id="exmSummaryTable"></tbody>
           </table>
         </div>
       </div>
+    </div>
 
-      <!-- Receive / Issue এন্ট্রি ফর্ম -->
-      <div class="card-body" style="border-top:1px solid var(--border);background:#fafafa;">
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="background:linear-gradient(135deg,#117a65,#1e8449);color:#fff;">
+        ➕ Receive / Issue এন্ট্রি
+      </div>
+      <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;">
           <div class="form-group">
             <label>Type</label>
@@ -4677,14 +4721,17 @@ window.iglSaveNavVisibility = function() {
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- তারিখ-ওয়ারিস Log -->
-      <div class="card-body" style="padding:0;border-top:1px solid var(--border);">
-        <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <b style="font-size:13px;">📋 তারিখ-ওয়ারিস Log</b>
-          <select class="form-control" id="exm-log-filter-item" style="width:180px;margin-left:auto;" onchange="renderExtraMaterials()"></select>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <span>📋 তারিখ-ওয়ারিস Log</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select class="form-control" id="exm-log-filter-item" style="width:180px;" onchange="renderExtraMaterials()"></select>
           <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button>
         </div>
+      </div>
+      <div class="card-body" style="padding:0;">
         <div class="table-scroll">
           <table>
             <thead><tr><th>#</th><th>তারিখ</th><th>আইটেম</th><th>Type</th><th>কোয়ান্টিটি</th><th class="no-print">Action</th></tr></thead>
@@ -27730,6 +27777,7 @@ function addExtraMaterial() {
   var name = ((document.getElementById('exm-new-name')||{}).value || '').trim();
   var unit = (document.getElementById('exm-new-unit')||{}).value || 'Pcs';
   var bf   = Number((document.getElementById('exm-new-bf')||{}).value) || 0;
+  var note = ((document.getElementById('exm-new-note')||{}).value || '').trim();
   if (!category) { toast('Category দিন!', 'warning'); return; }
   if (!group) { toast('Group দিন!', 'warning'); return; }
   if (!name) { toast('আইটেমের নাম দিন!', 'warning'); return; }
@@ -27737,10 +27785,11 @@ function addExtraMaterial() {
   if (items.find(function(it){ return it.name.toLowerCase()===name.toLowerCase(); })) {
     toast('এই নামে আইটেম আগে থেকেই আছে!', 'warning'); return;
   }
-  items.push({ id:'exm'+Date.now(), category:category, group:group, name:name, unit:unit, bf:bf });
+  items.push({ id:'exm'+Date.now(), category:category, group:group, name:name, unit:unit, bf:bf, note:note });
   setExtraItems(items);
   document.getElementById('exm-new-name').value='';
   document.getElementById('exm-new-bf').value='';
+  document.getElementById('exm-new-note').value='';
   renderExtraMaterials();
   toast('✅ আইটেম যোগ হয়েছে: '+name, 'success');
 }
@@ -27756,6 +27805,18 @@ function editExtraMaterialBF(id) {
   setExtraItems(items);
   renderExtraMaterials();
   toast('✅ B/F আপডেট হয়েছে', 'success');
+}
+// 📍 আইটেম কোথায় রাখা হয়েছে — এই নোটটা পরে যেকোনো সময় এডিট করা যাবে
+function editExtraMaterialNote(id) {
+  var items = getExtraItems();
+  var it = items.find(function(x){ return x.id===id; });
+  if (!it) return;
+  var newNote = prompt('আইটেমটা কোথায় রাখা হয়েছে লিখুন ('+it.name+'):', it.note || '');
+  if (newNote===null) return;
+  it.note = newNote.trim();
+  setExtraItems(items);
+  renderExtraMaterials();
+  toast('✅ অবস্থান আপডেট হয়েছে', 'success');
 }
 function deleteExtraMaterial(id) {
   var hasTx = getExtraTxs().some(function(t){ return t.itemId===id; });
@@ -27853,7 +27914,7 @@ function renderExtraMaterials() {
   var sumTb = document.getElementById('exmSummaryTable');
   if (sumTb) {
     if (!filteredItems.length) {
-      sumTb.innerHTML = '<tr><td colspan="10" class="no-data">কোনো আইটেম নেই — উপরে থেকে নতুন আইটেম যোগ করুন</td></tr>';
+      sumTb.innerHTML = '<tr><td colspan="11" class="no-data">কোনো আইটেম নেই — উপরে থেকে নতুন আইটেম যোগ করুন</td></tr>';
     } else {
       sumTb.innerHTML = filteredItems.map(function(it, i){
         var tot = getExtraItemTotals(it.id);
@@ -27863,12 +27924,14 @@ function renderExtraMaterials() {
           +'<td><span style="background:#e8daef;color:#6c3483;border-radius:10px;padding:2px 10px;font-size:12px;">'+(it.category||'-')+'</span></td>'
           +'<td><span style="background:#d6eaf8;color:#1a5276;border-radius:10px;padding:2px 10px;font-size:12px;">'+(it.group||'-')+'</span></td>'
           +'<td><b>'+it.name+'</b></td>'
+          +'<td style="font-size:12px;color:#555;max-width:160px;">'+(it.note ? '📍 '+it.note : '<span style="color:#bbb;">—</span>')+'</td>'
           +'<td style="text-align:center;">'+it.unit+'</td>'
           +'<td style="text-align:center;color:#6c3483;">'+(Number(it.bf)||0).toFixed(2)+'</td>'
           +'<td style="text-align:center;color:#117a65;">'+tot.rcv.toFixed(2)+'</td>'
           +'<td style="text-align:center;color:#e74c3c;">'+tot.iss.toFixed(2)+'</td>'
           +'<td style="text-align:center;font-weight:700;font-size:15px;">'+bal.toFixed(2)+'</td>'
           +'<td class="no-print" style="text-align:center;white-space:nowrap;">'
+            +'<button class="btn btn-sm" style="background:#8e44ad;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;margin-right:3px;" onclick="editExtraMaterialNote(\''+it.id+'\')" title="অবস্থান এডিট করুন">📍</button>'
             +'<button class="btn btn-sm" style="background:#2980b9;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;margin-right:3px;" onclick="editExtraMaterialBF(\''+it.id+'\')" title="B/F এডিট করুন">✏️</button>'
             +'<button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;" onclick="deleteExtraMaterial(\''+it.id+'\')">🗑️</button>'
           +'</td>'
