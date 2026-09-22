@@ -1612,6 +1612,9 @@ if('serviceWorker' in navigator){
           fbStatus('saved', '✅ Synced');
           fbClearPending();
           window._fbLastSyncError = null;
+          // 🔴 Live Sync — এটা আমাদের নিজের সেভ, তাই live listener যেন আবার একই
+          // ডাটা re-load না করে, সেজন্য এই ts টা আগেই "জানা" হিসেবে মার্ক করে রাখা
+          window._fbLastKnownTs = data.ts;
           // সফল save এর পর counts আপডেট করো — যাতে normal item add/delete এ false-positive না হয়
           window._fbLastKnownItemsCount    = _itemsArr.length;
           window._fbLastKnownGroupsCount   = _groupsArr.length;
@@ -2167,6 +2170,38 @@ if('serviceWorker' in navigator){
     _fbAutoLoaded = true;
     fbStatus('saving', 'Connecting...');
     window.fbLoadAll();
+    _fbSetupLiveSync(); // 🔴 এর পর থেকে অন্য ডিভাইসের সেভ সাথে সাথে ধরা পড়বে
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 🔴 LIVE SYNC — কোনো ডিভাইসে এন্ট্রি সেভ হলে অন্য সব ডিভাইস কয়েক সেকেন্ডের
+  // মধ্যেই নিজে থেকে Firebase থেকে লোড করে নেবে — "Load Now" বাটন চাপা লাগবে
+  // না। পুরো ডাটা বারবার না শুনে, শুধু হালকা 'ts' (timestamp) ফিল্ডটা লাইভ
+  // শোনা হয়; সেটা বদলালে তখনই পুরো fbLoadAll() চালিয়ে আসল ডাটা টেনে আনা হয়।
+  // ══════════════════════════════════════════════════════════════════
+  var _fbLiveSyncTimer = null;
+  var _fbLiveListenerFirstFire = true;
+  function _fbSetupLiveSync() {
+    try {
+      _fbDb.ref('igl_erp/ts').on('value', function(snap){
+        var newTs = snap.val();
+        if (!newTs) return;
+        if (_fbLiveListenerFirstFire) {
+          // প্রথমবার — এইমাত্র initial load হয়ে গেছে/হচ্ছে, তাই শুধু ts মনে রাখো, আবার লোড করার দরকার নেই
+          _fbLiveListenerFirstFire = false;
+          window._fbLastKnownTs = newTs;
+          return;
+        }
+        if (newTs === window._fbLastKnownTs) return; // এটা এই ডিভাইসেরই সেভ, ডাটা আগে থেকেই আছে
+        window._fbLastKnownTs = newTs;
+        clearTimeout(_fbLiveSyncTimer);
+        _fbLiveSyncTimer = setTimeout(function(){
+          console.log('🔄 অন্য ডিভাইস থেকে নতুন এন্ট্রি এসেছে — অটো-লোড হচ্ছে...');
+          if (typeof toast === 'function') toast('🔄 নতুন ডাটা সিঙ্ক হচ্ছে...', 'info');
+          window.fbLoadAll();
+        }, 1200); // ১.২ সেকেন্ড ডিবাউন্স — একসাথে অনেকগুলো এন্ট্রি সেভ হলে বারবার লোড না হয়ে একবারই হবে
+      });
+    } catch(e) { console.warn('Live sync setup failed:', e); }
   }
 
   try {
@@ -3834,33 +3869,25 @@ window.iglSaveNavVisibility = function() {
               <label>Date *</label>
               <input type="date" class="form-control" id="r-date">
             </div>
-            <div class="form-group">
-              <label>Item Category *</label>
-              <select class="form-control" id="r-group" onchange="filterRCategory()">
-                <option value="">-- Select Category --</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Item Group</label>
-              <select class="form-control" id="r-category" onchange="filterRItems()">
-                <option value="">-- Select Group --</option>
-              </select>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group">
+                <label>Item Category *</label>
+                <select class="form-control" id="r-group" onchange="filterRCategory()">
+                  <option value="">-- Select Category --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Item Group</label>
+                <select class="form-control" id="r-category" onchange="filterRItems()">
+                  <option value="">-- Select Group --</option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
               <label>Item Name *</label>
               <select class="form-control" id="r-item" onchange="updateReceiveStock()">
                 <option value="">-- Select Item --</option>
               </select>
-            </div>
-          </div>
-          <div>
-            <div class="form-group">
-              <label>Challan No.</label>
-              <input type="text" class="form-control" id="r-chalan" placeholder="Challan number (optional)">
-            </div>
-            <div class="form-group">
-              <label>Bill No.</label>
-              <input type="text" class="form-control" id="r-bill" placeholder="Bill number (optional)">
             </div>
             <div class="form-group">
               <label>Supplier Name</label>
@@ -3878,10 +3905,6 @@ window.iglSaveNavVisibility = function() {
               <datalist id="r-country-list"></datalist>
             </div>
             <div class="form-group">
-              <label>Quantity *</label>
-              <input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()">
-            </div>
-            <div class="form-group">
               <label>Unit</label>
               <select class="form-control" id="r-unit">
                 <option value="Pcs" selected>Pcs</option>
@@ -3895,6 +3918,20 @@ window.iglSaveNavVisibility = function() {
                 <option value="Feet">Feet</option>
                 <option value="Coil">Coil</option>
               </select>
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>Challan No.</label>
+              <input type="text" class="form-control" id="r-chalan" placeholder="Challan number (optional)">
+            </div>
+            <div class="form-group">
+              <label>Bill No.</label>
+              <input type="text" class="form-control" id="r-bill" placeholder="Bill number (optional)">
+            </div>
+            <div class="form-group">
+              <label>Quantity *</label>
+              <input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()">
             </div>
             <div class="form-group">
               <label>Rate (Unit Price)</label>
