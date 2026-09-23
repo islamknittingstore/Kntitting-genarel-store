@@ -1173,6 +1173,10 @@ if('serviceWorker' in navigator){
       0% { background-position: 0% 50%; }
       100% { background-position: 100% 50%; }
     }
+    @keyframes rainbowMove {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
     /* Monthly Report → Summary প্রিভিউ: item name cell-এ hover করলে বোঝা যাবে
        ডাবল-ক্লিক করলে Requisition-এ যুক্ত করার অপশন আসবে */
     .gmr-req-clickable:hover { background:#fdf3d8 !important; text-decoration:underline dotted; }
@@ -3872,7 +3876,9 @@ window.iglSaveNavVisibility = function() {
       </div>
     </div>
     <div class="card">
-      <div class="card-header">📥 Receive Form</div>
+      <div class="card-header" style="background:linear-gradient(135deg,#0b5345,#117a65,#1e8449);box-shadow:0 2px 8px rgba(17,122,101,0.4);">
+        <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📥 Receive Form</span>
+      </div>
       <div class="card-body">
         <div class="compact-form-grid">
           <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
@@ -3899,14 +3905,14 @@ window.iglSaveNavVisibility = function() {
           <div class="cf-pair"><label>Challan No.</label><input type="text" class="form-control" id="r-chalan" placeholder="optional"></div>
           <div class="cf-pair"><label>Bill No.</label><input type="text" class="form-control" id="r-bill" placeholder="optional"></div>
           <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()"></div>
-          <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
-
           <div class="cf-pair"><label>Amount (টাকা)</label><input type="number" class="form-control" id="r-amount" placeholder="Rate x Qty (auto)" min="0" step="0.01"></div>
+
+          <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
           <div class="cf-pair"><label>Current Stock</label><div id="r-stock-badge" style="padding:6px 0;"></div></div>
         </div>
         <div class="divider"></div>
         <div class="action-bar">
-          <button class="btn btn-primary btn-block" onclick="saveReceive()" style="max-width:220px;">
+          <button class="btn btn-block" onclick="saveReceive()" style="max-width:220px;color:#fff;font-weight:700;border:none;background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);background-size:300% 100%;animation:rainbowMove 4s linear infinite;box-shadow:0 3px 10px rgba(0,0,0,0.25);">
             Save Receive
           </button>
           <button class="btn btn-outline" onclick="clearReceiveForm()">Clear Form</button>
