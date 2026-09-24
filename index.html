@@ -3699,11 +3699,29 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-needle-newset"><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
       <li id="nav-needle-remarks"><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
       <li id="nav-drop-needle"><a href="#" onclick="showPage('drop_needle_register', this); return false;"><span class="icon">🔀</span> Drop / Set Needle Register</a></li>
-      <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
-      <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
-      <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
-      <li id="nav-needle-master" class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
-      <li id="nav-needle-mapping"><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
+      <li id="grp-needle-stock">
+        <div class="sidebar-subgroup-header" onclick="toggleGroup('needle-stock')">
+          <span class="icon">📦</span>
+          <span class="grp-title">Needle Stock</span>
+          <span class="grp-arrow" id="arr-needle-stock">▶</span>
+        </div>
+        <ul class="sidebar-submenu" id="sub-needle-stock" style="display:none;">
+          <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
+          <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
+        </ul>
+      </li>
+      <li id="grp-needle-master-data">
+        <div class="sidebar-subgroup-header" onclick="toggleGroup('needle-master-data')">
+          <span class="icon">🗄️</span>
+          <span class="grp-title">Master Data</span>
+          <span class="grp-arrow" id="arr-needle-master-data">▶</span>
+        </div>
+        <ul class="sidebar-submenu" id="sub-needle-master-data" style="display:none;">
+          <li id="nav-needle-master" class="admin-only-action"><a href="#" onclick="showPage('needle_master_page', this); return false;"><span class="icon">🗂️</span> Needle Master</a></li>
+          <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
+          <li id="nav-needle-mapping"><a href="#" onclick="showPage('needle_mapping', this); return false;"><span class="icon">🔗</span> Needle-Machine Map</a></li>
+        </ul>
+      </li>
       <!-- <li id="nav-needle-jaq-report" class="admin-only-action"><a href="#" onclick="showPage('needle_jaq_report', this); return false;"><span class="icon">🔷</span> Jacquard Needle Use Report</a></li> -->
       <li id="nav-needle-daily-report"><a href="#" onclick="showPage('needle_daily_report', this); return false;"><span class="icon">📨</span> Daily Report Generator</a></li>
     </ul>
@@ -10812,7 +10830,7 @@ function toggleGroup(id) {
 }
 
 function restoreGroupStates() {
-  ['store','needle','needle-monthly','needle-usereport','stn','cfg'].forEach(function(id) {
+  ['store','needle','needle-monthly','needle-usereport','needle-stock','needle-master-data','stn','cfg'].forEach(function(id) {
     var saved = localStorage.getItem('grp_' + id);
     if (saved === '1') toggleGroup(id);
   });
