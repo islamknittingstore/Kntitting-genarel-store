@@ -1123,6 +1123,21 @@ if('serviceWorker' in navigator){
   .sidebar-submenu li a.active { background: rgba(255,255,255,0.13); color: #fff; font-weight: 600; }
   .sidebar-submenu li a .icon { font-size: 14px; }
 
+  /* ── Nested Sub-group inside a Sidebar Submenu (e.g. "Monthly Report" inside Needle Section) ── */
+  .sidebar-subgroup-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px 8px 42px; cursor: pointer;
+    color: #90a4ae; font-size: 12.5px; font-weight: 600;
+    border-radius: 6px; margin: 1px 8px;
+    transition: background 0.2s, color 0.2s;
+    user-select: none;
+  }
+  .sidebar-subgroup-header:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .sidebar-subgroup-header.open { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-subgroup-header .icon { font-size: 14px; }
+  .sidebar-submenu .sidebar-submenu { padding: 2px 0 4px 0; }
+  .sidebar-submenu .sidebar-submenu li a { padding-left: 64px; font-size: 12px; }
+
   .sidebar-footer {
     padding: 14px 18px; font-size: 10px; color: #2c3e50;
     border-top: 1px solid #1e2d3d; margin-top: 15px;
@@ -3655,17 +3670,35 @@ window.iglSaveNavVisibility = function() {
     <ul class="sidebar-submenu" id="sub-needle" style="display:none;">
       <li id="nav-needle-issue"><a href="#" onclick="showPage('needle_issue', this); return false;"><span class="icon">✏️</span> Needle Issue Entry</a></li>
       <li id="nav-needle-receive"><a href="#" onclick="showPage('needle_receive', this); return false;"><span class="icon">📥</span> Needle Receive</a></li>
-      <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
-      <li id="nav-needle-monthly-prod"><a href="#" onclick="showPage('needle_monthly_prod', this); return false;"><span class="icon">📊📦</span> Machine Wise + Production</a></li>
-      <li id="nav-machine-set-summary"><a href="#" onclick="showPage('machine_set_summary', this); return false;"><span class="icon">🔧</span> Machine Set Summary</a></li>
-      <li id="nav-set-replace"><a href="#" onclick="showPage('set_replace', this); return false;"><span class="icon">🔁</span> Set Replace &amp; Correction</a></li>
-      <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
-      <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
+      <li id="grp-needle-monthly">
+        <div class="sidebar-subgroup-header" onclick="toggleGroup('needle-monthly')">
+          <span class="icon">📊</span>
+          <span class="grp-title">Monthly Report</span>
+          <span class="grp-arrow" id="arr-needle-monthly">▶</span>
+        </div>
+        <ul class="sidebar-submenu" id="sub-needle-monthly" style="display:none;">
+          <li id="nav-needle-monthly"><a href="#" onclick="showPage('needle_monthly', this); return false;"><span class="icon">📊</span> Monthly Machine Wise</a></li>
+          <li id="nav-needle-monthly-prod"><a href="#" onclick="showPage('needle_monthly_prod', this); return false;"><span class="icon">📊📦</span> Machine Wise + Production</a></li>
+          <li id="nav-machine-set-summary"><a href="#" onclick="showPage('machine_set_summary', this); return false;"><span class="icon">🔧</span> Machine Set Summary</a></li>
+          <li id="nav-set-replace"><a href="#" onclick="showPage('set_replace', this); return false;"><span class="icon">🔁</span> Set Replace &amp; Correction</a></li>
+        </ul>
+      </li>
+      <li id="grp-needle-usereport">
+        <div class="sidebar-subgroup-header" onclick="toggleGroup('needle-usereport')">
+          <span class="icon">📋</span>
+          <span class="grp-title">Needle Use Report</span>
+          <span class="grp-arrow" id="arr-needle-usereport">▶</span>
+        </div>
+        <ul class="sidebar-submenu" id="sub-needle-usereport" style="display:none;">
+          <li id="nav-needle-use-report"><a href="#" onclick="showPage('needle_use_report', this); return false;"><span class="icon">📋</span> Shift Needle Use Report</a></li>
+          <li id="nav-retail-needle"><a href="#" onclick="showPage('retail_needle_account', this); return false;"><span class="icon">🧾</span> Retail Needle Account</a></li>
+          <li id="nav-needle-daily"><a href="#" onclick="showPage('needle_daily', this); return false;"><span class="icon">📆</span> Daily Summary</a></li>
+        </ul>
+      </li>
       <li id="nav-needle-newset-record"><a href="#" onclick="showPage('needle_newset_record', this); return false;"><span class="icon">📝</span> New Set Record</a></li>
       <li id="nav-needle-newset"><a href="#" onclick="showPage('needle_newset', this); return false;"><span class="icon">🆕</span> New Set Log</a></li>
       <li id="nav-needle-remarks"><a href="#" onclick="showPage('needle_remarks_report', this); return false;"><span class="icon">📝</span> Remarks Report</a></li>
       <li id="nav-drop-needle"><a href="#" onclick="showPage('drop_needle_register', this); return false;"><span class="icon">🔀</span> Drop / Set Needle Register</a></li>
-      <li id="nav-retail-needle"><a href="#" onclick="showPage('retail_needle_account', this); return false;"><span class="icon">🧾</span> Retail Needle Account</a></li>
       <li id="nav-needle-stock-new"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('new'); return false;"><span class="icon">📦</span> Needle Stock New</a></li>
       <li id="nav-needle-stock-used"><a href="#" onclick="showPage('needle_stock', this); switchNeedleStockTab('used'); return false;"><span class="icon">♻️</span> Needle Stock Used</a></li>
       <li id="nav-needle-ledger"><a href="#" onclick="showPage('needle_ledger', this); return false;"><span class="icon">📒</span> Needle Ledger</a></li>
@@ -3871,17 +3904,6 @@ window.iglSaveNavVisibility = function() {
       <h2>Receive Goods - Entry</h2>
       <p>Enter new goods received into the store</p>
     </div>
-    <div class="card admin-only-action" style="background:#fef9e7;border:1px solid #f7dc6f;">
-      <div class="card-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;">
-        <div style="flex:1;min-width:200px;">
-          <b style="color:#7d6608;">📤 পুরনো সিস্টেম থেকে Bulk Import</b>
-          <div style="font-size:11px;color:#7d6608;">"Date Wise Item Receive Issue Report" ফরম্যাটের Excel (.xls/.xlsx) থেকে একসাথে Receive ও Issue রেকর্ড Import করুন</div>
-        </div>
-        <button class="btn btn-sm" style="background:#b7950b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="document.getElementById('gs-bulk-import-file').click()">📤 Excel বাছাই করুন</button>
-        <button class="btn btn-sm" style="background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;" onclick="gsBulkImportUndo()" title="আগে Bulk Import করা সব রেকর্ড মুছে ফেলুন (টেস্ট করে দেখার পর দরকার হলে)">🗑️ Undo শেষ Import</button>
-        <input type="file" id="gs-bulk-import-file" accept=".xlsx,.xls" style="display:none;" onchange="gsBulkImportHandleFile(event)">
-      </div>
-    </div>
     <div class="card">
       <div class="card-header" style="background:linear-gradient(135deg,#0b5345,#117a65,#1e8449);box-shadow:0 2px 8px rgba(17,122,101,0.4);">
         <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📥 Receive Form</span>
@@ -3948,21 +3970,6 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!--  ISSUE  -->
-  <!-- Bulk Import Preview Modal -->
-  <div id="gs-bulk-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;align-items:center;justify-content:center;">
-    <div style="background:#fff;border-radius:8px;max-width:900px;width:95%;max-height:88vh;display:flex;flex-direction:column;">
-      <div style="padding:16px 20px;border-bottom:1px solid #eee;">
-        <h3 style="margin:0;color:#b7950b;">📤 Bulk Import — Preview</h3>
-        <p style="margin:4px 0 0;font-size:12px;color:#666;">নিচে যা পাওয়া গেছে দেখে নিন, তারপর নিশ্চিত হলে Import করুন। এখনো কিছু সেভ হয়নি।</p>
-      </div>
-      <div id="gs-bulk-import-summary" style="padding:12px 20px;background:#f8f9fa;border-bottom:1px solid #eee;font-size:13px;"></div>
-      <div id="gs-bulk-import-body" style="padding:12px 20px;overflow-y:auto;flex:1;"></div>
-      <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:10px;">
-        <button class="btn btn-primary" style="flex:1;" onclick="gsBulkImportConfirm()">✅ Import নিশ্চিত করুন</button>
-        <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('gs-bulk-import-modal').style.display='none';window._giParsedRows=null;">✕ বাতিল</button>
-      </div>
-    </div>
-  </div>
 
   <div class="page" id="page-issue">
     <div class="page-header">
@@ -10805,7 +10812,7 @@ function toggleGroup(id) {
 }
 
 function restoreGroupStates() {
-  ['store','needle','stn','cfg'].forEach(function(id) {
+  ['store','needle','needle-monthly','needle-usereport','stn','cfg'].forEach(function(id) {
     var saved = localStorage.getItem('grp_' + id);
     if (saved === '1') toggleGroup(id);
   });
@@ -12256,452 +12263,6 @@ function gsRenderPreviewExcelJS(wb, group, items){
 }
 
 
-// ── নাম মিলানোর জন্য হেল্পার ──
-function _giNormalize(s){
-  return String(s||'').toLowerCase().replace(/[\-_.,()"'′″\/]/g,' ').replace(/\s+/g,' ').trim();
-}
-function _giLevenshtein(a,b){
-  if(a===b) return 0;
-  var al=a.length, bl=b.length;
-  if(al===0) return bl;
-  if(bl===0) return al;
-  var prev = new Array(bl+1);
-  for(var j=0;j<=bl;j++) prev[j]=j;
-  for(var i=1;i<=al;i++){
-    var cur=[i];
-    for(var j=1;j<=bl;j++){
-      var cost = a[i-1]===b[j-1] ? 0 : 1;
-      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost);
-    }
-    prev=cur;
-  }
-  return prev[bl];
-}
-function _giSimilarity(a,b){
-  a=_giNormalize(a); b=_giNormalize(b);
-  if(!a || !b) return 0;
-  if(a===b) return 1;
-  var dist = _giLevenshtein(a,b);
-  var maxLen = Math.max(a.length,b.length);
-  return 1 - (dist/maxLen);
-}
-// Excel এর "Item Description" নাম দিয়ে DB.items এ সবচেয়ে কাছের মিল খোঁজে
-// (categoryHint দেওয়া থাকলে আগে সেই একই ক্যাটেগরির মধ্যেই মিল খোঁজে — Item Group সক্রিয়ভাবে ব্যবহার,
-//  যাতে ভিন্ন গ্রুপের কাছাকাছি নামের আইটেমের সাথে ভুল করে না মিলে যায়)
-function _giFindMatchingItem(name, categoryHint){
-  var items = DB.items || [];
-  var norm = _giNormalize(name);
-  var normCat = categoryHint ? _giNormalize(categoryHint) : '';
-
-  // ১) হুবহু normalized মিল (আগে একই ক্যাটেগরির মধ্যে, তারপর পুরো লিস্টে)
-  var pools = normCat ? [items.filter(function(it){return _giNormalize(it.category)===normCat;}), items] : [items];
-  for (var p=0;p<pools.length;p++){
-    for (var i=0;i<pools[p].length;i++){
-      if (_giNormalize(pools[p][i].name) === norm) return {item: pools[p][i], score: 1, type:'exact'};
-    }
-  }
-  // ২) সবচেয়ে কাছের fuzzy মিল — আগে একই ক্যাটেগরির মধ্যে চেষ্টা করবে
-  for (var p=0;p<pools.length;p++){
-    var best=null, bestScore=0;
-    pools[p].forEach(function(it){
-      var s = _giSimilarity(name, it.name);
-      if (s > bestScore) { bestScore = s; best = it; }
-    });
-    if (best && bestScore >= 0.5) return {item: best, score: bestScore, type:'fuzzy'};
-  }
-  return {item: null, score: 0, type:'new'};
-}
-// Excel এর "Item Group" কলাম (যেমন "Tape[Pcs]") থেকে বন্ধনী বাদ দিয়ে ক্যাটেগরি বের করে
-function _giParseCategory(itemGroupRaw){
-  var s = String(itemGroupRaw||'').trim();
-  var m = s.match(/^(.*?)\s*\[/);
-  return (m ? m[1] : s).trim();
-}
-// নতুন আইটেমের জন্য, একই ক্যাটেগরির অন্য কোনো আইটেম থেকে group অনুমান করে
-function _giGuessGroup(category){
-  var items = DB.items || [];
-  var found = items.find(function(it){ return _giNormalize(it.category)===_giNormalize(category); });
-  return found ? found.group : 'Electrical';
-}
-// Excel তারিখ "DD-MM-YYYY" → "YYYY-MM-DD"
-function _giParseDate(raw){
-  if(!raw) return '';
-  var s = String(raw).trim();
-  // এই পুরনো সিস্টেমের এক্সপোর্ট DD-MM-YYYY (দিন আগে, মাস পরে) — আসল ফাইল থেকে যাচাই করে
-  // নিশ্চিত হওয়া হয়েছে (সব তারিখ "DD-01-2026" প্যাটার্নে ছিল)। এটাই ডিফল্ট ধরা হয়,
-  // শুধু "মাস" ১২-এর বেশি (অচল) হলে MM-DD-YYYY হিসেবে সোয়াপ করে নেয় (safety fallback)
-  var m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if(m){
-    var a = parseInt(m[1],10), b = parseInt(m[2],10), y = m[3];
-    var day = a, month = b; // ডিফল্ট ধরে নেয় DD-MM-YYYY
-    if (month > 12 && day <= 12) { day = b; month = a; } // অচল হলে MM-DD-YYYY হিসেবে সোয়াপ
-    if (month > 12 || day > 31) return '';
-    return y+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-  }
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-  // Excel serial date number হলে
-  if(!isNaN(raw) && Number(raw) > 10000){
-    var d = new Date(Math.round((Number(raw)-25569)*86400*1000));
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  return '';
-}
-// Excel এর "Machine No" (ERP নাম্বার) দিয়ে DB.machines এ মেশিন খোঁজে
-function _giFindMachine(machineNoRaw){
-  var no = String(machineNoRaw||'').trim();
-  if(!no) return null;
-  return (DB.machines||[]).find(function(m){ return String(m.no).trim()===no; }) || null;
-}
-
-// HTML দিয়ে বানানো ".xls" রিপোর্ট (অনেক পুরনো ERP এভাবেই "Excel Export" করে) থেকে
-// হেডার ও ডাটা রো বের করে — table_header_1/table_body id থাকলে সেটাই ব্যবহার করে,
-// না থাকলে সাধারণভাবে <th>/<tr><td> খুঁজে বের করে
-function _giParseHtmlReport(text){
-  var doc = new DOMParser().parseFromString(text, 'text/html');
-  var clean = function(s){ return String(s||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(); };
-
-  var headerTable = doc.getElementById('table_header_1');
-  var ths = headerTable ? headerTable.querySelectorAll('th') : doc.querySelectorAll('thead th, th');
-  var header = Array.prototype.map.call(ths, function(th){ return clean(th.textContent); });
-
-  var bodyTable = doc.getElementById('table_body');
-  var trs = [];
-  if (bodyTable) {
-    trs = Array.prototype.filter.call(bodyTable.querySelectorAll('tr'), function(tr){ return tr.querySelector('td'); });
-  }
-  if (!trs.length) {
-    trs = Array.prototype.filter.call(doc.querySelectorAll('tr'), function(tr){
-      return tr.querySelector('td') && !tr.closest('thead');
-    });
-  }
-  var rows = trs.map(function(tr){
-    return Array.prototype.map.call(tr.querySelectorAll('td'), function(td){ return clean(td.textContent); });
-  });
-  return { header: header, rows: rows };
-}
-
-function gsBulkImportHandleFile(evt){
-  var file = evt.target.files[0];
-  if(!file) return;
-  function afterLibLoaded(){
-    var reader = new FileReader();
-    reader.onload = function(e){
-      try {
-        var buf = e.target.result;
-        var bytes = new Uint8Array(buf);
-        var preview = new TextDecoder('utf-8').decode(bytes.slice(0, 4000));
-        var isHtml = /<table|<html|<!doctype html/i.test(preview);
-
-        // ── ডায়নামিক কলাম শনাক্তকরণ ──
-        // শুধু আসলেই দরকারি কলামগুলো খোঁজা হয়: Date, Item Group, Item Description (=নাম),
-        // Machine No, Issue To, Receive Qty/Rate/Amt, Issue Qty/Rate(TK)/Amount(TK)
-        var FIELD_DEFS = {
-          date:      [['trans','date'],['transaction','date'],['date']],
-          group:     [['item','group']],
-          desc:      [['item','desc'],['item','name'],['description']],
-          machNo:    [['machine','no']],
-          issueTo:   [['issue','to']],
-          recvQty:   [['receive','qty'],['rcv','qty'],['recv','qty']],
-          rateRecv:  [['actual','rate']],
-          amtRecv:   [['actual','amt']],
-          challanNo: [['challan','no']],
-          issQty:    [['issue','qty'],['iss','qty']],
-          rateIss:   [['rate','tk'],['rate(tk)']],
-          amtIss:    [['amount','tk'],['amount(tk)']],
-          reqSlip:   [['reqsn'],['store','reqsn'],['book','no']]
-        };
-        function cellMatchesField(cellText, fieldKey){
-          var h = String(cellText||'').toLowerCase();
-          return FIELD_DEFS[fieldKey].some(function(tokens){
-            return tokens.every(function(t){ return h.indexOf(t)!==-1; });
-          });
-        }
-        function buildColMap(headerRow){
-          var map = {};
-          Object.keys(FIELD_DEFS).forEach(function(fk){
-            for (var c=0;c<headerRow.length;c++){
-              if (cellMatchesField(headerRow[c], fk)) { map[fk]=c; break; }
-            }
-          });
-          return map;
-        }
-
-        var header, rows, scannedPreview;
-
-        if (isHtml){
-          var fullText = new TextDecoder('utf-8').decode(bytes);
-          var parsedHtml = _giParseHtmlReport(fullText);
-          header = parsedHtml.header;
-          rows = parsedHtml.rows;
-          scannedPreview = [header].concat(rows.slice(0,5));
-        } else {
-          var wb = XLSX.read(bytes, {type:'array'});
-          var bestRow = -1, bestSheet = null, bestScore = -1, bestMap = null;
-          scannedPreview = [];
-          for (var si=0; si<wb.SheetNames.length; si++){
-            var wsTry = wb.Sheets[wb.SheetNames[si]];
-            var rowsTry = XLSX.utils.sheet_to_json(wsTry, {header:1});
-            if (si===0) scannedPreview = rowsTry.slice(0,6);
-            for (var i=0;i<Math.min(rowsTry.length,25);i++){
-              var r = rowsTry[i]||[];
-              var map = buildColMap(r);
-              var score = Object.keys(map).length;
-              if (map.date!==undefined && map.desc!==undefined && score > bestScore){
-                bestScore = score; bestRow = i; bestSheet = wsTry; bestMap = map;
-              }
-            }
-          }
-          if (bestRow < 0){
-            var previewTxt = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,6).join(' | '); }).join('\n');
-            toast('❌ কোনো শীটে "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt, 'error');
-            if(evt&&evt.target) evt.target.value='';
-            return;
-          }
-          header = wb.Sheets[wb.SheetNames[0]] ? XLSX.utils.sheet_to_json(bestSheet, {header:1})[bestRow] : [];
-          var allRows = XLSX.utils.sheet_to_json(bestSheet, {header:1});
-          header = allRows[bestRow];
-          rows = allRows.slice(bestRow+1);
-        }
-
-        var colMap = buildColMap(header);
-        if (colMap.date===undefined || colMap.desc===undefined){
-          var previewTxt2 = scannedPreview.map(function(r,idx){ return (idx+1)+': '+(r||[]).slice(0,8).join(' | '); }).join('\n');
-          toast('❌ "Date" ও "Item Description" ধরনের কলাম পাওয়া যায়নি। প্রথম কয়েক লাইন:\n'+previewTxt2, 'error');
-          if(evt&&evt.target) evt.target.value='';
-          return;
-        }
-        if (colMap.recvQty===undefined && colMap.issQty===undefined){
-          toast('❌ "Receive Qty" বা "Issue Qty" ধরনের কোনো কলামই পাওয়া যায়নি — অন্তত একটা লাগবে','error');
-          if(evt&&evt.target) evt.target.value='';
-          return;
-        }
-
-        window._giDetectedFields = {
-          date: colMap.date!==undefined, group: colMap.group!==undefined, desc: colMap.desc!==undefined,
-          machNo: colMap.machNo!==undefined, issueTo: colMap.issueTo!==undefined,
-          recvQty: colMap.recvQty!==undefined, rateRecv: colMap.rateRecv!==undefined, amtRecv: colMap.amtRecv!==undefined,
-          challanNo: colMap.challanNo!==undefined,
-          issQty: colMap.issQty!==undefined, rateIss: colMap.rateIss!==undefined, amtIss: colMap.amtIss!==undefined,
-          reqSlip: colMap.reqSlip!==undefined
-        };
-
-        var get = function(r, key){ return colMap[key]!==undefined ? r[colMap[key]] : undefined; };
-
-        var parsed = [];
-        for (var i=0;i<rows.length;i++){
-          var r = rows[i];
-          if (!r) continue;
-          var desc = String(get(r,'desc')||'').trim();
-          if (!desc) continue;
-          var date = _giParseDate(get(r,'date'));
-          if (!date) continue;
-          var recvQty = colMap.recvQty!==undefined ? (parseFloat(get(r,'recvQty'))||0) : 0;
-          var issQty  = colMap.issQty!==undefined  ? (parseFloat(get(r,'issQty'))||0)  : 0;
-          if (recvQty<=0 && issQty<=0) continue;
-
-          var category = _giParseCategory(get(r,'group'));
-          // Item Group (category) দিয়ে আগে একই ক্যাটেগরির মধ্যে মিল খোঁজে
-          var match = _giFindMatchingItem(desc, category);
-
-          if (recvQty > 0){
-            var rateR = colMap.rateRecv!==undefined ? (parseFloat(get(r,'rateRecv'))||0) : 0;
-            var amtR  = colMap.amtRecv!==undefined  ? (parseFloat(get(r,'amtRecv'))||0)  : 0;
-            var chalanVal = colMap.challanNo!==undefined ? String(get(r,'challanNo')||'').trim() : '';
-            parsed.push({
-              rowType:'receive', date:date, desc:desc, match:match, category:category,
-              qty:recvQty, rate:rateR, amount: amtR || (rateR*recvQty), chalan: chalanVal
-            });
-          }
-          if (issQty > 0){
-            var rateI = colMap.rateIss!==undefined ? (parseFloat(get(r,'rateIss'))||0) : 0;
-            var amtI  = colMap.amtIss!==undefined  ? (parseFloat(get(r,'amtIss'))||0)  : 0;
-            var machNoVal = colMap.machNo!==undefined ? get(r,'machNo') : '';
-            var issueToVal = colMap.issueTo!==undefined ? String(get(r,'issueTo')||'').trim() : '';
-            var slipVal = colMap.reqSlip!==undefined ? String(get(r,'reqSlip')||'').trim() : '';
-            var mach = _giFindMachine(machNoVal);
-            parsed.push({
-              rowType:'issue', date:date, desc:desc, match:match, category:category,
-              qty:issQty, rate:rateI, amount: amtI || (rateI*issQty),
-              machine: mach, issueTo: issueToVal, slip: slipVal
-            });
-          }
-        }
-
-        if (!parsed.length){ toast('❌ কোনো valid Receive/Issue সারি পাওয়া যায়নি','error'); if(evt&&evt.target) evt.target.value=''; return; }
-
-        window._giParsedRows = parsed;
-        gsBulkImportShowPreview(parsed);
-      } catch(err){
-        console.error(err);
-        toast('❌ ফাইল পড়তে সমস্যা হয়েছে: '+(err&&err.message?err.message:err), 'error');
-      }
-      if (evt && evt.target) evt.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  }
-  if (typeof XLSX === 'undefined'){
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = afterLibLoaded;
-    s.onerror = function(){ toast('❌ SheetJS লোড হয়নি, internet check করুন।','error'); };
-    document.head.appendChild(s);
-    toast('📦 Loading Excel engine...','warning');
-  } else {
-    afterLibLoaded();
-  }
-}
-
-function gsBulkImportShowPreview(parsed){
-  var _esc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var fieldLabels = {date:'তারিখ', group:'Item Group', desc:'Item নাম', machNo:'Machine No', issueTo:'Issue To', recvQty:'Receive Qty', rateRecv:'Receive Rate', amtRecv:'Receive Amt', challanNo:'Challan No', issQty:'Issue Qty', rateIss:'Issue Rate', amtIss:'Issue Amt', reqSlip:'Slip/Reqsn No'};
-  var df = window._giDetectedFields || {};
-  var foundList = Object.keys(fieldLabels).filter(function(k){return df[k];}).map(function(k){return fieldLabels[k];});
-  var missingList = Object.keys(fieldLabels).filter(function(k){return !df[k];}).map(function(k){return fieldLabels[k];});
-  var colInfo = '<div style="font-size:11px;color:#555;margin-bottom:8px;">'
-    + '<b style="color:#1e8449;">✅ পাওয়া গেছে:</b> '+(foundList.join(', ')||'—')
-    + (missingList.length ? '<br><b style="color:#999;">➖ পাওয়া যায়নি (বাদ দেওয়া হয়েছে):</b> '+missingList.join(', ') : '')
-    + '</div>';
-  var recvRows = parsed.filter(function(p){return p.rowType==='receive';});
-  var issRows  = parsed.filter(function(p){return p.rowType==='issue';});
-  var newItems = parsed.filter(function(p){return p.match.type==='new';});
-  var fuzzyItems = parsed.filter(function(p){return p.match.type==='fuzzy';});
-  var noMachine = issRows.filter(function(p){return !p.machine;});
-
-  var summary = '<b>মোট '+parsed.length+'টা সারি</b> — 📥 Receive: '+recvRows.length+' | 📤 Issue: '+issRows.length+'<br>'
-    + '<span style="color:'+(fuzzyItems.length?'#b7950b':'#888')+';">🔶 Fuzzy Match (নাম কাছাকাছি মিলেছে): '+fuzzyItems.length+'</span> | '
-    + '<span style="color:'+(newItems.length?'#c0392b':'#888')+';">🆕 নতুন আইটেম (মিলেনি, তৈরি হবে): '+newItems.length+'</span> | '
-    + '<span style="color:'+(noMachine.length?'#c0392b':'#888')+';">⚙️ মেশিন পাওয়া যায়নি (General/Non-Machine এ যাবে): '+noMachine.length+'</span>';
-  document.getElementById('gs-bulk-import-summary').innerHTML = colInfo + summary;
-
-  var rowsHtml = parsed.slice(0, 300).map(function(p){
-    var matchLabel = p.match.type==='exact' ? '<span style="color:#1e8449;">✅ '+_esc(p.match.item.name)+'</span>'
-      : p.match.type==='fuzzy' ? '<span style="color:#b7950b;">🔶 '+_esc(p.match.item.name)+'</span>'
-      : '<span style="color:#c0392b;">🆕 নতুন: '+_esc(p.desc)+'</span>';
-    var extra = p.rowType==='issue'
-      ? ('Slip: '+_esc(p.slip||'(auto)')+' | '+(p.machine ? ('মেশিন: '+_esc(p.machine.id)) : ('<span style="color:#c0392b;">General/Non-Machine'+(p.issueTo?(' ('+_esc(p.issueTo)+')'):'')+'</span>')))
-      : ('Challan: '+_esc(p.chalan||'—')+(p.category ? (' | গ্রুপ: '+_esc(p.category)) : ''));
-    return '<tr style="border-bottom:1px solid #eee;">'
-      + '<td style="padding:5px 8px;font-size:12px;">'+p.date+'</td>'
-      + '<td style="padding:5px 8px;font-size:12px;">'+(p.rowType==='receive'?'📥 Receive':'📤 Issue')+'</td>'
-      + '<td style="padding:5px 8px;font-size:12px;">'+matchLabel+'</td>'
-      + '<td style="padding:5px 8px;font-size:12px;text-align:right;">'+p.qty+'</td>'
-      + '<td style="padding:5px 8px;font-size:12px;">'+extra+'</td>'
-      + '</tr>';
-  }).join('');
-  var moreNote = parsed.length>300 ? '<p style="color:#888;font-size:11px;">...আরও '+(parsed.length-300)+'টা সারি আছে (দেখানো হয়নি, তবে Import এ যোগ হবে)</p>' : '';
-
-  document.getElementById('gs-bulk-import-body').innerHTML =
-    '<table style="width:100%;border-collapse:collapse;">'
-    + '<thead><tr style="background:#2c3e50;color:#fff;"><th style="padding:6px 8px;text-align:left;font-size:12px;">তারিখ</th><th style="padding:6px 8px;text-align:left;font-size:12px;">ধরন</th><th style="padding:6px 8px;text-align:left;font-size:12px;">আইটেম</th><th style="padding:6px 8px;text-align:right;font-size:12px;">Qty</th><th style="padding:6px 8px;text-align:left;font-size:12px;">বিস্তারিত</th></tr></thead>'
-    + '<tbody>'+rowsHtml+'</tbody></table>' + moreNote;
-
-  document.getElementById('gs-bulk-import-modal').style.display = 'flex';
-}
-
-function gsBulkImportConfirm(){
-  var parsed = window._giParsedRows;
-  if (!parsed || !parsed.length){ toast('❌ কোনো ডাটা নেই','error'); return; }
-
-  var itemsArr = DB.items.slice();
-  var recvArr = DB.receives.slice();
-  var issArr = DB.issues.slice();
-  var newItemCount = 0, recvCount = 0, issCount = 0;
-  var slipCounters = {};
-
-  parsed.forEach(function(p){
-    var itemObj = p.match.item;
-    if (!itemObj){
-      // নতুন আইটেম তৈরি
-      var grp = _giGuessGroup(p.category);
-      itemObj = { id: 'gi_'+Date.now()+'_'+Math.floor(Math.random()*10000), name: p.desc, group: grp, category: p.category||'Others', minStock: 0, autoCreated: true };
-      itemsArr.push(itemObj);
-      newItemCount++;
-    }
-    if (p.rowType === 'receive'){
-      recvArr.push({
-        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, group: itemObj.group, category: itemObj.category,
-        item: itemObj.name, chalan: p.chalan || '', supplier: '', qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
-        userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-        importedFromOldSystem: true
-      });
-      recvCount++;
-    } else {
-      var mach = p.machine;
-      var machineId = mach ? mach.id : 'General / Non-Machine Use';
-      var machineNo = mach ? mach.no : '';
-      var machineCat = mach ? mach.cat : 'General';
-      var remarks = p.issueTo ? ('Issue To: '+p.issueTo+' (পুরনো সিস্টেম থেকে Import করা)') : '(পুরনো সিস্টেম থেকে Import করা)';
-      var slipVal = p.slip;
-      if (!slipVal) { slipCounters[p.date] = (slipCounters[p.date]||0) + 1; slipVal = 'OLD-'+p.date+'-'+slipCounters[p.date]; }
-      issArr.push({
-        id: Date.now()+Math.floor(Math.random()*10000), date: p.date, slip: slipVal, group: itemObj.group,
-        category: itemObj.category, item: itemObj.name, qty: Number(p.qty), rate: p.rate||0, amount: p.amount||0,
-        machineId: machineId, machineNo: machineNo, machineCat: machineCat, remarks: remarks,
-        userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-        importedFromOldSystem: true
-      });
-      issCount++;
-    }
-  });
-
-  DB.items = itemsArr;
-  DB.receives = recvArr;
-  DB.issues = issArr;
-  triggerAutoSave();
-
-  document.getElementById('gs-bulk-import-modal').style.display = 'none';
-  window._giParsedRows = null;
-  toast('✅ Import সম্পন্ন! Receive: '+recvCount+', Issue: '+issCount+(newItemCount?(', নতুন আইটেম: '+newItemCount):''), 'success');
-  try { renderDashboard(); } catch(e){}
-  try { renderStock(); } catch(e){}
-  try { renderReceiveLog(); } catch(e){}
-  try { renderIssueLog(); } catch(e){}
-}
-
-// ── Bulk Import বাতিল/Undo — টেস্ট করে দেখার পর ভুল হলে পুরোটা এক ক্লিকে মুছে ফেলার জন্য ──
-async function gsBulkImportUndo(){
-  var recvCount = (DB.receives||[]).filter(function(r){return r.importedFromOldSystem;}).length;
-  var issCount  = (DB.issues||[]).filter(function(i){return i.importedFromOldSystem;}).length;
-  if (!recvCount && !issCount){ toast('কোনো Bulk-Imported রেকর্ড পাওয়া যায়নি', 'warning'); return; }
-
-  var ok = await igl_confirm('Bulk Import করা সব রেকর্ড ('+recvCount+' Receive + '+issCount+' Issue) মুছে ফেলা হবে। এই মুহূর্তে Import করা নতুন আইটেমও (যদি অন্য কোথাও ব্যবহার না হয়ে থাকে) মুছে যাবে। এগোবেন?', '', '🗑️');
-  if (!ok) return;
-
-  // ⚠️ প্রতিটা মুছে ফেলা রেকর্ডকে shared deletedIds ট্র্যাকারে যোগ করো — ঠিক deleteReceive/
-  // deleteIssue যেভাবে করে। এটা না করলে: অন্য যেকোনো ডিভাইস, যার memory-তে তখনো এই
-  // Import করা রেকর্ডগুলো আছে, পরবর্তী sync-এ এগুলোকে "এখনো sync না হওয়া নতুন এন্ট্রি"
-  // ভেবে আবার ফিরিয়ে আনবে — এবং তারপর সেই ডিভাইস সেভ করলে Firebase-এও আবার ফিরে আসবে।
-  DB.receives = (DB.receives||[]).filter(function(r){
-    if (r.importedFromOldSystem) { iglDelIdsAdd('rcv', r.id); return false; }
-    return true;
-  });
-  DB.issues   = (DB.issues||[]).filter(function(i){
-    if (i.importedFromOldSystem) { iglDelIdsAdd('iss', i.id); return false; }
-    return true;
-  });
-
-  // যেই নতুন আইটেমগুলো এই Import-এই তৈরি হয়েছিল (autoCreated), এখন যদি সেগুলোর আর কোনো Receive/Issue না থাকে, সেগুলোও মুছে দাও
-  var usedNames = {};
-  (DB.receives||[]).forEach(function(r){ usedNames[r.item]=true; });
-  (DB.issues||[]).forEach(function(i){ usedNames[i.item]=true; });
-  var removedItems = 0;
-  DB.items = (DB.items||[]).filter(function(it){
-    if (it.autoCreated && !usedNames[it.name]) {
-      removedItems++;
-      iglDelIdsAdd('gs_item', (it.group||'')+'||'+(it.name||''));
-      return false;
-    }
-    return true;
-  });
-
-  triggerAutoSave();
-  toast('✅ Undo সম্পন্ন — '+recvCount+' Receive, '+issCount+' Issue'+(removedItems?(', '+removedItems+'টা অটো-তৈরি আইটেম'):'')+' মুছে ফেলা হয়েছে', 'success');
-  try { renderDashboard(); } catch(e){}
-  try { renderStock(); } catch(e){}
-  try { renderReceiveLog(); } catch(e){}
-  try { renderIssueLog(); } catch(e){}
-}
 
 // 
 //  DASHBOARD
