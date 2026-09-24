@@ -233,57 +233,44 @@ if('serviceWorker' in navigator){
   }
   .btn-autosave-connect:hover { background: rgba(52,152,219,0.5); color: #fff; }
 
-  /*  Sidebar — Galaxy View (pure CSS starfield, no images/assets)  */
+  /*  Sidebar — Live Ocean Wave View (pure CSS + tiny inline SVG wave paths, no external image files)  */
   .sidebar {
     position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
     padding: 10px 0 20px; overflow-y: auto; overflow-x: hidden; z-index: 900;
     scrollbar-width: thin; scrollbar-color: #2c3e50 transparent;
-    background-color: #05060f;
+    background-color: #011627;
     background-image:
-      radial-gradient(1.6px 1.6px at 12% 6%,  #fff, transparent 100%),
-      radial-gradient(1.2px 1.2px at 40% 15%, #cfe8ff, transparent 100%),
-      radial-gradient(1.6px 1.6px at 70% 4%,  #fff, transparent 100%),
-      radial-gradient(1px   1px   at 88% 18%, #fff, transparent 100%),
-      radial-gradient(1.4px 1.4px at 24% 28%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 58% 34%, #cfe8ff, transparent 100%),
-      radial-gradient(1.8px 1.8px at 8%  46%, #fff, transparent 100%),
-      radial-gradient(1.2px 1.2px at 47% 52%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 79% 48%, #fff, transparent 100%),
-      radial-gradient(1.6px 1.6px at 93% 58%, #cfe8ff, transparent 100%),
-      radial-gradient(1.2px 1.2px at 17% 66%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 54% 72%, #fff, transparent 100%),
-      radial-gradient(1.6px 1.6px at 34% 80%, #fff, transparent 100%),
-      radial-gradient(1.2px 1.2px at 77% 84%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 6%  90%, #fff, transparent 100%),
-      radial-gradient(1.4px 1.4px at 62% 94%, #cfe8ff, transparent 100%),
-      radial-gradient(1.2px 1.2px at 90% 96%, #fff, transparent 100%),
-      radial-gradient(650px 420px at 15% 8%,  rgba(123,66,196,0.32), transparent 60%),
-      radial-gradient(600px 400px at 88% 28%, rgba(21,101,192,0.28), transparent 60%),
-      radial-gradient(560px 460px at 28% 82%, rgba(0,150,199,0.22), transparent 60%),
-      radial-gradient(520px 360px at 92% 92%, rgba(155,39,176,0.20), transparent 65%),
-      linear-gradient(180deg, #05060f 0%, #0a0e28 28%, #140c30 52%, #0a1530 78%, #05060f 100%);
+      radial-gradient(420px 260px at 18% 8%,  rgba(255,255,255,0.10), transparent 60%),
+      radial-gradient(380px 240px at 85% 26%, rgba(120,220,255,0.14), transparent 60%),
+      radial-gradient(360px 260px at 30% 78%, rgba(0,200,220,0.12), transparent 60%),
+      linear-gradient(180deg, #04293a 0%, #05445e 22%, #0a6480 42%, #023047 68%, #011627 100%);
     background-repeat: no-repeat;
   }
+  /* Deeper, slower swell — parallax back layer */
   .sidebar::before {
     content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    pointer-events: none; z-index: 0;
-    background-image:
-      radial-gradient(1.3px 1.3px at 30% 12%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 65% 24%, #fff, transparent 100%),
-      radial-gradient(1.3px 1.3px at 20% 40%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 84% 62%, #fff, transparent 100%),
-      radial-gradient(1.3px 1.3px at 45% 76%, #fff, transparent 100%),
-      radial-gradient(1px   1px   at 10% 88%, #fff, transparent 100%);
-    background-repeat: no-repeat;
-    animation: galaxyTwinkle 4.5s ease-in-out infinite;
+    pointer-events: none; z-index: 0; opacity: 0.55;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%2070'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,35%20Q37.5,10%2075,35%20T150,35%20T225,35%20T300,35%20V70%20H0%20Z'%20fill='%237fd8e8'%20fill-opacity='0.16'/%3E%3C/svg%3E");
+    background-repeat: repeat; background-size: 300px 70px; background-position: 0 10px;
+    animation: oceanWaveSlow 16s linear infinite;
   }
-  @keyframes galaxyTwinkle { 0%,100% { opacity: 0.25; } 50% { opacity: 0.9; } }
+  /* Foam ripple — faster front layer */
+  .sidebar::after {
+    content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
+    pointer-events: none; z-index: 0; opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20200%2036'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,18%20Q25,4%2050,18%20T100,18%20T150,18%20T200,18%20V36%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.14'/%3E%3C/svg%3E");
+    background-repeat: repeat; background-size: 200px 36px; background-position: 0 28px;
+    animation: oceanWaveFast 9s linear infinite reverse;
+  }
+  @keyframes oceanWaveSlow { from { background-position-x: 0; } to { background-position-x: -300px; } }
+  @keyframes oceanWaveFast { from { background-position-x: 0; } to { background-position-x: -200px; } }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
   /* Everything the person actually navigates with floats in its own frosted-glass
-     panel above the starfield below — purely visual, no structural/data changes. */
+     panel above the live waves below — purely visual, no structural/data changes. */
   .sidebar-section, .sidebar-menu, .sidebar-group, .sidebar-submenu,
   .sidebar-subgroup-header { position: relative; z-index: 1; }
+
 
   .sidebar-section {
     padding: 14px 18px 5px; font-size: 9px; font-weight: 800;
