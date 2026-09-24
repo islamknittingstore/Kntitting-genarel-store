@@ -233,78 +233,126 @@ if('serviceWorker' in navigator){
   }
   .btn-autosave-connect:hover { background: rgba(52,152,219,0.5); color: #fff; }
 
-  /*  Sidebar  */
+  /*  Sidebar — Galaxy View (pure CSS starfield, no images/assets)  */
   .sidebar {
     position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    background: #0f1923; padding: 10px 0 20px; overflow-y: auto; z-index: 900;
+    padding: 10px 0 20px; overflow-y: auto; overflow-x: hidden; z-index: 900;
     scrollbar-width: thin; scrollbar-color: #2c3e50 transparent;
+    background-color: #05060f;
+    background-image:
+      radial-gradient(1.6px 1.6px at 12% 6%,  #fff, transparent 100%),
+      radial-gradient(1.2px 1.2px at 40% 15%, #cfe8ff, transparent 100%),
+      radial-gradient(1.6px 1.6px at 70% 4%,  #fff, transparent 100%),
+      radial-gradient(1px   1px   at 88% 18%, #fff, transparent 100%),
+      radial-gradient(1.4px 1.4px at 24% 28%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 58% 34%, #cfe8ff, transparent 100%),
+      radial-gradient(1.8px 1.8px at 8%  46%, #fff, transparent 100%),
+      radial-gradient(1.2px 1.2px at 47% 52%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 79% 48%, #fff, transparent 100%),
+      radial-gradient(1.6px 1.6px at 93% 58%, #cfe8ff, transparent 100%),
+      radial-gradient(1.2px 1.2px at 17% 66%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 54% 72%, #fff, transparent 100%),
+      radial-gradient(1.6px 1.6px at 34% 80%, #fff, transparent 100%),
+      radial-gradient(1.2px 1.2px at 77% 84%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 6%  90%, #fff, transparent 100%),
+      radial-gradient(1.4px 1.4px at 62% 94%, #cfe8ff, transparent 100%),
+      radial-gradient(1.2px 1.2px at 90% 96%, #fff, transparent 100%),
+      radial-gradient(650px 420px at 15% 8%,  rgba(123,66,196,0.32), transparent 60%),
+      radial-gradient(600px 400px at 88% 28%, rgba(21,101,192,0.28), transparent 60%),
+      radial-gradient(560px 460px at 28% 82%, rgba(0,150,199,0.22), transparent 60%),
+      radial-gradient(520px 360px at 92% 92%, rgba(155,39,176,0.20), transparent 65%),
+      linear-gradient(180deg, #05060f 0%, #0a0e28 28%, #140c30 52%, #0a1530 78%, #05060f 100%);
+    background-repeat: no-repeat;
   }
+  .sidebar::before {
+    content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
+    pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1.3px 1.3px at 30% 12%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 65% 24%, #fff, transparent 100%),
+      radial-gradient(1.3px 1.3px at 20% 40%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 84% 62%, #fff, transparent 100%),
+      radial-gradient(1.3px 1.3px at 45% 76%, #fff, transparent 100%),
+      radial-gradient(1px   1px   at 10% 88%, #fff, transparent 100%);
+    background-repeat: no-repeat;
+    animation: galaxyTwinkle 4.5s ease-in-out infinite;
+  }
+  @keyframes galaxyTwinkle { 0%,100% { opacity: 0.25; } 50% { opacity: 0.9; } }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
+  /* Everything the person actually navigates with floats in its own frosted-glass
+     panel above the starfield below — purely visual, no structural/data changes. */
+  .sidebar-section, .sidebar-menu, .sidebar-group, .sidebar-submenu,
+  .sidebar-subgroup-header { position: relative; z-index: 1; }
 
   .sidebar-section {
     padding: 14px 18px 5px; font-size: 9px; font-weight: 800;
-    letter-spacing: 1.5px; text-transform: uppercase; color: #4a5568;
+    letter-spacing: 1.5px; text-transform: uppercase; color: #7f8fa4;
     display: flex; align-items: center; gap: 6px;
   }
   .sidebar-section::after {
-    content: ''; flex: 1; height: 1px; background: #1e2d3d; margin-left: 6px;
+    content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.14); margin-left: 6px;
   }
 
   .sidebar-menu { list-style: none; padding: 2px 0; }
   .sidebar-menu li a {
-    display: flex; align-items: center; gap: 10px; padding: 9px 18px;
-    color: #8899aa; text-decoration: none; font-size: 12.5px; font-weight: 500;
-    transition: all 0.18s; border-left: 3px solid transparent;
-    border-radius: 0 6px 6px 0; margin: 1px 8px 1px 0;
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    color: #c3ccd6; text-decoration: none; font-size: 12.5px; font-weight: 500;
+    transition: all 0.2s; border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; margin: 3px 8px;
+    background: rgba(255,255,255,0.035);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
   }
   .sidebar-menu li a:hover {
-    color: #fff; background: rgba(255,255,255,0.06);
+    color: #fff; background: rgba(255,255,255,0.09);
+    transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.45);
   }
   .sidebar-menu li a.active {
-    color: #fff; font-weight: 600; background: rgba(255,255,255,0.08);
+    color: #fff; font-weight: 600; background: rgba(255,255,255,0.12);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
   }
   .sidebar-menu li a .icon {
     font-size: 15px; width: 22px; text-align: center; flex-shrink: 0;
   }
 
-  /* ── Section color themes ── */
+  /* ── Section color themes (now a soft glow instead of a left border, to match the floating-glass look) ── */
   /* Main Menu — cyan */
   .sidebar-menu.menu-main li a:hover,
   .sidebar-menu.menu-main li a.active {
-    border-left-color: #00bcd4; color: #00e5ff;
-    background: rgba(0,188,212,0.1);
+    color: #00e5ff; background: rgba(0,188,212,0.14);
+    box-shadow: 0 0 0 1px rgba(0,188,212,0.4), 0 6px 16px rgba(0,188,212,0.25);
   }
   /* Transaction — green */
   .sidebar-menu.menu-transaction li a:hover,
   .sidebar-menu.menu-transaction li a.active {
-    border-left-color: #00c853; color: #69f0ae;
-    background: rgba(0,200,83,0.1);
+    color: #69f0ae; background: rgba(0,200,83,0.14);
+    box-shadow: 0 0 0 1px rgba(0,200,83,0.4), 0 6px 16px rgba(0,200,83,0.25);
   }
   /* Reports — orange */
   .sidebar-menu.menu-reports li a:hover,
   .sidebar-menu.menu-reports li a.active {
-    border-left-color: #ff9800; color: #ffcc02;
-    background: rgba(255,152,0,0.1);
+    color: #ffcc02; background: rgba(255,152,0,0.14);
+    box-shadow: 0 0 0 1px rgba(255,152,0,0.4), 0 6px 16px rgba(255,152,0,0.25);
   }
   /* Needle Issue — purple */
   .sidebar-menu.menu-needle li a:hover,
   .sidebar-menu.menu-needle li a.active {
-    border-left-color: #ab47bc; color: #e040fb;
-    background: rgba(171,71,188,0.1);
+    color: #e040fb; background: rgba(171,71,188,0.14);
+    box-shadow: 0 0 0 1px rgba(171,71,188,0.4), 0 6px 16px rgba(171,71,188,0.25);
   }
   /* Settings — red/pink */
   .sidebar-menu.menu-settings li a:hover,
   .sidebar-menu.menu-settings li a.active {
-    border-left-color: #f06292; color: #ff80ab;
-    background: rgba(240,98,146,0.1);
+    color: #ff80ab; background: rgba(240,98,146,0.14);
+    box-shadow: 0 0 0 1px rgba(240,98,146,0.4), 0 6px 16px rgba(240,98,146,0.25);
   }
 
   /* Stationery — teal */
   .sidebar-menu.menu-stationery li a:hover,
   .sidebar-menu.menu-stationery li a.active {
-    border-left-color: #00acc1; color: #00e5ff;
-    background: rgba(0,172,193,0.1);
+    color: #00e5ff; background: rgba(0,172,193,0.14);
+    box-shadow: 0 0 0 1px rgba(0,172,193,0.4), 0 6px 16px rgba(0,172,193,0.25);
   }
 
   /* Section label colors */
@@ -1096,47 +1144,59 @@ if('serviceWorker' in navigator){
   .sidebar-group { margin: 3px 0; }
   .sidebar-group-header {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; cursor: pointer;
-    color: #b0bec5; font-size: 13px; font-weight: 600;
-    border-radius: 6px; margin: 2px 8px;
-    transition: background 0.2s, color 0.2s;
+    padding: 10px 14px; cursor: pointer;
+    color: #cbd5e0; font-size: 13px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; margin: 3px 8px;
+    background: rgba(255,255,255,0.035);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    transition: background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
     user-select: none;
   }
-  .sidebar-group-header:hover { background: rgba(255,255,255,0.07); color: #fff; }
-  .sidebar-group-header.open { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-group-header:hover { background: rgba(255,255,255,0.09); color: #fff; transform: translateY(-1px); }
+  .sidebar-group-header.open { background: rgba(255,255,255,0.12); color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.5); }
   .grp-icon { font-size: 18px; width: 24px; text-align: center; }
   .grp-title { flex: 1; }
-  .grp-arrow { font-size: 10px; transition: transform 0.25s; color: #607d8b; }
+  .grp-arrow { font-size: 10px; transition: transform 0.25s; color: #7f92a5; }
   .grp-arrow.open { transform: rotate(90deg); color: #fff; }
   .sidebar-submenu {
     list-style: none; padding: 2px 0 6px 0; margin: 0;
-    overflow: hidden;
+    overflow: hidden; position: relative; z-index: 1;
   }
   .sidebar-submenu li a {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 16px 8px 42px;
-    color: #90a4ae; font-size: 12.5px; text-decoration: none;
-    border-radius: 6px; margin: 1px 8px;
-    transition: background 0.2s, color 0.2s;
+    padding: 8px 14px 8px 38px;
+    color: #a9b5c0; font-size: 12.5px; text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 9px; margin: 2px 8px 2px 16px;
+    background: rgba(255,255,255,0.025);
+    backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transition: background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
   }
-  .sidebar-submenu li a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-  .sidebar-submenu li a.active { background: rgba(255,255,255,0.13); color: #fff; font-weight: 600; }
+  .sidebar-submenu li a:hover { background: rgba(255,255,255,0.09); color: #fff; transform: translateY(-1px); }
+  .sidebar-submenu li a.active { background: rgba(255,255,255,0.14); color: #fff; font-weight: 600; box-shadow: 0 6px 14px rgba(0,0,0,0.45); }
   .sidebar-submenu li a .icon { font-size: 14px; }
 
   /* ── Nested Sub-group inside a Sidebar Submenu (e.g. "Monthly Report" inside Needle Section) ── */
   .sidebar-subgroup-header {
     display: flex; align-items: center; gap: 8px;
-    padding: 8px 16px 8px 42px; cursor: pointer;
-    color: #90a4ae; font-size: 12.5px; font-weight: 600;
-    border-radius: 6px; margin: 1px 8px;
-    transition: background 0.2s, color 0.2s;
+    padding: 8px 14px 8px 38px; cursor: pointer;
+    color: #a9b5c0; font-size: 12.5px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 9px; margin: 2px 8px 2px 16px;
+    background: rgba(255,255,255,0.025);
+    backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transition: background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
     user-select: none;
   }
-  .sidebar-subgroup-header:hover { background: rgba(255,255,255,0.07); color: #fff; }
-  .sidebar-subgroup-header.open { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-subgroup-header:hover { background: rgba(255,255,255,0.09); color: #fff; transform: translateY(-1px); }
+  .sidebar-subgroup-header.open { background: rgba(255,255,255,0.12); color: #fff; box-shadow: 0 6px 14px rgba(0,0,0,0.45); }
   .sidebar-subgroup-header .icon { font-size: 14px; }
   .sidebar-submenu .sidebar-submenu { padding: 2px 0 4px 0; }
-  .sidebar-submenu .sidebar-submenu li a { padding-left: 64px; font-size: 12px; }
+  .sidebar-submenu .sidebar-submenu li a { padding-left: 58px; margin-left: 24px; font-size: 12px; }
 
   .sidebar-footer {
     padding: 14px 18px; font-size: 10px; color: #2c3e50;
