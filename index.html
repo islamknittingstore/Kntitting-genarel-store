@@ -226,6 +226,20 @@ if('serviceWorker' in navigator){
     0%, 100% { opacity: 0.15; transform: scale(0.7); }
     50%      { opacity: 1;    transform: scale(1.15); }
   }
+  /* ── Dashboard Banner — weather-reactive cloud puffs (pure CSS, no images) ── */
+  .dash-cloud {
+    position: absolute; border-radius: 40px; filter: blur(0.5px);
+  }
+  .dash-cloud::before, .dash-cloud::after {
+    content: ''; position: absolute; background: inherit; border-radius: 50%;
+  }
+  .dash-cloud::before { width: 60%; height: 100%; top: -45%; left: 8%; }
+  .dash-cloud::after  { width: 45%; height: 85%;  top: -32%; right: 10%; }
+  @keyframes dashCloudDrift {
+    from { left: -28%; }
+    to   { left: 126%; }
+  }
+
   .btn-autosave-connect {
     font-size: 11px; padding: 4px 12px; border-radius: 20px; border: none;
     background: rgba(52,152,219,0.3); color: #aed6f1; cursor: pointer; font-weight: 600;
@@ -233,37 +247,38 @@ if('serviceWorker' in navigator){
   }
   .btn-autosave-connect:hover { background: rgba(52,152,219,0.5); color: #fff; }
 
-  /*  Sidebar — Live Ocean Wave View (pure CSS + tiny inline SVG wave paths, no external image files)  */
+  /*  Sidebar — Live Ocean Wave View v2 (richer tropical sea look, pure CSS + tiny inline SVG, no image files)  */
   .sidebar {
     position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
     padding: 10px 0 20px; overflow-y: auto; overflow-x: hidden; z-index: 900;
     scrollbar-width: thin; scrollbar-color: #2c3e50 transparent;
-    background-color: #011627;
+    background-color: #073b4c;
     background-image:
-      radial-gradient(420px 260px at 18% 8%,  rgba(255,255,255,0.10), transparent 60%),
-      radial-gradient(380px 240px at 85% 26%, rgba(120,220,255,0.14), transparent 60%),
-      radial-gradient(360px 260px at 30% 78%, rgba(0,200,220,0.12), transparent 60%),
-      linear-gradient(180deg, #04293a 0%, #05445e 22%, #0a6480 42%, #023047 68%, #011627 100%);
+      radial-gradient(260px 160px at 78% 6%,  rgba(255,255,255,0.35), transparent 65%),
+      radial-gradient(180px 120px at 30% 14%, rgba(255,255,255,0.18), transparent 65%),
+      radial-gradient(420px 260px at 85% 55%, rgba(255,255,255,0.10), transparent 60%),
+      radial-gradient(380px 240px at 15% 85%, rgba(255,255,255,0.08), transparent 60%),
+      linear-gradient(180deg, #073b4c 0%, #0c5b6e 14%, #12879a 36%, #17a3b3 52%, #128094 68%, #0a5568 86%, #063240 100%);
     background-repeat: no-repeat;
   }
-  /* Deeper, slower swell — parallax back layer */
+  /* Deep rolling swell — slow parallax back layer, tiled down the whole sidebar */
   .sidebar::before {
     content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    pointer-events: none; z-index: 0; opacity: 0.55;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%2070'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,35%20Q37.5,10%2075,35%20T150,35%20T225,35%20T300,35%20V70%20H0%20Z'%20fill='%237fd8e8'%20fill-opacity='0.16'/%3E%3C/svg%3E");
-    background-repeat: repeat; background-size: 300px 70px; background-position: 0 10px;
-    animation: oceanWaveSlow 16s linear infinite;
+    pointer-events: none; z-index: 0; opacity: 0.8;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20340%2090'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,48%20Q42.5,14%2085,48%20T170,48%20T255,48%20T340,48%20V90%20H0%20Z'%20fill='%23eafbff'%20fill-opacity='0.20'/%3E%3Cpath%20d='M0,50%20Q42.5,20%2085,50%20T170,50%20T255,50%20T340,50%20V52%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.30'/%3E%3C/svg%3E");
+    background-repeat: repeat; background-size: 340px 90px; background-position: 0 6px;
+    animation: oceanWaveSlow 15s linear infinite;
   }
-  /* Foam ripple — faster front layer */
+  /* Foam ripple crests — faster front layer, more contrast for a lively look */
   .sidebar::after {
     content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    pointer-events: none; z-index: 0; opacity: 0.5;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20200%2036'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,18%20Q25,4%2050,18%20T100,18%20T150,18%20T200,18%20V36%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.14'/%3E%3C/svg%3E");
-    background-repeat: repeat; background-size: 200px 36px; background-position: 0 28px;
-    animation: oceanWaveFast 9s linear infinite reverse;
+    pointer-events: none; z-index: 0; opacity: 0.85;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20220%2040'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,22%20Q27.5,2%2055,22%20T110,22%20T165,22%20T220,22%20V40%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.24'/%3E%3Cpath%20d='M0,23%20Q27.5,7%2055,23%20T110,23%20T165,23%20T220,23%20V25%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.55'/%3E%3C/svg%3E");
+    background-repeat: repeat; background-size: 220px 40px; background-position: 0 34px;
+    animation: oceanWaveFast 7s linear infinite reverse;
   }
-  @keyframes oceanWaveSlow { from { background-position-x: 0; } to { background-position-x: -300px; } }
-  @keyframes oceanWaveFast { from { background-position-x: 0; } to { background-position-x: -200px; } }
+  @keyframes oceanWaveSlow { from { background-position-x: 0; } to { background-position-x: -340px; } }
+  @keyframes oceanWaveFast { from { background-position-x: 0; } to { background-position-x: -220px; } }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
   /* Everything the person actually navigates with floats in its own frosted-glass
@@ -3842,7 +3857,8 @@ window.iglSaveNavVisibility = function() {
   <!--  MAIN DASHBOARD (Welcome) -->
   <div class="page active" id="page-dashboard">
     <div id="mainDashboardBanner" style="background:linear-gradient(135deg,#0b3d5c 0%,#1a5276 45%,#117a65 100%);border-radius:14px;padding:48px 32px;text-align:center;color:#fff;box-shadow:0 8px 28px rgba(10,60,90,0.25);position:relative;overflow:hidden;">
-      <div id="dashStarField" style="position:absolute;inset:0;overflow:hidden;pointer-events:none;"></div>
+      <div id="dashStarField" style="position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;"></div>
+      <div id="dashCloudField" style="position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;"></div>
       <div id="dashWeatherWidget" style="position:absolute;top:16px;right:20px;z-index:3;text-align:right;">
         <div id="dash-weather-city" style="font-size:11px;color:#eaf6ff;opacity:0.9;white-space:nowrap;">📍 গাজীপুর</div>
         <div id="dash-weather-temp" style="font-size:19px;font-weight:800;color:#fff;white-space:nowrap;">--°C</div>
@@ -21750,8 +21766,10 @@ function renderMainDashboardWelcome() {
   var bnDateEl = document.getElementById('dash-date-bangla');
   if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
   try { loadDashboardWeather(); } catch(e) {}
-  try { initDashStarfield(); } catch(e) {}
+  try { updateDashboardSky(IGL_WEATHER_CACHE ? IGL_WEATHER_CACHE.code : null); } catch(e) {}
   try { setInterval(loadDashboardWeather, 15 * 60 * 1000); } catch(e) {}
+  // আবহাওয়া না বদলালেও দিন-রাত পরিবর্তন ধরতে প্রতি ৫ মিনিটে আকাশ রিচেক হবে
+  try { setInterval(function(){ updateDashboardSky(IGL_WEATHER_CACHE ? IGL_WEATHER_CACHE.code : null); }, 5 * 60 * 1000); } catch(e) {}
 }
 
 // ── Dashboard Weather Widget — Open-Meteo (ফ্রি, কোনো API key লাগে না) ──
@@ -21797,9 +21815,10 @@ function _iglRenderWeather(temp, code, cityName, feelsLike) {
   if (feelsEl) feelsEl.textContent = 'অনুভূত হচ্ছে ' + Math.round(feelsLike) + '°C';
   if (descEl) descEl.textContent = info[0] + ' ' + info[1];
   if (cityEl) cityEl.textContent = '📍 ' + (cityName || 'গাজীপুর');
+  try { updateDashboardSky(code); } catch(e) {}
 }
 
-// ── Dashboard Banner — Twinkling Star Field (গ্যালাক্সি এফেক্ট) ──
+// ── Dashboard Banner — Twinkling Star Field (গ্যালাক্সি এফেক্ট, শুধু রাতে দেখা যায়) ──
 function initDashStarfield() {
   var field = document.getElementById('dashStarField');
   if (!field || field.dataset.built === '1') return;
@@ -21824,6 +21843,86 @@ function initDashStarfield() {
       + '"></div>';
   }
   field.innerHTML = html;
+}
+
+// ── Dashboard Banner — আবহাওয়া ও সময় অনুযায়ী আকাশের চেহারা বদলায় ──
+// (শুধু ব্যানারের ব্যাকগ্রাউন্ড/অ্যানিমেশন — কোনো ডাটা বা ক্যালকুলেশন স্পর্শ করে না)
+function _iglIsNightNow() {
+  var hour = new Date().getHours();
+  return (hour < 5 || hour >= 20); // dash-welcome-msg-এর "শুভ রাত্রি" সীমার সাথে সামঞ্জস্যপূর্ণ
+}
+
+// weather_code (Open-Meteo) → মেঘের ঘনত্ব ক্যাটাগরি
+function _iglCloudTierFromCode(code) {
+  if (code === 0) return 'clear';                                   // পরিষ্কার আকাশ — মেঘ নেই
+  if (code === 1) return 'mostly-clear';                             // মূলত পরিষ্কার — হালকা মেঘ
+  if (code === 2) return 'partly';                                   // আংশিক মেঘলা
+  if (code === 3 || code === 45 || code === 48) return 'cloudy';     // মেঘলা/কুয়াশা
+  if (code >= 51) return 'stormy';                                   // বৃষ্টি/ঝড় — ঘন কালচে মেঘ, দ্রুত চলবে
+  return 'partly';
+}
+
+function renderDashClouds(tier, isNight) {
+  var field = document.getElementById('dashCloudField');
+  if (!field) return;
+
+  var cfg = {
+    'clear':        { count: 0, opacity: 0, minDur: 0,  maxDur: 0,  color: '' },
+    'mostly-clear': { count: 2, opacity: 0.16, minDur: 34, maxDur: 46, color: '255,255,255' },
+    'partly':       { count: 4, opacity: 0.26, minDur: 26, maxDur: 38, color: '255,255,255' },
+    'cloudy':       { count: 7, opacity: 0.4,  minDur: 20, maxDur: 30, color: isNight ? '150,160,175' : '235,240,245' },
+    'stormy':       { count: 9, opacity: 0.5,  minDur: 12, maxDur: 18, color: isNight ? '90,95,105' : '120,128,138' }
+  }[tier] || { count: 0, opacity: 0, minDur: 0, maxDur: 0, color: '' };
+
+  // রাতে মেঘলা হলেও মেঘ একটু ম্লান — তারার আলো যাতে কিছুটা দেখা যায়
+  var nightDim = isNight ? 0.75 : 1;
+
+  var html = '';
+  for (var i = 0; i < cfg.count; i++) {
+    var top = 6 + Math.random() * 55;           // ব্যানারের উপরের অংশে ছড়ানো
+    var width = 60 + Math.random() * 90;         // px
+    var height = width * (0.32 + Math.random() * 0.1);
+    var dur = (cfg.minDur + Math.random() * (cfg.maxDur - cfg.minDur)).toFixed(1);
+    var delay = (-Math.random() * dur).toFixed(1); // এলোমেলো শুরু, যাতে সব মেঘ একসাথে না আসে
+    var opac = (cfg.opacity * (0.7 + Math.random() * 0.5) * nightDim).toFixed(2);
+    html += '<div class="dash-cloud" style="'
+      + 'top:' + top + '%; width:' + width.toFixed(0) + 'px; height:' + height.toFixed(0) + 'px;'
+      + 'background:rgba(' + cfg.color + ',' + opac + ');'
+      + 'animation:dashCloudDrift ' + dur + 's linear ' + delay + 's infinite;'
+      + '"></div>';
+  }
+  field.innerHTML = html;
+}
+
+function updateDashboardSky(weatherCode) {
+  var banner = document.getElementById('mainDashboardBanner');
+  var starField = document.getElementById('dashStarField');
+  if (!banner) return;
+
+  var isNight = _iglIsNightNow();
+  var tier = (weatherCode === null || weatherCode === undefined) ? 'partly' : _iglCloudTierFromCode(weatherCode);
+  var stateKey = (isNight ? 'night' : 'day') + ':' + tier;
+  if (banner.dataset.skyState === stateKey) return; // অবস্থা একই থাকলে আবার রিবিল্ড করার দরকার নেই
+  banner.dataset.skyState = stateKey;
+
+  var gradients = {
+    'day:clear':        'linear-gradient(135deg,#2e86c1 0%,#5dade2 40%,#85c1e9 75%,#aed6f1 100%)',
+    'day:mostly-clear': 'linear-gradient(135deg,#2874a6 0%,#5499c7 40%,#7fb3d5 75%,#a9cce3 100%)',
+    'day:partly':       'linear-gradient(135deg,#34689b 0%,#5b84a8 45%,#8ba3b8 80%,#c5d1d8 100%)',
+    'day:cloudy':       'linear-gradient(135deg,#5d6d7e 0%,#7b8a97 45%,#a3aeb8 80%,#d0d7dc 100%)',
+    'day:stormy':       'linear-gradient(135deg,#34495e 0%,#4a5b6d 45%,#6b7b8a 80%,#8d99a3 100%)',
+    'night:clear':        'linear-gradient(135deg,#0b3d5c 0%,#1a5276 45%,#117a65 100%)',
+    'night:mostly-clear': 'linear-gradient(135deg,#0a3550 0%,#174a68 45%,#0f6b58 100%)',
+    'night:partly':       'linear-gradient(135deg,#082a40 0%,#123c55 45%,#0d5747 100%)',
+    'night:cloudy':       'linear-gradient(135deg,#071b2c 0%,#0d2438 50%,#0a2e2e 100%)',
+    'night:stormy':       'linear-gradient(135deg,#050f18 0%,#081826 50%,#071e1e 100%)'
+  };
+  banner.style.background = gradients[stateKey] || gradients['night:clear'];
+
+  if (starField) starField.style.display = isNight ? 'block' : 'none';
+  if (isNight) initDashStarfield();
+
+  renderDashClouds(tier, isNight);
 }
 
 function loadDashboardWeather() {
