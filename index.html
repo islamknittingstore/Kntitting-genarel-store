@@ -428,10 +428,12 @@ if('serviceWorker' in navigator){
   .compact-form-grid.cf-cols-4 { grid-template-columns: repeat(4, minmax(200px, 1fr)); }
   .compact-form-grid.cf-cols-5 .cf-stack,
   .compact-form-grid.cf-cols-4 .cf-stack { grid-row: span 3; align-self: stretch; justify-content: space-between; }
+  .compact-form-grid.cf-cols-4 .cf-stack-4 { grid-row: span 4; align-self: stretch; justify-content: space-between; }
   @media (max-width: 900px) {
     .compact-form-grid.cf-cols-5, .compact-form-grid.cf-cols-4 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
     .compact-form-grid.cf-cols-5 .cf-stack,
-    .compact-form-grid.cf-cols-4 .cf-stack { grid-row: auto; }
+    .compact-form-grid.cf-cols-4 .cf-stack,
+    .compact-form-grid.cf-cols-4 .cf-stack-4 { grid-row: auto; }
   }
   .cf-pair { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .cf-pair label { flex: 0 0 108px; font-weight: 700; color: #1a5276; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -4011,14 +4013,14 @@ window.iglSaveNavVisibility = function() {
         <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📥 Receive Form</span>
       </div>
       <div class="card-body">
-        <div class="compact-form-grid cf-cols-5">
-          <div class="cf-stack">
+        <div class="compact-form-grid cf-cols-4">
+          <div class="cf-stack cf-stack-4">
             <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
             <div class="cf-pair"><label>Item Group</label><select class="form-control" id="r-category" onchange="filterRItems()"><option value="">-- Select Group --</option></select></div>
             <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
+            <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
           </div>
 
-          <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
           <div class="cf-pair"><label>Challan No.</label><input type="text" class="form-control" id="r-chalan" placeholder="optional"></div>
           <div class="cf-pair"><label>Supplier Name</label><input type="text" class="form-control" id="r-supplier" placeholder="optional" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)"><datalist id="r-supplier-list"></datalist></div>
           <div class="cf-pair"><label>Brand Name</label><input type="text" class="form-control" id="r-brand" placeholder="optional" autocomplete="off" list="r-brand-list" onchange="gsSaveBrandName(this.value)"><datalist id="r-brand-list"></datalist></div>
@@ -4037,10 +4039,11 @@ window.iglSaveNavVisibility = function() {
               <option value="Coil">Coil</option>
             </select></div>
           <div class="cf-pair"><label>Bill No.</label><input type="text" class="form-control" id="r-bill" placeholder="optional"></div>
-          <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()"></div>
 
+          <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()"></div>
           <div class="cf-pair"><label>Amount (টাকা)</label><input type="number" class="form-control" id="r-amount" placeholder="Rate x Qty (auto)" min="0" step="0.01"></div>
           <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
+
           <div class="cf-pair"><label>Current Stock</label><div id="r-stock-badge" style="padding:6px 0;"></div></div>
         </div>
         <div class="divider"></div>
