@@ -423,6 +423,7 @@ if('serviceWorker' in navigator){
 
   /* Compact ERP-style form: label পাশে (উপরে না), একসাথে অনেক ফিল্ড ঘন সাজানো */
   .compact-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 18px; align-items: center; }
+  .cf-stack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .cf-pair { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .cf-pair label { flex: 0 0 108px; font-weight: 700; color: #1a5276; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cf-pair .form-control, .cf-pair select.form-control {
@@ -4002,10 +4003,12 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div class="card-body">
         <div class="compact-form-grid">
-          <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
-          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="r-category" onchange="filterRItems()"><option value="">-- Select Group --</option></select></div>
-          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
-          <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
+          <div class="cf-stack">
+            <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
+            <div class="cf-pair"><label>Item Group</label><select class="form-control" id="r-category" onchange="filterRItems()"><option value="">-- Select Group --</option></select></div>
+            <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
+            <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
+          </div>
 
           <div class="cf-pair"><label>Challan No.</label><input type="text" class="form-control" id="r-chalan" placeholder="optional"></div>
           <div class="cf-pair"><label>Supplier Name</label><input type="text" class="form-control" id="r-supplier" placeholder="optional" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)"><datalist id="r-supplier-list"></datalist></div>
@@ -4074,10 +4077,12 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div class="card-body">
         <div class="compact-form-grid">
-          <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="i-date"></div>
-          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="i-category" onchange="filterIItems()"><option value="">-- Select Group --</option></select></div>
-          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="i-group" onchange="filterICategory()"><option value="">-- Select Category --</option></select></div>
-          <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="i-item" onchange="updateIssueStock()"><option value="">-- Select Item --</option></select></div>
+          <div class="cf-stack">
+            <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="i-date"></div>
+            <div class="cf-pair"><label>Item Group</label><select class="form-control" id="i-category" onchange="filterIItems()"><option value="">-- Select Group --</option></select></div>
+            <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="i-group" onchange="filterICategory()"><option value="">-- Select Category --</option></select></div>
+            <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="i-item" onchange="updateIssueStock()"><option value="">-- Select Item --</option></select></div>
+          </div>
 
           <div class="cf-pair"><label>Issue Slip No. *</label><input type="text" class="form-control" id="i-slip" placeholder="e.g. SLP-2026-001"></div>
           <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="i-qty" placeholder="Enter quantity" min="1"></div>
