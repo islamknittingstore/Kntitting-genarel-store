@@ -4014,18 +4014,22 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div class="card-body">
         <div class="compact-form-grid cf-cols-4">
-          <div class="cf-stack cf-stack-4">
-            <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
-            <div class="cf-pair"><label>Item Group</label><select class="form-control" id="r-category" onchange="filterRItems()"><option value="">-- Select Group --</option></select></div>
-            <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
-            <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
-          </div>
-
+          <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
           <div class="cf-pair"><label>Challan No.</label><input type="text" class="form-control" id="r-chalan" placeholder="optional"></div>
           <div class="cf-pair"><label>Supplier Name</label><input type="text" class="form-control" id="r-supplier" placeholder="optional" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)"><datalist id="r-supplier-list"></datalist></div>
-          <div class="cf-pair"><label>Brand Name</label><input type="text" class="form-control" id="r-brand" placeholder="optional" autocomplete="off" list="r-brand-list" onchange="gsSaveBrandName(this.value)"><datalist id="r-brand-list"></datalist></div>
+          <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
 
+          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
+          <div class="cf-pair"><label>Bill No.</label><input type="text" class="form-control" id="r-bill" placeholder="optional"></div>
+          <div class="cf-pair"><label>Brand Name</label><input type="text" class="form-control" id="r-brand" placeholder="optional" autocomplete="off" list="r-brand-list" onchange="gsSaveBrandName(this.value)"><datalist id="r-brand-list"></datalist></div>
+          <div class="cf-pair"><label>Amount (টাকা)</label><input type="number" class="form-control" id="r-amount" placeholder="Rate x Qty (auto)" min="0" step="0.01"></div>
+
+          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="r-category" onchange="filterRItems()"><option value="">-- Select Group --</option></select></div>
+          <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()"></div>
           <div class="cf-pair"><label>Country Of Origin</label><input type="text" class="form-control" id="r-country" placeholder="optional" autocomplete="off" list="r-country-list" onchange="gsSaveCountryName(this.value)"><datalist id="r-country-list"></datalist></div>
+          <div class="cf-pair"><label>Current Stock</label><div id="r-stock-badge" style="padding:6px 0;"></div></div>
+
+          <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="r-item" onchange="updateReceiveStock()"><option value="">-- Select Item --</option></select></div>
           <div class="cf-pair"><label>Unit</label><select class="form-control" id="r-unit">
               <option value="Pcs" selected>Pcs</option>
               <option value="Kg">Kg</option>
@@ -4038,13 +4042,6 @@ window.iglSaveNavVisibility = function() {
               <option value="Feet">Feet</option>
               <option value="Coil">Coil</option>
             </select></div>
-          <div class="cf-pair"><label>Bill No.</label><input type="text" class="form-control" id="r-bill" placeholder="optional"></div>
-
-          <div class="cf-pair"><label>Quantity *</label><input type="number" class="form-control" id="r-qty" placeholder="Enter quantity" min="1" oninput="rCalcAmount()"></div>
-          <div class="cf-pair"><label>Amount (টাকা)</label><input type="number" class="form-control" id="r-amount" placeholder="Rate x Qty (auto)" min="0" step="0.01"></div>
-          <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
-
-          <div class="cf-pair"><label>Current Stock</label><div id="r-stock-badge" style="padding:6px 0;"></div></div>
         </div>
         <div class="divider"></div>
         <div class="action-bar">
