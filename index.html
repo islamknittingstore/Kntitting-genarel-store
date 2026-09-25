@@ -247,42 +247,29 @@ if('serviceWorker' in navigator){
   }
   .btn-autosave-connect:hover { background: rgba(52,152,219,0.5); color: #fff; }
 
-  /*  Sidebar — Live Ocean Wave View v2 (richer tropical sea look, pure CSS + tiny inline SVG, no image files)  */
+  /*  Sidebar — Static Beach Scene (Photo 1 style: sky, sea, surf line, sand) — pure CSS, no image files, no animation  */
   .sidebar {
     position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
     padding: 10px 0 20px; overflow-y: auto; overflow-x: hidden; z-index: 900;
     scrollbar-width: thin; scrollbar-color: #2c3e50 transparent;
-    background-color: #073b4c;
+    background-color: #b9a173;
     background-image:
-      radial-gradient(260px 160px at 78% 6%,  rgba(255,255,255,0.35), transparent 65%),
-      radial-gradient(180px 120px at 30% 14%, rgba(255,255,255,0.18), transparent 65%),
-      radial-gradient(420px 260px at 85% 55%, rgba(255,255,255,0.10), transparent 60%),
-      radial-gradient(380px 240px at 15% 85%, rgba(255,255,255,0.08), transparent 60%),
-      linear-gradient(180deg, #073b4c 0%, #0c5b6e 14%, #12879a 36%, #17a3b3 52%, #128094 68%, #0a5568 86%, #063240 100%);
+      radial-gradient(200px 100px at 76% 4%,  rgba(255,255,255,0.55), transparent 70%),
+      radial-gradient(150px 75px at 28% 7%,   rgba(255,255,255,0.30), transparent 70%),
+      url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20220%2054'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,26%20Q27.5,4%2055,26%20T110,26%20T165,26%20T220,26%20L220,54%20L0,54%20Z'%20fill='%23ffffff'%20fill-opacity='0.92'/%3E%3Cpath%20d='M0,30%20Q27.5,14%2055,30%20T110,30%20T165,30%20T220,30%20L220,54%20L0,54%20Z'%20fill='%23eaf7f4'%20fill-opacity='0.6'/%3E%3C/svg%3E"),
+      linear-gradient(180deg,
+        #3f93c9 0%, #6cb8de 6%, #a9d8e6 11%, #cfe9ec 14%,
+        #0c6f88 15%, #0b7f92 21%, #129fa7 31%, #3cbbb7 40%,
+        #7fd4c6 47%, #d8f2e8 50%,
+        #eee6cf 53%, #ddc99a 57%, #c9b381 63%, #b9a173 100%);
     background-repeat: no-repeat;
+    background-size: auto, auto, 220px 54px, auto;
+    background-position: 0 0, 0 0, 0 46%, 0 0;
   }
-  /* Deep rolling swell — slow parallax back layer, tiled down the whole sidebar */
-  .sidebar::before {
-    content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    pointer-events: none; z-index: 0; opacity: 0.8;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20340%2090'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,48%20Q42.5,14%2085,48%20T170,48%20T255,48%20T340,48%20V90%20H0%20Z'%20fill='%23eafbff'%20fill-opacity='0.20'/%3E%3Cpath%20d='M0,50%20Q42.5,20%2085,50%20T170,50%20T255,50%20T340,50%20V52%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.30'/%3E%3C/svg%3E");
-    background-repeat: repeat; background-size: 340px 90px; background-position: 0 6px;
-    animation: oceanWaveSlow 15s linear infinite;
-  }
-  /* Foam ripple crests — faster front layer, more contrast for a lively look */
-  .sidebar::after {
-    content: ''; position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
-    pointer-events: none; z-index: 0; opacity: 0.85;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20220%2040'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,22%20Q27.5,2%2055,22%20T110,22%20T165,22%20T220,22%20V40%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.24'/%3E%3Cpath%20d='M0,23%20Q27.5,7%2055,23%20T110,23%20T165,23%20T220,23%20V25%20H0%20Z'%20fill='%23ffffff'%20fill-opacity='0.55'/%3E%3C/svg%3E");
-    background-repeat: repeat; background-size: 220px 40px; background-position: 0 34px;
-    animation: oceanWaveFast 7s linear infinite reverse;
-  }
-  @keyframes oceanWaveSlow { from { background-position-x: 0; } to { background-position-x: -340px; } }
-  @keyframes oceanWaveFast { from { background-position-x: 0; } to { background-position-x: -220px; } }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
   /* Everything the person actually navigates with floats in its own frosted-glass
-     panel above the live waves below — purely visual, no structural/data changes. */
+     panel above the beach scene below — purely visual, no structural/data changes. */
   .sidebar-section, .sidebar-menu, .sidebar-group, .sidebar-submenu,
   .sidebar-subgroup-header { position: relative; z-index: 1; }
 
