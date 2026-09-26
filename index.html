@@ -133,6 +133,7 @@ if('serviceWorker' in navigator){
     --issue-color: #922b21;
     --stock-color: #117a65;
     --navbar-h: 60px;
+    --topnav-h: 44px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
@@ -265,7 +266,7 @@ if('serviceWorker' in navigator){
 
   /*  Sidebar — Sunset Rocky Shore photo background, with dark overlay for text legibility  */
   .sidebar {
-    position: fixed; top: var(--navbar-h); left: 0; bottom: 0; width: 220px;
+    position: fixed; top: calc(var(--navbar-h) + var(--topnav-h)); left: 0; bottom: 0; width: 220px;
     padding: 10px 0 20px; overflow-y: auto; overflow-x: hidden; z-index: 900;
     scrollbar-width: thin; scrollbar-color: #2c3e50 transparent;
     background-color: #0c1b26;
@@ -279,6 +280,21 @@ if('serviceWorker' in navigator){
   }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
+
+  /* ── Top-level section nav — Dashboard / Store / Needle / Stationery / Packaging / Settings / Personal, side-by-side under the navbar ── */
+  .top-section-nav {
+    position: fixed; top: var(--navbar-h); left: 0; right: 0; height: var(--topnav-h);
+    background: #0c1b26; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden;
+    z-index: 950; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .top-section-nav .tsn-item {
+    display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;
+    padding: 0 16px; font-size: 13px; font-weight: 600; color: #d6e4ea;
+    border-bottom: 3px solid transparent; transition: all 0.15s;
+  }
+  .top-section-nav .tsn-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .top-section-nav .tsn-item.active { background: rgba(255,255,255,0.12); color: #fff; border-bottom-color: #2ecc71; }
+  .top-section-nav .tsn-item .tsn-icon { font-size: 15px; }
   /* Everything the person actually navigates with floats in its own frosted-glass
      panel above the beach scene below — purely visual, no structural/data changes. */
   .sidebar-section, .sidebar-menu, .sidebar-group, .sidebar-submenu,
@@ -364,7 +380,7 @@ if('serviceWorker' in navigator){
   .sidebar-section.sec-settings{ color: #f06292; }
 
   /*  Main Content  */
-  .main { margin-left: 220px; padding-top: var(--navbar-h); min-height: 100vh; }
+  .main { margin-left: 220px; padding-top: calc(var(--navbar-h) + var(--topnav-h)); min-height: 100vh; }
   .page { display: none; padding: 25px; position: relative; overflow: visible; }
   .page.active { display: block; }
 
@@ -709,7 +725,7 @@ if('serviceWorker' in navigator){
       font-weight: 700 !important;
       -webkit-text-stroke: 0.2px #000 !important;
     }
-    .sidebar, .navbar, .action-bar, .no-print { display: none !important; }
+    .sidebar, .navbar, .top-section-nav, .action-bar, .no-print { display: none !important; }
     .main { margin-left: 0 !important; width:100% !important; padding:0 !important; }
     .page { padding: 4px !important; width:100% !important; max-width:100% !important; }
     .card { box-shadow: none; border: 1px solid #ccc; }
@@ -840,6 +856,7 @@ if('serviceWorker' in navigator){
     /* Machine Wise print — hide everything except grid */
     body.print-mw .sidebar,
     body.print-mw .navbar,
+    body.print-mw .top-section-nav,
     body.print-mw .no-print,
     body.print-mw .card-header,
     body.print-mw .page:not(#page-needle_monthly) { display:none !important; }
@@ -1067,6 +1084,7 @@ if('serviceWorker' in navigator){
     /* Machine Wise print — hide everything except grid */
     body.print-mw .sidebar,
     body.print-mw .navbar,
+    body.print-mw .top-section-nav,
     body.print-mw .no-print,
     body.print-mw .card-header,
     body.print-mw .page:not(#page-needle_monthly) { display:none !important; }
@@ -3724,14 +3742,25 @@ window.iglSaveNavVisibility = function() {
 </nav>
 
 <!-- Sidebar -->
+<!-- Top-level Section Nav (Dashboard / Store / Needle / Stationery / Packaging / Settings / Personal) -->
+<div class="top-section-nav" id="topSectionNav">
+  <div class="tsn-item active" id="tsn-dashboard" onclick="selectTopSection('dashboard', this)"><span class="tsn-icon">🏠</span> Dashboard</div>
+  <div class="tsn-item" id="tsn-store" onclick="selectTopSection('store', this)"><span class="tsn-icon">🏭</span> Knitting General Store</div>
+  <div class="tsn-item" id="tsn-needle" onclick="selectTopSection('needle', this)"><span class="tsn-icon">🪡</span> Needle Section</div>
+  <div class="tsn-item" id="tsn-stn" onclick="selectTopSection('stn', this)"><span class="tsn-icon">🖊️</span> Stationery</div>
+  <div class="tsn-item" id="tsn-pkg" onclick="selectTopSection('pkg', this)"><span class="tsn-icon">📦</span> Packaging</div>
+  <div class="tsn-item admin-only-action" id="tsn-cfg" onclick="selectTopSection('cfg', this)"><span class="tsn-icon">⚙️</span> Settings</div>
+  <div class="tsn-item admin-only-action" id="tsn-vault" onclick="selectTopSection('vault', this)"><span class="tsn-icon">🔐</span> Personal</div>
+</div>
+
 <div class="sidebar">
   <!-- Dashboard -->
-  <ul class="sidebar-menu menu-main" style="padding:4px 0 2px;">
+  <ul class="sidebar-menu menu-main" style="padding:4px 0 2px;display:none;">
     <li><a href="#" class="active" id="menu-dashboard" onclick="showPage('dashboard', this); return false;"><span class="icon">🏠</span> Dashboard</a></li>
   </ul>
 
   <!-- Knitting General Store -->
-  <div class="sidebar-group" id="grp-store">
+  <div class="sidebar-group" id="grp-store" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('store')">
       <span class="grp-icon">🏭</span>
       <span class="grp-title">Knitting General Store</span>
@@ -3752,7 +3781,7 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!-- Needle Section -->
-  <div class="sidebar-group" id="grp-needle">
+  <div class="sidebar-group" id="grp-needle" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('needle')">
       <span class="grp-icon">🪡</span>
       <span class="grp-title">Needle Section</span>
@@ -3819,7 +3848,7 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!-- Stationery -->
-  <div class="sidebar-group" id="grp-stn">
+  <div class="sidebar-group" id="grp-stn" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('stn')">
       <span class="grp-icon">🖊️</span>
       <span class="grp-title">Stationery</span>
@@ -3833,7 +3862,7 @@ window.iglSaveNavVisibility = function() {
     </ul>
   </div>
 
-  <div class="sidebar-group" id="grp-pkg">
+  <div class="sidebar-group" id="grp-pkg" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('pkg')">
       <span class="grp-icon">📦</span>
       <span class="grp-title">Packaging</span>
@@ -3847,7 +3876,7 @@ window.iglSaveNavVisibility = function() {
   </div>
 
   <!-- Settings -->
-  <div class="sidebar-group admin-only-action" id="grp-cfg">
+  <div class="sidebar-group admin-only-action" id="grp-cfg" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('cfg')">
       <span class="grp-icon">⚙️</span>
       <span class="grp-title">Settings</span>
@@ -3865,7 +3894,7 @@ window.iglSaveNavVisibility = function() {
     </ul>
   </div>
 
-  <div class="sidebar-group admin-only-action" id="grp-vault">
+  <div class="sidebar-group admin-only-action" id="grp-vault" style="display:none;">
     <div class="sidebar-group-header" onclick="toggleGroup('vault')">
       <span class="grp-icon">🔐</span>
       <span class="grp-title">Personal</span>
@@ -10907,7 +10936,7 @@ function _masterSaveNewPw() {
 // Show Lock button on Master Data page
 function masterLock() {
   _masterUnlocked = false;
-  showPage('dashboard', document.querySelector('.sidebar-menu.menu-main li a'));
+  showPage('dashboard', document.getElementById('tsn-dashboard'));
   toast('🔒 Master Data, Needle Master ও Needle Map locked!', 'warning');
 }
 
@@ -10922,6 +10951,29 @@ function toggleGroup(id) {
   if (hdr) { hdr.classList.toggle('open', !isOpen); }
   // Save state
   try { localStorage.setItem('grp_' + id, isOpen ? '0' : '1'); } catch(e) {}
+}
+
+// ── Top-level Section Nav — Dashboard/Store/Needle/Stationery/Packaging/Settings/Personal ──
+var IGL_TOP_GROUPS = ['store', 'needle', 'stn', 'pkg', 'cfg', 'vault'];
+function iglShowOnlySidebarGroup(key) {
+  IGL_TOP_GROUPS.forEach(function(g) {
+    var el = document.getElementById('grp-' + g);
+    if (el) el.style.display = (g === key) ? '' : 'none';
+  });
+  document.querySelectorAll('.top-section-nav .tsn-item').forEach(function(x) { x.classList.remove('active'); });
+  var tsn = document.getElementById('tsn-' + (key || 'dashboard'));
+  if (tsn) tsn.classList.add('active');
+}
+
+function selectTopSection(id, el) {
+  if (id === 'dashboard') {
+    iglShowOnlySidebarGroup(null);
+    showPage('dashboard', document.getElementById('tsn-dashboard'));
+    return;
+  }
+  iglShowOnlySidebarGroup(id);
+  var sub = document.getElementById('sub-' + id);
+  if (sub && sub.style.display === 'none') toggleGroup(id);
 }
 
 function restoreGroupStates() {
@@ -10981,6 +11033,7 @@ function showPage(name, el) {
   var pg = document.getElementById('page-' + name);
   if (!pg) { alert('Page not found: ' + name); return; }
   pg.style.display = 'block';
+  if (name === 'dashboard') { try { iglShowOnlySidebarGroup(null); } catch(e) {} }
   if (el) {
     el.classList.add('active');
     // Auto-open parent group
@@ -10988,6 +11041,11 @@ function showPage(name, el) {
     if (sub) {
       var grpId = sub.id.replace('sub-', '');
       if (sub.style.display === 'none') toggleGroup(grpId);
+    }
+    // Keep the top-level section nav / sidebar-group selection in sync
+    var grpDiv = el.closest('.sidebar-group');
+    if (grpDiv) {
+      try { iglShowOnlySidebarGroup(grpDiv.id.replace('grp-', '')); } catch(e) {}
     }
   }
 
