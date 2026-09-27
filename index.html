@@ -4951,11 +4951,9 @@ window.iglSaveNavVisibility = function() {
                   <option value="">-- Select Department --</option>
                 </select>
               </div>
-              <div class="form-group" style="position:relative;">
+              <div class="form-group">
                 <label>Employee</label>
-                <input type="text" class="form-control" id="stn-i-employee" placeholder="ID (শেষ ৪ ডিজিট) বা নাম লিখুন" autocomplete="off" oninput="stnEmployeeFilter(this.value)" onfocus="stnEmployeeFilter(this.value)" onblur="setTimeout(stnEmployeeCloseSuggest, 150)">
-                <input type="hidden" id="stn-i-employee-id">
-                <div id="stn-i-employee-suggest" style="display:none;position:absolute;z-index:50;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.18);max-height:220px;overflow-y:auto;width:100%;margin-top:2px;"></div>
+                <select class="form-control" id="stn-i-employee"><option value="">-- Employee সিলেক্ট করুন --</option></select>
               </div>
               <div class="form-group">
                 <label>Remarks</label>
@@ -5039,6 +5037,7 @@ window.iglSaveNavVisibility = function() {
             </div>
           </div>
           <button class="btn btn-sm" onclick="stnExportExcel()" style="background:rgba(34,139,34,0.5);color:#fff;border:1px solid rgba(255,255,255,0.4);">📊 Excel</button>
+          <button class="btn btn-sm admin-only-action" onclick="stnOpenRemarksMigration()" style="background:rgba(230,126,34,0.6);color:#fff;border:1px solid rgba(255,255,255,0.4);">🔄 Remarks→Employee</button>
         </div>
       </div>
       <div class="card-body" style="padding:12px 16px 0;">
@@ -6560,86 +6559,92 @@ function ok(msg) {
     <div class="card" style="border-top:4px solid #e67e22;">
       <div class="card-header" style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;">📋 Multi-Needle Issue — এক Machine এ একবারে সব Needle</div>
       <div class="card-body">
-        <div class="form-grid">
-          <div>
-            <div class="form-group"><label>Date *</label><input type="date" class="form-control" id="nmi-date"></div>
-            <div class="form-group"><label>Issue Type *</label>
-              <select class="form-control" id="nmi-type" style="width:100%;font-weight:700;border:2px solid #bdc3c7;border-radius:5px;transition:background 0.2s,color 0.2s,border-color 0.2s;" onchange="nmiTypeColor(this)">
-                <option value="broken"  style="background:#fff3f3;color:#c0392b;font-weight:700;">🔴 Broken</option>
-                <option value="afterwash" style="background:#ebf5fb;color:#1a5276;font-weight:700;">🔵 After Wash</option>
-                <option value="designing" style="background:#e9f7ef;color:#1e8449;font-weight:700;">🟢 Design</option>
-                <option value="flatknit" style="background:#fef9e7;color:#9a7d0a;font-weight:700;">🟡 Flat Knit</option>
-                <option value="retail"  style="background:#f4ecf7;color:#7d3c98;font-weight:700;">🟣 Retail</option>
-                <option value="newset"  style="background:#fef5e7;color:#d35400;font-weight:700;">🟠 New Set</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Needle Type *</label>
-              <select class="form-control" id="nmi-needle-type" style="width:100%;" onchange="nmiNeedleTypeChange(this)">
-                <option value="new">🔵 New Needle</option>
-                <option value="used">♻️ Used Needle</option>
-              </select>
-            </div>
-            <!-- Used Needle Warning Banner -->
-            <div id="nmi-used-banner" style="display:none;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px;font-weight:700;">
-              ♻️ <b>Used Needle Issue</b> — শুধু Used Needle Stock-এ দেখাবে।
-            </div>
-            <!-- Used Needle Issue Type -->
-            <div class="form-group" id="nmi-used-type-row" style="display:none;">
-              <label style="font-weight:700;color:#e67e22;">♻️ Used Issue Type *</label>
-              <select class="form-control" id="nmi-used-type" style="width:100%;font-weight:700;border:2px solid #e67e22;">
-                <option value="broken" style="color:#c0392b;font-weight:700;">🔴 Broken (Used)</option>
-                <option value="afterwash" style="color:#1a5276;font-weight:700;">🔵 After Wash (Used)</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Shift *</label>
-              <select class="form-control" id="nmi-shift" style="width:100%;font-weight:700;" onchange="stickyWorker('nmi-shift',this.value)">
-                <option value="A">A Shift (সকাল)</option>
-                <option value="B">B Shift (দুপুর)</option>
-                <option value="C">C Shift (রাত)</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Supervisor</label>
-              <select class="form-control" id="nmi-worker" style="width:100%;" onchange="stickyWorker('nmi-worker',this.value)">
-                <option value="">-- Select Supervisor --</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Remarks</label>
-              <select class="form-control" id="nmi-remarks-drop" style="width:100%;margin-bottom:4px;" onchange="nmiRemarksDropChange()">
-                <option value="">-- Select Remarks --</option>
-              </select>
-              <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
-                style="background:#f0f3f7;color:#1a5276;font-weight:600;">
-            </div>
+        <div class="compact-form-grid cf-cols-4">
+          <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="nmi-date"></div>
+          <div class="cf-pair"><label>Issue Type *</label>
+            <select class="form-control" id="nmi-type" style="font-weight:700;border:2px solid #bdc3c7;transition:background 0.2s,color 0.2s,border-color 0.2s;" onchange="nmiTypeColor(this)">
+              <option value="broken"  style="background:#fff3f3;color:#c0392b;font-weight:700;">🔴 Broken</option>
+              <option value="afterwash" style="background:#ebf5fb;color:#1a5276;font-weight:700;">🔵 After Wash</option>
+              <option value="designing" style="background:#e9f7ef;color:#1e8449;font-weight:700;">🟢 Design</option>
+              <option value="flatknit" style="background:#fef9e7;color:#9a7d0a;font-weight:700;">🟡 Flat Knit</option>
+              <option value="retail"  style="background:#f4ecf7;color:#7d3c98;font-weight:700;">🟣 Retail</option>
+              <option value="newset"  style="background:#fef5e7;color:#d35400;font-weight:700;">🟠 New Set</option>
+            </select>
           </div>
-          <div>
-            <div class="form-group"><label>Section / Category</label>
-              <select class="form-control" id="nmi-cat" onchange="nmiLoadMachines()" style="width:100%;">
-                <option value="">All</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Machine Number *</label>
-              <select class="form-control" id="nmi-machine-input" onchange="nmiOnMachineSelect(this.value)" style="width:100%;">
-                <option value="">-- ERP নম্বর সিলেক্ট করুন --</option>
-              </select>
-              <input type="hidden" id="nmi-machine">
-            </div>
-            <div class="form-group"><label>Machine ID</label>
-              <input type="text" class="form-control" id="nmi-machine-id-display" readonly
-                placeholder="ERP No. সিলেক্ট করলে auto আসবে"
-                style="background:#f0f3f7;color:#1a5276;font-weight:700;cursor:default;">
-            </div>
+          <div class="cf-pair"><label>Needle Type *</label>
+            <select class="form-control" id="nmi-needle-type" onchange="nmiNeedleTypeChange(this)">
+              <option value="new">🔵 New Needle</option>
+              <option value="used">♻️ Used Needle</option>
+            </select>
+          </div>
+          <div class="cf-pair"><label>Shift *</label>
+            <select class="form-control" id="nmi-shift" style="font-weight:700;" onchange="stickyWorker('nmi-shift',this.value)">
+              <option value="A">A Shift (সকাল)</option>
+              <option value="B">B Shift (দুপুর)</option>
+              <option value="C">C Shift (রাত)</option>
+            </select>
+          </div>
 
-            <!-- Machine Needle Stock Panel -->
-            <div id="nmi-machine-stock-panel" style="display:none;margin-top:4px;border:1.5px solid #e67e22;border-radius:8px;overflow:hidden;">
-              <div style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;padding:7px 12px;font-size:12px;font-weight:700;">
-                📦 এই Machine এর Needle Stock
-              </div>
-              <div id="nmi-machine-stock-body" style="padding:6px 8px;background:#fff9f0;"></div>
-              <div style="padding:8px 10px;background:#fff9f0;border-top:1px solid #f0dcc8;display:flex;align-items:center;gap:10px;">
-                <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:160px;font-size:14px;">✅ Save All Issues</button>
-                <span id="nmi-count-top" style="color:#e67e22;font-size:13px;font-weight:600;"></span>
-              </div>
-            </div>
+          <div class="cf-pair"><label>Supervisor</label>
+            <select class="form-control" id="nmi-worker" onchange="stickyWorker('nmi-worker',this.value)">
+              <option value="">-- Select Supervisor --</option>
+            </select>
+          </div>
+          <div class="cf-pair"><label>Section / Category</label>
+            <select class="form-control" id="nmi-cat" onchange="nmiLoadMachines()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="cf-pair"><label>Machine Number *</label>
+            <select class="form-control" id="nmi-machine-input" onchange="nmiOnMachineSelect(this.value)">
+              <option value="">-- ERP নম্বর সিলেক্ট করুন --</option>
+            </select>
+            <input type="hidden" id="nmi-machine">
+          </div>
+          <div class="cf-pair"><label>Machine ID</label>
+            <input type="text" class="form-control" id="nmi-machine-id-display" readonly
+              placeholder="ERP No. সিলেক্ট করলে auto আসবে"
+              style="background:#f0f3f7;color:#1a5276;font-weight:700;cursor:default;">
+          </div>
+
+          <div class="cf-pair"><label>Remarks</label>
+            <select class="form-control" id="nmi-remarks-drop" onchange="nmiRemarksDropChange()">
+              <option value="">-- Select Remarks --</option>
+            </select>
+          </div>
+          <div class="cf-pair"><label>Remarks Note</label>
+            <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
+              style="background:#f0f3f7;color:#1a5276;font-weight:600;">
+          </div>
+          <div class="cf-pair"><label>Employee</label>
+            <select class="form-control" id="nmi-employee"><option value="">-- Employee (ঐচ্ছিক) --</option></select>
+          </div>
+          <div></div>
+        </div>
+
+        <!-- Used Needle Warning Banner -->
+        <div id="nmi-used-banner" style="display:none;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;border-radius:8px;padding:10px 14px;margin:14px 0 0;font-size:12px;font-weight:700;">
+          ♻️ <b>Used Needle Issue</b> — শুধু Used Needle Stock-এ দেখাবে।
+        </div>
+        <!-- Used Needle Issue Type -->
+        <div id="nmi-used-type-row" style="display:none;max-width:320px;margin-top:10px;">
+          <label style="font-weight:700;color:#e67e22;font-size:12px;">♻️ Used Issue Type *</label>
+          <select class="form-control" id="nmi-used-type" style="font-weight:700;border:2px solid #e67e22;">
+            <option value="broken" style="color:#c0392b;font-weight:700;">🔴 Broken (Used)</option>
+            <option value="afterwash" style="color:#1a5276;font-weight:700;">🔵 After Wash (Used)</option>
+          </select>
+        </div>
+
+        <!-- Machine Needle Stock Panel -->
+        <div id="nmi-machine-stock-panel" style="display:none;margin-top:14px;border:1.5px solid #e67e22;border-radius:8px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;padding:7px 12px;font-size:12px;font-weight:700;">
+            📦 এই Machine এর Needle Stock
+          </div>
+          <div id="nmi-machine-stock-body" style="padding:6px 8px;background:#fff9f0;"></div>
+          <div style="padding:8px 10px;background:#fff9f0;border-top:1px solid #f0dcc8;display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:160px;font-size:14px;">✅ Save All Issues</button>
+            <span id="nmi-count-top" style="color:#e67e22;font-size:13px;font-weight:600;"></span>
+          </div>
         </div>
         <!-- Needle list for selected machine -->
         <div id="nmi-needle-list" style="margin-top:15px;display:none;">
@@ -11251,7 +11256,7 @@ function showPage(name, el) {
     }
     else if (name === 'stationery_dashboard') renderStationeryDashboard();
     else if (name === 'stn_item_master') {
-      if (!isAdmin && !iglHasPermission('stn_item_master')) { showPage('stationery_dashboard'); return; }
+      if (!(window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin') && !iglHasPermission('stn_item_master')) { showPage('stationery_dashboard'); return; }
       stnItemMasterRender();
     }
     else if (name === 'stn_requisition') {
@@ -12506,6 +12511,7 @@ function stnToggleForm(type) {
     if (!isOpen2) {
       stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
       stnPopulateDeptDropdown();
+      stnPopulateEmployeeDropdown();
       if (!document.getElementById('stn-i-date').value) document.getElementById('stn-i-date').value = todayStr();
       document.getElementById('stn-i-item').focus();
       stnInitRemarksDatalist();
@@ -12691,40 +12697,140 @@ function stnInitRemarksDatalist(){
   }).join('');
 }
 
-// ── Employee search dropdown (Stationery/Packaging Issue) — matches by name substring OR any part of ID (incl. last 4 digits) ──
-function stnEmployeeFilter(q) {
-  var box = document.getElementById('stn-i-employee-suggest');
-  if (!box) return;
-  q = (q || '').trim().toLowerCase();
-  var idField = document.getElementById('stn-i-employee-id');
-  if (idField) idField.value = ''; // typing again clears the previously locked-in ID until re-picked
-  if (!q) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  var employees = (typeof DB !== 'undefined') ? (DB.employees || []) : [];
-  var matches = employees.filter(function(e) {
-    return (String(e.name || '').toLowerCase().indexOf(q) !== -1) ||
-           (String(e.empId || e.id || '').toLowerCase().indexOf(q) !== -1);
-  }).slice(0, 20);
-  if (matches.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML = matches.map(function(e) {
-    var eid = String(e.empId || e.id || '').replace(/'/g, "\\'");
-    var ename = String(e.name || '').replace(/'/g, "\\'");
-    return '<div style="padding:7px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid #f0f0f0;" ' +
-      'onmousedown="stnEmployeePick(\'' + eid + '\',\'' + ename + '\')">' +
-      '<b>' + (e.name || '') + '</b> — ' + (e.empId || e.id || '') +
-      '<br><span style="color:var(--text-light);font-size:11px;">' + (e.designation || '') + ' · ' + (e.shift || '') + '</span></div>';
-  }).join('');
-  box.style.display = 'block';
+// ── Employee dropdown helper — shared by Issue form, Edit modal, and Migration tool ──
+// Groups by Shift (optgroup) and shows Name — Designation (ID) so same-name employees are distinguishable.
+function stnBuildEmployeeOptions(selectedId, placeholder) {
+  var employees = ((typeof DB !== 'undefined') ? (DB.employees || []) : []).slice()
+    .sort(function(a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+  var byShift = {};
+  employees.forEach(function(e) {
+    var sh = e.shift || 'অন্যান্য';
+    if (!byShift[sh]) byShift[sh] = [];
+    byShift[sh].push(e);
+  });
+  var html = '<option value="">' + _stnEsc(placeholder || '-- Employee সিলেক্ট করুন --') + '</option>';
+  Object.keys(byShift).sort().forEach(function(sh) {
+    html += '<optgroup label="' + _stnEsc(sh) + '">';
+    byShift[sh].forEach(function(e) {
+      var eid = e.empId || e.id || '';
+      var sel = (String(eid) === String(selectedId || '')) ? ' selected' : '';
+      html += '<option value="' + _stnEsc(eid) + '"' + sel + '>' + _stnEsc(e.name || '') + ' — ' + _stnEsc(e.designation || '') + ' (' + _stnEsc(eid) + ')</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
 }
-function stnEmployeePick(empId, name) {
-  var nameField = document.getElementById('stn-i-employee');
-  var idField = document.getElementById('stn-i-employee-id');
-  if (nameField) nameField.value = name;
-  if (idField) idField.value = empId;
-  stnEmployeeCloseSuggest();
+function stnPopulateEmployeeDropdown(selectedId) {
+  var sel = document.getElementById('stn-i-employee');
+  if (sel) sel.innerHTML = stnBuildEmployeeOptions(selectedId, '-- Employee সিলেক্ট করুন --');
 }
-function stnEmployeeCloseSuggest() {
-  var box = document.getElementById('stn-i-employee-suggest');
-  if (box) box.style.display = 'none';
+
+// ── Remarks → Employee one-time migration tool (Stationery/Packaging) ──
+var _stnMigrateGroups = [];
+function _stnEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function stnOpenRemarksMigration() {
+  var existing = document.getElementById('stn-migrate-overlay');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'stn-migrate-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px;box-sizing:border-box;';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:12px;width:98%;max-width:900px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);margin:auto;">' +
+      '<div style="background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:14px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-size:16px;font-weight:800;">🔄 Remarks → Employee মাইগ্রেশন</div>' +
+        '<div style="font-size:11px;opacity:0.9;">আগের Remarks-এ লেখা নামগুলো এখন Employee ফিল্ডে বসিয়ে দিন — একবার হলেই সেই নামের সব পুরনো Issue রেকর্ড আপডেট হয়ে যাবে</div></div>' +
+        '<button onclick="document.getElementById(\'stn-migrate-overlay\').remove();" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1;">✕</button>' +
+      '</div>' +
+      '<div id="stn-migrate-body" style="padding:16px 20px;max-height:70vh;overflow-y:auto;"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  stnRenderRemarksMigration();
+}
+
+function stnRenderRemarksMigration() {
+  var body = document.getElementById('stn-migrate-body');
+  if (!body) return;
+  var stnItems = DB.stnItems.filter(function(it) { return stnGetHiddenItems().indexOf(it.id) === -1; });
+  var stnNames = stnItems.map(function(i) { return i.name; });
+
+  // Group un-migrated issues (has remarks, no employeeName yet) by exact remarks text
+  var groupMap = {};
+  (DB.issues || []).forEach(function(r) {
+    if (!stnNames.includes(r.item)) return;
+    if (r.employeeName) return; // already linked to an employee
+    var txt = (r.remarks || '').trim();
+    if (!txt) return;
+    var dept = r.machineId || '-';
+    var key = txt + '||' + dept;
+    if (!groupMap[key]) groupMap[key] = { remarks: txt, dept: dept, count: 0 };
+    groupMap[key].count++;
+  });
+
+  _stnMigrateGroups = Object.keys(groupMap).map(function(k) { return groupMap[k]; })
+    .sort(function(a, b) { return b.count - a.count; });
+
+  if (_stnMigrateGroups.length === 0) {
+    body.innerHTML = '<p style="text-align:center;color:#27ae60;font-weight:700;padding:30px 0;">✅ সব Remarks ইতিমধ্যে Employee-এর সাথে মিলে গেছে অথবা কোনো Remarks বাকি নেই।</p>';
+    return;
+  }
+
+  body.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:10px;">প্রতিটা পুরনো Remarks-এর জন্য সঠিক Employee ড্রপডাউন থেকে বেছে নিয়ে "Replace" চাপুন। একই নাম আলাদা আলাদা ডিপার্টমেন্টে আলাদা সারি হিসেবে দেখানো হয়েছে, যাতে "ফরহাদ (Quality)" আর "ফরহাদ (General)" — দুইজনকে সঠিক আলাদা Employee-এর সাথে মেলাতে পারেন।</div>' +
+    '<table style="width:100%;border-collapse:collapse;">' +
+    '<thead><tr style="background:#fdf2e9;"><th style="padding:6px 8px;text-align:left;font-size:12px;">পুরনো Remarks</th><th style="padding:6px 8px;text-align:left;font-size:12px;">ডিপার্টমেন্ট</th><th style="padding:6px 8px;text-align:center;font-size:12px;">সংখ্যা</th><th style="padding:6px 8px;text-align:left;font-size:12px;">Employee বাছুন</th><th style="padding:6px 8px;font-size:12px;"></th></tr></thead>' +
+    '<tbody id="stn-migrate-rows">' +
+    _stnMigrateGroups.map(function(g, i) {
+      return '<tr style="border-bottom:1px solid #f0f0f0;">' +
+        '<td style="padding:6px 8px;font-weight:700;color:#1a5276;">' + _stnEsc(g.remarks) + '</td>' +
+        '<td style="padding:6px 8px;color:#7d3c98;font-weight:600;">' + _stnEsc(g.dept) + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;">' + g.count + '</td>' +
+        '<td style="padding:6px 8px;">' +
+          '<select class="form-control" style="padding:5px 8px;font-size:12px;" id="mig-emp-select-' + i + '">' + stnBuildEmployeeOptions('', '-- Employee বাছুন --') + '</select>' +
+        '</td>' +
+        '<td style="padding:6px 8px;"><button class="btn btn-sm" style="background:#e67e22;color:#fff;" onclick="stnMigrateApply(' + i + ')">✔ Replace</button></td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+async function stnMigrateApply(i) {
+  var g = _stnMigrateGroups[i];
+  if (!g) return;
+  var selEl = document.getElementById('mig-emp-select-' + i);
+  var empId = selEl ? selEl.value : '';
+  if (!empId) { toast('আগে একজন Employee বেছে নিন!', 'warning'); return; }
+  var empObj = (DB.employees || []).find(function(e) { return String(e.empId || e.id) === String(empId); });
+  if (!empObj) { toast('Employee পাওয়া যায়নি!', 'error'); return; }
+
+  const ok = await igl_confirm(
+    '"' + g.remarks + '" (ডিপার্টমেন্ট: ' + g.dept + ') — এই ' + g.count + 'টি রেকর্ডে Employee হিসেবে "' + empObj.name + '" বসাবেন?',
+    'Remarks খালি হয়ে যাবে, এই কাজ undo করা যাবে না।', '🔄'
+  );
+  if (!ok) return;
+
+  var stnItems = DB.stnItems.filter(function(it) { return stnGetHiddenItems().indexOf(it.id) === -1; });
+  var stnNames = stnItems.map(function(it) { return it.name; });
+  var arr = DB.issues;
+  var updated = 0;
+  arr.forEach(function(r) {
+    if (!stnNames.includes(r.item)) return;
+    if (r.employeeName) return;
+    if ((r.remarks || '').trim() !== g.remarks) return;
+    if ((r.machineId || '-') !== g.dept) return;
+    r.employeeName = empObj.name;
+    r.employeeId = empObj.empId || empObj.id;
+    r.remarks = '';
+    updated++;
+  });
+  DB.issues = arr;
+  triggerAutoSave();
+  toast('✅ ' + updated + 'টি রেকর্ড আপডেট হয়েছে!');
+  stnRenderRemarksMigration();
+  renderStationeryDashboard();
 }
 
 async function stnSaveIssue() {
@@ -12735,8 +12841,9 @@ async function stnSaveIssue() {
   var dept    = document.getElementById('stn-i-dept').value;
   var remarks = document.getElementById('stn-i-remarks').value;
   var section = (document.getElementById('stn-i-section')||{}).value || 'Stationery';
-  var employeeName = (document.getElementById('stn-i-employee')||{}).value || '';
-  var employeeId   = (document.getElementById('stn-i-employee-id')||{}).value || '';
+  var employeeId   = (document.getElementById('stn-i-employee')||{}).value || '';
+  var _empObj      = employeeId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(employeeId); }) : null;
+  var employeeName = _empObj ? (_empObj.name || '') : '';
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
@@ -12785,7 +12892,6 @@ function stnClearIssueForm() {
   document.getElementById('stn-i-dept').value    = '';
   document.getElementById('stn-i-remarks').value = '';
   document.getElementById('stn-i-employee').value = '';
-  document.getElementById('stn-i-employee-id').value = '';
   document.getElementById('stn-i-stock-badge').innerHTML = '';
 }
 
@@ -12854,11 +12960,11 @@ function stnGetTableData() {
     return {
       title: 'Stationery — Slip-wise Issue Report',
       subtitle: (q?'Filter: "'+q+'" | ':'')+dateInfo+' | Print Date: '+today,
-      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks'],
+      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks','Employee'],
       rows: slipIss.map(function(r,i){
-        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-'];
+        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-', r.employeeName||'-'];
       }),
-      totals: ['','Total','','','', sTot, '']
+      totals: ['','Total','','','', sTot, '','']
     };
   }
 
@@ -12871,11 +12977,11 @@ function stnGetTableData() {
     return {
       title: 'Stationery — Department-wise Issue Report',
       subtitle: (q?'Filter: "'+q+'" | ':'')+dateInfo+' | Print Date: '+today,
-      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks'],
+      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks','Employee'],
       rows: deptIss.map(function(r,i){
-        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-'];
+        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-', r.employeeName||'-'];
       }),
-      totals: ['','Total','','','', dTot, '']
+      totals: ['','Total','','','', dTot, '','']
     };
   }
   return null;
@@ -16267,6 +16373,11 @@ function stnInjectEditModal() {
             <option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>
           </select>
         </div>
+        <div id="stn-edit-employee-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">Employee</label>
+          <select id="stn-edit-employee" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;background:#fff;">
+          </select>
+        </div>
         <div id="stn-edit-chalan-wrap" style="display:none;">
           <label style="font-size:12px;font-weight:600;color:#555;">চালান নং</label>
           <input type="text" id="stn-edit-chalan" placeholder="চালান নং" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
@@ -16335,6 +16446,8 @@ function stnEditTx(type, id) {
     document.getElementById('stn-edit-item-wrap').style.display    = '';
     document.getElementById('stn-edit-qty-wrap').style.display     = '';
     document.getElementById('stn-edit-dept-wrap').style.display    = '';
+    document.getElementById('stn-edit-employee-wrap').style.display = '';
+    document.getElementById('stn-edit-employee').innerHTML = stnBuildEmployeeOptions(entry.employeeId, '-- কোনো Employee না --');
     document.getElementById('stn-edit-chalan-wrap').style.display  = 'none';
     document.getElementById('stn-edit-exclprint-wrap').style.display = 'none';
   } else {
@@ -16343,6 +16456,7 @@ function stnEditTx(type, id) {
     document.getElementById('stn-edit-item-wrap').style.display    = '';
     document.getElementById('stn-edit-qty-wrap').style.display     = '';
     document.getElementById('stn-edit-dept-wrap').style.display    = 'none';
+    document.getElementById('stn-edit-employee-wrap').style.display = 'none';
     document.getElementById('stn-edit-chalan-wrap').style.display  = '';
     document.getElementById('stn-edit-exclprint-wrap').style.display = '';
     document.getElementById('stn-edit-exclprint').checked = !!entry.excludeReqPrint;
@@ -16364,6 +16478,8 @@ function stnEditTx(type, id) {
     if (_lkErrSE) { toast(_lkErrSE, 'error'); return; }
 
     if (type === 'ISSUE') {
+      var _editEmpId = document.getElementById('stn-edit-employee').value.trim();
+      var _editEmpObj = _editEmpId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(_editEmpId); }) : null;
       DB.issues = DB.issues.map(function(r) {
         if (r.id !== id) return r;
         return Object.assign({}, r, {
@@ -16372,7 +16488,9 @@ function stnEditTx(type, id) {
           qty:       newQty,
           slip:      document.getElementById('stn-edit-slip').value.trim()  || r.slip,
           machineId: document.getElementById('stn-edit-dept').value.trim()  || r.machineId,
-          remarks:   document.getElementById('stn-edit-remarks').value.trim()
+          remarks:   document.getElementById('stn-edit-remarks').value.trim(),
+          employeeId:   _editEmpId,
+          employeeName: _editEmpObj ? _editEmpObj.name : ''
         });
       });
     } else {
@@ -16587,12 +16705,12 @@ function renderStationeryDashboard() {
         +'</div>';
       html += '<table><thead><tr>'
         +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="stn-chk-all-iss" onchange="stnBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
-        +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
+        +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Employee</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
-        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="stn-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td><td>'+(r.employeeName||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
-      html += '<tr style="background:#922b21;color:#fff;font-weight:700;">'+(_isAdminIss?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="3"></td></tr>';
+      html += '<tr style="background:#922b21;color:#fff;font-weight:700;">'+(_isAdminIss?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="4"></td></tr>';
       html += '</tbody></table>';
     }
   }
@@ -24328,7 +24446,8 @@ async function deleteSelectedMachines() {
   toast(toDelete.length + ' machine(s) deleted.', 'warning');
 }
 
-// ── Employees master data — table, search, add, delete ──
+// ── Employees master data — table, search, add, edit, delete ──
+var _editingEmployeeIdx = null;
 function renderEmployees() {
   const employees = DB.employees || [];
   const q = (document.getElementById('master-employee-search') || {}).value || '';
@@ -24343,6 +24462,20 @@ function renderEmployees() {
   if (etbody) {
     etbody.innerHTML = filtered.map(function(e, i) {
       var origIdx = employees.indexOf(e);
+      if (origIdx === _editingEmployeeIdx) {
+        return '<tr style="background:#fff8e1;">' +
+          '<td class="admin-only-action"></td>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td><input type="text" class="form-control" style="padding:3px 6px;font-size:12px;" id="edit-emp-id-' + origIdx + '" value="' + (e.empId || e.id || '') + '"></td>' +
+          '<td><input type="text" class="form-control" style="padding:3px 6px;font-size:12px;" id="edit-emp-name-' + origIdx + '" value="' + (e.name || '') + '"></td>' +
+          '<td><input type="text" class="form-control" style="padding:3px 6px;font-size:12px;" id="edit-emp-desig-' + origIdx + '" value="' + (e.designation || '') + '"></td>' +
+          '<td><input type="text" class="form-control" style="padding:3px 6px;font-size:12px;" id="edit-emp-shift-' + origIdx + '" value="' + (e.shift || '') + '"></td>' +
+          '<td class="admin-only-action" style="white-space:nowrap;">' +
+            '<button class="btn-del" style="background:#27ae60;" onclick="saveEditEmployee(' + origIdx + ')">✔</button> ' +
+            '<button class="btn-del" onclick="cancelEditEmployee()">✕</button>' +
+          '</td>' +
+        '</tr>';
+      }
       return '<tr>' +
         '<td class="admin-only-action"><input type="checkbox" class="employee-chk" data-idx="' + origIdx + '"></td>' +
         '<td>' + (i + 1) + '</td>' +
@@ -24350,7 +24483,10 @@ function renderEmployees() {
         '<td>' + (e.name || '') + '</td>' +
         '<td>' + (e.designation || '') + '</td>' +
         '<td>' + (e.shift || '') + '</td>' +
-        '<td class="admin-only-action"><button class="btn-del" onclick="deleteEmployee(' + origIdx + ')">X</button></td>' +
+        '<td class="admin-only-action" style="white-space:nowrap;">' +
+          '<button class="btn-del" style="background:#2980b9;" onclick="editEmployeeRow(' + origIdx + ')">✏️</button> ' +
+          '<button class="btn-del" onclick="deleteEmployee(' + origIdx + ')">X</button>' +
+        '</td>' +
       '</tr>';
     }).join('') || '<tr><td colspan="7" class="no-data">No employees found</td></tr>';
   }
@@ -24367,6 +24503,37 @@ function renderEmployees() {
     employees.forEach(function(e) { if (e.shift) shiftSet[e.shift] = true; });
     dlShift.innerHTML = Object.keys(shiftSet).sort().map(function(s) { return '<option value="' + s + '">'; }).join('');
   }
+}
+
+function editEmployeeRow(idx) {
+  _editingEmployeeIdx = idx;
+  renderEmployees();
+}
+
+function cancelEditEmployee() {
+  _editingEmployeeIdx = null;
+  renderEmployees();
+}
+
+function saveEditEmployee(idx) {
+  var idEl = document.getElementById('edit-emp-id-' + idx);
+  var nameEl = document.getElementById('edit-emp-name-' + idx);
+  var desigEl = document.getElementById('edit-emp-desig-' + idx);
+  var shiftEl = document.getElementById('edit-emp-shift-' + idx);
+  var newId = (idEl.value || '').trim();
+  var newName = (nameEl.value || '').trim();
+  var newDesig = (desigEl.value || '').trim();
+  var newShift = (shiftEl.value || '').trim();
+  if (!newId || !newName) { toast('Emp ID এবং Name দিতে হবে!', 'warning'); return; }
+  var arr = DB.employees;
+  var dupIdx = arr.findIndex(function(e, i) { return i !== idx && String(e.empId || e.id) === newId; });
+  if (dupIdx !== -1) { toast('❌ এই Emp ID অন্য এমপ্লয়ির সাথে মিলে যাচ্ছে!', 'warning'); return; }
+  arr[idx] = { id: newId, empId: newId, name: newName, designation: newDesig, shift: newShift };
+  DB.employees = arr;
+  _editingEmployeeIdx = null;
+  renderEmployees();
+  triggerAutoSave();
+  toast('✅ Employee updated!');
 }
 
 function addEmployee() {
@@ -34538,6 +34705,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     nmiLoadMachines();
     nmiRenderLog();
     try { renderTodayNeedle(); } catch(e) {}
+    try { var _nmiEmpSel = document.getElementById('nmi-employee'); if (_nmiEmpSel) _nmiEmpSel.innerHTML = stnBuildEmployeeOptions('', '-- Employee (ঐচ্ছিক) --'); } catch(e) {}
     // Restore sticky shift
     var stickyShift = localStorage.getItem('sticky_supervisor_nmi-shift')||'A';
     var shiftSel = document.getElementById('nmi-shift');
@@ -35195,6 +35363,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var worker=(document.getElementById('nmi-worker')||{}).value||'';
     var shift=(document.getElementById('nmi-shift')||{}).value||'A';
     var needleType=(document.getElementById('nmi-needle-type')||{}).value||'new';
+    var empId=(document.getElementById('nmi-employee')||{}).value||'';
+    var empObj = empId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(empId); }) : null;
+    var employeeName = empObj ? (empObj.name||'') : '';
 
     // ─── Stock Balance Check (New Needle only) ────────────────────────────────
     if (needleType !== 'used') {
@@ -35274,6 +35445,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         needleType:needleType,
         qty:qty, remarks:remarks,
         needleId:actualNId, needle:actualNeedle.name||actualNeedle.code||'', worker:worker, shift:shift,
+        employeeId:empId, employeeName:employeeName,
         userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'')
       };
       arr.push(rec);
@@ -37692,6 +37864,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var allRcvs = ndlGetRcv ? ndlGetRcv().filter(function(r){return (r.needleStockType||'new')==='new';}) : [];
     var allIss  = (typeof NDB!=='undefined') ? NDB.needles.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr';}) : [];
     var saveBtnEl = document.getElementById('ndlm-bf-save-all-btn');
+    var labelEl = document.getElementById('ndlm-bf-date-label');
     if(labelEl){
       if(bfDate){
         var p=bfDate.split('-');
@@ -40367,6 +40540,8 @@ function buildNeedleEditForm(e) {
     +'</div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📝 Remarks</label>'
       +'<input type="text" id="edit-n-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">👤 Employee (ঐচ্ছিক)</label>'
+      +'<select id="edit-n-employee" class="form-control">'+stnBuildEmployeeOptions(e.employeeId, '-- Employee (ঐচ্ছিক) --')+'</select></div>'
   +'</div>';
 }
 
@@ -40508,6 +40683,9 @@ async function saveEditEntry() {
     var worker     = (document.getElementById('edit-n-worker')||{}).value||'';
     var remarks    = (document.getElementById('edit-n-remarks')||{}).value||'';
     var newNeedleId = (document.getElementById('edit-n-needleid')||{}).value||'';
+    var empId       = (document.getElementById('edit-n-employee')||{}).value||'';
+    var empObj      = empId ? (DB.employees||[]).find(function(x){ return String(x.empId||x.id) === String(empId); }) : null;
+    var employeeName = empObj ? (empObj.name||'') : '';
 
     if (!date)        { toast('তারিখ দিন!','warning'); return; }
     if (!machine)     { toast('Machine সিলেক্ট করুন!','warning'); return; }
@@ -40538,6 +40716,8 @@ async function saveEditEntry() {
       needleId: newNeedleId,
       needle: needleCode,
       needleCode: needleCode,
+      employeeId: empId,
+      employeeName: employeeName,
       erp: mInfo.erp||arr[idx].erp,
       section: mInfo.section||arr[idx].section,
       gauge: mInfo.gauge||arr[idx].gauge,
