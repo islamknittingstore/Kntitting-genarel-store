@@ -4951,6 +4951,12 @@ window.iglSaveNavVisibility = function() {
                   <option value="">-- Select Department --</option>
                 </select>
               </div>
+              <div class="form-group" style="position:relative;">
+                <label>Employee</label>
+                <input type="text" class="form-control" id="stn-i-employee" placeholder="ID (শেষ ৪ ডিজিট) বা নাম লিখুন" autocomplete="off" oninput="stnEmployeeFilter(this.value)" onfocus="stnEmployeeFilter(this.value)" onblur="setTimeout(stnEmployeeCloseSuggest, 150)">
+                <input type="hidden" id="stn-i-employee-id">
+                <div id="stn-i-employee-suggest" style="display:none;position:absolute;z-index:50;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.18);max-height:220px;overflow-y:auto;width:100%;margin-top:2px;"></div>
+              </div>
               <div class="form-group">
                 <label>Remarks</label>
                 <input type="text" class="form-control" id="stn-i-remarks" placeholder="Any remarks (optional)" autocomplete="off" list="stn-remarks-list" oninput="stnRemarksFilter(this.value)">
@@ -12685,6 +12691,42 @@ function stnInitRemarksDatalist(){
   }).join('');
 }
 
+// ── Employee search dropdown (Stationery/Packaging Issue) — matches by name substring OR any part of ID (incl. last 4 digits) ──
+function stnEmployeeFilter(q) {
+  var box = document.getElementById('stn-i-employee-suggest');
+  if (!box) return;
+  q = (q || '').trim().toLowerCase();
+  var idField = document.getElementById('stn-i-employee-id');
+  if (idField) idField.value = ''; // typing again clears the previously locked-in ID until re-picked
+  if (!q) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var employees = (typeof DB !== 'undefined') ? (DB.employees || []) : [];
+  var matches = employees.filter(function(e) {
+    return (String(e.name || '').toLowerCase().indexOf(q) !== -1) ||
+           (String(e.empId || e.id || '').toLowerCase().indexOf(q) !== -1);
+  }).slice(0, 20);
+  if (matches.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = matches.map(function(e) {
+    var eid = String(e.empId || e.id || '').replace(/'/g, "\\'");
+    var ename = String(e.name || '').replace(/'/g, "\\'");
+    return '<div style="padding:7px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid #f0f0f0;" ' +
+      'onmousedown="stnEmployeePick(\'' + eid + '\',\'' + ename + '\')">' +
+      '<b>' + (e.name || '') + '</b> — ' + (e.empId || e.id || '') +
+      '<br><span style="color:var(--text-light);font-size:11px;">' + (e.designation || '') + ' · ' + (e.shift || '') + '</span></div>';
+  }).join('');
+  box.style.display = 'block';
+}
+function stnEmployeePick(empId, name) {
+  var nameField = document.getElementById('stn-i-employee');
+  var idField = document.getElementById('stn-i-employee-id');
+  if (nameField) nameField.value = name;
+  if (idField) idField.value = empId;
+  stnEmployeeCloseSuggest();
+}
+function stnEmployeeCloseSuggest() {
+  var box = document.getElementById('stn-i-employee-suggest');
+  if (box) box.style.display = 'none';
+}
+
 async function stnSaveIssue() {
   var date    = document.getElementById('stn-i-date').value;
   var slip    = document.getElementById('stn-i-slip').value.trim();
@@ -12693,6 +12735,8 @@ async function stnSaveIssue() {
   var dept    = document.getElementById('stn-i-dept').value;
   var remarks = document.getElementById('stn-i-remarks').value;
   var section = (document.getElementById('stn-i-section')||{}).value || 'Stationery';
+  var employeeName = (document.getElementById('stn-i-employee')||{}).value || '';
+  var employeeId   = (document.getElementById('stn-i-employee-id')||{}).value || '';
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
@@ -12720,7 +12764,7 @@ async function stnSaveIssue() {
   }
 
   var iss = { id: Date.now(), date: date, slip: slip, group: section, category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-              machineId: dept, machineNo: '', machineCat: section, remarks: remarks };
+              machineId: dept, machineNo: '', machineCat: section, remarks: remarks, employeeName: employeeName, employeeId: employeeId };
   var arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -12740,6 +12784,8 @@ function stnClearIssueForm() {
   document.getElementById('stn-i-qty').value     = '';
   document.getElementById('stn-i-dept').value    = '';
   document.getElementById('stn-i-remarks').value = '';
+  document.getElementById('stn-i-employee').value = '';
+  document.getElementById('stn-i-employee-id').value = '';
   document.getElementById('stn-i-stock-badge').innerHTML = '';
 }
 
