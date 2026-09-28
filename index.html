@@ -16724,7 +16724,7 @@ function stnEditTx(type, id) {
   var saveBtn = document.getElementById('stn-edit-save-btn');
   var newBtn = saveBtn.cloneNode(true);
   saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-  newBtn.onclick = function() {
+  newBtn.onclick = async function() {
     var newDate = document.getElementById('stn-edit-date').value.trim();
     var newItem = document.getElementById('stn-edit-item').value.trim();
     var newQty  = Number(document.getElementById('stn-edit-qty').value);
@@ -16738,19 +16738,57 @@ function stnEditTx(type, id) {
     if (type === 'ISSUE') {
       var _editEmpId = document.getElementById('stn-edit-employee').value.trim();
       var _editEmpObj = _editEmpId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(_editEmpId); }) : null;
+      var _newRemarks = document.getElementById('stn-edit-remarks').value.trim();
+      var _origRemarks = (entry.remarks || '').trim();
+      var _newDept = document.getElementById('stn-edit-dept').value.trim() || entry.machineId;
+
+      // Remarks → Employee auto-propagation:
+      // এই এন্ট্রিতে আগে Employee ছিল না, Remarks-এ নাম ছিল, এখন Employee বসানো হয়েছে (Remarks অপরিবর্তিত)
+      // → একই Remarks + একই ডিপার্টমেন্টের বাকি সব পুরনো Issue-তেও Employee বসবে, Remarks খালি হবে।
+      var _propagate = !!(_editEmpObj && !entry.employeeName && _origRemarks && _newRemarks === _origRemarks);
+      var _propIds = [];
+      if (_propagate) {
+        var _stnNamesP = (DB.stnItems || []).filter(function(it){ return stnGetHiddenItems().indexOf(it.id) === -1; })
+                                            .map(function(it){ return it.name; });
+        (DB.issues || []).forEach(function(r) {
+          if (r.id === id) return;
+          if (r.employeeName) return;
+          if (!_stnNamesP.includes(r.item)) return;
+          if ((r.remarks || '').trim() !== _origRemarks) return;
+          if ((r.machineId || '-') !== (entry.machineId || '-')) return;
+          _propIds.push(r.id);
+        });
+        if (_propIds.length) {
+          var _okP = await igl_confirm(
+            '"' + _origRemarks + '" (ডিপার্টমেন্ট: ' + (entry.machineId || '-') + ') নামে আরও ' + _propIds.length + 'টি Issue আছে। সেগুলোতেও Employee হিসেবে "' + _editEmpObj.name + '" বসাবেন?',
+            'Remarks খালি হয়ে যাবে। "Cancel" দিলে শুধু এই এন্ট্রি আপডেট হবে।', '🔄'
+          );
+          if (!_okP) _propIds = [];
+        }
+      }
+
       DB.issues = DB.issues.map(function(r) {
+        if (_propIds.indexOf(r.id) !== -1) {
+          return Object.assign({}, r, {
+            employeeId:   _editEmpObj.empId || _editEmpObj.id,
+            employeeName: _editEmpObj.name,
+            remarks:      ''
+          });
+        }
         if (r.id !== id) return r;
         return Object.assign({}, r, {
           date:      newDate,
           item:      newItem,
           qty:       newQty,
           slip:      document.getElementById('stn-edit-slip').value.trim()  || r.slip,
-          machineId: document.getElementById('stn-edit-dept').value.trim()  || r.machineId,
-          remarks:   document.getElementById('stn-edit-remarks').value.trim(),
+          machineId: _newDept,
+          // Employee বসানো হলে (এবং Remarks অপরিবর্তিত থাকলে) এই এন্ট্রির Remarks-ও খালি হবে
+          remarks:   _propagate ? '' : _newRemarks,
           employeeId:   _editEmpId,
           employeeName: _editEmpObj ? _editEmpObj.name : ''
         });
       });
+      if (_propIds.length) window._stnPropCount = _propIds.length; else window._stnPropCount = 0;
     } else {
       DB.receives = DB.receives.map(function(r) {
         if (r.id !== id) return r;
@@ -16768,7 +16806,8 @@ function stnEditTx(type, id) {
     document.getElementById('stn-edit-overlay').style.display = 'none';
     triggerAutoSave();
     renderStationeryDashboard();
-    toast('✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+    toast(window._stnPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._stnPropCount + 'টি Issue-এ Employee বসেছে।') : '✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+    window._stnPropCount = 0;
   };
 
   document.getElementById('stn-edit-overlay').style.display = 'flex';
