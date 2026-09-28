@@ -4957,8 +4957,7 @@ window.iglSaveNavVisibility = function() {
               </div>
               <div class="form-group">
                 <label>Remarks</label>
-                <input type="text" class="form-control" id="stn-i-remarks" placeholder="Any remarks (optional)" autocomplete="off" list="stn-remarks-list" oninput="stnRemarksFilter(this.value)">
-                <datalist id="stn-remarks-list"></datalist>
+                <input type="text" class="form-control" id="stn-i-remarks" placeholder="Any remarks (optional)" autocomplete="off">
               </div>
               <div class="form-group">
                 <label>Current Stock</label>
@@ -5486,8 +5485,7 @@ window.iglSaveNavVisibility = function() {
               </div>
               <div class="form-group">
                 <label>Remarks</label>
-                <input type="text" class="form-control" id="pkg-i-remarks" placeholder="Any remarks (optional)" autocomplete="off" list="pkg-remarks-list" oninput="pkgRemarksFilter(this.value)">
-                <datalist id="pkg-remarks-list"></datalist>
+                <input type="text" class="form-control" id="pkg-i-remarks" placeholder="Any remarks (optional)" autocomplete="off">
               </div>
               <div class="form-group">
                 <label>Current Stock</label>
@@ -12588,14 +12586,15 @@ function stnCheckDuplicateReceive(date, item, supplier, qty) {
   return existing.length > 0;
 }
 
-function stnCheckDuplicateIssue(date, item, dept, qty, remarks) {
+function stnCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId) {
   var existing = (DB.issues || []).filter(function(r) {
     return r.group     === 'Stationery'
       && r.date      === date
       && r.item      === item
       && String(r.qty) === String(qty)
       && (r.machineId || '') === (dept || '')
-      && (r.remarks || '').trim().toLowerCase() === (remarks || '').trim().toLowerCase();
+      && (r.remarks || '').trim().toLowerCase() === (remarks || '').trim().toLowerCase()
+      && String(r.employeeId || '') === String(employeeId || '');
   });
   return existing.length > 0;
 }
@@ -12662,7 +12661,8 @@ function stnGetRemarkNames(){
     var saved = JSON.parse(localStorage.getItem('igl_stn_remark_names')||'[]');
     saved.forEach(function(n){ if(n && names.indexOf(n)<0) names.push(n); });
   } catch(e){}
-  return names.sort();
+  var hidden = iglRemarkHiddenGet('igl_stn_remark_hidden');
+  return names.filter(function(n){ return hidden.indexOf(n) < 0; }).sort();
 }
 
 function stnSaveRemarkName(name){
@@ -12674,26 +12674,114 @@ function stnSaveRemarkName(name){
       localStorage.setItem('igl_stn_remark_names', JSON.stringify(saved));
     }
   } catch(e){}
+  iglRemarkHiddenRemove('igl_stn_remark_hidden', name.trim());
 }
 
-function stnRemarksFilter(val){
-  var dl = document.getElementById('stn-remarks-list');
-  if(!dl) return;
-  var names = stnGetRemarkNames();
-  var q = (val||'').trim().toLowerCase();
-  var filtered = q ? names.filter(function(n){ return n.toLowerCase().indexOf(q) === 0; }) : names;
-  dl.innerHTML = filtered.slice(0,10).map(function(n){
-    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
-  }).join('');
+// ── Remarks সাজেশন ড্রপডাউন (Stationery + Packaging) — প্রতিটি নামের পাশে ✕ ──
+// ✕ চাপলে নামটি শুধু সাজেশন তালিকা থেকে বাদ যায়; আগের Issue রেকর্ড অপরিবর্তিত থাকে।
+function iglRemarkHiddenGet(key){
+  try { return JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){ return []; }
+}
+function iglRemarkHiddenRemove(key, name){
+  try {
+    var h = iglRemarkHiddenGet(key);
+    if(h.indexOf(name) >= 0) localStorage.setItem(key, JSON.stringify(h.filter(function(n){ return n !== name; })));
+  } catch(e){}
+}
+function iglRemarkHide(hiddenKey, savedKey, name){
+  try {
+    var h = iglRemarkHiddenGet(hiddenKey);
+    if(h.indexOf(name) < 0) h.push(name);
+    localStorage.setItem(hiddenKey, JSON.stringify(h));
+    var saved = JSON.parse(localStorage.getItem(savedKey)||'[]');
+    localStorage.setItem(savedKey, JSON.stringify(saved.filter(function(n){ return n !== name; })));
+  } catch(e){}
+}
+
+function iglRemarksPicker(inputId, getNames, hideName){
+  var input = document.getElementById(inputId);
+  if(!input || input._iglRmDone) return;
+  input._iglRmDone = true;
+
+  if(!document.getElementById('igl-rm-style')){
+    var css = document.createElement('style');
+    css.id = 'igl-rm-style';
+    css.textContent =
+      '.igl-rm-list{position:fixed;z-index:100000;background:#fff;border:1.5px solid #2980b9;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:240px;overflow-y:auto;display:none;}' +
+      '.igl-rm-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f0f0;color:#222;}' +
+      '.igl-rm-item:hover,.igl-rm-item.act{background:#eaf4fb;}' +
+      '.igl-rm-x{flex:none;width:22px;height:22px;line-height:20px;text-align:center;border-radius:50%;color:#c0392b;font-weight:700;font-size:14px;}' +
+      '.igl-rm-x:hover{background:#c0392b;color:#fff;}';
+    document.head.appendChild(css);
+  }
+
+  var list = document.createElement('div');
+  list.className = 'igl-rm-list';
+  document.body.appendChild(list);
+  input.removeAttribute('list');
+  var items = [], act = -1;
+
+  function place(){
+    var r = input.getBoundingClientRect();
+    var below = window.innerHeight - r.bottom, h = Math.min(240, list.scrollHeight || 240);
+    list.style.left = r.left + 'px';
+    list.style.width = r.width + 'px';
+    if(below < h + 10 && r.top > below){ list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 2) + 'px'; }
+    else { list.style.bottom = 'auto'; list.style.top = (r.bottom + 2) + 'px'; }
+  }
+  function setAct(i){
+    var els = list.querySelectorAll('.igl-rm-item');
+    if(act >= 0 && els[act]) els[act].classList.remove('act');
+    act = i;
+    if(els[act]){ els[act].classList.add('act'); els[act].scrollIntoView({block:'nearest'}); }
+  }
+  function render(){
+    var q = (input.value||'').trim().toLowerCase();
+    var names = getNames();
+    items = (q ? names.filter(function(n){ return n.toLowerCase().indexOf(q) !== -1; }) : names).slice(0, q ? 10 : 20);
+    act = -1;
+    if(!items.length){ list.style.display = 'none'; return; }
+    list.innerHTML = items.map(function(n, i){
+      return '<div class="igl-rm-item" data-i="'+i+'"><span>'+_stnEsc(n)+'</span><span class="igl-rm-x" title="সাজেশন থেকে বাদ দিন">✕</span></div>';
+    }).join('');
+    list.style.display = 'block';
+    place();
+  }
+  function close(){ list.style.display = 'none'; }
+
+  input.addEventListener('focus', render);
+  input.addEventListener('click', render);
+  input.addEventListener('input', render);
+  input.addEventListener('blur', function(){ setTimeout(close, 150); });
+  input.addEventListener('keydown', function(e){
+    if(list.style.display !== 'block') return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); if(act < items.length - 1) setAct(act + 1); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); if(act > 0) setAct(act - 1); }
+    else if(e.key === 'Enter' && act >= 0){ e.preventDefault(); input.value = items[act]; close(); }
+    else if(e.key === 'Escape'){ close(); }
+  });
+  // mousedown (click নয়) — যাতে input-এর blur আগে না ঘটে
+  list.addEventListener('mousedown', async function(e){
+    e.preventDefault();
+    var it = e.target.closest('.igl-rm-item');
+    if(!it) return;
+    var name = items[parseInt(it.getAttribute('data-i'), 10)];
+    if(e.target.closest('.igl-rm-x')){
+      close();
+      var ok = await igl_confirm('"' + name + '" — সাজেশন তালিকা থেকে বাদ দেবেন?', 'আগের Issue রেকর্ডগুলো অপরিবর্তিত থাকবে।', '🗑️');
+      if(ok){ hideName(name); toast('Remarks সাজেশন থেকে বাদ দেওয়া হয়েছে', 'success'); }
+      input.focus();
+    } else {
+      input.value = name;
+      close();
+    }
+  });
+  window.addEventListener('resize', function(){ if(list.style.display === 'block') place(); });
+  window.addEventListener('scroll', function(){ if(list.style.display === 'block') place(); }, true);
 }
 
 function stnInitRemarksDatalist(){
-  var dl = document.getElementById('stn-remarks-list');
-  if(!dl) return;
-  var names = stnGetRemarkNames();
-  dl.innerHTML = names.slice(0,20).map(function(n){
-    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
-  }).join('');
+  iglRemarksPicker('stn-i-remarks', stnGetRemarkNames, function(n){ iglRemarkHide('igl_stn_remark_hidden', 'igl_stn_remark_names', n); });
 }
 
 // ── Employee dropdown helper — shared by Issue form, Edit modal, and Migration tool ──
@@ -13026,8 +13114,8 @@ async function stnSaveIssue() {
   if (!dept)  { toast('Please select a Department!', 'warning'); return; }
 
   // Duplicate check
-  if (stnCheckDuplicateIssue(date, item, dept, qty, remarks)) {
-    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ, পরিমাণ ও remarks-এ আগেই Issue করা হয়েছে!', 'error');
+  if (stnCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId)) {
+    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ, এমপ্লয়ি, পরিমাণ ও remarks-এ আগেই Issue করা হয়েছে!', 'error');
     return;
   }
 
@@ -18227,7 +18315,8 @@ function pkgGetRemarkNames(){
     var saved = JSON.parse(localStorage.getItem('igl_pkg_remark_names')||'[]');
     saved.forEach(function(n){ if(n && names.indexOf(n)<0) names.push(n); });
   } catch(e){}
-  return names.sort();
+  var hidden = iglRemarkHiddenGet('igl_pkg_remark_hidden');
+  return names.filter(function(n){ return hidden.indexOf(n) < 0; }).sort();
 }
 
 function pkgSaveRemarkName(name){
@@ -18239,26 +18328,11 @@ function pkgSaveRemarkName(name){
       localStorage.setItem('igl_pkg_remark_names', JSON.stringify(saved));
     }
   } catch(e){}
-}
-
-function pkgRemarksFilter(val){
-  var dl = document.getElementById('pkg-remarks-list');
-  if(!dl) return;
-  var names = pkgGetRemarkNames();
-  var q = (val||'').trim().toLowerCase();
-  var filtered = q ? names.filter(function(n){ return n.toLowerCase().indexOf(q) === 0; }) : names;
-  dl.innerHTML = filtered.slice(0,10).map(function(n){
-    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
-  }).join('');
+  iglRemarkHiddenRemove('igl_pkg_remark_hidden', name.trim());
 }
 
 function pkgInitRemarksDatalist(){
-  var dl = document.getElementById('pkg-remarks-list');
-  if(!dl) return;
-  var names = pkgGetRemarkNames();
-  dl.innerHTML = names.slice(0,20).map(function(n){
-    return '<option value="'+n.replace(/"/g,'&quot;')+'">';
-  }).join('');
+  iglRemarksPicker('pkg-i-remarks', pkgGetRemarkNames, function(n){ iglRemarkHide('igl_pkg_remark_hidden', 'igl_pkg_remark_names', n); });
 }
 
 async function pkgSaveIssue() {
