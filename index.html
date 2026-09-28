@@ -12724,6 +12724,177 @@ function stnPopulateEmployeeDropdown(selectedId) {
   if (sel) sel.innerHTML = stnBuildEmployeeOptions(selectedId, '-- Employee সিলেক্ট করুন --');
 }
 
+// ── Searchable Employee picker ─────────────────────────────────────────────
+// Native <select> can't be searched by ID / name / designation. This wraps the
+// four employee selects (Stationery/Packaging issue + edit, Needle issue + edit)
+// with a type-to-search box. The original <select> stays in the DOM and keeps
+// holding the employee ID, so every existing save/read/calculation is untouched.
+var _STN_EMP_SELECT_IDS = ['stn-i-employee', 'stn-edit-employee', 'nmi-employee', 'edit-n-employee'];
+
+function _stnEmpNorm(t) {
+  return String(t == null ? '' : t)
+    .replace(/[\u09E6-\u09EF]/g, function(c) { return String(c.charCodeAt(0) - 0x09E6); }) // Bengali digits → 0-9
+    .toLowerCase();
+}
+
+(function _stnEmpPickerInit() {
+  if (window._stnEmpPickerReady) return;
+  window._stnEmpPickerReady = true;
+
+  var css = document.createElement('style');
+  css.textContent =
+    '.stn-emp-wrap{position:relative;width:100%;}' +
+    '.stn-emp-input{width:100%;box-sizing:border-box;padding:8px 30px 8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;background:#fff;color:#222;}' +
+    '.stn-emp-input:focus{outline:none;border-color:#2980b9;}' +
+    '.stn-emp-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#888;font-size:11px;}' +
+    '.stn-emp-list{position:fixed;z-index:100000;background:#fff;border:1.5px solid #2980b9;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;display:none;}' +
+    '.stn-emp-item{padding:7px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f0f0;color:#222;}' +
+    '.stn-emp-item small{color:#777;display:block;font-size:11px;}' +
+    '.stn-emp-item.act{background:#eaf4fb;}' +
+    '.stn-emp-item.none{color:#888;font-style:italic;}' +
+    '.stn-emp-empty{padding:10px;font-size:12px;color:#999;text-align:center;}';
+  document.head.appendChild(css);
+
+  function enhance(sel) {
+    if (!sel || sel._stnEmpDone) return;
+    sel._stnEmpDone = true;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'stn-emp-wrap';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'stn-emp-input';
+    input.autocomplete = 'off';
+    input.placeholder = 'ID / নাম / Designation লিখে খুঁজুন...';
+    var caret = document.createElement('span');
+    caret.className = 'stn-emp-caret';
+    caret.textContent = '▼';
+    var list = document.createElement('div');
+    list.className = 'stn-emp-list';
+    wrap.appendChild(input);
+    wrap.appendChild(caret);
+    wrap.appendChild(list);
+    sel.parentNode.insertBefore(wrap, sel);
+    sel.style.display = 'none';
+
+    var items = [], act = -1, open = false;
+
+    function selectedText() {
+      var o = sel.options[sel.selectedIndex];
+      return (o && o.value !== '') ? o.text : '';
+    }
+    function sync() { if (!open) input.value = selectedText(); }
+
+    function allOptions() {
+      var out = [];
+      for (var i = 0; i < sel.options.length; i++) {
+        var o = sel.options[i];
+        var g = (o.parentNode && o.parentNode.tagName === 'OPTGROUP') ? o.parentNode.label : '';
+        out.push({ value: o.value, text: o.text, shift: g });
+      }
+      return out;
+    }
+
+    function place() {
+      var r = input.getBoundingClientRect();
+      var below = window.innerHeight - r.bottom, h = Math.min(260, list.scrollHeight || 260);
+      list.style.left = r.left + 'px';
+      list.style.width = r.width + 'px';
+      if (below < h + 10 && r.top > below) { list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 2) + 'px'; }
+      else { list.style.bottom = 'auto'; list.style.top = (r.bottom + 2) + 'px'; }
+    }
+
+    function render(q) {
+      var tokens = _stnEmpNorm(q).split(/\s+/).filter(Boolean);
+      var opts = allOptions(), html = '', n = 0;
+      items = [];
+      opts.forEach(function(o) {
+        var isNone = (o.value === '');
+        if (isNone) { if (tokens.length) return; }
+        else if (tokens.length) {
+          var hay = _stnEmpNorm(o.text + ' ' + o.value + ' ' + o.shift);
+          for (var t = 0; t < tokens.length; t++) if (hay.indexOf(tokens[t]) === -1) return;
+        }
+        items.push(o);
+        html += '<div class="stn-emp-item' + (isNone ? ' none' : '') + '" data-i="' + (items.length - 1) + '">' +
+                _stnEsc(o.text) + (o.shift && !isNone ? '<small>' + _stnEsc(o.shift) + '</small>' : '') + '</div>';
+        if (!isNone) n++;
+      });
+      if (!n) html += '<div class="stn-emp-empty">কোনো Employee পাওয়া যায়নি</div>';
+      list.innerHTML = html;
+      act = -1;
+      var first = tokens.length ? 0 : items.findIndex(function(o) { return o.value !== ''; });
+      if (first >= 0 && items[first]) setAct(first);
+      list.style.display = 'block';
+      place();
+    }
+
+    function setAct(i) {
+      var els = list.querySelectorAll('.stn-emp-item');
+      if (act >= 0 && els[act]) els[act].classList.remove('act');
+      act = i;
+      if (els[act]) { els[act].classList.add('act'); els[act].scrollIntoView({ block: 'nearest' }); }
+    }
+
+    function pick(i) {
+      var o = items[i];
+      if (!o) return;
+      sel.value = o.value;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      close();
+    }
+
+    function close() {
+      open = false;
+      list.style.display = 'none';
+      input.value = selectedText();
+    }
+
+    input.addEventListener('focus', function() { open = true; input.select(); render(''); });
+    input.addEventListener('click', function() { if (!open) { open = true; render(''); } });
+    input.addEventListener('input', function() { open = true; render(input.value); });
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (!open) { open = true; render(''); } else if (act < items.length - 1) setAct(act + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (act > 0) setAct(act - 1); }
+      else if (e.key === 'Enter') { if (open) { e.preventDefault(); if (act >= 0) pick(act); } }
+      else if (e.key === 'Escape') { if (open) { e.stopPropagation(); close(); input.blur(); } }
+      else if (e.key === 'Tab') { close(); }
+    });
+    // mousedown (not click) so it fires before the input's blur
+    list.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var it = e.target.closest('.stn-emp-item');
+      if (it) pick(parseInt(it.getAttribute('data-i'), 10));
+    });
+    input.addEventListener('blur', function() { setTimeout(close, 120); });
+    window.addEventListener('resize', function() { if (open) place(); });
+    window.addEventListener('scroll', function() { if (open) place(); }, true);
+
+    // Keep the box in sync when options are rebuilt or value is set from code
+    new MutationObserver(sync).observe(sel, { childList: true, subtree: true });
+    var vd = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(sel, 'value', {
+      configurable: true,
+      get: function() { return vd.get.call(sel); },
+      set: function(v) { vd.set.call(sel, v); sync(); }
+    });
+    sync();
+  }
+
+  function scan(root) {
+    _STN_EMP_SELECT_IDS.forEach(function(id) {
+      var el = (root && root.querySelector) ? root.querySelector('#' + id) : null;
+      if (!el && root === document) el = document.getElementById(id);
+      if (el && el.tagName === 'SELECT') enhance(el);
+    });
+  }
+  function start() {
+    scan(document);
+    new MutationObserver(function() { scan(document); }).observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
 // ── Remarks → Employee one-time migration tool (Stationery/Packaging) ──
 var _stnMigrateGroups = [];
 function _stnEsc(s) {
