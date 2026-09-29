@@ -21104,18 +21104,19 @@ function pkgEditTx(type, id) {
           if (r.id === id) return;
           if (r.employeeName) return;
           if (!(r.group === 'Packaging' || _pkgAllNames.includes(r.item))) return;
-          // একই Remarks নাম (space/বড়-ছোট হাতের অক্ষর উপেক্ষা করে) — ডিপার্টমেন্ট যা-ই হোক
+          // একই Remarks নাম (space/বড়-ছোট হাতের অক্ষর উপেক্ষা করে) + একই ডিপার্টমেন্ট
           if (_normRmk(r.remarks) !== _normRmk(_origRemarks)) return;
+          if ((r.machineId || '-') !== (entry.machineId || '-')) return;
           _propIds.push(r.id);
         });
         if (_propIds.length) {
           var _okP = await igl_confirm(
-            '\"' + _origRemarks + '\" নামে আরও ' + _propIds.length + 'টি Issue আছে। সেগুলোতেও Employee হিসেবে \"' + _editEmpObj.name + '\" বসাবেন?',
+            '\"' + _origRemarks + '\" (ডিপার্টমেন্ট: ' + (entry.machineId || '-') + ') নামে আরও ' + _propIds.length + 'টি Issue আছে। সেগুলোতেও Employee হিসেবে \"' + _editEmpObj.name + '\" বসাবেন?',
             'Remarks খালি হয়ে যাবে। \"Cancel\" দিলে শুধু এই এন্ট্রি আপডেট হবে।', '🔄'
           );
           if (!_okP) _propIds = [];
         } else {
-          _propMsg = ' (একই Remarks \"' + _origRemarks + '\" নামে Employee-ছাড়া আর কোনো Issue পাওয়া যায়নি)';
+          _propMsg = ' (\"' + _origRemarks + '\" নামে, ' + (entry.machineId || '-') + ' ডিপার্টমেন্টে Employee-ছাড়া আর কোনো Issue পাওয়া যায়নি)';
         }
       } else if (_editEmpObj && _origRemarks) {
         if (!_rmkUnchanged) _propMsg = ' (Remarks বদলানো হয়েছে, তাই বাকিগুলোতে অটো-আপডেট হয়নি)';
@@ -21161,7 +21162,7 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-overlay').style.display = 'none';
     triggerAutoSave();
     renderPackagingDashboard();
-    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে।') : ('✅ এন্ট্রি আপডেট হয়েছে!' + (window._pkgPropMsg || '')), 'success');
+    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে। [PKG-v4]') : ('✅ এন্ট্রি আপডেট হয়েছে!' + (window._pkgPropMsg || '') + ' [PKG-v4]'), 'success');
     window._pkgPropMsg = '';
     window._pkgPropCount = 0;
   };
