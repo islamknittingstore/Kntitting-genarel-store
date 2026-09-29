@@ -5561,6 +5561,7 @@ window.iglSaveNavVisibility = function() {
             </div>
           </div>
           <button class="btn btn-sm" onclick="pkgExportExcel()" style="background:rgba(34,139,34,0.5);color:#fff;border:1px solid rgba(255,255,255,0.4);">📊 Excel</button>
+          <button class="btn btn-sm admin-only-action" onclick="pkgOpenRemarksMigration()" style="background:rgba(230,126,34,0.6);color:#fff;border:1px solid rgba(255,255,255,0.4);">🔄 Remarks→Employee</button>
         </div>
       </div>
       <div class="card-body" style="padding:12px 16px 0;">
@@ -13089,6 +13090,109 @@ async function stnMigrateApply(i) {
   toast('✅ ' + updated + 'টি রেকর্ড আপডেট হয়েছে!');
   stnRenderRemarksMigration();
   renderStationeryDashboard();
+}
+
+// ── Remarks → Employee one-time migration tool (Packaging) ──
+var _pkgMigrateGroups = [];
+function pkgOpenRemarksMigration() {
+  var existing = document.getElementById('pkg-migrate-overlay');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'pkg-migrate-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px;box-sizing:border-box;';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:12px;width:98%;max-width:900px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);margin:auto;">' +
+      '<div style="background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:14px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-size:16px;font-weight:800;">🔄 Remarks → Employee মাইগ্রেশন (Packaging)</div>' +
+        '<div style="font-size:11px;opacity:0.9;">আগের Remarks-এ লেখা নামগুলো এখন Employee ফিল্ডে বসিয়ে দিন — একবার হলেই সেই নামের সব পুরনো Issue রেকর্ড আপডেট হয়ে যাবে</div></div>' +
+        '<button onclick="document.getElementById(\'pkg-migrate-overlay\').remove();" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:20px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1;">×</button>' +
+      '</div>' +
+      '<div id="pkg-migrate-body" style="padding:16px 20px;max-height:70vh;overflow-y:auto;"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  pkgRenderRemarksMigration();
+}
+
+function pkgRenderRemarksMigration() {
+  var body = document.getElementById('pkg-migrate-body');
+  if (!body) return;
+  var pkgItemsM = DB.pkgItems.filter(function(it) { return pkgGetHiddenItems().indexOf(it.id) === -1; });
+  var pkgNamesM = pkgItemsM.map(function(i) { return i.name; });
+
+  // Group un-migrated issues (has remarks, no employeeName yet) by exact remarks text
+  var groupMap = {};
+  (DB.issues || []).forEach(function(r) {
+    if (!pkgNamesM.includes(r.item)) return;
+    if (r.employeeName) return; // already linked to an employee
+    var txt = (r.remarks || '').trim();
+    if (!txt) return;
+    var dept = r.machineId || '-';
+    var key = txt + '||' + dept;
+    if (!groupMap[key]) groupMap[key] = { remarks: txt, dept: dept, count: 0 };
+    groupMap[key].count++;
+  });
+
+  _pkgMigrateGroups = Object.keys(groupMap).map(function(k) { return groupMap[k]; })
+    .sort(function(a, b) { return b.count - a.count; });
+
+  if (_pkgMigrateGroups.length === 0) {
+    body.innerHTML = '<p style="text-align:center;color:#27ae60;font-weight:700;padding:30px 0;">✅ সব Remarks ইতিমধ্যে Employee-এর সাথে মিলে গেছে অথবা কোনো Remarks বাকি নেই।</p>';
+    return;
+  }
+
+  body.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:10px;">প্রতিটা পুরনো Remarks-এর জন্য সঠিক Employee ড্রপডাউন থেকে বেছে নিয়ে "Replace" চাপুন। একই নাম আলাদা আলাদা ডিপার্টমেন্টে আলাদা সারি হিসেবে দেখানো হয়েছে, যাতে "ফরহাদ (Quality)" আর "ফরহাদ (General)" — দুইজনকে সঠিক আলাদা Employee-এর সাথে মেলাতে পারেন।</div>' +
+    '<table style="width:100%;border-collapse:collapse;">' +
+    '<thead><tr style="background:#fdf2e9;"><th style="padding:6px 8px;text-align:left;font-size:12px;">পুরনো Remarks</th><th style="padding:6px 8px;text-align:left;font-size:12px;">ডিপার্টমেন্ট</th><th style="padding:6px 8px;text-align:center;font-size:12px;">সংখ্যা</th><th style="padding:6px 8px;text-align:left;font-size:12px;">Employee বাছুন</th><th style="padding:6px 8px;font-size:12px;"></th></tr></thead>' +
+    '<tbody id="pkg-migrate-rows">' +
+    _pkgMigrateGroups.map(function(g, i) {
+      return '<tr style="border-bottom:1px solid #f0f0f0;">' +
+        '<td style="padding:6px 8px;font-weight:700;color:#1a5276;">' + _stnEsc(g.remarks) + '</td>' +
+        '<td style="padding:6px 8px;color:#7d3c98;font-weight:600;">' + _stnEsc(g.dept) + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;">' + g.count + '</td>' +
+        '<td style="padding:6px 8px;">' +
+          '<select class="form-control" style="padding:5px 8px;font-size:12px;" id="pkg-mig-emp-select-' + i + '">' + stnBuildEmployeeOptions('', '-- Employee বাছুন --') + '</select>' +
+        '</td>' +
+        '<td style="padding:6px 8px;"><button class="btn btn-sm" style="background:#e67e22;color:#fff;" onclick="pkgMigrateApply(' + i + ')">✔ Replace</button></td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+async function pkgMigrateApply(i) {
+  var g = _pkgMigrateGroups[i];
+  if (!g) return;
+  var selEl = document.getElementById('pkg-mig-emp-select-' + i);
+  var empId = selEl ? selEl.value : '';
+  if (!empId) { toast('আগে একজন Employee বেছে নিন!', 'warning'); return; }
+  var empObj = (DB.employees || []).find(function(e) { return String(e.empId || e.id) === String(empId); });
+  if (!empObj) { toast('Employee পাওয়া যায়নি!', 'error'); return; }
+
+  const ok = await igl_confirm(
+    '"' + g.remarks + '" (ডিপার্টমেন্ট: ' + g.dept + ') — এই ' + g.count + 'টি রেকর্ডে Employee হিসেবে "' + empObj.name + '" বসাবেন?',
+    'Remarks খালি হয়ে যাবে, এই কাজ undo করা যাবে না।', '🔄'
+  );
+  if (!ok) return;
+
+  var pkgItemsM = DB.pkgItems.filter(function(it) { return pkgGetHiddenItems().indexOf(it.id) === -1; });
+  var pkgNamesM = pkgItemsM.map(function(it) { return it.name; });
+  var arr = DB.issues;
+  var updated = 0;
+  arr.forEach(function(r) {
+    if (!pkgNamesM.includes(r.item)) return;
+    if (r.employeeName) return;
+    if ((r.remarks || '').trim() !== g.remarks) return;
+    if ((r.machineId || '-') !== g.dept) return;
+    r.employeeName = empObj.name;
+    r.employeeId = empObj.empId || empObj.id;
+    r.remarks = '';
+    updated++;
+  });
+  DB.issues = arr;
+  triggerAutoSave();
+  toast('✅ ' + updated + 'টি রেকর্ড আপডেট হয়েছে!');
+  pkgRenderRemarksMigration();
+  renderPackagingDashboard();
 }
 
 async function stnSaveIssue() {
@@ -31618,8 +31722,7 @@ function stnImEdit(idx) {
       });
       DB.stnRecordOnly = recs;
     }
-    _triggerAutoSave();
-    if (oldName !== newName) { try { clearTimeout(window._fbSaveTimer); if (typeof window.fbSaveAll === 'function') window.fbSaveAll(); } catch(e){} }
+    triggerAutoSave();
     document.body.removeChild(overlay);
     stnItemMasterRender();
     toast('✅ Item আপডেট হয়েছে','success');
@@ -32209,7 +32312,7 @@ function pkgImMergeDuplicates() {
   toRemove.sort(function(a,b){return b-a;}).forEach(function(i){ items.splice(i,1); });
   DB.pkgItems = items;
   localStorage.setItem('igl_pkg_requisitions', JSON.stringify(DB.pkgRequisitions||{}));
-  _triggerAutoSave();
+  triggerAutoSave();
   pkgItemMasterRender();
   toast('✅ '+merged+' টি Duplicate মার্জ হয়েছে!','success');
 }
@@ -32270,7 +32373,7 @@ function pkgImEdit(idx) {
       });
       localStorage.setItem('igl_pkg_requisitions', JSON.stringify(reqs));
     }
-    _triggerAutoSave();
+    triggerAutoSave();
     document.body.removeChild(overlay);
     pkgItemMasterRender();
     toast('✅ Item আপডেট হয়েছে','success');
