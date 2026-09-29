@@ -21085,11 +21085,9 @@ function pkgEditTx(type, id) {
       // এই এন্ট্রিতে আগে Employee ছিল না, Remarks-এ নাম ছিল, এখন Employee বসানো হয়েছে (Remarks অপরিবর্তিত)
       // → একই Remarks + একই ডিপার্টমেন্টের বাকি সব পুরনো Issue-তেও Employee বসবে, Remarks খালি হবে।
       var _normRmk = function(x){
-        return String(x||'').normalize('NFC')
-          .replace(/[\u200B-\u200D\uFEFF]/g, '')
-          .replace(/\s+/g, ' ')
-          .replace(/^[\s.,;:\-–—]+|[\s.,;:\-–—]+$/g, '')
-          .toLowerCase();
+        // শুধু অক্ষর ও সংখ্যা রেখে তুলনা: space, ডট, ড্যাশ, অদৃশ্য চিহ্ন, বড়-ছোট হাতের অক্ষর — কিছুতেই আটকাবে না
+        try { return String(x||'').normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ''); }
+        catch(err) { return String(x||'').toLowerCase().replace(/\s+/g, ''); }
       };
       var _hadEmp = !!entry.employeeName;
       var _sameEmp = _hadEmp && _editEmpObj && String(entry.employeeId) === String(_editEmpObj.empId || _editEmpObj.id);
@@ -21162,7 +21160,7 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-overlay').style.display = 'none';
     triggerAutoSave();
     renderPackagingDashboard();
-    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে। [PKG-v4]') : ('✅ এন্ট্রি আপডেট হয়েছে!' + (window._pkgPropMsg || '') + ' [PKG-v4]'), 'success');
+    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে। [PKG-v5]') : ('✅ এন্ট্রি আপডেট হয়েছে!' + (window._pkgPropMsg || '') + ' [PKG-v5]'), 'success');
     window._pkgPropMsg = '';
     window._pkgPropCount = 0;
   };
