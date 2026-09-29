@@ -5484,6 +5484,10 @@ window.iglSaveNavVisibility = function() {
                 </select>
               </div>
               <div class="form-group">
+                <label>Employee</label>
+                <select class="form-control" id="pkg-i-employee"><option value="">-- Employee সিলেক্ট করুন --</option></select>
+              </div>
+              <div class="form-group">
                 <label>Remarks</label>
                 <input type="text" class="form-control" id="pkg-i-remarks" placeholder="Any remarks (optional)" autocomplete="off">
               </div>
@@ -12818,7 +12822,7 @@ function stnPopulateEmployeeDropdown(selectedId) {
 // four employee selects (Stationery/Packaging issue + edit, Needle issue + edit)
 // with a type-to-search box. The original <select> stays in the DOM and keeps
 // holding the employee ID, so every existing save/read/calculation is untouched.
-var _STN_EMP_SELECT_IDS = ['stn-i-employee', 'stn-edit-employee', 'nmi-employee', 'edit-n-employee'];
+var _STN_EMP_SELECT_IDS = ['stn-i-employee', 'stn-edit-employee', 'pkg-i-employee', 'pkg-edit-employee', 'nmi-employee', 'edit-n-employee'];
 
 function _stnEmpNorm(t) {
   return String(t == null ? '' : t)
@@ -18338,11 +18342,17 @@ function pkgToggleForm(type) {
     if (!isOpen2) {
       pkgPopulateItems('pkg-i-item');
       pkgPopulateDeptDropdown();
+      pkgPopulateEmployeeDropdown();
       if (!document.getElementById('pkg-i-date').value) document.getElementById('pkg-i-date').value = todayStr();
       document.getElementById('pkg-i-item').focus();
       pkgInitRemarksDatalist();
     }
   }
+}
+
+function pkgPopulateEmployeeDropdown(selectedId) {
+  var sel = document.getElementById('pkg-i-employee');
+  if (sel) sel.innerHTML = stnBuildEmployeeOptions(selectedId, '-- Employee সিলেক্ট করুন --');
 }
 
 function pkgPopulateItems(selectId) {
@@ -18389,14 +18399,15 @@ function pkgCheckDuplicateReceive(date, item, supplier, qty) {
   return existing.length > 0;
 }
 
-function pkgCheckDuplicateIssue(date, item, dept, qty, remarks) {
+function pkgCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId) {
   var existing = (DB.issues || []).filter(function(r) {
     return r.group     === 'Packaging'
       && r.date      === date
       && r.item      === item
       && String(r.qty) === String(qty)
       && (r.machineId || '') === (dept || '')
-      && (r.remarks || '').trim().toLowerCase() === (remarks || '').trim().toLowerCase();
+      && (r.remarks || '').trim().toLowerCase() === (remarks || '').trim().toLowerCase()
+      && String(r.employeeId || '') === String(employeeId || '');
   });
   return existing.length > 0;
 }
@@ -18489,6 +18500,9 @@ async function pkgSaveIssue() {
   var qty     = Number(document.getElementById('pkg-i-qty').value);
   var dept    = document.getElementById('pkg-i-dept').value;
   var remarks = document.getElementById('pkg-i-remarks').value;
+  var employeeId   = (document.getElementById('pkg-i-employee')||{}).value || '';
+  var _empObj      = employeeId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(employeeId); }) : null;
+  var employeeName = _empObj ? (_empObj.name || '') : '';
 
   if (!date)  { toast('Please enter a date!', 'warning'); return; }
   var _bdErr4 = window.iglCheckBackdate(date);
@@ -18501,8 +18515,8 @@ async function pkgSaveIssue() {
   if (!dept)  { toast('Please select a Department!', 'warning'); return; }
 
   // Duplicate check
-  if (pkgCheckDuplicateIssue(date, item, dept, qty, remarks)) {
-    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ, পরিমাণ ও remarks-এ আগেই Issue করা হয়েছে!', 'error');
+  if (pkgCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId)) {
+    toast('⚠️ একই তারিখে এই আইটেম, বিভাগ, এমপ্লয়ি, পরিমাণ ও remarks-এ আগেই Issue করা হয়েছে!', 'error');
     return;
   }
 
@@ -18516,7 +18530,7 @@ async function pkgSaveIssue() {
   }
 
   var iss = { id: Date.now(), date: date, slip: slip, group: 'Packaging', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
-              machineId: dept, machineNo: '', machineCat: 'Packaging', remarks: remarks };
+              machineId: dept, machineNo: '', machineCat: 'Packaging', remarks: remarks, employeeName: employeeName, employeeId: employeeId };
   var arr = DB.issues;
   arr.push(iss);
   DB.issues = arr;
@@ -18536,6 +18550,8 @@ function pkgClearIssueForm() {
   document.getElementById('pkg-i-qty').value     = '';
   document.getElementById('pkg-i-dept').value    = '';
   document.getElementById('pkg-i-remarks').value = '';
+  var _pkgEmpSel = document.getElementById('pkg-i-employee');
+  if (_pkgEmpSel) { _pkgEmpSel.value = ''; _pkgEmpSel.dispatchEvent(new Event('change')); }
   document.getElementById('pkg-i-stock-badge').innerHTML = '';
 }
 
@@ -18604,11 +18620,11 @@ function pkgGetTableData() {
     return {
       title: 'Packaging — Slip-wise Issue Report',
       subtitle: (q?'Filter: "'+q+'" | ':'')+dateInfo+' | Print Date: '+today,
-      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks'],
+      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks','Employee'],
       rows: slipIss.map(function(r,i){
-        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-'];
+        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-', r.employeeName||'-'];
       }),
-      totals: ['','Total','','','', sTot, '']
+      totals: ['','Total','','','', sTot, '','']
     };
   }
 
@@ -18621,11 +18637,11 @@ function pkgGetTableData() {
     return {
       title: 'Packaging — Department-wise Issue Report',
       subtitle: (q?'Filter: "'+q+'" | ':'')+dateInfo+' | Print Date: '+today,
-      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks'],
+      headers: ['SL','Date','Slip No.','Item','Department','Qty','Remarks','Employee'],
       rows: deptIss.map(function(r,i){
-        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-'];
+        return [i+1, fmtDate(r.date), r.slip||'-', r.item, r.machineId||'-', r.qty, r.remarks||'-', r.employeeName||'-'];
       }),
-      totals: ['','Total','','','', dTot, '']
+      totals: ['','Total','','','', dTot, '','']
     };
   }
   return null;
@@ -20951,6 +20967,11 @@ function pkgInjectEditModal() {
             <option value="">-- ডিপার্টমেন্ট সিলেক্ট করুন --</option>
           </select>
         </div>
+        <div id="pkg-edit-employee-wrap">
+          <label style="font-size:12px;font-weight:600;color:#555;">Employee</label>
+          <select id="pkg-edit-employee" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;background:#fff;">
+          </select>
+        </div>
         <div id="pkg-edit-chalan-wrap" style="display:none;">
           <label style="font-size:12px;font-weight:600;color:#555;">চালান নং</label>
           <input type="text" id="pkg-edit-chalan" placeholder="চালান নং" style="width:100%;padding:8px 10px;border:1.5px solid #d0d3d4;border-radius:7px;font-size:14px;margin-top:3px;box-sizing:border-box;">
@@ -21014,6 +21035,8 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-item-wrap').style.display    = '';
     document.getElementById('pkg-edit-qty-wrap').style.display     = '';
     document.getElementById('pkg-edit-dept-wrap').style.display    = '';
+    document.getElementById('pkg-edit-employee-wrap').style.display = '';
+    document.getElementById('pkg-edit-employee').innerHTML = stnBuildEmployeeOptions(entry.employeeId, '-- কোনো Employee না --');
     document.getElementById('pkg-edit-chalan-wrap').style.display  = 'none';
   } else {
     document.getElementById('pkg-edit-chalan').value = entry.chalan || '';
@@ -21021,6 +21044,7 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-item-wrap').style.display    = '';
     document.getElementById('pkg-edit-qty-wrap').style.display     = '';
     document.getElementById('pkg-edit-dept-wrap').style.display    = 'none';
+    document.getElementById('pkg-edit-employee-wrap').style.display = 'none';
     document.getElementById('pkg-edit-chalan-wrap').style.display  = '';
   }
 
@@ -21028,7 +21052,7 @@ function pkgEditTx(type, id) {
   var saveBtn = document.getElementById('pkg-edit-save-btn');
   var newBtn = saveBtn.cloneNode(true);
   saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-  newBtn.onclick = function() {
+  newBtn.onclick = async function() {
     var newDate = document.getElementById('pkg-edit-date').value.trim();
     var newItem = document.getElementById('pkg-edit-item').value.trim();
     var newQty  = Number(document.getElementById('pkg-edit-qty').value);
@@ -21040,17 +21064,59 @@ function pkgEditTx(type, id) {
     if (_lkErrPE) { toast(_lkErrPE, 'error'); return; }
 
     if (type === 'ISSUE') {
+      var _editEmpId = document.getElementById('pkg-edit-employee').value.trim();
+      var _editEmpObj = _editEmpId ? (DB.employees||[]).find(function(e){ return String(e.empId||e.id) === String(_editEmpId); }) : null;
+      var _newRemarks = document.getElementById('pkg-edit-remarks').value.trim();
+      var _origRemarks = (entry.remarks || '').trim();
+      var _newDept = document.getElementById('pkg-edit-dept').value.trim() || entry.machineId;
+
+      // Remarks → Employee auto-propagation:
+      // এই এন্ট্রিতে আগে Employee ছিল না, Remarks-এ নাম ছিল, এখন Employee বসানো হয়েছে (Remarks অপরিবর্তিত)
+      // → একই Remarks + একই ডিপার্টমেন্টের বাকি সব পুরনো Issue-তেও Employee বসবে, Remarks খালি হবে।
+      var _propagate = !!(_editEmpObj && !entry.employeeName && _origRemarks && _newRemarks === _origRemarks);
+      var _propIds = [];
+      if (_propagate) {
+        var _pkgNamesP = (DB.pkgItems || []).filter(function(it){ return pkgGetHiddenItems().indexOf(it.id) === -1; })
+                                             .map(function(it){ return it.name; });
+        (DB.issues || []).forEach(function(r) {
+          if (r.id === id) return;
+          if (r.employeeName) return;
+          if (!_pkgNamesP.includes(r.item)) return;
+          if ((r.remarks || '').trim() !== _origRemarks) return;
+          if ((r.machineId || '-') !== (entry.machineId || '-')) return;
+          _propIds.push(r.id);
+        });
+        if (_propIds.length) {
+          var _okP = await igl_confirm(
+            '"' + _origRemarks + '" (ডিপার্টমেন্ট: ' + (entry.machineId || '-') + ') নামে আরও ' + _propIds.length + 'টি Issue আছে। সেগুলোতেও Employee হিসেবে "' + _editEmpObj.name +
+            '" বসাবেন?', 'Remarks খালি হয়ে যাবে। "Cancel" দিলে শুধু এই এন্ট্রি আপডেট হবে।', '🔄'
+          );
+          if (!_okP) _propIds = [];
+        }
+      }
+
       DB.issues = DB.issues.map(function(r) {
+        if (_propIds.indexOf(r.id) !== -1) {
+          return Object.assign({}, r, {
+            employeeId:   _editEmpObj.empId || _editEmpObj.id,
+            employeeName: _editEmpObj.name,
+            remarks:      ''
+          });
+        }
         if (r.id !== id) return r;
         return Object.assign({}, r, {
           date:      newDate,
           item:      newItem,
           qty:       newQty,
           slip:      document.getElementById('pkg-edit-slip').value.trim()  || r.slip,
-          machineId: document.getElementById('pkg-edit-dept').value.trim()  || r.machineId,
-          remarks:   document.getElementById('pkg-edit-remarks').value.trim()
+          machineId: _newDept,
+          // Employee বসানো হলে (এবং Remarks অপরিবর্তিত থাকলে) এই এন্ট্রির Remarks-ও খালি হবে
+          remarks:   _propagate ? '' : _newRemarks,
+          employeeId:   _editEmpId,
+          employeeName: _editEmpObj ? _editEmpObj.name : ''
         });
       });
+      window._pkgPropCount = _propIds.length ? _propIds.length : 0;
     } else {
       DB.receives = DB.receives.map(function(r) {
         if (r.id !== id) return r;
@@ -21067,7 +21133,8 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-overlay').style.display = 'none';
     triggerAutoSave();
     renderPackagingDashboard();
-    toast('✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে।') : '✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+    window._pkgPropCount = 0;
   };
 
   document.getElementById('pkg-edit-overlay').style.display = 'flex';
@@ -21235,9 +21302,9 @@ function renderPackagingDashboard() {
         +'</div>';
       html += '<table><thead><tr>'
         +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="pkg-chk-all-iss" onchange="pkgBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
-        +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
+        +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Employee</th><th>Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
-        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td><td>'+(r.employeeName||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="pkgEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#922b21;color:#fff;font-weight:700;">'+(_isAdminIss?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="3"></td></tr>';
