@@ -573,6 +573,11 @@ if('serviceWorker' in navigator){
   #pkg-search-result { overflow-x: auto; max-width: 100%; }
   #pkg-search-result th.pkg-act, #pkg-search-result td.pkg-act { position: sticky; right: 0; z-index: 3; white-space: nowrap; }
   #pkg-search-result td.pkg-act { background: #fff; box-shadow: -3px 0 5px rgba(0,0,0,0.12); }
+  /* Packaging: টেবিল স্ক্রিনে ধরানোর জন্য — Item নাম wrap হবে, padding কম, যাতে Employee কলাম সাইডে না লুকায় */
+  #pkg-search-result table { font-size: 12px; }
+  #pkg-search-result thead th { padding: 8px 8px; }
+  #pkg-search-result tbody td { padding: 7px 8px; }
+  #pkg-search-result td.pkg-item { white-space: normal; min-width: 130px; max-width: 240px; }
   td.pkg-act { white-space: nowrap; }
   td.pkg-act button { margin-right: 5px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -17164,7 +17169,7 @@ function renderStationeryDashboard() {
         return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
           +'<td style="display:flex;gap:5px;"><button onclick="stnEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="stnDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
-      html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="2"></td></tr>';
+      html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="3"></td></tr>';
       html += '</tbody></table>';
     }
   }
@@ -21079,8 +21084,18 @@ function pkgEditTx(type, id) {
       // Remarks → Employee auto-propagation:
       // এই এন্ট্রিতে আগে Employee ছিল না, Remarks-এ নাম ছিল, এখন Employee বসানো হয়েছে (Remarks অপরিবর্তিত)
       // → একই Remarks + একই ডিপার্টমেন্টের বাকি সব পুরনো Issue-তেও Employee বসবে, Remarks খালি হবে।
-      var _normRmk = function(x){ return String(x||'').replace(/\s+/g,' ').trim().toLowerCase(); };
-      var _propagate = !!(_editEmpObj && !entry.employeeName && _origRemarks && _normRmk(_newRemarks) === _normRmk(_origRemarks));
+      var _normRmk = function(x){
+        return String(x||'').normalize('NFC')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .replace(/\s+/g, ' ')
+          .replace(/^[\s.,;:\-–—]+|[\s.,;:\-–—]+$/g, '')
+          .toLowerCase();
+      };
+      var _hadEmp = !!entry.employeeName;
+      var _sameEmp = _hadEmp && _editEmpObj && String(entry.employeeId) === String(_editEmpObj.empId || _editEmpObj.id);
+      var _rmkUnchanged = _normRmk(_newRemarks) === _normRmk(_origRemarks);
+      var _propagate = !!(_editEmpObj && _origRemarks && _rmkUnchanged && (!_hadEmp || _sameEmp));
+      var _propMsg = '';
       var _propIds = [];
       if (_propagate) {
         // প্যাকেজিংয়ের সব আইটেম (hidden সহ) + group ট্যাগ — যাতে কোনো Issue বাদ না পড়ে
@@ -21099,7 +21114,12 @@ function pkgEditTx(type, id) {
             'Remarks খালি হয়ে যাবে। \"Cancel\" দিলে শুধু এই এন্ট্রি আপডেট হবে।', '🔄'
           );
           if (!_okP) _propIds = [];
+        } else {
+          _propMsg = ' (একই Remarks \"' + _origRemarks + '\" নামে Employee-ছাড়া আর কোনো Issue পাওয়া যায়নি)';
         }
+      } else if (_editEmpObj && _origRemarks) {
+        if (!_rmkUnchanged) _propMsg = ' (Remarks বদলানো হয়েছে, তাই বাকিগুলোতে অটো-আপডেট হয়নি)';
+        else if (_hadEmp && !_sameEmp) _propMsg = ' (এই এন্ট্রিতে আগে অন্য Employee ছিল, তাই বাকিগুলোতে অটো-আপডেট হয়নি)';
       }
 
       DB.issues = DB.issues.map(function(r) {
@@ -21124,6 +21144,7 @@ function pkgEditTx(type, id) {
         });
       });
       window._pkgPropCount = _propIds.length ? _propIds.length : 0;
+      window._pkgPropMsg = _propMsg;
     } else {
       DB.receives = DB.receives.map(function(r) {
         if (r.id !== id) return r;
@@ -21140,7 +21161,8 @@ function pkgEditTx(type, id) {
     document.getElementById('pkg-edit-overlay').style.display = 'none';
     triggerAutoSave();
     renderPackagingDashboard();
-    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে।') : '✅ এন্ট্রি আপডেট হয়েছে!', 'success');
+    toast(window._pkgPropCount ? ('✅ এন্ট্রি আপডেট হয়েছে! সাথে আরও ' + window._pkgPropCount + 'টি Issue-এ Employee বসেছে।') : ('✅ এন্ট্রি আপডেট হয়েছে!' + (window._pkgPropMsg || '')), 'success');
+    window._pkgPropMsg = '';
     window._pkgPropCount = 0;
   };
 
@@ -21274,7 +21296,7 @@ function renderPackagingDashboard() {
         +(_isAdminRcv ? '<th style="width:34px;"><input type="checkbox" id="pkg-chk-all-rcv" onchange="pkgBulkSelectAll(\'rcv\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Challan No.</th><th>Item</th><th>Supplier</th><th>Qty</th><th class=\"pkg-act\">Action</th></tr></thead><tbody>';
       html += chalanRecs.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
-        return '<tr>'+(_isAdminRcv ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-rcv" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
+        return '<tr>'+(_isAdminRcv ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-rcv" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><b style="color:#1a5276;">'+(r.chalan||'-')+'</b></td><td class=\"pkg-item\"><b>'+r.item+'</b></td><td>'+(r.supplier||'-')+'</td><td><b>'+r.qty+'</b></td>'
           +'<td class="pkg-act"><button onclick="pkgEditTx(\'RECEIVE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'RECEIVE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#1a5276;color:#fff;font-weight:700;">'+(_isAdminRcv?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+cTot+'</td><td></td><td></td></tr>';
@@ -21311,7 +21333,7 @@ function renderPackagingDashboard() {
         +(_isAdminIss ? '<th style="width:34px;"><input type="checkbox" id="pkg-chk-all-iss" onchange="pkgBulkSelectAll(\'iss\',this.checked)" title="সব সিলেক্ট"></th>' : '')
         +'<th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Employee</th><th class=\"pkg-act\">Action</th></tr></thead><tbody>';
       html += slipIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
-        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td><td>'+(r.employeeName||'-')+'</td>'
+        return '<tr>'+(_isAdminIss ? '<td style="text-align:center;"><input type="checkbox" class="pkg-chk-iss" data-id="'+r.id+'"></td>' : '')+'<td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td class=\"pkg-item\"><b>'+r.item+'</b></td><td>'+(r.machineId||'-')+'</td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td><td>'+(r.employeeName||'-')+'</td>'
           +'<td class="pkg-act"><button onclick="pkgEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
       html += '<tr style="background:#922b21;color:#fff;font-weight:700;">'+(_isAdminIss?'<td></td>':'')+'<td colspan="4" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+sTot+'</td><td colspan="3"></td></tr>';
@@ -21352,12 +21374,12 @@ function renderPackagingDashboard() {
                 '<div style="font-size:11px;color:#888;">'+deptMap[d].records.length+' records</div></div>';
       });
       var deptGrandTotal = deptIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
-      html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th class=\"pkg-act\">Action</th></tr></thead><tbody>';
+      html += '</div><table><thead><tr><th>SL</th><th>Date</th><th>Slip No.</th><th>Item</th><th>Department</th><th>Qty</th><th>Remarks</th><th>Employee</th><th class=\"pkg-act\">Action</th></tr></thead><tbody>';
       html += deptIss.sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; }).map(function(r,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td>'
+        return '<tr><td>'+(i+1)+'</td><td>'+fmtDate(r.date)+'</td><td><span class="slip-badge">'+(r.slip||'-')+'</span></td><td class=\"pkg-item\"><b>'+r.item+'</b></td><td><b style="color:#0e6655;">'+(r.machineId||'-')+'</b></td><td><b>'+r.qty+'</b></td><td>'+(r.remarks||'-')+'</td><td>'+(r.employeeName||'-')+'</td>'
           +'<td class="pkg-act"><button onclick="pkgEditTx(\'ISSUE\',' +r.id+ ')" style="background:#1a5276;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Edit">✏️</button><button onclick="pkgDeleteTx(\'ISSUE\',' +r.id+ ')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;font-weight:700;" title="Delete">🗑️</button></td></tr>';
       }).join('');
-      html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="2"></td></tr>';
+      html += '<tr style="background:#0e6655;color:#fff;font-weight:700;"><td colspan="5" style="text-align:right;padding:7px 10px;">সর্বমোট</td><td style="padding:7px 10px;font-size:13px;">'+deptGrandTotal+'</td><td colspan="3"></td></tr>';
       html += '</tbody></table>';
     }
   }
