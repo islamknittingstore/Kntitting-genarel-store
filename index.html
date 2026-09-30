@@ -11538,6 +11538,7 @@ function filterICategory() {
   ic.innerHTML = '<option value="">-- All Categories --</option>';
   ii.innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('i-stock-badge').innerHTML = '';
+  gsSetIssueUnit('Pcs');
   if (!g) return;
 
   const cats = [...new Set(DB.items.filter(i => i.group === g && i.category && !i.hidden).map(i => i.category))];
@@ -11554,6 +11555,7 @@ function filterIItems() {
   const ii = document.getElementById('i-item');
   ii.innerHTML = '<option value="">-- Select Item --</option>';
   document.getElementById('i-stock-badge').innerHTML = '';
+  gsSetIssueUnit('Pcs');
   if (!g) return;
   let items = DB.items.filter(i => i.group === g && !i.hidden);
   if (cat) items = items.filter(i => i.category === cat);
@@ -11580,6 +11582,26 @@ function updateReceiveStock() {
   }
 }
 
+// Issue ফর্মের Unit ড্রপডাউনে আইটেমের Master Unit বসায়।
+// ড্রপডাউনের লিস্টে (বড়-ছোট হাতের অক্ষর ছাড়া) মিললে সেটাই সিলেক্ট হয়; না মিললে নতুন অপশন যোগ করে সিলেক্ট করে
+// (যেমন Rim/Book/Dozen) — যাতে Master এর ইউনিট কখনো বাদ না পড়ে। unit ফাঁকা হলে Pcs।
+function gsSetIssueUnit(unit) {
+  var uEl = document.getElementById('i-unit');
+  if (!uEl) return;
+  var want = String(unit || '').trim() || 'Pcs';
+  var match = null;
+  Array.prototype.forEach.call(uEl.options, function(o){
+    if (!match && String(o.value).toLowerCase() === want.toLowerCase()) match = o;
+  });
+  if (!match) {
+    match = document.createElement('option');
+    match.value = want;
+    match.textContent = want;
+    uEl.appendChild(match);
+  }
+  uEl.value = match.value;
+}
+
 function updateIssueStock() {
   const item = document.getElementById('i-item').value;
   const group = document.getElementById('i-group').value;
@@ -11589,9 +11611,11 @@ function updateIssueStock() {
   if (item) {
     document.getElementById('i-stock-badge').innerHTML = stockBadge(getStock(item));
     // ✅ আইটেম সিলেক্ট করলে Master-এ সেট করা Unit অটো-ফিল হবে (চাইলে বদলানো যাবে)
-    var itObj = (DB.items||[]).find(function(x){ return x.name === item; });
-    var uEl = document.getElementById('i-unit');
-    if (uEl && itObj && itObj.unit) uEl.value = itObj.unit;
+    // একই নামের আইটেম একাধিক Group এ থাকলে সিলেক্ট করা Group এর আইটেমটাই ধরো
+    var itObj = (DB.items||[]).find(function(x){ return x.name === item && x.group === group; })
+             || (DB.items||[]).find(function(x){ return x.name === item; });
+    // Master এ Unit না থাকলেও আগের আইটেমের Unit (যেমন Liter) রয়ে যাবে না — ডিফল্ট Pcs
+    gsSetIssueUnit(itObj && itObj.unit);
     // ✅ Oil ক্যাটাগরির জন্য "সর্বশেষ কয়েকটা ইসু" আর "Requisition" — দুটোরই দরকার নেই
     if (isOilCategory) {
       if (lastWrap) lastWrap.style.display = 'none';
@@ -11603,6 +11627,7 @@ function updateIssueStock() {
       document.getElementById('i-req-flag').checked = isItemFlaggedForReq(group, item);
     }
   } else {
+    gsSetIssueUnit('Pcs');
     if (lastWrap) lastWrap.style.display = 'none';
     if (flagWrap) flagWrap.style.display = 'none';
   }
