@@ -457,14 +457,14 @@ if('serviceWorker' in navigator){
     .compact-form-grid.cf-cols-4 .cf-stack-4 { grid-row: auto; }
   }
   /* ── Needle Issue: ফর্ম লেআউট (3 কলাম, Excel টেবিলের মত) ── */
-  .ni-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; align-items: stretch;
-    padding: 16px; border: 1px solid #f5cba7; border-radius: 14px;
+  .ni-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 16px; align-items: stretch;
+    padding: 10px 14px; border: 1px solid #f5cba7; border-radius: 12px;
     background: linear-gradient(180deg, #fffaf3 0%, #ffffff 100%); }
   .ni-grid .ni-cell { background: #fff; border: 1px solid #f0dcc8; border-left: 4px solid #e67e22; border-radius: 10px;
-    padding: 8px 10px; gap: 10px; box-shadow: 0 1px 3px rgba(230,126,34,0.10); transition: box-shadow .15s, border-color .15s; }
+    padding: 3px 10px; gap: 10px; box-shadow: 0 1px 3px rgba(230,126,34,0.10); transition: box-shadow .15s, border-color .15s; }
   .ni-grid .ni-cell:focus-within { border-color: #e67e22; box-shadow: 0 0 0 3px rgba(230,126,34,0.18); }
   .ni-grid .ni-cell label { flex: 0 0 116px; color: #a04000; font-size: 12px; letter-spacing: .2px; }
-  .ni-grid .ni-cell .form-control { flex: 1; min-width: 0; border-radius: 8px; }
+  .ni-grid .ni-cell .form-control { flex: 1; min-width: 0; border-radius: 8px; padding-top: 3px; padding-bottom: 3px; height: auto; min-height: 0; }
   .ni-grid .ni-req { color: #e74c3c; margin-left: 3px; }
   .ni-grid .ni-span2 { grid-column: span 2; }
   @media (max-width: 1000px) { .ni-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -6681,9 +6681,9 @@ function ok(msg) {
               <tbody id="nmi-tbody"></tbody>
             </table>
           </div>
-          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:180px;font-size:15px;">✅ Save All Issues</button>
-            <span id="nmi-count" style="color:#e67e22;font-weight:600;"></span>
+          <div style="margin-top:8px;display:flex;gap:10px;align-items:center;justify-content:flex-end;">
+            <span id="nmi-count" style="color:#e67e22;font-weight:600;font-size:13px;"></span>
+            <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:150px;font-size:14px;padding:5px 16px;">✅ Save All Issues</button>
           </div>
         </div>
       </div>
@@ -35573,22 +35573,22 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       }
 
       return '<tr id="nmi-row-'+n.id+'" style="'+rowBg+'">'
-        +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'
+        +'<td style="text-align:center;padding:3px 6px;border:1px solid #ddd;">'
           +'<input type="checkbox" class="nmi-chk" data-nid="'+eid+'" data-original-nid="'+n.id+'" onchange="nmiUpdateCount()">'
         +'</td>'
-        +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'+(i+1)+'</td>'
-        +'<td style="padding:6px;border:1px solid #ddd;">'+nameCell+'</td>'
-        +'<td style="padding:6px;border:1px solid #ddd;">'
+        +'<td style="text-align:center;padding:3px 6px;border:1px solid #ddd;">'+(i+1)+'</td>'
+        +'<td style="padding:3px 6px;border:1px solid #ddd;">'+nameCell+'</td>'
+        +'<td style="padding:3px 6px;border:1px solid #ddd;">'
           +'<span style="background:'+(n.type==='Needle'?'#2980b9':'#8e44ad')+';color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;">'+(n.type||'Needle')+'</span>'
         +'</td>'
-        +'<td class="nmi-bal" style="padding:6px;border:1px solid #ddd;text-align:center;font-weight:800;font-size:13px;color:'+nmiBalColor(balNow)+';">'+balNow+'</td>'
-        +'<td style="padding:6px;border:1px solid #ddd;">'
+        +'<td class="nmi-bal" style="padding:3px 6px;border:1px solid #ddd;text-align:center;font-weight:800;font-size:13px;color:'+nmiBalColor(balNow)+';">'+balNow+'</td>'
+        +'<td style="padding:3px 6px;border:1px solid #ddd;">'
           +'<div style="display:flex;align-items:center;gap:3px;">'
-            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',-1)" onmousedown="nmiHoldStart(\''+eid+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',-1)" ontouchend="nmiHoldStop()" style="width:28px;height:28px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
+            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',1)" onmousedown="nmiHoldStart(\''+eid+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',1)" ontouchend="nmiHoldStop()" style="width:26px;height:24px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
             +'<input type="number" class="nmi-qty" data-nid="'+eid+'" value="" min="1" '
-            +'style="width:52px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:center;" placeholder="0" '
+            +'style="width:52px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;text-align:center;" placeholder="0" '
             +'oninput="nmiAutoChk(this)">'
-            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',1)" onmousedown="nmiHoldStart(\''+eid+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',1)" ontouchend="nmiHoldStop()" style="width:28px;height:28px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
+            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',-1)" onmousedown="nmiHoldStart(\''+eid+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',-1)" ontouchend="nmiHoldStop()" style="width:26px;height:24px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
           +'</div>'
         +'</td>'
         +'</tr>';
