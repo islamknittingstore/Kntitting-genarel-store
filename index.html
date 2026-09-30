@@ -456,6 +456,20 @@ if('serviceWorker' in navigator){
     .compact-form-grid.cf-cols-4 .cf-stack,
     .compact-form-grid.cf-cols-4 .cf-stack-4 { grid-row: auto; }
   }
+  /* ── Needle Issue: ফর্ম লেআউট (3 কলাম, Excel টেবিলের মত) ── */
+  .ni-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; align-items: stretch;
+    padding: 16px; border: 1px solid #f5cba7; border-radius: 14px;
+    background: linear-gradient(180deg, #fffaf3 0%, #ffffff 100%); }
+  .ni-grid .ni-cell { background: #fff; border: 1px solid #f0dcc8; border-left: 4px solid #e67e22; border-radius: 10px;
+    padding: 8px 10px; gap: 10px; box-shadow: 0 1px 3px rgba(230,126,34,0.10); transition: box-shadow .15s, border-color .15s; }
+  .ni-grid .ni-cell:focus-within { border-color: #e67e22; box-shadow: 0 0 0 3px rgba(230,126,34,0.18); }
+  .ni-grid .ni-cell label { flex: 0 0 116px; color: #a04000; font-size: 12px; letter-spacing: .2px; }
+  .ni-grid .ni-cell .form-control { flex: 1; min-width: 0; border-radius: 8px; }
+  .ni-grid .ni-req { color: #e74c3c; margin-left: 3px; }
+  .ni-grid .ni-span2 { grid-column: span 2; }
+  @media (max-width: 1000px) { .ni-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px)  { .ni-grid { grid-template-columns: 1fr; padding: 12px; }
+    .ni-grid .ni-span2 { grid-column: span 1; } .ni-grid .ni-cell label { flex-basis: 96px; } }
   .cf-pair { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .cf-pair label { flex: 0 0 108px; font-weight: 700; color: #1a5276; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cf-pair .form-control, .cf-pair select.form-control {
@@ -6583,9 +6597,28 @@ function ok(msg) {
     <div class="card" style="border-top:4px solid #e67e22;">
       <div class="card-header" style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;">📋 Multi-Needle Issue — এক Machine এ একবারে সব Needle</div>
       <div class="card-body">
-        <div class="compact-form-grid cf-cols-4">
-          <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="nmi-date"></div>
-          <div class="cf-pair"><label>Issue Type *</label>
+        <div class="ni-grid">
+          <div class="cf-pair ni-cell"><label>Date<span class="ni-req">*</span></label><input type="date" class="form-control" id="nmi-date"></div>
+          <div class="cf-pair ni-cell"><label>Needle Type<span class="ni-req">*</span></label>
+            <select class="form-control" id="nmi-needle-type" onchange="nmiNeedleTypeChange(this)">
+              <option value="new">🔵 New Needle</option>
+              <option value="used">♻️ Used Needle</option>
+            </select>
+          </div>
+          <div class="cf-pair ni-cell"><label>Machine Number<span class="ni-req">*</span></label>
+            <select class="form-control" id="nmi-machine-input" onchange="nmiOnMachineSelect(this.value)">
+              <option value="">-- ERP নম্বর সিলেক্ট করুন --</option>
+            </select>
+            <input type="hidden" id="nmi-machine">
+          </div>
+          <div class="cf-pair ni-cell"><label>Shift<span class="ni-req">*</span></label>
+            <select class="form-control" id="nmi-shift" style="font-weight:700;" onchange="stickyWorker('nmi-shift',this.value)">
+              <option value="A">A Shift (সকাল)</option>
+              <option value="B">B Shift (দুপুর)</option>
+              <option value="C">C Shift (রাত)</option>
+            </select>
+          </div>
+          <div class="cf-pair ni-cell"><label>Issue Type<span class="ni-req">*</span></label>
             <select class="form-control" id="nmi-type" style="font-weight:700;border:2px solid #bdc3c7;transition:background 0.2s,color 0.2s,border-color 0.2s;" onchange="nmiTypeColor(this)">
               <option value="broken"  style="background:#fff3f3;color:#c0392b;font-weight:700;">🔴 Broken</option>
               <option value="afterwash" style="background:#ebf5fb;color:#1a5276;font-weight:700;">🔵 After Wash</option>
@@ -6595,55 +6628,33 @@ function ok(msg) {
               <option value="newset"  style="background:#fef5e7;color:#d35400;font-weight:700;">🟠 New Set</option>
             </select>
           </div>
-          <div class="cf-pair"><label>Needle Type *</label>
-            <select class="form-control" id="nmi-needle-type" onchange="nmiNeedleTypeChange(this)">
-              <option value="new">🔵 New Needle</option>
-              <option value="used">♻️ Used Needle</option>
-            </select>
-          </div>
-          <div class="cf-pair"><label>Shift *</label>
-            <select class="form-control" id="nmi-shift" style="font-weight:700;" onchange="stickyWorker('nmi-shift',this.value)">
-              <option value="A">A Shift (সকাল)</option>
-              <option value="B">B Shift (দুপুর)</option>
-              <option value="C">C Shift (রাত)</option>
-            </select>
-          </div>
-
-          <div class="cf-pair"><label>Supervisor</label>
-            <select class="form-control" id="nmi-worker" onchange="stickyWorker('nmi-worker',this.value)">
-              <option value="">-- Select Supervisor --</option>
-            </select>
-          </div>
-          <div class="cf-pair"><label>Section / Category</label>
-            <select class="form-control" id="nmi-cat" onchange="nmiLoadMachines()">
-              <option value="">All</option>
-            </select>
-          </div>
-          <div class="cf-pair"><label>Machine Number *</label>
-            <select class="form-control" id="nmi-machine-input" onchange="nmiOnMachineSelect(this.value)">
-              <option value="">-- ERP নম্বর সিলেক্ট করুন --</option>
-            </select>
-            <input type="hidden" id="nmi-machine">
-          </div>
-          <div class="cf-pair"><label>Machine ID</label>
+          <div class="cf-pair ni-cell"><label>Machine ID</label>
             <input type="text" class="form-control" id="nmi-machine-id-display" readonly
               placeholder="ERP No. সিলেক্ট করলে auto আসবে"
               style="background:#f0f3f7;color:#1a5276;font-weight:700;cursor:default;">
           </div>
-
-          <div class="cf-pair"><label>Remarks</label>
+          <div class="cf-pair ni-cell"><label>Supervisor</label>
+            <select class="form-control" id="nmi-worker" onchange="stickyWorker('nmi-worker',this.value)">
+              <option value="">-- Select Supervisor --</option>
+            </select>
+          </div>
+          <div class="cf-pair ni-cell"><label>Section / Category</label>
+            <select class="form-control" id="nmi-cat" onchange="nmiLoadMachines()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="cf-pair ni-cell"><label>Employee</label>
+            <select class="form-control" id="nmi-employee"><option value="">-- Employee (ঐচ্ছিক) --</option></select>
+          </div>
+          <div class="cf-pair ni-cell"><label>Remarks</label>
             <select class="form-control" id="nmi-remarks-drop" onchange="nmiRemarksDropChange()">
               <option value="">-- Select Remarks --</option>
             </select>
           </div>
-          <div class="cf-pair"><label>Remarks Note</label>
+          <div class="cf-pair ni-cell ni-span2"><label>Remarks Note</label>
             <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
               style="background:#f0f3f7;color:#1a5276;font-weight:600;">
           </div>
-          <div class="cf-pair"><label>Employee</label>
-            <select class="form-control" id="nmi-employee"><option value="">-- Employee (ঐচ্ছিক) --</option></select>
-          </div>
-          <div></div>
         </div>
 
         <!-- Used Needle Warning Banner -->
