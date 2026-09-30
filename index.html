@@ -2392,6 +2392,16 @@ if('serviceWorker' in navigator){
     });
   }
 </script>
+<style id="igl-bw-print-style">
+@media print {
+  html,body,*,*::before,*::after{color:#000 !important;background:transparent !important;background-image:none !important;text-shadow:none !important;box-shadow:none !important;-webkit-text-fill-color:#000 !important;border-color:#000 !important;}
+  body{background:#fff !important;}
+  img{filter:grayscale(1) !important;}
+  th,thead td{border:1px solid #000 !important;font-weight:700 !important;}
+  .item-hdr,.dept-hdr,.report-header,.hdr{border-top:1.5px solid #000 !important;border-bottom:1.5px solid #000 !important;}
+  
+}
+</style>
 </head>
 <body>
 
@@ -42462,5 +42472,40 @@ function drgDeleteHistory(date) {
 }
 </script>
 
+<script id="igl-bw-print-script">
+/* প্রিন্ট উইন্ডো সাদা-কালো: ERP স্ক্রিন রঙিন থাকবে, প্রিন্ট/প্রিভিউ উইন্ডোতে সব লেখা কালো হবে */
+(function(){
+  var BW_CSS = "html,body,*,*::before,*::after{color:#000 !important;background:transparent !important;background-image:none !important;text-shadow:none !important;box-shadow:none !important;-webkit-text-fill-color:#000 !important;border-color:#000 !important;}body{background:#fff !important;}img{filter:grayscale(1) !important;}th,thead td{border:1px solid #000 !important;font-weight:700 !important;}.item-hdr,.dept-hdr,.report-header,.hdr{border-top:1.5px solid #000 !important;border-bottom:1.5px solid #000 !important;}";
+  var BW_TAG = '<style id="igl-bw">' + BW_CSS + '</style>';
+  var _open = window.open;
+  window.open = function(){
+    var w = _open.apply(window, arguments);
+    try {
+      if (w && w.document && !w.__iglBW) {
+        w.__iglBW = true;
+        var dw = w.document.write.bind(w.document);
+        var dc = w.document.close.bind(w.document);
+        w.document.write = function(){
+          var args = Array.prototype.slice.call(arguments).map(function(x){
+            return (typeof x === 'string') ? x.replace(/<\/head>/i, BW_TAG + '</head>') : x;
+          });
+          return dw.apply(null, args);
+        };
+        w.document.close = function(){
+          try {
+            if (!w.document.getElementById('igl-bw')) {
+              var st = w.document.createElement('style');
+              st.id = 'igl-bw'; st.textContent = BW_CSS;
+              (w.document.head || w.document.documentElement).appendChild(st);
+            }
+          } catch(e) {}
+          return dc();
+        };
+      }
+    } catch(e) { /* অন্য ডোমেইনের উইন্ডো হলে কিছু করার নেই */ }
+    return w;
+  };
+})();
+</script>
 </body>
 </html>
