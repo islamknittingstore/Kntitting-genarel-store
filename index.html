@@ -6661,26 +6661,6 @@ function ok(msg) {
         <div id="nmi-used-banner" style="display:none;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;border-radius:8px;padding:10px 14px;margin:14px 0 0;font-size:12px;font-weight:700;">
           ♻️ <b>Used Needle Issue</b> — শুধু Used Needle Stock-এ দেখাবে।
         </div>
-        <!-- Used Needle Issue Type -->
-        <div id="nmi-used-type-row" style="display:none;max-width:320px;margin-top:10px;">
-          <label style="font-weight:700;color:#e67e22;font-size:12px;">♻️ Used Issue Type *</label>
-          <select class="form-control" id="nmi-used-type" style="font-weight:700;border:2px solid #e67e22;">
-            <option value="broken" style="color:#c0392b;font-weight:700;">🔴 Broken (Used)</option>
-            <option value="afterwash" style="color:#1a5276;font-weight:700;">🔵 After Wash (Used)</option>
-          </select>
-        </div>
-
-        <!-- Machine Needle Stock Panel -->
-        <div id="nmi-machine-stock-panel" style="display:none;margin-top:14px;border:1.5px solid #e67e22;border-radius:8px;overflow:hidden;">
-          <div style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;padding:7px 12px;font-size:12px;font-weight:700;">
-            📦 এই Machine এর Needle Stock
-          </div>
-          <div id="nmi-machine-stock-body" style="padding:6px 8px;background:#fff9f0;"></div>
-          <div style="padding:8px 10px;background:#fff9f0;border-top:1px solid #f0dcc8;display:flex;align-items:center;gap:10px;">
-            <button class="btn btn-success" onclick="nmiSaveAll()" style="min-width:160px;font-size:14px;">✅ Save All Issues</button>
-            <span id="nmi-count-top" style="color:#e67e22;font-size:13px;font-weight:600;"></span>
-          </div>
-        </div>
         <!-- Needle list for selected machine -->
         <div id="nmi-needle-list" style="margin-top:15px;display:none;">
           <div style="font-weight:600;color:#555;margin-bottom:8px;border-bottom:2px solid #e67e22;padding-bottom:6px;">
@@ -6694,6 +6674,7 @@ function ok(msg) {
                   <th style="padding:8px;border:1px solid #ddd;">#</th>
                   <th style="padding:8px;border:1px solid #ddd;">Needle Code</th>
                   <th style="padding:8px;border:1px solid #ddd;">Type</th>
+                  <th style="padding:8px;border:1px solid #ddd;width:70px;">Balance</th>
                   <th style="padding:8px;border:1px solid #ddd;width:90px;">Qty *</th>
                 </tr>
               </thead>
@@ -35264,7 +35245,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     sel.style.borderColor  = c.border;
     sel.style.fontWeight   = '700';
     // type পরিবর্তন হলে needle list reload — sinker dropdown দেখানো/লুকানোর জন্য
-    nmiLoadNeedles();
+    // (Used Needle এ Sinker/New Set নেই, তাই রিলোড করলে শুধু টাইপ করা Qty মুছে যেত — এড়ানো হলো)
+    if (((document.getElementById('nmi-needle-type')||{}).value || 'new') !== 'used') nmiLoadNeedles();
   }
 
   var _nmiMachinesFull=[];
@@ -35323,48 +35305,22 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       }
       if(idDisplay) idDisplay.value=displayLabel;
       nmiLoadNeedles();
-      nmiRenderMachineStock(machineId);
     } else {
       if(hidden) hidden.value='';
       if(idDisplay) idDisplay.value='';
       var div=document.getElementById('nmi-needle-list');
       if(div) div.style.display='none';
-      var panel=document.getElementById('nmi-machine-stock-panel');
-      if(panel) panel.style.display='none';
     }
     // Remarks: newset/accident select থাকলে machine change এ auto update
     nmiRemarksRefresh();
   }
 
-  function nmiRenderMachineStock(machineId, needleType){
-    var panel  = document.getElementById('nmi-machine-stock-panel');
-    var body   = document.getElementById('nmi-machine-stock-body');
-    if(!panel || !body || !machineId) return;
-
-    // needleType না দিলে current select থেকে নাও
-    if(!needleType){
-      needleType = (document.getElementById('nmi-needle-type')||{}).value || 'new';
-    }
-    var isUsed = needleType === 'used';
-
-    // চলতি মাসের ১ তারিখ — B/F কাটঅফ
+  // ── Needle List এর Balance কলাম (আগের Stock Panel এর হিসাবই হুবহু): B/F(মাস শুরুর আগে) + চলতি মাসের Receive − Issue ──
+  function nmiBalCtx(isUsed){
     var now = new Date();
-    var monthStart = now.getFullYear() + '-'
-      + ('0'+(now.getMonth()+1)).slice(-2) + '-01'; // YYYY-MM-01
-
-    var nm = ndlGetMaster();
-    var assigned = nm.filter(function(n){ return (n.machines||[]).indexOf(machineId) >= 0; });
-    if(!assigned.length){
-      body.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 4px;">এই machine এ কোনো needle assign নেই</div>';
-      panel.style.display = '';
-      return;
-    }
-
-    // সব receive ও issue একবার load করো, তারপর filter করো
+    var monthStart = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2) + '-01';
     var allRcvRaw = ndlGetRcv();
     var allIssRaw = NDB.needles;
-
-    // used/new অনুযায়ী type filter
     var typeRcv, typeIss;
     if(isUsed){
       typeRcv = allRcvRaw.filter(function(r){ return (r.needleStockType||'new').toLowerCase()==='used'; });
@@ -35373,193 +35329,79 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       typeRcv = allRcvRaw.filter(function(r){ return (r.needleStockType||'new')==='new'; });
       typeIss = allIssRaw.filter(function(r){ return (r.needleType||'new').toLowerCase()!=='used' && !r.nsrOnly && r.source!=='nsr'; });
     }
-
-    // B/F কাটঅফ: মাসের ১ তারিখের আগের receive ও issue
-    var bfRcvs = typeRcv.filter(function(r){ return r.date < monthStart; });
-    var bfIsss = typeIss.filter(function(r){ return r.date < monthStart; });
-    // চলতি মাসের receive ও issue
-    var curRcvs = typeRcv.filter(function(r){ return r.date >= monthStart; });
-    var curIsss = typeIss.filter(function(r){ return r.date >= monthStart; });
-
-    var panelLabel = isUsed ? '♻️ Used Needle Stock' : '📦 New Needle Stock';
-    var headerBg   = isUsed ? '#fef3e2' : '#fef3e2';
-    // মাস নাম header এ দেখাবো
-    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var curMonthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
-
-    var nmAllNeedlesOnly = nm.filter(function(n){ return n.type !== 'Sinker'; });
-
-    var rows = assigned.map(function(n){
-      // ── Override: শুধু Used Needle এ — এই machine + needle slot এর জন্য আগে select করা needle থাকলে সেটাই ব্যবহার করো ──
-      // এই override needle master object এ সেভ হয় (n.usedOverride[machineId]) — তাই Firebase দিয়ে সব ডিভাইসে sync হবে
-      var overrideNid = (isUsed && n.usedOverride && n.usedOverride[machineId]) ? n.usedOverride[machineId] : null;
-      var effectiveNeedle = n;
-      if (overrideNid && overrideNid !== n.id) {
-        var found = nm.find(function(x){ return x.id === overrideNid; });
-        if (found) effectiveNeedle = found;
-      }
-      var nObj = effectiveNeedle; // স্টক/ব্যালেন্স হিসাব এই needle অনুযায়ী হবে
-      // Master B/F (needle master এ save করা)
-      var masterBf = isUsed ? Number(nObj.usedBf||nObj.usedBalance||0) : Number(nObj.bf||0);
-
-      // Running B/F = master B/F + মাস শুরুর আগের সব Receive − মাস শুরুর আগের সব Issue
-      var bfRcvQty = bfRcvs.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var bfIssQty = bfIsss.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var runBf = masterBf + bfRcvQty - bfIssQty;
-
-      // চলতি মাসের Receive ও Issue
-      var rcv = curRcvs.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-      var iss = curIsss.filter(function(r){ return r.needleId===nObj.id; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
-
-      var bal = runBf + rcv - iss;
-      var color = bal <= 0 ? '#e74c3c' : bal <= 10 ? '#e67e22' : '#117a65';
-      // Issue input — qty দিলে টিক + নিচের list এ auto fill + auto check
-      var issInput = '<div style="display:flex;align-items:center;gap:3px;">'
-        +'<button type="button" '
-        +'onmousedown="nmiHoldStart(\''+nObj.id+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
-        +'ontouchstart="nmiHoldStart(\''+nObj.id+'\',1)" ontouchend="nmiHoldStop()" '
-        +'onclick="nmiStockIssStep(\''+nObj.id+'\',1)" '
-        +'style="width:30px;height:30px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
-        +'<input type="number" id="nmi-stock-iss-'+nObj.id+'" min="0" placeholder="0" '
-        +'style="width:48px;padding:3px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:13px;font-weight:700;" '
-        +'oninput="nmiStockIssInput(this,\''+nObj.id+'\')" value="">'
-        +'<button type="button" '
-        +'onmousedown="nmiHoldStart(\''+nObj.id+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" '
-        +'ontouchstart="nmiHoldStart(\''+nObj.id+'\',-1)" ontouchend="nmiHoldStop()" '
-        +'onclick="nmiStockIssStep(\''+nObj.id+'\',-1)" '
-        +'style="width:30px;height:30px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:4px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
-        +'</div>';
-      var chkStyle = 'width:18px;height:18px;accent-color:#27ae60;cursor:pointer;';
-      // ── Needle নাম cell — শুধু Used Needle এ dropdown (mapping এর বাইরের needle ও select করা যাবে), New Needle এ আগের মতো fixed mapping name ──
-      var nameCell;
-      if (isUsed) {
-        nameCell = '<select class="nmi-stock-needle-sel" data-machine="'+machineId+'" data-slot="'+n.id+'" '
-          +'onchange="nmiStockNeedleChange(this,\''+needleType+'\')" '
-          +'style="width:100%;border:1px solid #d35400;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;color:#7d3c98;background:#fdf6f0;cursor:pointer;">'
-          +nmAllNeedlesOnly.map(function(nd){
-            return '<option value="'+nd.id+'"'+(nd.id===nObj.id?' selected':'')+'>'+(nd.name||nd.code)+'</option>';
-          }).join('')
-          +'</select>';
-      } else {
-        nameCell = '<b>'+(nObj.name||nObj.code||'')+'</b>';
-      }
-      return '<tr id="nmi-stock-row-'+nObj.id+'" data-slot="'+n.id+'">'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;font-size:12px;font-weight:600;">'+nameCell+'</td>'
-        + '<td style="padding:5px 8px;border-bottom:1px solid #f0e0d0;text-align:center;font-weight:800;font-size:13px;color:'+color+';">'+bal+'</td>'
-        + '<td style="padding:5px 4px;border-bottom:1px solid #f0e0d0;">'
-        +   '<div style="display:flex;align-items:center;gap:5px;">'
-        +     issInput
-        +     '<input type="checkbox" id="nmi-stock-chk-'+nObj.id+'" style="'+chkStyle+'" onchange="nmiStockChkChange(this,\''+nObj.id+'\')"> '
-        +   '</div>'
-        + '</td>'
-        + '</tr>';
-    }).join('');
-
-    body.innerHTML = '<div style="font-size:11px;font-weight:700;color:'+(isUsed?'#e67e22':'#1a5276')+';padding:4px 8px 2px;border-bottom:1px solid #f0e0d0;">'
-        + panelLabel + ' &nbsp;<span style="font-weight:400;color:#888;font-size:10px;">— '+curMonthLabel+'</span></div>'
-      + '<table style="width:100%;border-collapse:collapse;">'
-      + '<thead><tr style="background:'+headerBg+';">'
-      + '<th style="padding:4px 8px;font-size:11px;color:#7d6608;text-align:left;">Needle</th>'
-      + '<th style="padding:4px 8px;font-size:11px;text-align:center;">Balance</th>'
-      + '<th style="padding:4px 8px;font-size:11px;color:#e74c3c;text-align:center;">Issue Qty</th>'
-      + '</tr></thead><tbody>'+rows+'</tbody></table>';
-    panel.style.display = '';
-
-    // ── Used Needle: master এ সেভ করা override অনুযায়ী নিচের Needle List এর data-nid sync করো ──
-    // (Firebase override থাকলে initial render এই sync দরকার, শুধু onchange এ না)
-    if (isUsed) {
-      assigned.forEach(function(n){
-        var effectiveNid = (n.usedOverride && n.usedOverride[machineId]) ? n.usedOverride[machineId] : n.id;
-        var listChk = document.querySelector('.nmi-chk[data-nid="'+n.id+'"]');
-        var listQty = document.querySelector('.nmi-qty[data-nid="'+n.id+'"]');
-        if (listChk) listChk.dataset.nid = effectiveNid;
-        if (listQty) listQty.dataset.nid = effectiveNid;
-      });
+    return {isUsed:isUsed, monthStart:monthStart, typeRcv:typeRcv, typeIss:typeIss};
+  }
+  function nmiBalOf(nid, ctx, nmList){
+    var nObj = (nmList || ndlGetMaster()).find(function(x){ return x.id === nid; });
+    if(!nObj) return 0;
+    var masterBf = ctx.isUsed ? Number(nObj.usedBf||nObj.usedBalance||0) : Number(nObj.bf||0);
+    var ms = ctx.monthStart;
+    function sum(arr, before){
+      return arr.filter(function(r){ return r.needleId===nid && (before ? r.date < ms : r.date >= ms); })
+                .reduce(function(t,r){ return t+(Number(r.qty)||0); },0);
     }
+    return masterBf + sum(ctx.typeRcv,true) - sum(ctx.typeIss,true) + sum(ctx.typeRcv,false) - sum(ctx.typeIss,false);
+  }
+  function nmiBalColor(b){ return b <= 0 ? '#e74c3c' : b <= 10 ? '#e67e22' : '#117a65'; }
+  function nmiSetBalCell(row, nid){
+    if(!row) return;
+    var cell = row.querySelector('.nmi-bal');
+    if(!cell) return;
+    var isUsed = ((document.getElementById('nmi-needle-type')||{}).value || 'new') === 'used';
+    var b = nmiBalOf(nid, nmiBalCtx(isUsed), null);
+    cell.textContent = b;
+    cell.style.color = nmiBalColor(b);
+  }
+  function nmiRefreshBalances(){
+    var isUsed = ((document.getElementById('nmi-needle-type')||{}).value || 'new') === 'used';
+    var ctx = nmiBalCtx(isUsed), nm = ndlGetMaster();
+    document.querySelectorAll('#nmi-tbody tr').forEach(function(row){
+      var chk = row.querySelector('.nmi-chk'), cell = row.querySelector('.nmi-bal');
+      if(!chk || !cell) return;
+      var b = nmiBalOf(chk.dataset.nid, ctx, nm);
+      cell.textContent = b;
+      cell.style.color = nmiBalColor(b);
+    });
   }
 
-  // Stock panel issue step button
-  function nmiStockIssStep(nid, delta){
-    var inp = document.getElementById('nmi-stock-iss-'+nid);
-    if(!inp) return;
-    var cur = parseInt(inp.value)||0;
-    var next = Math.max(0, cur + delta);
-    inp.value = next || '';
-    nmiStockIssInput(inp, nid);
-  }
-
-  // Stock panel এ qty দিলে উপরের checkbox + নিচের list এ auto fill + auto check
-  function nmiStockIssInput(inp, nid){
-    var qty = parseInt(inp.value)||0;
-    // উপরের stock panel checkbox
-    var topChk = document.getElementById('nmi-stock-chk-'+nid);
-    if(topChk) topChk.checked = qty > 0;
-    // নিচের needle list sync — slot id ব্যবহার করো (original mapping id)
-    // stock panel row এর data-slot থেকে slot id নাও
-    var slotId = nid; // default
-    var stockRow = inp.closest ? inp.closest('tr') : null;
-    if (stockRow && stockRow.dataset && stockRow.dataset.slot) {
-      slotId = stockRow.dataset.slot;
-    } else {
-      // closest না পেলে nmi-stock-needle-sel থেকে slot খুঁজি
-      var allSels = document.querySelectorAll('.nmi-stock-needle-sel');
-      for (var si = 0; si < allSels.length; si++) {
-        if (allSels[si].value === nid) { slotId = allSels[si].dataset.slot || nid; break; }
-      }
-    }
-    var listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
-    var listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
-    if(listQty){ listQty.value = qty > 0 ? qty : ''; }
-    if(listChk){ listChk.checked = qty > 0; }
-    nmiUpdateCount();
-  }
-
-  // উপরের checkbox manually change হলে qty ও সেট করি
-  // ── Used/New Needle Stock Panel এ needle dropdown change হলে ──
+  // ── Used Needle: নিচের Needle List এ needle dropdown change হলে ──
   // mapping এর বাইরের যেকোনো needle select করা যায়, এবং পরের বার এই machine+slot এর জন্য সেটাই default থাকবে
   function nmiStockNeedleChange(sel, needleType){
     if (needleType !== 'used') return;
     var machineId = sel.dataset.machine;
-    var slotId    = sel.dataset.slot;  // original mapping needle id (যেই needle slot এ এই machine assign করা)
-    var newNid    = sel.value;          // dropdown এ নতুন selected needle id
+    var slotId    = sel.dataset.slot;  // original mapping needle id
+    var newNid    = sel.value;
     if(!machineId || !slotId) return;
 
-    // ── Override needle master object এ সেভ করো — Firebase দিয়ে সব ডিভাইসে sync হবে ──
+    // ── Override needle master object এ সেভ করো — Firebase দিয়ে সব ডিভাইসে sync হবে (আগের মতোই) ──
     var nm = ndlGetMaster();
     var slotNeedle = nm.find(function(x){ return x.id === slotId; });
     if (slotNeedle) {
       if (!slotNeedle.usedOverride) slotNeedle.usedOverride = {};
       if (newNid === slotId) {
-        delete slotNeedle.usedOverride[machineId]; // আসল needle এ ফিরে গেলে override clear
+        delete slotNeedle.usedOverride[machineId];
       } else {
         slotNeedle.usedOverride[machineId] = newNid;
       }
       ndlSetMaster(nm);
-      // Firebase এ সব ডিভাইসে sync করো
       try { if (typeof triggerAutoSave === 'function') triggerAutoSave(); } catch(e) {}
     }
 
-    // নিচের Needle List এর row এর data-nid আপডেট করো — যাতে save করার সময় সঠিক needle এর balance minus হয়
-    var listChk = document.querySelector('.nmi-chk[data-nid="'+slotId+'"]');
-    var listQty = document.querySelector('.nmi-qty[data-nid="'+slotId+'"]');
-    if (listChk) listChk.dataset.nid = newNid;
-    if (listQty) listQty.dataset.nid = newNid;
-
-    // panel re-render করো নতুন needle এর balance দিয়ে
-    nmiRenderMachineStock(machineId, needleType);
-  }
-
-  function nmiStockChkChange(cb, nid){
-    var inp = document.getElementById('nmi-stock-iss-'+nid);
-    if(cb.checked){
-      if(inp && (!inp.value || parseInt(inp.value)===0)){ inp.value = 1; }
-      if(inp) nmiStockIssInput(inp, nid);
-    } else {
-      if(inp){ inp.value = ''; nmiStockIssInput(inp, nid); }
+    // এই row এর checkbox / qty / +− বাটন নতুন needle এর সাথে বাঁধো, Balance রিফ্রেশ করো
+    var row = sel.closest('tr');
+    if (row) {
+      var chk = row.querySelector('.nmi-chk');
+      var qty = row.querySelector('.nmi-qty');
+      if (chk) { chk.dataset.nid = newNid; chk.checked = false; }
+      if (qty) { qty.dataset.nid = newNid; qty.value = ''; }
+      row.querySelectorAll('button[onclick*="nmiQtyStep"]').forEach(function(btn){
+        btn.setAttribute('onclick', btn.getAttribute('onclick').replace(/nmiQtyStep\('[^']*'/, "nmiQtyStep('"+newNid+"'"));
+      });
+      nmiSetBalCell(row, newNid);
+      nmiUpdateCount();
     }
   }
 
-  // Hold-to-count: মাউস/touch ধরে রাখলে ১,২,৩ করে count হবে
   var _nmiHoldTimer = null;
   var _nmiHoldInterval = null;
   function nmiHoldStart(nid, delta){
@@ -35567,7 +35409,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // প্রথম ৪০০ms পর শুরু, তারপর প্রতি ১৫০ms এ বাড়বে
     _nmiHoldTimer = setTimeout(function(){
       _nmiHoldInterval = setInterval(function(){
-        nmiStockIssStep(nid, delta);
+        nmiQtyStep(nid, delta);
       }, 150);
     }, 400);
   }
@@ -35678,12 +35520,15 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(!div||!tbody)return;
     if(!mId){div.style.display='none';return;}
     var nm=ndlGetMaster();
+    var isUsed = ((document.getElementById('nmi-needle-type')||{}).value || 'new') === 'used';
+    var balCtx = nmiBalCtx(isUsed);
+    var nmUsedPick = nm.filter(function(n){ return n.type !== 'Sinker'; });
     var allSinkers    = nm.filter(function(n){ return n.type === 'Sinker'; });
     var allNeedlesOnly = nm.filter(function(n){ return n.type === 'Needle'; });
     // mapping অনুযায়ী needle দেখাও
     var assigned=nm.filter(function(n){return (n.machines||[]).indexOf(mId)>=0;});
     if(!assigned.length){
-      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#aaa;padding:15px;">এই machine এ কোনো needle assign করা নেই<br><small>Needle-Machine Map থেকে assign করুন</small></td></tr>';
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:15px;">এই machine এ কোনো needle assign করা নেই<br><small>Needle-Machine Map থেকে assign করুন</small></td></tr>';
       div.style.display='block';
       document.getElementById('nmi-count').textContent='';
       return;
@@ -35691,11 +35536,25 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     tbody.innerHTML=assigned.map(function(n,i){
       var isSinker = n.type === 'Sinker';
       var isNeedle = n.type === 'Needle';
-      var isNewset = issueType === 'newset';
+      var isNewset = issueType === 'newset' && !isUsed;
+      // Used Needle: এই machine+slot এর জন্য আগে select করা needle (override) থাকলে সেটাই effective
+      var eid = n.id;
+      if (isUsed && n.usedOverride && n.usedOverride[mId] && n.usedOverride[mId] !== n.id) {
+        var _fo = nm.find(function(x){ return x.id === n.usedOverride[mId]; });
+        if (_fo) eid = _fo.id;
+      }
+      var balNow = nmiBalOf(eid, balCtx, nm);
       var rowBg = isNewset ? (isSinker ? 'background:#f5eef8;' : 'background:#eaf4fb;') : '';
 
       var nameCell;
-      if (isSinker && isNewset) {
+      if (isUsed) {
+        nameCell = '<select class="nmi-stock-needle-sel" data-machine="'+mId+'" data-slot="'+n.id+'" onchange="nmiStockNeedleChange(this,\'used\')" '
+            +'style="width:100%;border:1px solid #d35400;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;color:#7d3c98;background:#fdf6f0;cursor:pointer;">'
+            +nmUsedPick.map(function(nd){
+              return '<option value="'+nd.id+'"'+(nd.id===eid?' selected':'')+'>'+(nd.name||nd.code)+'</option>';
+            }).join('')
+            +'</select>';
+      } else if (isSinker && isNewset) {
         nameCell = '<select class="nmi-sinker-sel" data-nid="'+n.id+'" onchange="nmiSinkerChange(this)" '
             +'style="width:100%;border:1px solid #8e44ad;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:600;color:#6c3483;background:#f9f0ff;cursor:pointer;">'
             +allSinkers.map(function(s){
@@ -35715,20 +35574,21 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       return '<tr id="nmi-row-'+n.id+'" style="'+rowBg+'">'
         +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'
-          +'<input type="checkbox" class="nmi-chk" data-nid="'+n.id+'" data-original-nid="'+n.id+'" onchange="nmiUpdateCount()">'
+          +'<input type="checkbox" class="nmi-chk" data-nid="'+eid+'" data-original-nid="'+n.id+'" onchange="nmiUpdateCount()">'
         +'</td>'
         +'<td style="text-align:center;padding:6px;border:1px solid #ddd;">'+(i+1)+'</td>'
         +'<td style="padding:6px;border:1px solid #ddd;">'+nameCell+'</td>'
         +'<td style="padding:6px;border:1px solid #ddd;">'
           +'<span style="background:'+(n.type==='Needle'?'#2980b9':'#8e44ad')+';color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;">'+(n.type||'Needle')+'</span>'
         +'</td>'
+        +'<td class="nmi-bal" style="padding:6px;border:1px solid #ddd;text-align:center;font-weight:800;font-size:13px;color:'+nmiBalColor(balNow)+';">'+balNow+'</td>'
         +'<td style="padding:6px;border:1px solid #ddd;">'
           +'<div style="display:flex;align-items:center;gap:3px;">'
-            +'<button type="button" onclick="nmiQtyStep(\''+n.id+'\',-1)" style="width:28px;height:28px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
-            +'<input type="number" class="nmi-qty" data-nid="'+n.id+'" value="" min="1" '
+            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',-1)" onmousedown="nmiHoldStart(\''+eid+'\',-1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',-1)" ontouchend="nmiHoldStop()" style="width:28px;height:28px;border:1px solid #e74c3c;background:#fff5f5;color:#e74c3c;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">−</button>'
+            +'<input type="number" class="nmi-qty" data-nid="'+eid+'" value="" min="1" '
             +'style="width:52px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:center;" placeholder="0" '
             +'oninput="nmiAutoChk(this)">'
-            +'<button type="button" onclick="nmiQtyStep(\''+n.id+'\',1)" style="width:28px;height:28px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
+            +'<button type="button" onclick="nmiQtyStep(\''+eid+'\',1)" onmousedown="nmiHoldStart(\''+eid+'\',1)" onmouseup="nmiHoldStop()" onmouseleave="nmiHoldStop()" ontouchstart="nmiHoldStart(\''+eid+'\',1)" ontouchend="nmiHoldStop()" style="width:28px;height:28px;border:1px solid #27ae60;background:#f0fff4;color:#27ae60;border-radius:5px;font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0;">+</button>'
           +'</div>'
         +'</td>'
         +'</tr>';
@@ -35762,6 +35622,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // checkbox data-nid → নতুন needle ID
     var chk = row.querySelector('.nmi-chk');
     if (chk) chk.dataset.nid = newNid;
+    nmiSetBalCell(row, newNid);
 
     // নতুন needle-এর stock placeholder এ দেখাও
     if (typeof _ndlCurrentStock === 'function' && qtyInp) {
@@ -35798,6 +35659,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // checkbox data-nid আপডেট — save loop checked.forEach এ nId হিসেবে ব্যবহার হয়
     var chk = row.querySelector('.nmi-chk');
     if (chk) chk.dataset.nid = newNid;
+    nmiSetBalCell(row, newNid);
 
     // নতুন sinker-এর current stock placeholder এ দেখাও
     if (typeof _ndlCurrentStock === 'function' && qtyInp) {
@@ -35828,8 +35690,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var total=document.querySelectorAll('.nmi-chk').length;
     var txt = checked+' / '+total+' selected';
     document.getElementById('nmi-count').textContent=txt;
-    var top=document.getElementById('nmi-count-top');
-    if(top) top.textContent=txt;
   }
 
   function nmiRemarksDropChange(){
@@ -35944,11 +35804,11 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if(!needle)return;
       var m=getNeedleMachines().find(function(x){return x.id===machine;})||{};
 
-      // Used Needle হলে nmi-used-type থেকে type নাও (broken/afterwash)
-      // New Needle হলে nmi-type (Issue Type) থেকে নাও
-      var usedTypeEl = document.getElementById('nmi-used-type');
+      // এখন থেকে একটাই Issue Type (nmi-type) কাজ করে:
+      //   New Needle  → নতুন নিডেলের সব Issue Type (Broken/After Wash/Design/Flat Knit/Retail/New Set)
+      //   Used Needle → শুধু Broken / After Wash (অন্য কিছু এলে নিরাপদে Broken)
       var finalType = (needleType==='used')
-        ? (usedTypeEl ? usedTypeEl.value : 'broken')
+        ? ((type==='afterwash') ? 'afterwash' : 'broken')
         : type;
 
       // newset + Sinker/Needle হলে dropdown থেকে selected ID নাও
@@ -36058,8 +35918,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     try { renderNeedleStock(); } catch(e) {}
     try { renderDashboard(); } catch(e) {}
     // Machine stock panel refresh
-    var _mId = document.getElementById('nmi-machine');
-    if(_mId && _mId.value) nmiRenderMachineStock(_mId.value);
+    nmiRefreshBalances();
     document.querySelectorAll('.nmi-qty').forEach(function(q){q.value='';});
     document.querySelectorAll('.nmi-chk').forEach(function(c){c.checked=false;});
     document.getElementById('nmi-check-all').checked=false;
@@ -38845,20 +38704,28 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nmiNeedleTypeChange(sel) {
     var isUsed = sel.value === 'used';
     var banner = document.getElementById('nmi-used-banner');
-    var typeRow = document.getElementById('nmi-type');
-    var usedTypeRow = document.getElementById('nmi-used-type-row');
+    var typeSel = document.getElementById('nmi-type');
     if(banner) banner.style.display = isUsed ? '' : 'none';
-    if(usedTypeRow) usedTypeRow.style.display = isUsed ? '' : 'none';
-    // New Needle হলে Issue Type active, Used হলে lock
-    if(typeRow) {
-      typeRow.style.opacity = isUsed ? '0.4' : '1';
-      typeRow.style.pointerEvents = isUsed ? 'none' : '';
-      typeRow.title = isUsed ? 'Used Needle-এ নিচের Used Issue Type ব্যবহার করুন' : '';
-    }
-    // Machine stock panel — needle type অনুযায়ী balance refresh করো
-    var machineId = (document.getElementById('nmi-machine')||{}).value || '';
-    if(machineId){
-      nmiRenderMachineStock(machineId, sel.value);
+    // একটাই Issue Type: Used Needle হলে শুধু Broken / After Wash, New Needle হলে সব অপশন
+    var typeChanged = false;
+    if(typeSel) {
+      typeSel.style.opacity = '1';
+      typeSel.style.pointerEvents = '';
+      typeSel.title = isUsed ? 'Used Needle-এ শুধু Broken ও After Wash' : '';
+      Array.prototype.forEach.call(typeSel.options, function(o){
+        var allowed = !isUsed || o.value === 'broken' || o.value === 'afterwash';
+        o.disabled = !allowed;
+        o.hidden = !allowed;
+        o.style.display = allowed ? '' : 'none';
+      });
+      if(isUsed && typeSel.value !== 'broken' && typeSel.value !== 'afterwash') {
+        typeSel.value = 'broken';
+        typeChanged = true;
+      }
+      nmiTypeColor(typeSel);
+      // Design/New Set ইত্যাদি থেকে Broken এ নামলে Needle List এর রং/Sinker dropdown রিসেট হবে
+      // Used হলে nmiTypeColor রিলোড করে না — তাই এখানে Needle List নতুন করে সাজাও (Balance/needle dropdown Used অনুযায়ী)
+      if(isUsed) nmiLoadNeedles();
     }
   }
 
