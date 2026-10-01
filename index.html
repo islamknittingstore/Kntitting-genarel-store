@@ -2237,7 +2237,18 @@ if('serviceWorker' in navigator){
           if (typeof renderOilStoreTransfer === 'function') { try { renderOilStoreTransfer(); } catch(e){} }
           // IGL_USERS override reload করো
           if(data.settings.usersOverride && typeof IGL_USERS !== 'undefined'){
-            try{ IGL_USERS = data.settings.usersOverride; } catch(e){}
+            try{
+              // Firebase এর কপিতে কারো ছবি না থাকলে লোকাল/ক্যাশ ছবি রেখে দাও (আগে ছবি মুছে যেত)
+              var _oldU = IGL_USERS, _newU = data.settings.usersOverride, _cache = (typeof iglPhotoCacheGet === 'function') ? iglPhotoCacheGet() : {};
+              Object.keys(_newU).forEach(function(k){
+                if (_newU[k] && !_newU[k].photo) {
+                  var keep = (_oldU && _oldU[k] && _oldU[k].photo) || _cache[k];
+                  if (keep) _newU[k].photo = keep;
+                }
+              });
+              IGL_USERS = _newU;
+              try { localStorage.setItem('igl_users_override', JSON.stringify(IGL_USERS)); } catch(e){}
+            } catch(e){}
           }
         }
 
@@ -2245,6 +2256,7 @@ if('serviceWorker' in navigator){
         // অ্যাভাটার/নাম রিফ্রেশ করা — আগে এটা বাদ পড়ে যাচ্ছিল, তাই ছবি Firebase এ
         // সেভ থাকলেও navbar এ দেখা যেত না যতক্ষণ না ম্যানুয়ালি Users প্যানেল খোলা হতো ──
         try { if(typeof iglUpdateUserAvatar === 'function') iglUpdateUserAvatar(); } catch(e){}
+        try { if(typeof iglRenderWelcomeGreeting === 'function') iglRenderWelcomeGreeting(); } catch(e){}
 
         // ✅ Firebase থেকে নতুন permission/settings এলে সাথে সাথে menu/nav আপডেট করো
         // (আগে শুধু login/session-restore এ চলতো, তাই অন্য device এ admin permission
@@ -2683,6 +2695,16 @@ function iglDoLogin(){
   }
 
   // ── Navbar-এ ইউজারের নাম + প্রোফাইল ছবি (যদি থাকে) দেখানো ──
+// ইউজারের ছবি আলাদা লোকাল ক্যাশে রাখা হয় — Firebase থেকে users ডেটা এসে (ছবি ছাড়া) বদলে দিলেও ছবি হারাবে না
+function iglPhotoCacheGet(){
+  try { return JSON.parse(localStorage.getItem('igl_user_photo_cache') || '{}') || {}; } catch(e){ return {}; }
+}
+function iglPhotoCacheSet(uname, photo){
+  try {
+    var c = iglPhotoCacheGet();
+    if (c[uname] !== photo) { c[uname] = photo; localStorage.setItem('igl_user_photo_cache', JSON.stringify(c)); }
+  } catch(e){}
+}
 function iglUpdateUserAvatar(debugMode){
   var nb = document.getElementById('igl-user-badge');
   var av = document.getElementById('igl-user-avatar');
@@ -2693,6 +2715,15 @@ function iglUpdateUserAvatar(debugMode){
       return null;
     })();
     var photo = uname && IGL_USERS[uname] ? IGL_USERS[uname].photo : null;
+    if (uname) {
+      if (photo) {
+        iglPhotoCacheSet(uname, photo);
+      } else {
+        // users ডেটায় ছবি নেই (যেমন Firebase সিঙ্কে ছবি ছাড়া কপি এসেছে) — ক্যাশ থেকে ফেরত আনো
+        var _cp = iglPhotoCacheGet()[uname];
+        if (_cp) { photo = _cp; if (IGL_USERS[uname]) IGL_USERS[uname].photo = _cp; }
+      }
+    }
     if (debugMode) {
       alert('🔍 Debug Info:\n\nusername: "'+uname+'"\nIGL_USERS এ আছে কি: '+(uname && !!IGL_USERS[uname])+'\nphoto আছে কি: '+(!!photo)+'\nphoto length: '+(photo?photo.length:0));
     }
@@ -2715,6 +2746,8 @@ function iglUpdateUserAvatar(debugMode){
 
   // navbar এ user দেখাও
   iglUpdateUserAvatar();
+  // ড্যাশবোর্ডের স্বাগতমে ইউজারের নাম বসাও (আগে শুধু পেজ লোডের সময় হতো, তখন লগইন হয়নি)
+  try { if (typeof iglRenderWelcomeGreeting === 'function') iglRenderWelcomeGreeting(); } catch(e){}
 
   // Permission অনুযায়ী menu apply করো (admin menu + requisition সহ)
   iglApplyPermissions();
@@ -2739,6 +2772,7 @@ function iglUpdateUserAvatar(debugMode){
         var nb = document.getElementById('igl-user-badge');
         if(nb) nb.textContent = '👤 ' + IGL_CURRENT_USER.name;
         try { iglUpdateUserAvatar(); } catch(e){}
+        try { if (typeof iglRenderWelcomeGreeting === 'function') iglRenderWelcomeGreeting(); } catch(e){}
         if(IGL_CURRENT_USER.role === 'admin'){
           document.body.classList.remove('igl-user-regular');
           var nurOdBtn = document.getElementById('nur-offday-btn-wrap');
@@ -22580,17 +22614,27 @@ function pkgPrintOriented(orientation, stockFilter) {
 
 // ── মেইন Dashboard (Welcome পেজ)-এ শুধু গ্রিটিং টেক্সট ও তারিখ বসানো হয় —
 // এখানে কোনো DB ক্যালকুলেশন হয় না, শুধু ডিসপ্লে টেক্সট ──
-function renderMainDashboardWelcome() {
+// শুধু গ্রিটিং (ইউজারের নাম সহ) ও তারিখ — লগইন/সেশন রিস্টোর/Firebase সিঙ্কের পর নাম বসাতে সবখানে নিরাপদে ডাকা যায়
+// (আবহাওয়া লোড বা টাইমার এখানে নেই, তাই বারবার ডাকলে কিছু জমে না)
+function iglRenderWelcomeGreeting() {
   var now = new Date();
   var hour = now.getHours();
   var greet = hour < 5 ? '🌙 শুভ রাত্রি' : (hour < 12 ? '☀️ শুভ সকাল' : (hour < 17 ? '🌤️ শুভ দুপুর' : (hour < 20 ? '🌆 শুভ সন্ধ্যা' : '🌙 শুভ রাত্রি')));
   var userName = (typeof IGL_CURRENT_USER !== 'undefined' && IGL_CURRENT_USER && IGL_CURRENT_USER.name) ? IGL_CURRENT_USER.name : '';
+  try {
+    var _uu = (typeof IGL_USERS !== 'undefined' && IGL_CURRENT_USER && IGL_CURRENT_USER.username) ? IGL_USERS[IGL_CURRENT_USER.username] : null;
+    if (_uu && _uu.name) userName = _uu.name;
+  } catch(e) {}
   var msgEl = document.getElementById('dash-welcome-msg');
   if (msgEl) msgEl.innerHTML = greet + (userName ? ', <span class="dash-user-name-rgb">' + userName + '</span>!' : '! স্বাগতম');
   var dateEl = document.getElementById('dash-date-welcome');
   if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   var bnDateEl = document.getElementById('dash-date-bangla');
   if (bnDateEl) bnDateEl.textContent = toBanglaDateString(now);
+}
+
+function renderMainDashboardWelcome() {
+  iglRenderWelcomeGreeting();
   try { loadDashboardWeather(); } catch(e) {}
   try { updateDashboardSky(IGL_WEATHER_CACHE ? IGL_WEATHER_CACHE.code : null); } catch(e) {}
   try { setInterval(loadDashboardWeather, 15 * 60 * 1000); } catch(e) {}
