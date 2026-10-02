@@ -6850,6 +6850,17 @@ function ok(msg) {
             <input type="text" class="form-control" id="nmi-remarks" placeholder="Auto filled..." readonly
               style="background:#f0f3f7;color:#1a5276;font-weight:600;">
           </div>
+          <div class="cf-pair ni-cell ni-span2" id="nmi-tr-bn-row" style="display:none;"><label>নোট (বাংলা)</label>
+            <input type="text" class="form-control" id="nmi-note-bn" placeholder="বাংলা নোট">
+          </div>
+          <div class="cf-pair ni-cell ni-span2" id="nmi-tr-en-row" style="display:none;"><label>Note (English)</label>
+            <input type="text" class="form-control" id="nmi-note-en" placeholder="English note">
+          </div>
+          <div class="ni-span2" id="nmi-tr-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 4px;">
+            <span id="nmi-tr-status" style="font-size:11px;flex:1;min-width:180px;color:#666;"></span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="nmiTrManual()">🔄 অনুবাদ করো</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="nmiTrFix()">✨ বাক্য ঠিক করো</button>
+          </div>
         </div>
 
         <!-- Used Needle Warning Banner -->
@@ -6897,6 +6908,7 @@ function ok(msg) {
           <input type="date" class="form-control" id="nmi-log-from" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="From Date">
           <span style="font-size:12px;color:#888;">—</span>
           <input type="date" class="form-control" id="nmi-log-to" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="To Date">
+          <button class="btn btn-sm admin-only-action" style="background:#2471a3;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="nmiTrBackfill()" title="আগের এন্ট্রির Remarks বাংলা/English অনুবাদ সহ আপডেট করুন (ডেস্কটপ Chrome)">🌐 পুরনো এন্ট্রি অনুবাদ</button>
           <button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="document.getElementById('nmi-log-from').value='';document.getElementById('nmi-log-to').value='';document.getElementById('nmi-log-user').value='';document.getElementById('nmi-log-machine').value='';nmiRenderLog()">✕ Clear</button>
         </div>
       </div>
@@ -31142,7 +31154,7 @@ function renderNeedleRemarksReport(){
       '<td style="padding:6px 8px;border:1px solid #e0e7ef;text-align:center;font-weight:800;font-size:14px;color:#e74c3c;">'+(r.qty||0)+'</td>' +
       '<td style="padding:6px 8px;border:1px solid #e0e7ef;text-align:center;">'+shCell+'</td>' +
       '<td style="padding:6px 8px;border:1px solid #e0e7ef;color:#555;">'+(wName||'-')+'</td>' +
-      '<td style="padding:6px 8px;border:1px solid #e0e7ef;font-size:11px;color:#7d3c98;">'+(r.remarks||'-')+'</td>' +
+      '<td style="padding:6px 8px;border:1px solid #e0e7ef;font-size:11px;color:#7d3c98;">'+(r.remarks||'-')+(window.nmiNoteHtml?window.nmiNoteHtml(r):'')+'</td>' +
       '</tr>';
   }).join('');
 
@@ -35664,7 +35676,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function nmiRemarksRefresh(){
     var drop = document.getElementById('nmi-remarks-drop');
     if(!drop || (drop.value !== 'newset' && drop.value !== 'accident')) return;
-    nmiRemarksDropChange();
+    nmiRemarksDropChange(true);
   }
 
   // Current machine ERP নম্বর বের করো
@@ -35934,7 +35946,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     document.getElementById('nmi-count').textContent=txt;
   }
 
-  function nmiRemarksDropChange(){
+  function nmiRemarksDropChange(keepNote){
     var drop = document.getElementById('nmi-remarks-drop');
     var inp  = document.getElementById('nmi-remarks');
     if(!drop || !inp) return;
@@ -35951,12 +35963,17 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return;
     }
 
-    inp.readOnly = true;
-    inp.style.background = '#f0f3f7';
     inp.style.color = '#1a5276';
     inp.style.fontWeight = '600';
 
-    if(!val){ inp.value = ''; inp.placeholder = 'Auto filled...'; return; }
+    if(!val){
+      inp.readOnly = true; inp.style.background = '#f0f3f7';
+      inp.value = ''; inp.placeholder = 'Auto filled...'; window._nmiAutoText = '';
+      return;
+    }
+    // রিমার্কস সিলেক্ট থাকলেও নোট এডিট করা যাবে (যেমন accident কীভাবে হলো তার বিবরণ)
+    inp.readOnly = false; inp.style.background = '#fff';
+    inp.placeholder = 'Auto filled — চাইলে বিস্তারিত নোট যোগ/এডিট করুন';
 
     var machineErp = '';
     var machInp = document.getElementById('nmi-machine-input');
@@ -35967,18 +35984,27 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Dynamic: find remark text from list
     var list = ndlGetRemarks();
     var found = list.find(function(r){return r.id===val;});
+    var auto = '';
     if(found && found.text && found.text!=='__others__'){
       // newset/accident এর জন্য machine name যোগ করো
       if(val==='newset'){
-        inp.value = 'New Set (' + (machineErp||'?') + ')';
+        auto = 'New Set (' + (machineErp||'?') + ')';
       } else if(val==='accident'){
-        inp.value = 'm/c accident (' + (machineErp||'?') + ')';
+        auto = 'm/c accident (' + (machineErp||'?') + ')';
       } else {
-        inp.value = found.text;
+        auto = found.text;
       }
-    } else {
-      inp.value = '';
     }
+    // মেশিন বদলালে (keepNote) আগে লেখা অতিরিক্ত নোট রেখে শুধু auto অংশটুকু বদলাও;
+    // রিমার্কস নিজে বদলালে নতুন করে শুরু।
+    var prevAuto = window._nmiAutoText || '';
+    var curVal = inp.value || '';
+    if(keepNote === true && prevAuto && curVal.indexOf(prevAuto) === 0){
+      inp.value = auto + curVal.slice(prevAuto.length);
+    } else {
+      inp.value = auto;
+    }
+    window._nmiAutoText = auto;
   }
 
   function nmiSaveAll(){
@@ -35986,6 +36012,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var machine=(document.getElementById('nmi-machine')||{}).value||'';
     var type=(document.getElementById('nmi-type')||{}).value||'broken';
     var remarks=(document.getElementById('nmi-remarks')||{}).value||'';
+    var _nTr=(window.nmiTrCollect&&window.nmiTrCollect())||{};
     if(!date){toast('Date দিন!','warning');return;}
     var _bdErr6=window.iglCheckBackdate(date);
     if(_bdErr6){toast(_bdErr6,'error');return;}
@@ -36083,6 +36110,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         employeeId:empId, employeeName:employeeName,
         userId:(window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:'')
       };
+      if(_nTr.bn) rec.noteBn=_nTr.bn;
+      if(_nTr.en) rec.noteEn=_nTr.en;
+      if((_nTr.bn||_nTr.en) && _nTr.pending) rec.noteTrPending=true;
       arr.push(rec);
       saved++;
       _newIssueRows.push(rec);
@@ -36165,6 +36195,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     document.querySelectorAll('.nmi-chk').forEach(function(c){c.checked=false;});
     document.getElementById('nmi-check-all').checked=false;
     var remEl=document.getElementById('nmi-remarks');
+    window._nmiAutoText=''; if(window.nmiTrReset) window.nmiTrReset();
     if(remEl){ remEl.value=''; remEl.readOnly=true; remEl.style.background='#f0f3f7'; remEl.style.color='#1a5276'; remEl.style.fontWeight='600'; remEl.placeholder='Auto filled...'; }
     var remDrop=document.getElementById('nmi-remarks-drop');
     if(remDrop) remDrop.value='';
@@ -36255,7 +36286,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         +'<td style="text-align:center;font-weight:800;font-size:14px;color:'+rowFg+';">'+r.qty+'</td>'
         +'<td style="text-align:center;">'+shiftCell+'</td>'
         +'<td style="color:'+rowFg+';font-weight:600;">'+(r.worker?(function(){var workers=getWorkers();var w=workers.find(function(x){return x.id===r.worker;});return w?w.name:(r.worker||'-');})():'-')+'</td>'
-        +'<td style="color:'+rowFg+';">'+(r.remarks||'-')+'</td>'
+        +'<td style="color:'+rowFg+';">'+(r.remarks||'-')+(window.nmiNoteHtml?window.nmiNoteHtml(r):'')+'</td>'
         +entryByCell
         +(isAdmin?(r.entryTime?'<td class="no-print nmi-admin-col" style="display:none;font-size:10px;color:#888;white-space:nowrap;padding:3px 5px;border:1px solid #ddd;">'+new Date(r.entryTime).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+new Date(r.entryTime).toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',hour12:true})+'</td>':'<td class="no-print nmi-admin-col" style="display:none;font-size:10px;color:#ccc;border:1px solid #ddd;">—</td>'):'')
         +'<td class="no-print" style="text-align:center;white-space:nowrap;">'
@@ -37309,6 +37340,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   //  ফলে "nurStackErp is not defined" এরর দিয়ে পুরনো মাসের Firebase ডাটা লোড আটকে যাচ্ছিল।
   //  তাই এটাকে বাইরে এনে গ্লোবাল স্কোপে রাখা হলো, কোনো ক্যালকুলেশন পরিবর্তন হয়নি।)
   function nurStackErp(text){
+    // রিমার্কসের পরে যোগ করা বিস্তারিত নোট থাকলে এই ছোট ঘরে শুধু মূল অংশ দেখাবে
+    var core = String(text).match(/^((?:m\/c accident|machine accident|new set)[^()]*\([^)]*\))/i);
+    if (core) text = core[1];
     return text.replace(/\s\(([^)]*)\)\s*$/, '<br>($1)');
   }
 
@@ -41182,6 +41216,11 @@ function buildNeedleEditForm(e) {
     +'</div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📝 Remarks</label>'
       +'<input type="text" id="edit-n-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">নোট (বাংলা)</label>'
+      +'<input type="text" id="edit-n-note-bn" value="'+String(e.noteBn||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="বাংলা নোট"></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">Note (English)</label>'
+      +'<input type="text" id="edit-n-note-en" value="'+String(e.noteEn||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="English note"></div>'
+    +'<div><button type="button" class="btn btn-outline btn-sm" onclick="nmiTrEditFill()">🔄 অনুবাদ করো</button><span id="edit-n-tr-status" style="font-size:11px;margin-left:8px;color:#666;">একটা ঘর লিখে বাটন চাপলে অন্য ঘরে অনুবাদ আসবে</span></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">👤 Employee (ঐচ্ছিক)</label>'
       +'<select id="edit-n-employee" class="form-control">'+stnBuildEmployeeOptions(e.employeeId, '-- Employee (ঐচ্ছিক) --')+'</select></div>'
   +'</div>';
@@ -41324,6 +41363,8 @@ async function saveEditEntry() {
     var shift      = (document.getElementById('edit-n-shift')||{}).value||'A';
     var worker     = (document.getElementById('edit-n-worker')||{}).value||'';
     var remarks    = (document.getElementById('edit-n-remarks')||{}).value||'';
+    var _noteBn    = ((document.getElementById('edit-n-note-bn')||{}).value||'').trim();
+    var _noteEn    = ((document.getElementById('edit-n-note-en')||{}).value||'').trim();
     var newNeedleId = (document.getElementById('edit-n-needleid')||{}).value||'';
     var empId       = (document.getElementById('edit-n-employee')||{}).value||'';
     var empObj      = empId ? (DB.employees||[]).find(function(x){ return String(x.empId||x.id) === String(empId); }) : null;
@@ -41366,6 +41407,10 @@ async function saveEditEntry() {
       editedAt: new Date().toISOString(),
       editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : ''
     });
+    // বাংলা/English নোট: খালি হলে ফিল্ড সরাও (Firebase-এ undefined যায় না), একটাই থাকলে "অনুবাদ বাকি" চিহ্ন
+    if (_noteBn) arr[idx].noteBn = _noteBn; else delete arr[idx].noteBn;
+    if (_noteEn) arr[idx].noteEn = _noteEn; else delete arr[idx].noteEn;
+    if ((_noteBn || _noteEn) && !(_noteBn && _noteEn)) arr[idx].noteTrPending = true; else delete arr[idx].noteTrPending;
     NDB.needles = arr;
     triggerAutoSave();
     try { nmiRenderLog(); } catch(e){}
@@ -43224,6 +43269,256 @@ function drgDeleteHistory(date) {
       } catch (err) { toast('❌ Excel বানাতে সমস্যা: ' + (err && err.message ? err.message : err), 'error'); }
     });
   };
+})();
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  NEEDLE ISSUE — Remarks Note: বাংলা ⇄ English অনুবাদ (Chrome-এর অন-ডিভাইস Translator, কোনো API key/খরচ নেই)
+//  মূল remarks (রিপোর্ট/ফিল্টারের জন্য) আগের মতোই থাকে; noteBn / noteEn আলাদা ফিল্ডে সেভ হয়।
+// ══════════════════════════════════════════════════════════════
+(function(){
+  // কারখানার টার্ম: অনুবাদের আগে এগুলো বদলে নেওয়া হয়, যাতে সাধারণ অনুবাদের বদলে ইন্ডাস্ট্রির শব্দ আসে।
+  // নতুন শব্দ যোগ করতে চাইলে শুধু এই দুই তালিকায় লাইন বাড়ালেই হবে।
+  var BN_EN = [
+    ['ফ্ল্যাট নিট','flat knit'],['ফ্ল্যাট','flat'],['এক্সিডেন্ট','accident'],['এক্সিডেন','accident'],['দুর্ঘটনা','accident'],
+    ['নিডেল','needle'],['নিডল','needle'],['সুই','needle'],['মেশিন','machine'],['বেল্ট','belt'],['সিলিন্ডার','cylinder'],['ডায়াল','dial'],
+    ['ক্যাম','cam'],['সিংকার','sinker'],['জ্যাকার্ড','jacquard'],['জ্যাকোয়ার্ড','jacquard'],['ল্যাচ','latch'],['ফিডার','feeder'],
+    ['ইয়ার্ন','yarn'],['সুতা','yarn'],['সুতো','yarn'],['ফেব্রিক','fabric'],['কাপড়','fabric'],['হোল','hole'],['ছিদ্র','hole'],
+    ['ড্রপ','drop'],['ডিজাইন','design'],['সলিড','solid'],['শিফট','shift'],['অপারেটর','operator'],['মেকানিক','mechanic'],
+    ['সুপারভাইজার','supervisor'],['সেট','set'],['ভাঙা','broken'],['ভেঙে','broken'],['ভেঙ্গে','broken'],['ভাংগা','broken'],
+    ['বাঁকা','bent'],['বেন্ট','bent'],['ইসু','issue'],['রিসিভ','receive'],['স্টক','stock']
+  ];
+  var EN_BN = [
+    ['flat knit','ফ্ল্যাট নিট'],['accident','এক্সিডেন্ট'],['needles','নিডেল'],['needle','নিডেল'],['m/c','মেশিন'],['machine','মেশিন'],['belt','বেল্ট'],
+    ['cylinder','সিলিন্ডার'],['dial','ডায়াল'],['cam','ক্যাম'],['sinker','সিংকার'],['jacquard','জ্যাকার্ড'],['latch','ল্যাচ'],['feeder','ফিডার'],
+    ['yarn','ইয়ার্ন'],['fabric','ফেব্রিক'],['hole','হোল'],['drop','ড্রপ'],['design','ডিজাইন'],['solid','সলিড'],['shift','শিফট'],
+    ['operator','অপারেটর'],['mechanic','মেকানিক'],['supervisor','সুপারভাইজার'],['set','সেট'],['broken','ভাঙা'],['bent','বাঁকা'],['issue','ইসু'],['stock','স্টক']
+  ];
+  var SUF = '(?:টাকে|গুলোকে|গুলো|গুলি|টা|টি|খানা|য়ের|ের|কে|ে|র|ও|ই)?';
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function rxEsc(s){ return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'); }
+  function glossBnEn(t){
+    var list = BN_EN.slice().sort(function(a, b){ return b[0].length - a[0].length; });
+    list.forEach(function(p){
+      t = t.replace(new RegExp('(?<![\\u0980-\\u09FF])' + rxEsc(p[0]) + SUF + '(?![\\u0980-\\u09FF])', 'g'), ' ' + p[1] + ' ');
+    });
+    return t.replace(/\s+/g, ' ').trim();
+  }
+  function glossEnBn(t){
+    var list = EN_BN.slice().sort(function(a, b){ return b[0].length - a[0].length; });
+    list.forEach(function(p){
+      t = t.replace(new RegExp('(?<![A-Za-z0-9])' + rxEsc(p[0]) + '(?![A-Za-z0-9])', 'gi'), p[1]);
+    });
+    return t;
+  }
+  function detect(t){ return /[\u0980-\u09FF]/.test(t) ? 'bn' : 'en'; }
+
+  // ───────── Translator ─────────
+  var _trs = {};
+  window.nmiTrSupported = function(){ return typeof self !== 'undefined' && ('Translator' in self); };
+  async function translate(text, from, to){
+    if (!window.nmiTrSupported()) throw new Error('unsupported');
+    var pre = from === 'bn' ? glossBnEn(text) : glossEnBn(text);
+    var key = from + '>' + to;
+    if (!_trs[key]) {
+      var av = await Promise.race([
+        Translator.availability({ sourceLanguage: from, targetLanguage: to }),
+        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('ব্রাউজারের অনুবাদ সার্ভিস সাড়া দিচ্ছে না')); }, 10000); })
+      ]);
+      if (av === 'unavailable') throw new Error('unavailable');
+      _trs[key] = await Translator.create({ sourceLanguage: from, targetLanguage: to });
+    }
+    var out = await _trs[key].translate(pre);
+    return String(out || '').trim();
+  }
+
+  // ───────── UI ─────────
+  var seq = 0, lastNote = '', dirty = { bn: false, en: false }, srcLang = 'en', timer = null;
+  function $(id){ return document.getElementById(id); }
+  function status(msg, color){
+    var s = $('nmi-tr-status'); if (!s) return;
+    s.textContent = msg; s.style.color = color || '#666';
+  }
+  function showRows(on){
+    ['nmi-tr-bn-row','nmi-tr-en-row','nmi-tr-bar'].forEach(function(id){ var e = $(id); if (e) e.style.display = on ? '' : 'none'; });
+  }
+  function getNote(){
+    var inp = $('nmi-remarks'); if (!inp) return '';
+    var v = inp.value || '', pre = window._nmiAutoText || '';
+    var note = (pre && v.indexOf(pre) === 0) ? v.slice(pre.length) : v;
+    if (!pre) note = v;
+    return note.replace(/^[\s\-–—:,]+/, '').trim();
+  }
+
+  window.nmiTrSync = function(force){
+    var note = getNote();
+    if (!note) { lastNote = ''; dirty = { bn: false, en: false }; if ($('nmi-note-bn')) $('nmi-note-bn').value = ''; if ($('nmi-note-en')) $('nmi-note-en').value = ''; showRows(false); return; }
+    if (note === lastNote && !force) return;
+    lastNote = note;
+    srcLang = detect(note);
+    var tgt = srcLang === 'bn' ? 'en' : 'bn';
+    showRows(true);
+    if (force) dirty = { bn: false, en: false };
+    $('nmi-note-' + srcLang).value = note;           // মূল লেখা সঙ্গে সঙ্গে নিজের ভাষার ঘরে
+    dirty[srcLang] = false;
+    if (!dirty[tgt]) $('nmi-note-' + tgt).value = ''; // পুরনো অনুবাদ থাকলে সরাও, যাতে ভুল মিল না থাকে
+    clearTimeout(timer);
+    status('✍️ লেখা শেষ হলে অনুবাদ হবে…', '#888');
+    timer = setTimeout(function(){ runTranslate(); }, force ? 0 : 900);
+  };
+
+  async function runTranslate(){
+    var my = ++seq, note = lastNote, from = srcLang, to = from === 'bn' ? 'en' : 'bn';
+    if (!note) return;
+    if (!window.nmiTrSupported()) { status('⚠️ এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে)। শুধু আপনার লেখা সেভ হবে — ওপরের ঘরে অনুবাদ নিজে লিখতেও পারেন।', '#b9770e'); return; }
+    status('⏳ অনুবাদ হচ্ছে… (প্রথমবার ভাষার ফাইল নামতে একটু সময় লাগতে পারে)', '#2471a3');
+    try {
+      var out = await translate(note, from, to);
+      if (my !== seq) return;
+      if (!dirty[to]) $('nmi-note-' + to).value = out;
+      status('✓ অনুবাদ হয়েছে — দেখে নিন, ঠিক না হলে ঘরে এডিট করুন', '#1e8449');
+    } catch (e) {
+      if (my !== seq) return;
+      status('⚠️ অনুবাদ করা যায়নি (' + (e && e.message ? e.message : e) + ')। "🔄 অনুবাদ করো" চেপে আবার চেষ্টা করুন, নয়তো নিজে লিখুন।', '#b9770e');
+    }
+  }
+
+  // বাক্য ঠিক করো: মূল ভাষা → অন্য ভাষা → আবার মূল ভাষা (ক্রম/ব্যাকরণ গুছিয়ে আসে); ফল ঘরে বসে, সেভের আগে দেখে নিতে পারবেন
+  window.nmiTrFix = async function(){
+    var note = getNote();
+    if (!note) return;
+    if (!window.nmiTrSupported()) { toast('এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে)', 'warning'); return; }
+    var from = detect(note), to = from === 'bn' ? 'en' : 'bn', my = ++seq;
+    status('⏳ বাক্য গুছিয়ে নেওয়া হচ্ছে…', '#2471a3');
+    try {
+      var mid = await translate(note, from, to);
+      var back = await translate(mid, to, from);
+      if (my !== seq) return;
+      $('nmi-note-' + to).value = mid; dirty[to] = true;
+      $('nmi-note-' + from).value = back; dirty[from] = true;
+      status('✨ গুছিয়ে দেওয়া হয়েছে — দুই ঘর দেখে নিন, ঠিক না লাগলে এডিট করুন', '#1e8449');
+    } catch (e) { status('⚠️ গুছিয়ে দেওয়া যায়নি (' + (e && e.message ? e.message : e) + ')', '#b9770e'); }
+  };
+  window.nmiTrManual = function(){ window.nmiTrSync(true); };
+
+  // সেভের সময় নেওয়া হয়
+  window.nmiTrCollect = function(){
+    var note = getNote();
+    if (!note) return {};
+    var bn = ($('nmi-note-bn') || {}).value || '', en = ($('nmi-note-en') || {}).value || '';
+    bn = bn.trim(); en = en.trim();
+    var srcBox = detect(note) === 'bn' ? bn : en;
+    if (!srcBox) { if (detect(note) === 'bn') bn = note; else en = note; }
+    return { bn: bn, en: en, pending: !(bn && en) };
+  };
+  window.nmiTrReset = function(){
+    clearTimeout(timer); seq++; lastNote = ''; dirty = { bn: false, en: false };
+    if ($('nmi-note-bn')) $('nmi-note-bn').value = ''; if ($('nmi-note-en')) $('nmi-note-en').value = '';
+    showRows(false);
+  };
+
+  // লগ/রিপোর্টে দেখানোর ছোট ব্লক
+  window.nmiNoteHtml = function(r){
+    if (!r || (!r.noteBn && !r.noteEn)) return '';
+    var same = function(a){ return String(a || '').trim().toLowerCase() === String(r.remarks || '').trim().toLowerCase(); };
+    var showBn = r.noteBn && !same(r.noteBn), showEn = r.noteEn && !same(r.noteEn);
+    if (!showBn && !showEn && !r.noteTrPending) return '';
+    var h = '<div style="font-size:10px;font-weight:500;color:#555;margin-top:2px;line-height:1.35;">';
+    if (showBn) h += 'বাং: ' + esc(r.noteBn);
+    if (showBn && showEn) h += '<br>';
+    if (showEn) h += 'EN: ' + esc(r.noteEn);
+    if (r.noteTrPending) h += ' <span style="color:#b9770e;">⏳ অনুবাদ বাকি</span>';
+    return h + '</div>';
+  };
+
+
+  // ───────── এডিট মডাল: এক ঘর লিখে অন্য ঘরে অনুবাদ ─────────
+  function splitRemarks(t){
+    var m = String(t || '').match(/^(.*?)(\s*\([^)]*\))\s*$/);
+    return m ? { core: m[1].trim(), tail: m[2].trim() } : { core: String(t || '').trim(), tail: '' };
+  }
+  window.nmiTrEditFill = async function(){
+    var bnEl = $('edit-n-note-bn'), enEl = $('edit-n-note-en'), st = $('edit-n-tr-status');
+    if (!bnEl || !enEl) return;
+    function say(m, c){ if (st) { st.textContent = m; st.style.color = c || '#666'; } }
+    if (!window.nmiTrSupported()) { say('⚠️ এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে) — নিজে লিখুন', '#b9770e'); return; }
+    var bn = bnEl.value.trim(), en = enEl.value.trim(), rem = (($('edit-n-remarks') || {}).value || '').trim();
+    try {
+      say('⏳ অনুবাদ হচ্ছে…', '#2471a3');
+      if (bn && en) { say('দুটো ঘরই ভরা আছে — যেটা বদলাতে চান সেটা খালি করে আবার চাপুন', '#b9770e'); return; }
+      if (bn) { enEl.value = await translate(bn, 'bn', 'en'); }
+      else if (en) { bnEl.value = await translate(en, 'en', 'bn'); }
+      else if (rem) {                                   // নোট ফাঁকা হলে Remarks থেকে (শেষের (14) অংশ রেখে)
+        var sp = splitRemarks(rem), lang = detect(sp.core || rem), to = lang === 'bn' ? 'en' : 'bn';
+        var out = await translate(sp.core || rem, lang, to);
+        var srcFull = rem, outFull = out + (sp.tail ? ' ' + sp.tail : '');
+        if (lang === 'bn') { bnEl.value = srcFull; enEl.value = outFull; } else { enEl.value = srcFull; bnEl.value = outFull; }
+      } else { say('অনুবাদ করার মতো লেখা নেই', '#888'); return; }
+      say('✓ অনুবাদ হয়েছে — দেখে নিন, ঠিক না হলে এডিট করুন', '#1e8449');
+    } catch (e) { say('⚠️ অনুবাদ করা যায়নি (' + (e && e.message ? e.message : e) + ')', '#b9770e'); }
+  };
+
+  // ───────── পুরনো এন্ট্রি একসঙ্গে অনুবাদ (অ্যাডমিন) ─────────
+  window.nmiTrBackfill = async function(){
+    if (!window.nmiTrSupported()) { toast('এই কাজ ডেস্কটপ Chrome (১৩৮+)-এ করতে হবে — এই ব্রাউজারে অনুবাদ চালু নেই', 'warning'); return; }
+    var arr = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles : [];
+    var todo = arr.filter(function(r){
+      if (!r) return false;
+      if (r.noteTrPending && (r.noteBn || r.noteEn) && !(r.noteBn && r.noteEn)) return true;     // একদিকের নোট আছে, অনুবাদ বাকি
+      return !r.noteBn && !r.noteEn && String(r.remarks || '').trim() !== '';                   // পুরনো এন্ট্রি: শুধু Remarks আছে
+    });
+    if (!todo.length) { toast('সব এন্ট্রিতেই অনুবাদ আছে — আপডেট করার মতো কিছু নেই', 'info'); return; }
+    var ok = await igl_confirm(todo.length + ' টি পুরনো এন্ট্রির Remarks বাংলা ও English-এ অনুবাদ করে সেভ করবেন?', 'মূল Remarks বদলাবে না, শুধু বাংলা/English নোট যোগ হবে। প্রথমবার ভাষার ফাইল নামতে একটু সময় লাগতে পারে।', '🌐');
+    if (!ok) return;
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:99999;background:#1a5276;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.35);';
+    document.body.appendChild(box);
+    var cache = {}, done = 0, failed = 0, firstErr = '';
+    async function tr(text, from, to){
+      var k = from + '>' + to + '|' + text;
+      if (cache[k] === undefined) cache[k] = await translate(text, from, to);
+      return cache[k];
+    }
+    for (var i = 0; i < todo.length; i++) {
+      var r = todo[i];
+      box.textContent = '🌐 অনুবাদ হচ্ছে… ' + (i + 1) + ' / ' + todo.length;
+      try {
+        if (r.noteTrPending && (r.noteBn || r.noteEn)) {
+          if (r.noteBn) r.noteEn = await tr(r.noteBn, 'bn', 'en'); else r.noteBn = await tr(r.noteEn, 'en', 'bn');
+          delete r.noteTrPending;
+        } else {
+          var rem = String(r.remarks).trim(), sp = splitRemarks(rem), core = sp.core || rem, lang = detect(core), to = lang === 'bn' ? 'en' : 'bn';
+          var out = await tr(core, lang, to);
+          var outFull = out + (sp.tail ? ' ' + sp.tail : '');
+          if (lang === 'bn') { r.noteBn = rem; r.noteEn = outFull; } else { r.noteEn = rem; r.noteBn = outFull; }
+        }
+        done++;
+      } catch (e) {
+        failed++; if (!firstErr) firstErr = (e && e.message) ? e.message : String(e);
+        if (failed >= 3 && done === 0) break;          // শুরুতেই বারবার ব্যর্থ হলে থামো
+      }
+    }
+    box.remove();
+    if (done > 0) {
+      NDB.needles = arr;                               // setter-এর মাধ্যমে সেভ (লোকাল + Firebase সিঙ্ক)
+      try { triggerAutoSave(); } catch (e) {}
+      try { nmiRenderLog(); } catch (e) {}
+    }
+    toast(done ? ('✅ ' + done + ' টি এন্ট্রি আপডেট হয়েছে' + (failed ? ' (' + failed + ' টি বাকি — ' + firstErr + ')' : '')) : ('❌ অনুবাদ করা যায়নি: ' + firstErr), done ? 'success' : 'error');
+  };
+
+  // ───────── ইভেন্ট ─────────
+  document.addEventListener('input', function(e){
+    var id = e.target && e.target.id;
+    if (id === 'nmi-remarks') window.nmiTrSync();
+    else if (id === 'nmi-note-bn') dirty.bn = true;
+    else if (id === 'nmi-note-en') dirty.en = true;
+  });
+  document.addEventListener('change', function(e){
+    var id = e.target && e.target.id;
+    if (id === 'nmi-remarks-drop' || id === 'nmi-machine-input') setTimeout(function(){ window.nmiTrSync(); }, 0);
+  });
 })();
 </script>
 
