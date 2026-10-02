@@ -470,6 +470,17 @@ if('serviceWorker' in navigator){
   @media (max-width: 1000px) { .ni-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px)  { .ni-grid { grid-template-columns: 1fr; padding: 12px; }
     .ni-grid .ni-span2 { grid-column: span 1; } .ni-grid .ni-cell label { flex-basis: 96px; } }
+  /* Item Ledger / Closing Stock ফর্ম: ৩ কলাম, ঘর লম্বা, উপর-নিচে কম জায়গা */
+  .compact-form-grid.cf-wide { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr); gap: 8px 18px; }
+  .compact-form-grid.cf-wide .cf-pair { gap: 6px; }
+  .compact-form-grid.cf-wide .cf-pair label { flex-basis: 78px; }
+  .compact-form-grid.cf-wide .cf-pair .form-control, .compact-form-grid.cf-wide .cf-pair select.form-control { padding: 4.5px 8px; }
+  .cf-wide-hint { font-size: 11px; color: #888; margin-top: 8px; }
+  @media (max-width: 700px) {
+    .compact-form-grid.cf-wide { grid-template-columns: minmax(0,1fr); }
+    .compact-form-grid.cf-wide .cf-pair { flex-direction: column; align-items: stretch; gap: 3px; }
+    .compact-form-grid.cf-wide .cf-pair label { flex-basis: auto; }
+  }
   .cf-pair { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .cf-pair label { flex: 0 0 108px; font-weight: 700; color: #1a5276; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cf-pair .form-control, .cf-pair select.form-control {
@@ -4623,16 +4634,16 @@ window.iglSaveNavVisibility = function() {
         <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📒 Item Ledger Form</span>
       </div>
       <div class="card-body no-print">
-        <div class="compact-form-grid cf-cols-4">
-          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="il-group" onchange="ilgFilterCategory()"><option value="">-- Select Category --</option></select></div>
-          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="il-category" onchange="ilgFilterItems()"><option value="">-- All Groups --</option></select></div>
+        <div class="compact-form-grid cf-wide">
+          <div class="cf-pair"><label>Category *</label><select class="form-control" id="il-group" onchange="ilgFilterCategory()"><option value="">-- Select Category --</option></select></div>
+          <div class="cf-pair"><label>Group</label><select class="form-control" id="il-category" onchange="ilgFilterItems()"><option value="">-- All Groups --</option></select></div>
           <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="il-item" onchange="ilgStock()"><option value="">-- Select Item --</option></select></div>
-          <div class="cf-pair"><label>Current Stock</label><div id="il-stock-badge" style="padding:6px 0;"></div></div>
 
           <div class="cf-pair"><label>From Date</label><input type="date" class="form-control" id="il-from" title="ফাঁকা = শুরু থেকে"></div>
           <div class="cf-pair"><label>To Date</label><input type="date" class="form-control" id="il-to" title="ফাঁকা = এখন পর্যন্ত"></div>
-          <div class="cf-pair" style="grid-column: span 2;"><span style="font-size:11px;color:#888;">তারিখ ফাঁকা রাখলে এই আইটেমের শুরু থেকে এখন পর্যন্ত সব Receive ও Issue আসবে</span></div>
+          <div class="cf-pair"><label>Stock</label><div id="il-stock-badge" style="padding:2px 0;"></div></div>
         </div>
+        <div class="cf-wide-hint">তারিখ ফাঁকা রাখলে এই আইটেমের শুরু থেকে এখন পর্যন্ত সব Receive ও Issue আসবে</div>
         <div class="divider"></div>
         <div class="action-bar">
           <button class="btn btn-primary" onclick="ilgRender()" style="min-width:150px;font-weight:700;">View Ledger</button>
@@ -4668,9 +4679,9 @@ window.iglSaveNavVisibility = function() {
         <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📦 Closing Stock Form</span>
       </div>
       <div class="card-body no-print">
-        <div class="compact-form-grid cf-cols-4">
-          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="cs-group" onchange="csFilterCategory()"><option value="">-- Select Category --</option></select></div>
-          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="cs-category" onchange="csFilterItems()"><option value="">-- All Groups --</option></select></div>
+        <div class="compact-form-grid cf-wide">
+          <div class="cf-pair"><label>Category *</label><select class="form-control" id="cs-group" onchange="csFilterCategory()"><option value="">-- Select Category --</option></select></div>
+          <div class="cf-pair"><label>Group</label><select class="form-control" id="cs-category" onchange="csFilterItems()"><option value="">-- All Groups --</option></select></div>
           <div class="cf-pair"><label>Item Name</label>
             <div id="cs-ms" style="position:relative;flex:1;min-width:0;">
               <button type="button" class="form-control" id="cs-ms-btn" onclick="csMsToggle(event)" style="text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#fff;"><span id="cs-ms-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-- All Items --</span><span style="font-size:10px;color:#888;">▼</span></button>
@@ -4685,12 +4696,12 @@ window.iglSaveNavVisibility = function() {
               </div>
             </div>
           </div>
-          <div class="cf-pair"><label>Selected</label><div id="cs-sel-count" style="padding:6px 0;font-weight:700;color:#6c3483;">0 / 0</div></div>
 
           <div class="cf-pair"><label>From Date</label><input type="date" class="form-control" id="cs-from" title="ফাঁকা = শুরু থেকে"></div>
           <div class="cf-pair"><label>To Date</label><input type="date" class="form-control" id="cs-to" title="ফাঁকা = এখন পর্যন্ত"></div>
-          <div class="cf-pair" style="grid-column: span 2;"><span style="font-size:11px;color:#888;">আইটেম সিলেক্ট না করলে নির্বাচিত Category/Group-এর সব আইটেমের Closing Stock আসবে। তারিখ ফাঁকা রাখলে এখন পর্যন্ত।</span></div>
+          <div class="cf-pair"><label>Selected</label><div id="cs-sel-count" style="padding:2px 0;font-weight:700;color:#6c3483;">0 / 0</div></div>
         </div>
+        <div class="cf-wide-hint">আইটেম সিলেক্ট না করলে নির্বাচিত Category/Group-এর সব আইটেমের Closing Stock আসবে। তারিখ ফাঁকা রাখলে এখন পর্যন্ত।</div>
         <div class="divider"></div>
         <div class="action-bar">
           <button class="btn btn-primary" onclick="csRender()" style="min-width:150px;font-weight:700;">View Closing Stock</button>
