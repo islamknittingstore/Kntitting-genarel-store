@@ -3519,6 +3519,7 @@ var IGL_NAV_ITEMS = {
   'nav-issue-log':         { label: '📄 Issue Log',               section: '🏭 Knitting Store' },
   'nav-monthly':           { label: '📅 Monthly Report',          section: '🏭 Knitting Store' },
   'nav-item-ledger':       { label: '📒 Item Ledger',             section: '🏭 Knitting Store' },
+  'nav-closing-stock':     { label: '📦 Closing Stock',           section: '🏭 Knitting Store' },
   // Needle
   'nav-needle-issue':      { label: '✏️ Needle Issue Entry',      section: '🪡 Needle Section' },
   'nav-needle-receive':    { label: '📥 Needle Receive',          section: '🪡 Needle Section' },
@@ -3854,6 +3855,7 @@ window.iglSaveNavVisibility = function() {
       <li id="nav-issue-log"><a href="#" onclick="showPage('issue_log', this); return false;"><span class="icon">📄</span> Issue Log</a></li>
       <li id="nav-monthly"><a href="#" onclick="showPage('monthly', this); return false;"><span class="icon">📅</span> Monthly Report</a></li>
       <li id="nav-item-ledger"><a href="#" onclick="showPage('item_ledger', this); return false;"><span class="icon">📒</span> Item Ledger</a></li>
+      <li id="nav-closing-stock"><a href="#" onclick="showPage('closing_stock', this); return false;"><span class="icon">📦</span> Closing Stock</a></li>
       <li id="nav-oil-production"><a href="#" onclick="showPage('oil_production', this); oilShowView('machine'); return false;"><span class="icon">🛢️</span> Oil vs Production</a></li>
       <li id="nav-extra-feature"><a href="#" onclick="showPage('extra_feature', this); return false;"><span class="icon">🧩</span> Extra Feature</a></li>
       <li id="nav-master-gsonly" style="display:none;"><a href="#" onclick="showPage('master', this); return false;"><span class="icon">🗄️</span> Item Master (Add/Edit)</a></li>
@@ -4617,49 +4619,25 @@ window.iglSaveNavVisibility = function() {
       <p>একটা আইটেমের B/F, Receive, Issue ও চলতি Balance — তারিখ দিলে সেই সময়ের, না দিলে সব এন্ট্রি</p>
     </div>
     <div class="card">
-      <div class="card-header" style="background:#f0f3f7;">
-        <span>Select Item &amp; Date</span>
-        <div style="margin-left:auto;" class="no-print">
-          <button class="btn btn-outline btn-sm" onclick="ilgPrint()">Print</button>
-        </div>
+      <div class="card-header no-print" style="background:linear-gradient(135deg,#154360,#1a5276,#2471a3);box-shadow:0 2px 8px rgba(26,82,118,0.4);">
+        <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📒 Item Ledger Form</span>
       </div>
       <div class="card-body no-print">
-        <div class="form-grid">
-          <div>
-            <div class="form-group"><label>Item Category *</label>
-              <select class="form-control" id="il-group" onchange="ilgFilterCategory()" style="width:100%;">
-                <option value="">-- Select Category --</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <div class="form-group"><label>Item Group</label>
-              <select class="form-control" id="il-category" onchange="ilgFilterItems()" style="width:100%;">
-                <option value="">-- All Groups --</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <div class="form-group"><label>Item Name *</label>
-              <select class="form-control" id="il-item" style="width:100%;">
-                <option value="">-- Select Item --</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <div class="form-group"><label>From Date (ফাঁকা = শুরু থেকে)</label>
-              <input type="date" class="form-control" id="il-from" style="width:100%;">
-            </div>
-          </div>
-          <div>
-            <div class="form-group"><label>To Date (ফাঁকা = এখন পর্যন্ত)</label>
-              <input type="date" class="form-control" id="il-to" style="width:100%;">
-            </div>
-          </div>
+        <div class="compact-form-grid cf-cols-4">
+          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="il-group" onchange="ilgFilterCategory()"><option value="">-- Select Category --</option></select></div>
+          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="il-category" onchange="ilgFilterItems()"><option value="">-- All Groups --</option></select></div>
+          <div class="cf-pair"><label>Item Name *</label><select class="form-control" id="il-item" onchange="ilgStock()"><option value="">-- Select Item --</option></select></div>
+          <div class="cf-pair"><label>Current Stock</label><div id="il-stock-badge" style="padding:6px 0;"></div></div>
+
+          <div class="cf-pair"><label>From Date</label><input type="date" class="form-control" id="il-from" title="ফাঁকা = শুরু থেকে"></div>
+          <div class="cf-pair"><label>To Date</label><input type="date" class="form-control" id="il-to" title="ফাঁকা = এখন পর্যন্ত"></div>
+          <div class="cf-pair" style="grid-column: span 2;"><span style="font-size:11px;color:#888;">তারিখ ফাঁকা রাখলে এই আইটেমের শুরু থেকে এখন পর্যন্ত সব Receive ও Issue আসবে</span></div>
         </div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="ilgRender()" style="min-width:140px;">View Ledger</button>
-          <button class="btn btn-primary" onclick="ilgExportExcel()" style="background:#1e8449;">📥 Excel Download</button>
+        <div class="divider"></div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="ilgRender()" style="min-width:150px;font-weight:700;">View Ledger</button>
+          <button class="btn btn-primary" onclick="ilgExportExcel()" style="background:#1e8449;border:none;font-weight:700;">📥 Excel Download</button>
+          <button class="btn btn-outline" onclick="ilgPrint()">🖨️ Print</button>
           <button class="btn btn-outline" onclick="ilgClearDates()">Clear Dates</button>
         </div>
       </div>
@@ -4675,6 +4653,64 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div id="il-report" style="padding:0;">
         <div class="no-data" style="padding:40px;">উপরে থেকে Category, Item সিলেক্ট করুন (চাইলে তারিখ দিন), তারপর 'View Ledger' চাপুন</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOSING STOCK (General Store — একাধিক আইটেমের Opening, Receive, Issue, Closing) -->
+  <div class="page" id="page-closing_stock">
+    <div class="page-header">
+      <h2>📦 Closing Stock</h2>
+      <p>এক বা একাধিক আইটেমের Opening, Receive, Issue ও Closing Stock — তারিখ দিলে সেই সময় পর্যন্ত, না দিলে এখন পর্যন্ত</p>
+    </div>
+    <div class="card">
+      <div class="card-header no-print" style="background:linear-gradient(135deg,#4a235a,#6c3483,#8e44ad);box-shadow:0 2px 8px rgba(108,52,131,0.4);">
+        <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📦 Closing Stock Form</span>
+      </div>
+      <div class="card-body no-print">
+        <div class="compact-form-grid cf-cols-4">
+          <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="cs-group" onchange="csFilterCategory()"><option value="">-- Select Category --</option></select></div>
+          <div class="cf-pair"><label>Item Group</label><select class="form-control" id="cs-category" onchange="csFilterItems()"><option value="">-- All Groups --</option></select></div>
+          <div class="cf-pair"><label>Item Name</label>
+            <div id="cs-ms" style="position:relative;flex:1;min-width:0;">
+              <button type="button" class="form-control" id="cs-ms-btn" onclick="csMsToggle(event)" style="text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#fff;"><span id="cs-ms-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-- All Items --</span><span style="font-size:10px;color:#888;">▼</span></button>
+              <div id="cs-ms-panel" style="display:none;position:absolute;left:0;top:100%;margin-top:3px;z-index:60;background:#fff;border:1px solid #cfd8dc;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.18);min-width:260px;width:max(100%,300px);padding:8px;">
+                <input type="text" class="form-control" id="cs-ms-search" placeholder="🔍 আইটেম খুঁজুন..." oninput="csMsRender()" style="margin-bottom:6px;width:100%;">
+                <div style="display:flex;gap:6px;margin-bottom:6px;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="csMsAll(true)">✔ Select All</button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="csMsAll(false)">✖ Clear</button>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="csMsToggle(event)" style="margin-left:auto;">Done</button>
+                </div>
+                <div id="cs-ms-list" style="max-height:240px;overflow-y:auto;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="cf-pair"><label>Selected</label><div id="cs-sel-count" style="padding:6px 0;font-weight:700;color:#6c3483;">0 / 0</div></div>
+
+          <div class="cf-pair"><label>From Date</label><input type="date" class="form-control" id="cs-from" title="ফাঁকা = শুরু থেকে"></div>
+          <div class="cf-pair"><label>To Date</label><input type="date" class="form-control" id="cs-to" title="ফাঁকা = এখন পর্যন্ত"></div>
+          <div class="cf-pair" style="grid-column: span 2;"><span style="font-size:11px;color:#888;">আইটেম সিলেক্ট না করলে নির্বাচিত Category/Group-এর সব আইটেমের Closing Stock আসবে। তারিখ ফাঁকা রাখলে এখন পর্যন্ত।</span></div>
+        </div>
+        <div class="divider"></div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="csRender()" style="min-width:150px;font-weight:700;">View Closing Stock</button>
+          <button class="btn btn-primary" onclick="csExportExcel()" style="background:#1e8449;border:none;font-weight:700;">📥 Excel Download</button>
+          <button class="btn btn-outline" onclick="csPrint()">🖨️ Print</button>
+          <button class="btn btn-outline" onclick="csClear()">Clear</button>
+        </div>
+      </div>
+      <div class="header-print">
+        <div class="print-logo-box">
+          <img id="cs-print-logo" alt="IGL Logo">
+          <span class="print-logo-sub">QUALITY · FASHION · STYLE</span>
+        </div>
+        <div class="print-title-wrap">
+          <h2>Islam Garments Limited - Closing Stock</h2>
+          <p id="cs-print-header"></p>
+        </div>
+      </div>
+      <div id="cs-report" style="padding:0;">
+        <div class="no-data" style="padding:40px;">উপরে থেকে Category ও আইটেম সিলেক্ট করুন (চাইলে তারিখ দিন), তারপর 'View Closing Stock' চাপুন</div>
       </div>
     </div>
   </div>
@@ -11231,6 +11267,7 @@ function showPage(name, el) {
       // Set date only on first load
       if (!document.getElementById('i-date').value) document.getElementById('i-date').value = todayStr();
     }
+    else if (name === 'closing_stock') { try { csInit(); } catch(e) { console.error(e); } }
     else if (name === 'item_ledger') { try { ilgInit(); } catch(e) { console.error(e); } }
     else if (name === 'monthly') {
       var now = new Date();
@@ -42584,7 +42621,7 @@ function drgDeleteHistory(date) {
     if (!iEl) return;
     var curI = iEl.value;
     iEl.innerHTML = '<option value="">-- Select Item --</option>';
-    if (!g) return;
+    if (!g) { ilgStock(); return; }
     var items = (DB.items || []).filter(function(i){ return i.group === g && !i.hidden; });
     if (cat) items = items.filter(function(i){ return i.category === cat; });
     var names = [];
@@ -42593,6 +42630,15 @@ function drgDeleteHistory(date) {
       iEl.innerHTML += '<option value="' + esc(i.name) + '">' + esc(i.name) + '</option>';
     });
     if (keep === true && curI && names.indexOf(curI) !== -1) iEl.value = curI;
+    ilgStock();
+  };
+
+  window.ilgStock = function(){
+    var el = document.getElementById('il-stock-badge');
+    if (!el) return;
+    var n = val('il-item');
+    if (!n) { el.innerHTML = ''; return; }
+    try { el.innerHTML = stockBadge(getStock(n)); } catch(e) { el.innerHTML = ''; }
   };
 
   window.ilgClearDates = function(){
@@ -42682,8 +42728,8 @@ function drgDeleteHistory(date) {
     if (ph) ph.textContent = d.name + ' | ' + (d.category ? d.category + ' | ' : '') + d.group + ' | ' + periodText(d) + ' | Print Date: ' + fmtDate(todayStr());
 
     var openLabel = d.from ? ('Opening Balance (' + fmtDate(d.from) + ' এর আগের)') : 'B/F (Brought Forward)';
-    var th = 'padding:6px 8px;border:1px solid #ccd1d1;background:#2c3e50;color:#fff;font-size:11px;white-space:nowrap;';
-    var td = 'padding:5px 8px;border:1px solid #d5d8dc;font-size:12px;';
+    var HEAD = ['SL','Date','Category','Group','Item Name','Challan No.','Bill No.','Supplier','Slip No.','Machine No','Machine ID','Machine Cat','Receive','Issue','Balance','Unit','Remarks'];
+    var NC = HEAD.length;
     var html = '<div style="padding:15px 20px;">' +
       '<div style="font-size:15px;font-weight:800;color:#1c2833;margin-bottom:2px;">' + esc(d.name) + ' <span style="font-size:12px;font-weight:600;color:#666;">(' + esc(d.unit) + ')</span></div>' +
       '<div style="font-size:12px;color:#666;margin-bottom:12px;">' + esc(d.group) + (d.category ? ' › ' + esc(d.category) : '') + ' &nbsp;|&nbsp; ' + esc(periodText(d)) + '</div>' +
@@ -42694,33 +42740,45 @@ function drgDeleteHistory(date) {
         '<div style="flex:1;min-width:130px;background:#fdedec;border-radius:8px;padding:10px 14px;"><div style="font-size:11px;color:#666;">Total Issue</div><div style="font-size:18px;font-weight:800;color:#c0392b;">' + d.totI + '</div></div>' +
         '<div style="flex:1;min-width:130px;background:#f4ecf7;border-radius:8px;padding:10px 14px;"><div style="font-size:11px;color:#666;">Closing Balance</div><div style="font-size:18px;font-weight:800;color:#6c3483;">' + d.closing + '</div></div>' +
       '</div>' +
-      '<div class="table-scroll" style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;"><thead><tr>' +
-        ['SL','Date','Challan No.','Bill No.','Supplier','Slip No.','Machine No / ID','Receive','Issue','Balance','Remarks'].map(function(h){ return '<th style="' + th + '">' + h + '</th>'; }).join('') +
+      '<div class="table-wrap"><table><thead><tr>' +
+        HEAD.map(function(h){ return '<th>' + h + '</th>'; }).join('') +
       '</tr></thead><tbody>';
-    html += '<tr style="background:#eaf2f8;font-weight:700;"><td style="' + td + '"></td><td style="' + td + '" colspan="8">' + esc(openLabel) + '</td><td style="' + td + 'text-align:right;">' + d.opening + '</td><td style="' + td + '"></td></tr>';
+    html += '<tr style="background:#eaf2f8;font-weight:700;"><td></td><td colspan="13">' + esc(openLabel) + '</td><td><b>' + d.opening + '</b></td><td></td><td></td></tr>';
     if (!d.rows.length) {
-      html += '<tr><td colspan="11" style="' + td + 'text-align:center;color:#888;padding:18px;">এই সময়ে এই আইটেমের কোনো Receive / Issue এন্ট্রি নেই</td></tr>';
+      html += '<tr><td colspan="' + NC + '" class="no-data">এই সময়ে এই আইটেমের কোনো Receive / Issue এন্ট্রি নেই</td></tr>';
     }
     d.rows.forEach(function(e, i){
       var r = e.r, isR = e.t === 'R', q = num(r.qty);
+      var catBadge = isR
+        ? '<span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">' + esc(r.category || d.category || '-') + '</span>'
+        : '<span style="background:#fdf2f8;color:#922b21;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">' + esc(r.category || d.category || '-') + '</span>';
+      var billCell = isR
+        ? ((r.bill && String(r.bill).trim()) ? '<span style="font-weight:600;color:#1a5276;">' + esc(r.bill) + '</span>' : '<span style="background:#fef5e7;color:#b9770e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ বিল বাকি</span>')
+        : '';
       html += '<tr>' +
-        '<td style="' + td + 'text-align:center;">' + (i + 1) + '</td>' +
-        '<td style="' + td + 'white-space:nowrap;">' + esc(fmtDate(r.date)) + '</td>' +
-        '<td style="' + td + '">' + (isR ? esc(r.chalan || '') : '') + '</td>' +
-        '<td style="' + td + '">' + (isR ? esc(r.bill || '') : '') + '</td>' +
-        '<td style="' + td + '">' + (isR ? esc(r.supplier || '') : '') + '</td>' +
-        '<td style="' + td + '">' + (!isR ? esc(r.slip || '') : '') + '</td>' +
-        '<td style="' + td + '">' + (!isR ? esc(machineText(r)) : '') + '</td>' +
-        '<td style="' + td + 'text-align:right;color:#1e8449;font-weight:700;">' + (isR ? q : '') + '</td>' +
-        '<td style="' + td + 'text-align:right;color:#c0392b;font-weight:700;">' + (!isR ? q : '') + '</td>' +
-        '<td style="' + td + 'text-align:right;font-weight:700;">' + e.bal + '</td>' +
-        '<td style="' + td + '">' + esc(r.remarks || '') + '</td>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td>' + esc(fmtDate(r.date)) + '</td>' +
+        '<td>' + esc(r.group || d.group) + '</td>' +
+        '<td>' + catBadge + '</td>' +
+        '<td><b>' + esc(r.item) + '</b></td>' +
+        '<td>' + (isR ? '<span style="font-weight:600;color:#1a5276;">' + esc(r.chalan || '-') + '</span>' : '') + '</td>' +
+        '<td>' + billCell + '</td>' +
+        '<td>' + (isR ? esc(r.supplier || '-') : '') + '</td>' +
+        '<td>' + (!isR ? '<b style="color:#922b21;">' + esc(r.slip || '-') + '</b>' : '') + '</td>' +
+        '<td>' + (!isR ? esc(r.machineNo || '-') : '') + '</td>' +
+        '<td>' + (!isR ? esc(r.machineId || '-') : '') + '</td>' +
+        '<td>' + (!isR ? esc(r.machineCat || '-') : '') + '</td>' +
+        '<td>' + (isR ? '<b style="color:#1a5276;">' + q + '</b>' : '') + '</td>' +
+        '<td>' + (!isR ? '<b style="color:#922b21;">' + q + '</b>' : '') + '</td>' +
+        '<td><b>' + e.bal + '</b></td>' +
+        '<td style="text-align:center;color:#666;">' + esc(r.unit || d.unit || 'Pcs') + '</td>' +
+        '<td>' + esc(r.remarks || '-') + '</td>' +
       '</tr>';
     });
-    html += '<tr style="background:#f8f9f9;font-weight:800;"><td style="' + td + '" colspan="7" align="right">Total / Closing</td>' +
-      '<td style="' + td + 'text-align:right;color:#1e8449;">' + d.totR + '</td>' +
-      '<td style="' + td + 'text-align:right;color:#c0392b;">' + d.totI + '</td>' +
-      '<td style="' + td + 'text-align:right;color:#6c3483;">' + d.closing + '</td><td style="' + td + '"></td></tr>';
+    html += '<tr style="background:#f2f3f4;font-weight:800;"><td></td><td colspan="11" style="text-align:right;">Total / Closing</td>' +
+      '<td><b style="color:#1a5276;">' + d.totR + '</b></td>' +
+      '<td><b style="color:#922b21;">' + d.totI + '</b></td>' +
+      '<td><b style="color:#6c3483;">' + d.closing + '</b></td><td></td><td></td></tr>';
     html += '</tbody></table></div></div>';
     box.innerHTML = html;
   };
@@ -42738,25 +42796,25 @@ function drgDeleteHistory(date) {
     gsLoadExcelJS(function(){
       try {
         var wb = new ExcelJS.Workbook();
-        var ws = wb.addWorksheet('Item Ledger', { views: [{ state: 'frozen', ySplit: 6 }] });
+        var ws = wb.addWorksheet('Item Ledger', { views: [{ state: 'frozen', ySplit: 6 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
         var cols = [
-          { w: 6 }, { w: 13 }, { w: 14 }, { w: 12 }, { w: 22 }, { w: 14 }, { w: 16 }, { w: 11 }, { w: 11 }, { w: 12 }, { w: 30 }
+          { w: 6 }, { w: 13 }, { w: 16 }, { w: 16 }, { w: 30 }, { w: 14 }, { w: 12 }, { w: 22 }, { w: 12 }, { w: 12 }, { w: 12 }, { w: 14 }, { w: 11 }, { w: 11 }, { w: 12 }, { w: 8 }, { w: 30 }
         ];
         ws.columns = cols.map(function(c){ return { width: c.w }; });
         var thin = { style: 'thin', color: { argb: 'FF999999' } };
         var border = { top: thin, left: thin, bottom: thin, right: thin };
 
-        ws.mergeCells('A1:K1'); ws.getCell('A1').value = 'Islam Garments Limited';
+        ws.mergeCells('A1:Q1'); ws.getCell('A1').value = 'Islam Garments Limited';
         ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-        ws.mergeCells('A2:K2'); ws.getCell('A2').value = 'Item Ledger — ' + d.name + ' (' + d.unit + ')';
+        ws.mergeCells('A2:Q2'); ws.getCell('A2').value = 'Item Ledger — ' + d.name + ' (' + d.unit + ')';
         ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
-        ws.mergeCells('A3:K3'); ws.getCell('A3').value = d.group + (d.category ? ' › ' + d.category : '') + '   |   ' + periodText(d);
+        ws.mergeCells('A3:Q3'); ws.getCell('A3').value = d.group + (d.category ? ' › ' + d.category : '') + '   |   ' + periodText(d);
         ws.getCell('A3').alignment = { horizontal: 'center' };
-        ws.mergeCells('A4:K4'); ws.getCell('A4').value = d.anchorDate ? ('Oil B/F ' + fmtDate(d.anchorDate) + ' তারিখ থেকে ধরা হয়েছে') : ('Print Date: ' + fmtDate(todayStr()));
+        ws.mergeCells('A4:Q4'); ws.getCell('A4').value = d.anchorDate ? ('Oil B/F ' + fmtDate(d.anchorDate) + ' তারিখ থেকে ধরা হয়েছে') : ('Print Date: ' + fmtDate(todayStr()));
         ws.getCell('A4').alignment = { horizontal: 'center' }; ws.getCell('A4').font = { italic: true, color: { argb: 'FF666666' } };
 
         var hr = ws.getRow(6);
-        hr.values = ['SL','Date','Challan No.','Bill No.','Supplier','Slip No.','Machine No / ID','Receive','Issue','Balance','Remarks'];
+        hr.values = ['SL','Date','Category','Group','Item Name','Challan No.','Bill No.','Supplier','Slip No.','Machine No','Machine ID','Machine Cat','Receive','Issue','Balance','Unit','Remarks'];
         hr.eachCell(function(c){
           c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E50' } };
@@ -42766,10 +42824,10 @@ function drgDeleteHistory(date) {
 
         var rowNo = 7;
         var op = ws.getRow(rowNo++);
-        op.values = ['', d.from ? ('Opening Balance (' + fmtDate(d.from) + ' এর আগের)') : 'B/F (Brought Forward)', '', '', '', '', '', '', '', d.opening, ''];
-        ws.mergeCells('B' + (rowNo - 1) + ':I' + (rowNo - 1));
+        op.values = ['', d.from ? ('Opening Balance (' + fmtDate(d.from) + ' এর আগের)') : 'B/F (Brought Forward)', '', '', '', '', '', '', '', '', '', '', '', '', d.opening, '', ''];
+        ws.mergeCells('B' + (rowNo - 1) + ':N' + (rowNo - 1));
         op.eachCell({ includeEmpty: true }, function(c, ci){
-          if (ci > 11) return;
+          if (ci > 17) return;
           c.border = border; c.font = { bold: true };
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2F8' } };
         });
@@ -42778,28 +42836,30 @@ function drgDeleteHistory(date) {
           var r = e.r, isR = e.t === 'R', q = num(r.qty);
           var row = ws.getRow(rowNo++);
           row.values = [
-            i + 1, fmtDate(r.date),
+            i + 1, fmtDate(r.date), r.group || d.group, r.category || d.category || '', r.item,
             isR ? (r.chalan || '') : '', isR ? (r.bill || '') : '', isR ? (r.supplier || '') : '',
-            !isR ? (r.slip || '') : '', !isR ? machineText(r) : '',
-            isR ? q : '', !isR ? q : '', e.bal, r.remarks || ''
+            !isR ? (r.slip || '') : '', !isR ? (r.machineNo || '') : '', !isR ? (r.machineId || '') : '', !isR ? (r.machineCat || '') : '',
+            isR ? q : '', !isR ? q : '', e.bal, r.unit || d.unit || 'Pcs', r.remarks || ''
           ];
           row.eachCell({ includeEmpty: true }, function(c, ci){
-            if (ci > 11) return;
+            if (ci > 17) return;
             c.border = border;
-            if (ci >= 8 && ci <= 10) c.alignment = { horizontal: 'right' };
-            if (ci === 1) c.alignment = { horizontal: 'center' };
-            if (ci === 10) c.font = { bold: true };
+            if (ci >= 13 && ci <= 15) c.alignment = { horizontal: 'right' };
+            if (ci === 1 || ci === 16) c.alignment = { horizontal: 'center' };
+            if (ci === 5 || ci === 15) c.font = { bold: true };
+            if (ci === 13) c.font = { bold: true, color: { argb: 'FF1A5276' } };
+            if (ci === 14) c.font = { bold: true, color: { argb: 'FF922B21' } };
           });
         });
 
         var tr = ws.getRow(rowNo++);
-        tr.values = ['', 'Total / Closing', '', '', '', '', '', d.totR, d.totI, d.closing, ''];
-        ws.mergeCells('B' + (rowNo - 1) + ':G' + (rowNo - 1));
+        tr.values = ['', 'Total / Closing', '', '', '', '', '', '', '', '', '', '', d.totR, d.totI, d.closing, '', ''];
+        ws.mergeCells('B' + (rowNo - 1) + ':L' + (rowNo - 1));
         tr.eachCell({ includeEmpty: true }, function(c, ci){
-          if (ci > 11) return;
+          if (ci > 17) return;
           c.border = border; c.font = { bold: true };
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F3F4' } };
-          if (ci >= 8 && ci <= 10) c.alignment = { horizontal: 'right' };
+          if (ci >= 13 && ci <= 15) c.alignment = { horizontal: 'right' };
         });
         ws.getCell('B' + (rowNo - 1)).alignment = { horizontal: 'right' };
 
@@ -42819,6 +42879,244 @@ function drgDeleteHistory(date) {
       } catch (err) {
         toast('❌ Excel বানাতে সমস্যা: ' + (err && err.message ? err.message : err), 'error');
       }
+    });
+  };
+})();
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  GENERAL STORE — CLOSING STOCK (শুধু দেখা/প্রিন্ট/Excel — কোনো ডাটা বদলায় না)
+// ══════════════════════════════════════════════════════════════
+(function(){
+  var SEL = {};            // সিলেক্ট করা আইটেমের নাম
+  var LIST = [];           // বর্তমান Category/Group-এর আইটেম নাম
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function num(v){ return Math.round((Number(v) || 0) * 1000) / 1000; }
+  function val(id){ var e = document.getElementById(id); return e ? e.value : ''; }
+  function gsGroups(){ return (DB.groups || []).filter(function(g){ return ['Stationery','Packaging','Needle'].indexOf(g) === -1; }); }
+
+  window.csInit = function(){
+    var gEl = document.getElementById('cs-group');
+    if (!gEl) return;
+    var cur = gEl.value, groups = gsGroups();
+    gEl.innerHTML = '<option value="">-- Select Category --</option>' + groups.map(function(g){ return '<option value="' + esc(g) + '">' + esc(g) + '</option>'; }).join('');
+    if (cur && groups.indexOf(cur) !== -1) gEl.value = cur;
+    csFilterCategory(true);
+    var lg = document.getElementById('cs-print-logo');
+    if (lg && typeof IGL_LOGO_B64 !== 'undefined' && !lg.getAttribute('src')) lg.src = IGL_LOGO_B64;
+  };
+
+  window.csFilterCategory = function(keep){
+    var g = val('cs-group'), cEl = document.getElementById('cs-category');
+    if (!cEl) return;
+    var curC = cEl.value, cats = [];
+    cEl.innerHTML = '<option value="">-- All Groups --</option>';
+    if (g) {
+      cats = Array.from(new Set((DB.items || []).filter(function(i){ return i.group === g && i.category && !i.hidden; }).map(function(i){ return i.category; })));
+      cats.forEach(function(c){ cEl.innerHTML += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
+    }
+    if (keep === true && curC && cats.indexOf(curC) !== -1) cEl.value = curC;
+    csFilterItems(keep === true);
+  };
+
+  window.csFilterItems = function(keep){
+    var g = val('cs-group'), cat = val('cs-category');
+    var items = g ? (DB.items || []).filter(function(i){ return i.group === g && !i.hidden && (!cat || i.category === cat); }) : [];
+    LIST = items.map(function(i){ return i.name; });
+    var next = {};
+    if (keep === true) LIST.forEach(function(n){ if (SEL[n]) next[n] = true; });
+    SEL = next;
+    var s = document.getElementById('cs-ms-search'); if (s) s.value = '';
+    csMsRender();
+  };
+
+  function updateLabel(){
+    var n = Object.keys(SEL).length;
+    var lb = document.getElementById('cs-ms-label'), ct = document.getElementById('cs-sel-count');
+    if (lb) lb.textContent = n === 0 ? (LIST.length ? '-- All Items --' : '-- Select Category first --') : (n === 1 ? Object.keys(SEL)[0] : n + ' items selected');
+    if (ct) ct.textContent = (n === 0 ? LIST.length : n) + ' / ' + LIST.length + (n === 0 && LIST.length ? ' (সব)' : '');
+  }
+
+  window.csMsRender = function(){
+    var box = document.getElementById('cs-ms-list');
+    if (!box) return;
+    var q = (val('cs-ms-search') || '').trim().toLowerCase();
+    var shown = LIST.filter(function(n){ return !q || n.toLowerCase().indexOf(q) !== -1; });
+    if (!shown.length) { box.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;text-align:center;">কোনো আইটেম নেই</div>'; updateLabel(); return; }
+    box.innerHTML = shown.map(function(n, i){
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:500;">' +
+        '<input type="checkbox" data-n="' + esc(n) + '"' + (SEL[n] ? ' checked' : '') + ' onchange="csMsPick(this)" style="width:16px;height:16px;flex:none;">' +
+        '<span style="flex:1;word-break:break-word;">' + esc(n) + '</span></label>';
+    }).join('');
+    updateLabel();
+  };
+
+  window.csMsPick = function(cb){
+    var n = cb.getAttribute('data-n');
+    if (cb.checked) SEL[n] = true; else delete SEL[n];
+    updateLabel();
+  };
+
+  window.csMsAll = function(on){
+    var q = (val('cs-ms-search') || '').trim().toLowerCase();
+    LIST.forEach(function(n){
+      if (q && n.toLowerCase().indexOf(q) === -1) return;
+      if (on) SEL[n] = true; else delete SEL[n];
+    });
+    csMsRender();
+  };
+
+  window.csMsToggle = function(ev){
+    if (ev) ev.stopPropagation();
+    var p = document.getElementById('cs-ms-panel');
+    if (!p) return;
+    p.style.display = (p.style.display === 'none') ? 'block' : 'none';
+    if (p.style.display === 'block') { var s = document.getElementById('cs-ms-search'); if (s && window.innerWidth > 700) s.focus(); }
+  };
+  document.addEventListener('click', function(e){
+    var p = document.getElementById('cs-ms-panel');
+    if (!p || p.style.display === 'none') return;
+    var wrap = document.getElementById('cs-ms');
+    if (wrap && !wrap.contains(e.target)) p.style.display = 'none';
+  });
+
+  window.csClear = function(){
+    SEL = {};
+    ['cs-from','cs-to'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
+    csMsRender();
+  };
+
+  function periodText(from, to){
+    if (from && to) return fmtDate(from) + ' থেকে ' + fmtDate(to);
+    if (from) return fmtDate(from) + ' থেকে এখন পর্যন্ত';
+    if (to) return 'শুরু থেকে ' + fmtDate(to) + ' পর্যন্ত';
+    return 'শুরু থেকে এখন পর্যন্ত';
+  }
+
+  function csCompute(){
+    var group = val('cs-group'), cat = val('cs-category'), from = val('cs-from'), to = val('cs-to');
+    if (!group) { toast('অনুগ্রহ করে Item Category সিলেক্ট করুন!', 'warning'); return null; }
+    if (from && to && from > to) { toast('From Date, To Date এর আগে হতে হবে!', 'warning'); return null; }
+    var picked = Object.keys(SEL);
+    var items = (DB.items || []).filter(function(i){ return i.group === group && !i.hidden && (!cat || i.category === cat); });
+    if (picked.length) items = items.filter(function(i){ return SEL[i.name]; });
+    if (!items.length) { toast('কোনো আইটেম পাওয়া যায়নি', 'warning'); return null; }
+
+    var oilBF = {};
+    try { oilBF = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}') || {}; } catch(e) {}
+    var nameCount = {};
+    (DB.items || []).forEach(function(x){ nameCount[x.name] = (nameCount[x.name] || 0) + 1; });
+
+    // নাম ধরে একবারেই ভাগ করে নেওয়া (অনেক আইটেম হলেও দ্রুত)
+    var rMap = {}, iMap = {};
+    (DB.receives || []).forEach(function(r){ (rMap[r.item] = rMap[r.item] || []).push(r); });
+    (DB.issues || []).forEach(function(r){ (iMap[r.item] = iMap[r.item] || []).push(r); });
+
+    var rows = items.map(function(it){
+      var name = it.name, many = nameCount[name] > 1;
+      function m(r){ return !many || !r.group || r.group === group; }
+      var bf = Number(it.bf) || 0, anchor = '';
+      if (oilBF[name]) { bf = Number(oilBF[name].qty) || 0; anchor = oilBF[name].date || ''; }
+      var rc = (rMap[name] || []).filter(m), is = (iMap[name] || []).filter(m);
+      if (anchor) { rc = rc.filter(function(r){ return r.date >= anchor; }); is = is.filter(function(r){ return r.date >= anchor; }); }
+      var opening = bf, rec = 0, iss = 0;
+      rc.forEach(function(r){
+        var d = r.date || '', q = Number(r.qty) || 0;
+        if (from && d < from) opening += q;
+        else if (!to || d <= to) rec += q;
+      });
+      is.forEach(function(r){
+        var d = r.date || '', q = Number(r.qty) || 0;
+        if (from && d < from) opening -= q;
+        else if (!to || d <= to) iss += q;
+      });
+      return { name: name, group: it.group, category: it.category || '', unit: it.unit || 'Pcs',
+               opening: num(opening), rec: num(rec), iss: num(iss), closing: num(opening + rec - iss), anchor: anchor };
+    });
+    return { group: group, category: cat, from: from, to: to, rows: rows, all: !picked.length };
+  }
+
+  window.csRender = function(){
+    var d = csCompute(), box = document.getElementById('cs-report');
+    if (!d || !box) return;
+    window._csLast = d;
+    var ph = document.getElementById('cs-print-header');
+    if (ph) ph.textContent = d.group + (d.category ? ' › ' + d.category : '') + ' | ' + periodText(d.from, d.to) + ' | Print Date: ' + fmtDate(todayStr());
+    var HEAD = ['SL','Category','Group','Item Name','Unit', d.from ? 'Opening' : 'B/F', 'Receive','Issue','Closing Stock'];
+    var anyAnchor = d.rows.some(function(r){ return r.anchor; });
+    var html = '<div style="padding:15px 20px;">' +
+      '<div style="font-size:15px;font-weight:800;color:#1c2833;margin-bottom:2px;">Closing Stock — ' + esc(d.group) + (d.category ? ' › ' + esc(d.category) : '') + '</div>' +
+      '<div style="font-size:12px;color:#666;margin-bottom:12px;">' + esc(periodText(d.from, d.to)) + ' &nbsp;|&nbsp; ' + d.rows.length + ' টি আইটেম' + (d.all ? ' (সব)' : '') + '</div>' +
+      (anyAnchor ? '<div style="font-size:11px;color:#b9770e;margin-bottom:8px;">ℹ️ কিছু Oil আইটেমের B/F নির্দিষ্ট তারিখ থেকে ধরা হয়েছে, তাই তার আগের এন্ট্রি হিসাবে নেই।</div>' : '') +
+      '<div class="table-wrap"><table><thead><tr>' + HEAD.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+    d.rows.forEach(function(r, i){
+      var cl = r.closing <= 0 ? '#c0392b' : '#1e8449';
+      html += '<tr>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td>' + esc(r.group) + '</td>' +
+        '<td><span style="background:#f4ecf7;color:#6c3483;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">' + esc(r.category || '-') + '</span></td>' +
+        '<td><b>' + esc(r.name) + '</b></td>' +
+        '<td style="text-align:center;color:#666;">' + esc(r.unit) + '</td>' +
+        '<td>' + r.opening + '</td>' +
+        '<td><b style="color:#1a5276;">' + r.rec + '</b></td>' +
+        '<td><b style="color:#922b21;">' + r.iss + '</b></td>' +
+        '<td><b style="color:' + cl + ';">' + r.closing + '</b></td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+    box.innerHTML = html;
+  };
+
+  window.csPrint = function(){
+    if (!document.getElementById('cs-report').querySelector('table')) csRender();
+    if (!document.getElementById('cs-report').querySelector('table')) return;
+    window.print();
+  };
+
+  window.csExportExcel = function(){
+    var d = csCompute();
+    if (!d) return;
+    window._csLast = d;
+    gsLoadExcelJS(function(){
+      try {
+        var wb = new ExcelJS.Workbook();
+        var ws = wb.addWorksheet('Closing Stock', { views: [{ state: 'frozen', ySplit: 5 }], pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+        ws.columns = [{ width: 6 }, { width: 18 }, { width: 18 }, { width: 36 }, { width: 9 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }];
+        var thin = { style: 'thin', color: { argb: 'FF999999' } }, border = { top: thin, left: thin, bottom: thin, right: thin };
+        ws.mergeCells('A1:I1'); ws.getCell('A1').value = 'Islam Garments Limited'; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+        ws.mergeCells('A2:I2'); ws.getCell('A2').value = 'Closing Stock — ' + d.group + (d.category ? ' › ' + d.category : ''); ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+        ws.mergeCells('A3:I3'); ws.getCell('A3').value = periodText(d.from, d.to) + '   |   Print Date: ' + fmtDate(todayStr()); ws.getCell('A3').alignment = { horizontal: 'center' };
+        var hr = ws.getRow(5);
+        hr.values = ['SL','Category','Group','Item Name','Unit', d.from ? 'Opening' : 'B/F', 'Receive','Issue','Closing Stock'];
+        hr.eachCell(function(c){
+          c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C2833' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = border;
+        });
+        d.rows.forEach(function(r, i){
+          var row = ws.getRow(6 + i);
+          row.values = [i + 1, r.group, r.category, r.name, r.unit, r.opening, r.rec, r.iss, r.closing];
+          row.eachCell({ includeEmpty: true }, function(c, ci){
+            if (ci > 9) return;
+            c.border = border;
+            if (ci === 1 || ci === 5) c.alignment = { horizontal: 'center' };
+            if (ci >= 6) c.alignment = { horizontal: 'right' };
+            if (ci === 4) c.font = { bold: true };
+            if (ci === 7) c.font = { bold: true, color: { argb: 'FF1A5276' } };
+            if (ci === 8) c.font = { bold: true, color: { argb: 'FF922B21' } };
+            if (ci === 9) c.font = { bold: true, color: { argb: r.closing <= 0 ? 'FFC0392B' : 'FF1E8449' } };
+          });
+        });
+        var fname = 'Closing_Stock_' + d.group.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') + (d.to ? '_' + d.to : '_' + todayStr()) + '.xlsx';
+        wb.xlsx.writeBuffer().then(function(buffer){
+          var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          var url = URL.createObjectURL(blob), a = document.createElement('a');
+          a.href = url; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+          toast('✅ ' + fname + ' ডাউনলোড হয়েছে', 'success');
+        }).catch(function(err){ toast('❌ ফাইল বানাতে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error'); });
+      } catch (err) { toast('❌ Excel বানাতে সমস্যা: ' + (err && err.message ? err.message : err), 'error'); }
     });
   };
 })();
