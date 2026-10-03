@@ -4561,6 +4561,30 @@ window.iglSaveNavVisibility = function() {
         <div id="gmr-preview-content"></div>
       </div>
     </div>
+    <div class="card" id="cx-card">
+      <div class="card-header" style="background:#fdf2e9;">
+        <span>🧾 Category-wise Monthly Expense Sheet (Issue Amount)</span>
+      </div>
+      <div class="card-body">
+        <div class="month-select">
+          <select class="form-control" id="cx-month">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="cx-year" value="2026" min="2020" max="2050">
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="cxRender()">View Sheet</button>
+          <button class="btn btn-outline" onclick="cxPrint()">Print</button>
+          <button class="btn btn-success" onclick="cxExcel()">Excel Download</button>
+        </div>
+        <div id="cx-report" style="margin-top:14px;overflow-x:auto;"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Select Month, Year &amp; Item</span>
@@ -43014,6 +43038,136 @@ function drgDeleteHistory(date) {
         });
 
         var fname = 'Item_Ledger_' + d.group.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') + '_' + (d.to || todayStr()) + '.xlsx';
+        wb.xlsx.writeBuffer().then(function(buffer){
+          var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          var url = URL.createObjectURL(blob), a = document.createElement('a');
+          a.href = url; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+          toast('✅ ' + fname + ' ডাউনলোড হয়েছে', 'success');
+        }).catch(function(err){ toast('❌ ফাইল বানাতে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error'); });
+      } catch (err) { toast('❌ Excel বানাতে সমস্যা: ' + (err && err.message ? err.message : err), 'error'); }
+    });
+  };
+
+  // ───────── Category-wise Monthly Expense Sheet ─────────
+  // মাসের Issue-এর Amount (Item Ledger-এর একই weighted-average হিসাব) → Category → Group অনুযায়ী, শেষে Grand Total।
+  var CX_MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  (function(){
+    var mEl = document.getElementById('cx-month'), yEl = document.getElementById('cx-year');
+    var now = new Date();
+    if (mEl) mEl.value = String(now.getMonth() + 1);
+    if (yEl) yEl.value = String(now.getFullYear());
+  })();
+
+  function cxCompute(){
+    var mo = Number(val('cx-month')), yr = Number(val('cx-year'));
+    if (!mo || !yr) { toast('মাস ও ইয়ার সিলেক্ট করুন!', 'warning'); return null; }
+    var pad = function(n){ return String(n).padStart(2, '0'); };
+    var from = yr + '-' + pad(mo) + '-01', to = yr + '-' + pad(mo) + '-' + pad(new Date(yr, mo, 0).getDate());
+    var oilBF = {};
+    try { oilBF = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}') || {}; } catch(e) {}
+    var nameCount = {};
+    (DB.items || []).forEach(function(x){ nameCount[x.name] = (nameCount[x.name] || 0) + 1; });
+    var issued = {};
+    (DB.issues || []).forEach(function(r){ if (r.date >= from && r.date <= to) issued[r.item] = true; });
+    var seen = {}, cats = {};
+    (DB.items || []).forEach(function(it){
+      if (!issued[it.name]) return;
+      var key = it.name + '|' + (it.group || '');
+      if (seen[key]) return; seen[key] = true;
+      var b = computeItem(it, it.group, from, to, oilBF, nameCount);
+      if (!(b.tIq > 0)) return;
+      var cn = it.group || '(No Category)', gn = it.category || '(No Group)';
+      var c = cats[cn] || (cats[cn] = { name: cn, amt: 0, groups: {} });
+      var g = c.groups[gn] || (c.groups[gn] = { name: gn, amt: 0, items: 0 });
+      g.amt += b.tIv; g.items++; c.amt += b.tIv;
+    });
+    var list = Object.keys(cats).sort(function(a, b){ return a.localeCompare(b); }).map(function(k){
+      var c = cats[k];
+      c.list = Object.keys(c.groups).sort(function(a, b){ return a.localeCompare(b); }).map(function(g){ return c.groups[g]; });
+      return c;
+    });
+    var grand = list.reduce(function(t, c){ return t + c.amt; }, 0);
+    return { month: mo, year: yr, label: CX_MN[mo - 1] + ' ' + yr, cats: list, grand: grand };
+  }
+
+  function cxHtml(d){
+    var th = 'border:1px solid #444;padding:5px 8px;background:#95b3d7;font-weight:700;text-align:center;color:#111;';
+    var td = 'border:1px solid #444;padding:4px 8px;color:#111;';
+    var h = '<table style="border-collapse:collapse;width:100%;min-width:520px;font-size:13px;">' +
+      '<thead><tr><th style="' + th + 'width:44px;">SL</th><th style="' + th + '">Item Category</th><th style="' + th + '">Item Group</th><th style="' + th + 'width:70px;">Items</th><th style="' + th + 'width:130px;">Amount (Tk)</th></tr></thead><tbody>';
+    var sl = 0;
+    d.cats.forEach(function(c){
+      c.list.forEach(function(g){
+        sl++;
+        h += '<tr><td style="' + td + 'text-align:center;">' + sl + '</td><td style="' + td + '">' + esc(c.name) + '</td><td style="' + td + '">' + esc(g.name) + '</td>' +
+          '<td style="' + td + 'text-align:center;">' + g.items + '</td><td style="' + td + 'text-align:right;">' + m2(g.amt) + '</td></tr>';
+      });
+      h += '<tr><td colspan="4" style="' + td + 'text-align:right;font-weight:700;background:#e6dcb4;">Sub Total — ' + esc(c.name) + '</td><td style="' + td + 'text-align:right;font-weight:700;background:#e6dcb4;">' + m2(c.amt) + '</td></tr>';
+    });
+    if (!d.cats.length) h += '<tr><td colspan="5" style="' + td + 'text-align:center;color:#888;padding:14px;">এই মাসে কোনো Issue নেই</td></tr>';
+    h += '<tr><td colspan="4" style="' + td + 'text-align:right;font-weight:800;background:#92d050;">GRAND TOTAL</td><td style="' + td + 'text-align:right;font-weight:800;background:#92d050;">' + m2(d.grand) + '</td></tr>';
+    return h + '</tbody></table>';
+  }
+
+  window.cxRender = function(){
+    var d = cxCompute(), box = document.getElementById('cx-report');
+    if (!d || !box) return;
+    window._cxLast = d;
+    box.innerHTML = '<div style="font-size:12px;color:#666;margin-bottom:8px;">' + esc(d.label) + ' — Issue Amount (খরচ)</div>' + cxHtml(d);
+  };
+
+  window.cxPrint = function(){
+    var d = cxCompute(); if (!d) return;
+    var w = window.open('', '_blank');
+    if (!w) { toast('পপ-আপ ব্লক হয়েছে — অনুমতি দিন', 'warning'); return; }
+    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Monthly Expense — ' + esc(d.label) + '</title>' +
+      '<style>@page{size:A4 portrait;margin:10mm;}body{font-family:Arial,sans-serif;margin:0;}h2,p{text-align:center;margin:4px 0;}tr{page-break-inside:avoid;}</style></head><body>' +
+      '<h2>Islam Garments Limited</h2><h3 style="text-align:center;margin:2px 0;">Category-wise Monthly Expense — ' + esc(d.label) + '</h3>' +
+      '<p style="font-size:12px;">Print Date: ' + esc(fmtDate(todayStr())) + '</p><br>' + cxHtml(d) + '</body></html>');
+    w.document.close();
+    setTimeout(function(){ w.focus(); w.print(); }, 400);
+  };
+
+  window.cxExcel = function(){
+    var d = cxCompute(); if (!d) return;
+    gsLoadExcelJS(function(){
+      try {
+        var wb = new ExcelJS.Workbook();
+        var ws = wb.addWorksheet(d.label.substring(0, 31), { pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+        ws.columns = [{ width: 6 }, { width: 30 }, { width: 30 }, { width: 9 }, { width: 18 }];
+        var thin = { style: 'thin', color: { argb: 'FF444444' } }, border = { top: thin, left: thin, bottom: thin, right: thin };
+        function fill(c, argb){ c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } }; }
+        ws.mergeCells('A1:E1'); ws.getCell('A1').value = 'Islam Garments Limited'; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+        ws.mergeCells('A2:E2'); ws.getCell('A2').value = 'Category-wise Monthly Expense — ' + d.label; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+        ws.mergeCells('A3:E3'); ws.getCell('A3').value = 'Print Date: ' + fmtDate(todayStr()); ws.getCell('A3').alignment = { horizontal: 'center' };
+        var r = 5;
+        ['SL', 'Item Category', 'Item Group', 'Items', 'Amount (Tk)'].forEach(function(t, i){
+          var c = ws.getCell(r, i + 1); c.value = t; c.font = { bold: true }; c.alignment = { horizontal: 'center' }; c.border = border; fill(c, 'FF95B3D7');
+        });
+        r++;
+        var sl = 0;
+        function rowFmt(rr, bold, argb){
+          for (var cc = 1; cc <= 5; cc++) {
+            var c = ws.getCell(rr, cc); c.border = border; if (bold) c.font = { bold: true }; if (argb) fill(c, argb);
+            if (cc === 5) { c.numFmt = '#,##0.00'; c.alignment = { horizontal: 'right' }; }
+          }
+        }
+        d.cats.forEach(function(c){
+          c.list.forEach(function(g){
+            sl++;
+            ws.getCell(r, 1).value = sl; ws.getCell(r, 2).value = c.name; ws.getCell(r, 3).value = g.name; ws.getCell(r, 4).value = g.items; ws.getCell(r, 5).value = Math.round(g.amt * 100) / 100;
+            ws.getCell(r, 1).alignment = { horizontal: 'center' }; ws.getCell(r, 4).alignment = { horizontal: 'center' };
+            rowFmt(r, false, null); ws.getCell(r, 1).alignment = { horizontal: 'center' }; ws.getCell(r, 4).alignment = { horizontal: 'center' };
+            r++;
+          });
+          ws.mergeCells(r, 1, r, 4); ws.getCell(r, 1).value = 'Sub Total — ' + c.name; ws.getCell(r, 1).alignment = { horizontal: 'right' };
+          ws.getCell(r, 5).value = Math.round(c.amt * 100) / 100; rowFmt(r, true, 'FFE6DCB4'); ws.getCell(r, 1).alignment = { horizontal: 'right' };
+          r++;
+        });
+        ws.mergeCells(r, 1, r, 4); ws.getCell(r, 1).value = 'GRAND TOTAL'; ws.getCell(r, 5).value = Math.round(d.grand * 100) / 100;
+        rowFmt(r, true, 'FF92D050'); ws.getCell(r, 1).alignment = { horizontal: 'right' };
+        var fname = 'Monthly_Expense_' + d.year + '_' + String(d.month).padStart(2, '0') + '.xlsx';
         wb.xlsx.writeBuffer().then(function(buffer){
           var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           var url = URL.createObjectURL(blob), a = document.createElement('a');
