@@ -29220,7 +29220,7 @@ function mpImportFromKnittingReport(text, evt) {
     trs.forEach(function(tr){
       try {
         var tds = tr.querySelectorAll('td');
-        if (tds.length < 10) return;
+        if (tds.length < 8) return; // ৫ শুরুর + কমপক্ষে ১ দিন + ২ শেষের কলাম
         var sl = (tds[0].textContent || '').trim();
         if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
         var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
@@ -29626,7 +29626,7 @@ function smpImportFromKnittingReport(text, machineId, resultEl) {
       if (rowFound) return; // একটা মেশিনের একটাই row থাকা উচিত
       try {
         var tds = tr.querySelectorAll('td');
-        if (tds.length < 10) return;
+        if (tds.length < 8) return; // ৫ শুরুর + কমপক্ষে ১ দিন + ২ শেষের কলাম
         var sl = (tds[0].textContent || '').trim();
         if (!/^\d+$/.test(sl)) return; // header/total row হলে skip
         var floorTxt = (tds[2] ? tds[2].textContent : '').trim();
