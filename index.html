@@ -6856,11 +6856,6 @@ function ok(msg) {
           <div class="cf-pair ni-cell ni-span2" id="nmi-tr-en-row" style="display:none;"><label>Note (English)</label>
             <input type="text" class="form-control" id="nmi-note-en" placeholder="English note">
           </div>
-          <div class="ni-span2" id="nmi-tr-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 4px;">
-            <span id="nmi-tr-status" style="font-size:11px;flex:1;min-width:180px;color:#666;"></span>
-            <button type="button" class="btn btn-outline btn-sm" onclick="nmiTrManual()">🔄 অনুবাদ করো</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="nmiTrFix()">✨ বাক্য ঠিক করো</button>
-          </div>
         </div>
 
         <!-- Used Needle Warning Banner -->
@@ -6908,7 +6903,6 @@ function ok(msg) {
           <input type="date" class="form-control" id="nmi-log-from" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="From Date">
           <span style="font-size:12px;color:#888;">—</span>
           <input type="date" class="form-control" id="nmi-log-to" onchange="nmiRenderLog()" style="width:130px;padding:3px 6px;" title="To Date">
-          <button class="btn btn-sm admin-only-action" style="background:#2471a3;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="nmiTrBackfill()" title="আগের এন্ট্রির Remarks বাংলা/English অনুবাদ সহ আপডেট করুন (ডেস্কটপ Chrome)">🌐 পুরনো এন্ট্রি অনুবাদ</button>
           <button class="btn btn-sm" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;" onclick="document.getElementById('nmi-log-from').value='';document.getElementById('nmi-log-to').value='';document.getElementById('nmi-log-user').value='';document.getElementById('nmi-log-machine').value='';nmiRenderLog()">✕ Clear</button>
         </div>
       </div>
@@ -36112,7 +36106,6 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       };
       if(_nTr.bn) rec.noteBn=_nTr.bn;
       if(_nTr.en) rec.noteEn=_nTr.en;
-      if((_nTr.bn||_nTr.en) && _nTr.pending) rec.noteTrPending=true;
       arr.push(rec);
       saved++;
       _newIssueRows.push(rec);
@@ -41220,7 +41213,6 @@ function buildNeedleEditForm(e) {
       +'<input type="text" id="edit-n-note-bn" value="'+String(e.noteBn||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="বাংলা নোট"></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">Note (English)</label>'
       +'<input type="text" id="edit-n-note-en" value="'+String(e.noteEn||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="English note"></div>'
-    +'<div><button type="button" class="btn btn-outline btn-sm" onclick="nmiTrEditFill()">🔄 অনুবাদ করো</button><span id="edit-n-tr-status" style="font-size:11px;margin-left:8px;color:#666;">একটা ঘর লিখে বাটন চাপলে অন্য ঘরে অনুবাদ আসবে</span></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">👤 Employee (ঐচ্ছিক)</label>'
       +'<select id="edit-n-employee" class="form-control">'+stnBuildEmployeeOptions(e.employeeId, '-- Employee (ঐচ্ছিক) --')+'</select></div>'
   +'</div>';
@@ -41410,7 +41402,7 @@ async function saveEditEntry() {
     // বাংলা/English নোট: খালি হলে ফিল্ড সরাও (Firebase-এ undefined যায় না), একটাই থাকলে "অনুবাদ বাকি" চিহ্ন
     if (_noteBn) arr[idx].noteBn = _noteBn; else delete arr[idx].noteBn;
     if (_noteEn) arr[idx].noteEn = _noteEn; else delete arr[idx].noteEn;
-    if ((_noteBn || _noteEn) && !(_noteBn && _noteEn)) arr[idx].noteTrPending = true; else delete arr[idx].noteTrPending;
+    delete arr[idx].noteTrPending;
     NDB.needles = arr;
     triggerAutoSave();
     try { nmiRenderLog(); } catch(e){}
@@ -43274,74 +43266,17 @@ function drgDeleteHistory(date) {
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  NEEDLE ISSUE — Remarks Note: বাংলা ⇄ English অনুবাদ (Chrome-এর অন-ডিভাইস Translator, কোনো API key/খরচ নেই)
+//  NEEDLE ISSUE — Remarks Note: বাংলা / English নোট (ম্যানুয়াল, কোনো অনুবাদ নেই)
 //  মূল remarks (রিপোর্ট/ফিল্টারের জন্য) আগের মতোই থাকে; noteBn / noteEn আলাদা ফিল্ডে সেভ হয়।
 // ══════════════════════════════════════════════════════════════
 (function(){
-  // কারখানার টার্ম: অনুবাদের আগে এগুলো বদলে নেওয়া হয়, যাতে সাধারণ অনুবাদের বদলে ইন্ডাস্ট্রির শব্দ আসে।
-  // নতুন শব্দ যোগ করতে চাইলে শুধু এই দুই তালিকায় লাইন বাড়ালেই হবে।
-  var BN_EN = [
-    ['ফ্ল্যাট নিট','flat knit'],['ফ্ল্যাট','flat'],['এক্সিডেন্ট','accident'],['এক্সিডেন','accident'],['দুর্ঘটনা','accident'],
-    ['নিডেল','needle'],['নিডল','needle'],['সুই','needle'],['মেশিন','machine'],['বেল্ট','belt'],['সিলিন্ডার','cylinder'],['ডায়াল','dial'],
-    ['ক্যাম','cam'],['সিংকার','sinker'],['জ্যাকার্ড','jacquard'],['জ্যাকোয়ার্ড','jacquard'],['ল্যাচ','latch'],['ফিডার','feeder'],
-    ['ইয়ার্ন','yarn'],['সুতা','yarn'],['সুতো','yarn'],['ফেব্রিক','fabric'],['কাপড়','fabric'],['হোল','hole'],['ছিদ্র','hole'],
-    ['ড্রপ','drop'],['ডিজাইন','design'],['সলিড','solid'],['শিফট','shift'],['অপারেটর','operator'],['মেকানিক','mechanic'],
-    ['সুপারভাইজার','supervisor'],['সেট','set'],['ভাঙা','broken'],['ভেঙে','broken'],['ভেঙ্গে','broken'],['ভাংগা','broken'],
-    ['বাঁকা','bent'],['বেন্ট','bent'],['ইসু','issue'],['রিসিভ','receive'],['স্টক','stock']
-  ];
-  var EN_BN = [
-    ['flat knit','ফ্ল্যাট নিট'],['accident','এক্সিডেন্ট'],['needles','নিডেল'],['needle','নিডেল'],['m/c','মেশিন'],['machine','মেশিন'],['belt','বেল্ট'],
-    ['cylinder','সিলিন্ডার'],['dial','ডায়াল'],['cam','ক্যাম'],['sinker','সিংকার'],['jacquard','জ্যাকার্ড'],['latch','ল্যাচ'],['feeder','ফিডার'],
-    ['yarn','ইয়ার্ন'],['fabric','ফেব্রিক'],['hole','হোল'],['drop','ড্রপ'],['design','ডিজাইন'],['solid','সলিড'],['shift','শিফট'],
-    ['operator','অপারেটর'],['mechanic','মেকানিক'],['supervisor','সুপারভাইজার'],['set','সেট'],['broken','ভাঙা'],['bent','বাঁকা'],['issue','ইসু'],['stock','স্টক']
-  ];
-  var SUF = '(?:টাকে|গুলোকে|গুলো|গুলি|টা|টি|খানা|য়ের|ের|কে|ে|র|ও|ই)?';
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function rxEsc(s){ return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'); }
-  function glossBnEn(t){
-    var list = BN_EN.slice().sort(function(a, b){ return b[0].length - a[0].length; });
-    list.forEach(function(p){
-      t = t.replace(new RegExp('(?<![\\u0980-\\u09FF])' + rxEsc(p[0]) + SUF + '(?![\\u0980-\\u09FF])', 'g'), ' ' + p[1] + ' ');
-    });
-    return t.replace(/\s+/g, ' ').trim();
-  }
-  function glossEnBn(t){
-    var list = EN_BN.slice().sort(function(a, b){ return b[0].length - a[0].length; });
-    list.forEach(function(p){
-      t = t.replace(new RegExp('(?<![A-Za-z0-9])' + rxEsc(p[0]) + '(?![A-Za-z0-9])', 'gi'), p[1]);
-    });
-    return t;
-  }
   function detect(t){ return /[\u0980-\u09FF]/.test(t) ? 'bn' : 'en'; }
-
-  // ───────── Translator ─────────
-  var _trs = {};
-  window.nmiTrSupported = function(){ return typeof self !== 'undefined' && ('Translator' in self); };
-  async function translate(text, from, to){
-    if (!window.nmiTrSupported()) throw new Error('unsupported');
-    var pre = from === 'bn' ? glossBnEn(text) : glossEnBn(text);
-    var key = from + '>' + to;
-    if (!_trs[key]) {
-      var av = await Promise.race([
-        Translator.availability({ sourceLanguage: from, targetLanguage: to }),
-        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('ব্রাউজারের অনুবাদ সার্ভিস সাড়া দিচ্ছে না')); }, 10000); })
-      ]);
-      if (av === 'unavailable') throw new Error('unavailable');
-      _trs[key] = await Translator.create({ sourceLanguage: from, targetLanguage: to });
-    }
-    var out = await _trs[key].translate(pre);
-    return String(out || '').trim();
-  }
-
-  // ───────── UI ─────────
-  var seq = 0, lastNote = '', dirty = { bn: false, en: false }, srcLang = 'en', timer = null;
   function $(id){ return document.getElementById(id); }
-  function status(msg, color){
-    var s = $('nmi-tr-status'); if (!s) return;
-    s.textContent = msg; s.style.color = color || '#666';
-  }
+
+  var lastNote = '', dirty = { bn: false, en: false };
   function showRows(on){
-    ['nmi-tr-bn-row','nmi-tr-en-row','nmi-tr-bar'].forEach(function(id){ var e = $(id); if (e) e.style.display = on ? '' : 'none'; });
+    ['nmi-tr-bn-row','nmi-tr-en-row'].forEach(function(id){ var e = $(id); if (e) e.style.display = on ? '' : 'none'; });
   }
   function getNote(){
     var inp = $('nmi-remarks'); if (!inp) return '';
@@ -43351,56 +43286,18 @@ function drgDeleteHistory(date) {
     return note.replace(/^[\s\-–—:,]+/, '').trim();
   }
 
-  window.nmiTrSync = function(force){
+  // Remarks Note-এ যা লেখা হয় তা নিজের ভাষার ঘরে বসে (বাংলা → বাংলা ঘর, English → English ঘর)। কোনো অনুবাদ নেই; অন্য ঘর নিজে লিখতে হয়।
+  window.nmiTrSync = function(){
     var note = getNote();
     if (!note) { lastNote = ''; dirty = { bn: false, en: false }; if ($('nmi-note-bn')) $('nmi-note-bn').value = ''; if ($('nmi-note-en')) $('nmi-note-en').value = ''; showRows(false); return; }
-    if (note === lastNote && !force) return;
+    if (note === lastNote) return;
     lastNote = note;
-    srcLang = detect(note);
-    var tgt = srcLang === 'bn' ? 'en' : 'bn';
+    var src = detect(note), tgt = src === 'bn' ? 'en' : 'bn';
     showRows(true);
-    if (force) dirty = { bn: false, en: false };
-    $('nmi-note-' + srcLang).value = note;           // মূল লেখা সঙ্গে সঙ্গে নিজের ভাষার ঘরে
-    dirty[srcLang] = false;
-    if (!dirty[tgt]) $('nmi-note-' + tgt).value = ''; // পুরনো অনুবাদ থাকলে সরাও, যাতে ভুল মিল না থাকে
-    clearTimeout(timer);
-    status('✍️ লেখা শেষ হলে অনুবাদ হবে…', '#888');
-    timer = setTimeout(function(){ runTranslate(); }, force ? 0 : 900);
+    $('nmi-note-' + src).value = note;
+    dirty[src] = false;
+    if (!dirty[tgt]) $('nmi-note-' + tgt).value = '';
   };
-
-  async function runTranslate(){
-    var my = ++seq, note = lastNote, from = srcLang, to = from === 'bn' ? 'en' : 'bn';
-    if (!note) return;
-    if (!window.nmiTrSupported()) { status('⚠️ এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে)। শুধু আপনার লেখা সেভ হবে — ওপরের ঘরে অনুবাদ নিজে লিখতেও পারেন।', '#b9770e'); return; }
-    status('⏳ অনুবাদ হচ্ছে… (প্রথমবার ভাষার ফাইল নামতে একটু সময় লাগতে পারে)', '#2471a3');
-    try {
-      var out = await translate(note, from, to);
-      if (my !== seq) return;
-      if (!dirty[to]) $('nmi-note-' + to).value = out;
-      status('✓ অনুবাদ হয়েছে — দেখে নিন, ঠিক না হলে ঘরে এডিট করুন', '#1e8449');
-    } catch (e) {
-      if (my !== seq) return;
-      status('⚠️ অনুবাদ করা যায়নি (' + (e && e.message ? e.message : e) + ')। "🔄 অনুবাদ করো" চেপে আবার চেষ্টা করুন, নয়তো নিজে লিখুন।', '#b9770e');
-    }
-  }
-
-  // বাক্য ঠিক করো: মূল ভাষা → অন্য ভাষা → আবার মূল ভাষা (ক্রম/ব্যাকরণ গুছিয়ে আসে); ফল ঘরে বসে, সেভের আগে দেখে নিতে পারবেন
-  window.nmiTrFix = async function(){
-    var note = getNote();
-    if (!note) return;
-    if (!window.nmiTrSupported()) { toast('এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে)', 'warning'); return; }
-    var from = detect(note), to = from === 'bn' ? 'en' : 'bn', my = ++seq;
-    status('⏳ বাক্য গুছিয়ে নেওয়া হচ্ছে…', '#2471a3');
-    try {
-      var mid = await translate(note, from, to);
-      var back = await translate(mid, to, from);
-      if (my !== seq) return;
-      $('nmi-note-' + to).value = mid; dirty[to] = true;
-      $('nmi-note-' + from).value = back; dirty[from] = true;
-      status('✨ গুছিয়ে দেওয়া হয়েছে — দুই ঘর দেখে নিন, ঠিক না লাগলে এডিট করুন', '#1e8449');
-    } catch (e) { status('⚠️ গুছিয়ে দেওয়া যায়নি (' + (e && e.message ? e.message : e) + ')', '#b9770e'); }
-  };
-  window.nmiTrManual = function(){ window.nmiTrSync(true); };
 
   // সেভের সময় নেওয়া হয়
   window.nmiTrCollect = function(){
@@ -43410,10 +43307,10 @@ function drgDeleteHistory(date) {
     bn = bn.trim(); en = en.trim();
     var srcBox = detect(note) === 'bn' ? bn : en;
     if (!srcBox) { if (detect(note) === 'bn') bn = note; else en = note; }
-    return { bn: bn, en: en, pending: !(bn && en) };
+    return { bn: bn, en: en };
   };
   window.nmiTrReset = function(){
-    clearTimeout(timer); seq++; lastNote = ''; dirty = { bn: false, en: false };
+    lastNote = ''; dirty = { bn: false, en: false };
     if ($('nmi-note-bn')) $('nmi-note-bn').value = ''; if ($('nmi-note-en')) $('nmi-note-en').value = '';
     showRows(false);
   };
@@ -43423,95 +43320,75 @@ function drgDeleteHistory(date) {
     if (!r || (!r.noteBn && !r.noteEn)) return '';
     var same = function(a){ return String(a || '').trim().toLowerCase() === String(r.remarks || '').trim().toLowerCase(); };
     var showBn = r.noteBn && !same(r.noteBn), showEn = r.noteEn && !same(r.noteEn);
-    if (!showBn && !showEn && !r.noteTrPending) return '';
+    if (!showBn && !showEn) return '';
     var h = '<div style="font-size:10px;font-weight:500;color:#555;margin-top:2px;line-height:1.35;">';
     if (showBn) h += 'বাং: ' + esc(r.noteBn);
     if (showBn && showEn) h += '<br>';
     if (showEn) h += 'EN: ' + esc(r.noteEn);
-    if (r.noteTrPending) h += ' <span style="color:#b9770e;">⏳ অনুবাদ বাকি</span>';
     return h + '</div>';
   };
 
-
-  // ───────── এডিট মডাল: এক ঘর লিখে অন্য ঘরে অনুবাদ ─────────
-  function splitRemarks(t){
-    var m = String(t || '').match(/^(.*?)(\s*\([^)]*\))\s*$/);
-    return m ? { core: m[1].trim(), tail: m[2].trim() } : { core: String(t || '').trim(), tail: '' };
-  }
-  window.nmiTrEditFill = async function(){
-    var bnEl = $('edit-n-note-bn'), enEl = $('edit-n-note-en'), st = $('edit-n-tr-status');
-    if (!bnEl || !enEl) return;
-    function say(m, c){ if (st) { st.textContent = m; st.style.color = c || '#666'; } }
-    if (!window.nmiTrSupported()) { say('⚠️ এই ব্রাউজারে অনুবাদ চালু নেই (ডেস্কটপ Chrome লাগবে) — নিজে লিখুন', '#b9770e'); return; }
-    var bn = bnEl.value.trim(), en = enEl.value.trim(), rem = (($('edit-n-remarks') || {}).value || '').trim();
-    try {
-      say('⏳ অনুবাদ হচ্ছে…', '#2471a3');
-      if (bn && en) { say('দুটো ঘরই ভরা আছে — যেটা বদলাতে চান সেটা খালি করে আবার চাপুন', '#b9770e'); return; }
-      if (bn) { enEl.value = await translate(bn, 'bn', 'en'); }
-      else if (en) { bnEl.value = await translate(en, 'en', 'bn'); }
-      else if (rem) {                                   // নোট ফাঁকা হলে Remarks থেকে (শেষের (14) অংশ রেখে)
-        var sp = splitRemarks(rem), lang = detect(sp.core || rem), to = lang === 'bn' ? 'en' : 'bn';
-        var out = await translate(sp.core || rem, lang, to);
-        var srcFull = rem, outFull = out + (sp.tail ? ' ' + sp.tail : '');
-        if (lang === 'bn') { bnEl.value = srcFull; enEl.value = outFull; } else { enEl.value = srcFull; bnEl.value = outFull; }
-      } else { say('অনুবাদ করার মতো লেখা নেই', '#888'); return; }
-      say('✓ অনুবাদ হয়েছে — দেখে নিন, ঠিক না হলে এডিট করুন', '#1e8449');
-    } catch (e) { say('⚠️ অনুবাদ করা যায়নি (' + (e && e.message ? e.message : e) + ')', '#b9770e'); }
-  };
-
-  // ───────── পুরনো এন্ট্রি একসঙ্গে অনুবাদ (অ্যাডমিন) ─────────
-  window.nmiTrBackfill = async function(){
-    if (!window.nmiTrSupported()) { toast('এই কাজ ডেস্কটপ Chrome (১৩৮+)-এ করতে হবে — এই ব্রাউজারে অনুবাদ চালু নেই', 'warning'); return; }
-    var arr = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles : [];
-    var todo = arr.filter(function(r){
-      if (!r) return false;
-      if (r.noteTrPending && (r.noteBn || r.noteEn) && !(r.noteBn && r.noteEn)) return true;     // একদিকের নোট আছে, অনুবাদ বাকি
-      return !r.noteBn && !r.noteEn && String(r.remarks || '').trim() !== '';                   // পুরনো এন্ট্রি: শুধু Remarks আছে
+  // ───────── আগের নোট মনে রাখা: আগে সেভ হওয়া নোট থেকে সাজেশন, সিলেক্ট করলে বাংলা+English দুই ঘরই ভরে যায় ─────────
+  var box = null;
+  function pastNotes(){
+    var map = {};
+    ((window.NDB && NDB.needles) || []).forEach(function(r, i){
+      var bn = String(r.noteBn || '').trim(), en = String(r.noteEn || '').trim();
+      if (!bn && !en) return;
+      var k = bn.toLowerCase() + '|' + en.toLowerCase();
+      if (!map[k]) map[k] = { bn: bn, en: en, n: 0, last: 0 };
+      map[k].n++; map[k].last = i;
     });
-    if (!todo.length) { toast('সব এন্ট্রিতেই অনুবাদ আছে — আপডেট করার মতো কিছু নেই', 'info'); return; }
-    var ok = await igl_confirm(todo.length + ' টি পুরনো এন্ট্রির Remarks বাংলা ও English-এ অনুবাদ করে সেভ করবেন?', 'মূল Remarks বদলাবে না, শুধু বাংলা/English নোট যোগ হবে। প্রথমবার ভাষার ফাইল নামতে একটু সময় লাগতে পারে।', '🌐');
-    if (!ok) return;
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:99999;background:#1a5276;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.35);';
-    document.body.appendChild(box);
-    var cache = {}, done = 0, failed = 0, firstErr = '';
-    async function tr(text, from, to){
-      var k = from + '>' + to + '|' + text;
-      if (cache[k] === undefined) cache[k] = await translate(text, from, to);
-      return cache[k];
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+  function hideBox(){ if (box) box.style.display = 'none'; }
+  function showBox(){
+    var inp = $('nmi-remarks');
+    if (!inp || inp.readOnly) { hideBox(); return; }
+    var q = getNote().toLowerCase();
+    var list = pastNotes().filter(function(x){
+      return !q || x.bn.toLowerCase().indexOf(q) >= 0 || x.en.toLowerCase().indexOf(q) >= 0;
+    }).filter(function(x){ return x.bn.toLowerCase() !== q && x.en.toLowerCase() !== q; })
+      .sort(function(a, b){ return (b.n - a.n) || (b.last - a.last); }).slice(0, 8);
+    if (!list.length) { hideBox(); return; }
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'nmi-note-suggest';
+      box.style.cssText = 'position:fixed;z-index:99999;background:#fff;border:1px solid #e67e22;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.2);max-height:240px;overflow:auto;font-size:12px;';
+      document.body.appendChild(box);
     }
-    for (var i = 0; i < todo.length; i++) {
-      var r = todo[i];
-      box.textContent = '🌐 অনুবাদ হচ্ছে… ' + (i + 1) + ' / ' + todo.length;
-      try {
-        if (r.noteTrPending && (r.noteBn || r.noteEn)) {
-          if (r.noteBn) r.noteEn = await tr(r.noteBn, 'bn', 'en'); else r.noteBn = await tr(r.noteEn, 'en', 'bn');
-          delete r.noteTrPending;
-        } else {
-          var rem = String(r.remarks).trim(), sp = splitRemarks(rem), core = sp.core || rem, lang = detect(core), to = lang === 'bn' ? 'en' : 'bn';
-          var out = await tr(core, lang, to);
-          var outFull = out + (sp.tail ? ' ' + sp.tail : '');
-          if (lang === 'bn') { r.noteBn = rem; r.noteEn = outFull; } else { r.noteEn = rem; r.noteBn = outFull; }
-        }
-        done++;
-      } catch (e) {
-        failed++; if (!firstErr) firstErr = (e && e.message) ? e.message : String(e);
-        if (failed >= 3 && done === 0) break;          // শুরুতেই বারবার ব্যর্থ হলে থামো
-      }
-    }
-    box.remove();
-    if (done > 0) {
-      NDB.needles = arr;                               // setter-এর মাধ্যমে সেভ (লোকাল + Firebase সিঙ্ক)
-      try { triggerAutoSave(); } catch (e) {}
-      try { nmiRenderLog(); } catch (e) {}
-    }
-    toast(done ? ('✅ ' + done + ' টি এন্ট্রি আপডেট হয়েছে' + (failed ? ' (' + failed + ' টি বাকি — ' + firstErr + ')' : '')) : ('❌ অনুবাদ করা যায়নি: ' + firstErr), done ? 'success' : 'error');
-  };
+    var r = inp.getBoundingClientRect();
+    box.style.left = r.left + 'px'; box.style.top = (r.bottom + 2) + 'px'; box.style.width = Math.max(r.width, 260) + 'px';
+    box.innerHTML = '';
+    var qBn = q && detect(q) === 'bn';
+    list.forEach(function(x){
+      var d = document.createElement('div');
+      d.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3e3d3;';
+      d.innerHTML = (x.bn ? '<div>' + esc(x.bn) + '</div>' : '') + (x.en ? '<div style="color:#666;">' + esc(x.en) + '</div>' : '');
+      d.addEventListener('mouseenter', function(){ d.style.background = '#fdf2e9'; });
+      d.addEventListener('mouseleave', function(){ d.style.background = ''; });
+      d.addEventListener('mousedown', function(ev){
+        ev.preventDefault();
+        var text = (q ? (qBn ? (x.bn || x.en) : (x.en || x.bn)) : (x.bn || x.en));
+        var pre = window._nmiAutoText || '';
+        inp.value = pre ? pre + ' ' + text : text;
+        window.nmiTrSync();
+        $('nmi-note-bn').value = x.bn; $('nmi-note-en').value = x.en;
+        dirty.bn = true; dirty.en = true;
+        hideBox();
+      });
+      box.appendChild(d);
+    });
+    box.style.display = 'block';
+  }
+  document.addEventListener('focusin', function(e){ if (e.target && e.target.id === 'nmi-remarks') showBox(); });
+  document.addEventListener('focusout', function(e){ if (e.target && e.target.id === 'nmi-remarks') setTimeout(hideBox, 150); });
+  window.addEventListener('scroll', function(e){ if (e.target !== box) hideBox(); }, true);
+  window.addEventListener('resize', hideBox);
 
-  // ───────── ইভেন্ট ─────────
   document.addEventListener('input', function(e){
     var id = e.target && e.target.id;
-    if (id === 'nmi-remarks') window.nmiTrSync();
+    if (id === 'nmi-remarks') { window.nmiTrSync(); showBox(); }
     else if (id === 'nmi-note-bn') dirty.bn = true;
     else if (id === 'nmi-note-en') dirty.en = true;
   });
