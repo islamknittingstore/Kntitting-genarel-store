@@ -4486,6 +4486,10 @@ window.iglSaveNavVisibility = function() {
       <h2>Monthly Issue Report</h2>
       <p>Monthly report by category and machine</p>
     </div>
+    <div class="admin-only-action no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button type="button" class="btn btn-outline" id="mrbtn-sheet" onclick="mrShowCard('sheet')">🧾 View Sheet (Expense)</button>
+      <button type="button" class="btn btn-outline" id="mrbtn-item" onclick="mrShowCard('item')">🗂️ Category Wise (Item Report)</button>
+    </div>
     <div class="card">
       <div class="card-header" style="background:#eafaf1;">
         <span>📥 Category-wise Monthly Excel Report (Summary + Ledger)</span>
@@ -4561,7 +4565,7 @@ window.iglSaveNavVisibility = function() {
         <div id="gmr-preview-content"></div>
       </div>
     </div>
-    <div class="card" id="cx-card">
+    <div class="card" id="cx-card" style="display:none;">
       <div class="card-header" style="background:#fdf2e9;">
         <span>🧾 Category-wise Monthly Expense Sheet (Issue Amount)</span>
       </div>
@@ -4585,7 +4589,7 @@ window.iglSaveNavVisibility = function() {
         <div id="cx-report" style="margin-top:14px;overflow-x:auto;"></div>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="mr-item-card" style="display:none;">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Select Month, Year &amp; Item</span>
         <div style="margin-left:auto;" class="no-print">
@@ -24001,9 +24005,13 @@ function renderMonthlyItemDetail() {
     `${itemName}${category ? ' | ' + category : ''} | ${group} | ${monthNames[month-1]} ${year} | Print Date: ${fmtDate(todayStr())}`;
 
   // Opening balance = all receives - all issues for this item BEFORE this month
-  const openRcv = DB.receives.filter(r => r.item === itemName && r.date < monthStart).reduce((s,r) => s + Number(r.qty), 0);
-  const openIss = DB.issues.filter(i => i.item === itemName && i.date < monthStart).reduce((s,i) => s + Number(i.qty), 0);
-  const openingBal = openRcv - openIss;
+  // B/F (আইটেম মাস্টারের Opening) ও Oil-এর তারিখ-ভিত্তিক B/F ধরে — Stock Report/getStock()-এর একই নিয়ম
+  const itObj = DB.items.find(x => x.name === itemName && x.group === group) || DB.items.find(x => x.name === itemName);
+  let baseBf = itObj ? (Number(itObj.bf) || 0) : 0, anchorDate = '';
+  try { const ob = JSON.parse(localStorage.getItem('igl_oil_bf') || '{}'); if (ob[itemName]) { baseBf = Number(ob[itemName].qty) || 0; anchorDate = ob[itemName].date || ''; } } catch(e) {}
+  const openRcv = DB.receives.filter(r => r.item === itemName && r.date < monthStart && (!anchorDate || r.date >= anchorDate)).reduce((s,r) => s + Number(r.qty), 0);
+  const openIss = DB.issues.filter(i => i.item === itemName && i.date < monthStart && (!anchorDate || i.date >= anchorDate)).reduce((s,i) => s + Number(i.qty), 0);
+  const openingBal = baseBf + openRcv - openIss;
 
   // This month's receives & issues
   const monthReceives = DB.receives.filter(r => r.item === itemName && r.date >= monthStart && r.date <= monthEnd)
@@ -43046,6 +43054,18 @@ function drgDeleteHistory(date) {
           toast('✅ ' + fname + ' ডাউনলোড হয়েছে', 'success');
         }).catch(function(err){ toast('❌ ফাইল বানাতে সমস্যা হয়েছে: ' + (err && err.message ? err.message : err), 'error'); });
       } catch (err) { toast('❌ Excel বানাতে সমস্যা: ' + (err && err.message ? err.message : err), 'error'); }
+    });
+  };
+
+  // Monthly Report: উপরের দুই বাটন (শুধু Admin) — ক্লিক করলে সংশ্লিষ্ট কার্ড খোলে, আবার ক্লিকে বন্ধ হয়
+  window.mrShowCard = function(which){
+    var map = { sheet: ['cx-card', 'mrbtn-sheet'], item: ['mr-item-card', 'mrbtn-item'] };
+    Object.keys(map).forEach(function(k){
+      var card = document.getElementById(map[k][0]), btn = document.getElementById(map[k][1]);
+      if (!card) return;
+      var open = (k === which) && card.style.display === 'none';
+      card.style.display = open ? '' : 'none';
+      if (btn) { btn.classList.toggle('btn-primary', open); btn.classList.toggle('btn-outline', !open); }
     });
   };
 
