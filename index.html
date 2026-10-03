@@ -4636,7 +4636,7 @@ window.iglSaveNavVisibility = function() {
       #il-report td.il-g { background: #92d050; }
       #il-report td.il-p { background: #c59edb; }
       #il-report td.il-t { background: #92cddc; }
-      #il-report td.il-g, #il-report th.il-hg { color: #0b2a9c; font-weight: 700; }
+      #il-report tr.il-rcv td { color: #b30000; font-weight: 700; }
       #il-report td.il-n { text-align: right; font-variant-numeric: tabular-nums; }
       #il-report tr.il-open td { background: #e6dcb4; font-weight: 700; }
       #il-report tr.il-open td.il-t { background: #92cddc; }
@@ -42892,7 +42892,7 @@ function drgDeleteHistory(date) {
     b.rows.forEach(function(r, i){
       var isR = r.t === 'R';
       var rk = r.t + (r.id != null ? r.id : 'i' + i);
-      h += '<tr class="' + C(rk).trim() + '"' + K(rk) + '><td style="text-align:center;">' + (i + 1) + '</td><td>' + esc(fmtDate(r.date)) + '</td><td>' + esc(r.ref) + '</td><td>' + r.type + '</td><td>' + esc(r.who) + '</td>' +
+      h += '<tr class="' + ((isR ? 'il-rcv ' : '') + C(rk)).trim() + '"' + K(rk) + '><td style="text-align:center;">' + (i + 1) + '</td><td>' + esc(fmtDate(r.date)) + '</td><td>' + esc(r.ref) + '</td><td>' + r.type + '</td><td>' + esc(r.who) + '</td>' +
         '<td class="il-g il-n">' + (isR ? q3(r.rq) : '') + '</td><td class="il-g il-n">' + (isR ? m2(r.rr) : '') + '</td><td class="il-g il-n">' + (isR ? m2(r.rv) : '') + '</td>' +
         '<td class="il-p il-n">' + (!isR ? q3(r.iq) : '') + '</td><td class="il-p il-n">' + (!isR ? m2(r.ir) : '') + '</td><td class="il-p il-n">' + (!isR ? m2(r.iv) : '') + '</td>' +
         '<td class="il-t il-n">' + q3(r.bq) + '</td><td class="il-t il-n">' + m2(r.br) + '</td><td class="il-t il-n">' + m2(r.bv) + '</td></tr>';
