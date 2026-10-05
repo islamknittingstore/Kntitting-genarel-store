@@ -2482,7 +2482,12 @@ if('serviceWorker' in navigator){
   var S = { ndl: {}, ndlRcv: {} };            // id -> {m, j}  (সার্ভারের সাথে মিলে থাকা অবস্থা)
 
   function db(){ return firebase.database(); }
-  function jstr(r){ return JSON.stringify(r); }
+  function canon(v){
+    if (Array.isArray(v)) return v.map(canon);
+    if (v && typeof v === 'object') { var o = {}; Object.keys(v).sort().forEach(function(k){ if (v[k] !== null && v[k] !== undefined) o[k] = canon(v[k]); }); return o; }
+    return v;
+  }
+  function jstr(r){ return JSON.stringify(canon(r)); }
   function monthOf(r){ var d = String((r && r.date) || ''); return /^\d{4}-\d{2}/.test(d) ? d.slice(0, 7) : '_nodate'; }
   function fkey(id){ return String(id).replace(/[.#$\/\[\]]/g, '_'); }
   function now(){ return Date.now() + (V3._off || 0); }
@@ -2580,6 +2585,10 @@ if('serviceWorker' in navigator){
   }
   function scheduleRefresh(){ clearTimeout(_refreshT); _refreshT = setTimeout(refreshViews, 300); }
   function refreshViews(){
+    var _t = window.toast; window.toast = function(){};
+    try { _refreshViews(); } finally { window.toast = _t; }
+  }
+  function _refreshViews(){
     ['nmiRenderLog', 'renderNdlRcvLog', 'renderTodayNeedle', 'renderNeedleStock', 'renderUsedNeedleStock',
      'renderNeedleLedger', 'renderNeedleMonthly', 'renderUsedNeedleMonthly', 'renderNeedleDaily', 'renderNewSetLog',
      'renderNeedleUseReport', 'renderNdlStockRegister', 'updateDashboard'].forEach(function(fn){
@@ -2784,7 +2793,7 @@ if('serviceWorker' in navigator){
     }
     return up;
   };
-  function coreHash(up){ var c = Object.assign({}, up); delete c.ts; return JSON.stringify(c); }
+  function coreHash(up){ var c = Object.assign({}, up); delete c.ts; return JSON.stringify(canon(c)); }
   V3.saveCore = function(data){
     if (!V3.ready) return Promise.reject(new Error('v3 প্রস্তুত নয়'));
     return V3.syncNow().then(function(){
