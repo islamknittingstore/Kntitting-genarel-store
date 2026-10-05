@@ -2345,7 +2345,7 @@ if('serviceWorker' in navigator){
         setTimeout(function(){ if(typeof window._fbDoPendingRetry==='function') window._fbDoPendingRetry(); }, 500);
 
         // Firebase load সফল হলে local JSON এও backup করো
-        iglLocalJsonAutoSave((window.IGLV3 && window.IGLV3.enabled) ? window.IGLV3.fullData(data) : data);
+        iglLocalJsonAutoSave((window.IGLV3 && window.IGLV3.enabled) ? (window.IGLV3.afterLoad(), window.IGLV3.fullData(data)) : data);
 
         // Firebase load এর পর JSON file এও auto-save করো
         setTimeout(function(){
@@ -2842,6 +2842,44 @@ if('serviceWorker' in navigator){
     } catch(e){}
   }
 
+  // অন্য (এমনকি পুরনো-ভার্সন) ডিভাইসে ডিলিট হলে deletedIds-এ চিহ্ন থাকে — সেই এন্ট্রি এখানেও সরানো
+  V3.applyTombstones = function(){
+    if (!V3.enabled || !V3.ready) return 0;
+    var n = 0;
+    KINDS.forEach(function(k){
+      var arr = KIND[k].get();
+      var keep = arr.filter(function(r){ return !(r && r.id != null && tombed(k, r)); });
+      if (keep.length !== arr.length) { n += arr.length - keep.length; KIND[k].set(keep); }
+    });
+    if (n) { scheduleRefresh(); V3.syncNow().catch(function(){}); }
+    return n;
+  };
+  V3.afterLoad = function(){ try { V3.applyTombstones(); } catch(e){ console.warn(e); } };
+
+  // Admin: পুরনো ভার্সনের ডিভাইস মাইগ্রেশনের পরে পুরনো igl_erp নোডে এন্ট্রি রেখে গেলে সেগুলো v3-তে তোলা
+  V3.recover = async function(){
+    if (!isAdmin()) { alert('শুধু Admin এই কাজ করতে পারবে।'); return; }
+    if (!V3.enabled || !V3.ready) { alert('v3 চালু/প্রস্তুত নয়।'); return; }
+    var st = document.getElementById('igl-v3-status');
+    try {
+      if (st) st.textContent = '⏳ পুরনো নোড পড়া হচ্ছে (একবারের জন্য ~৪.৫MB)...';
+      var s = await Promise.all([ db().ref('igl_erp/ndb/needles').once('value'), db().ref('igl_erp/ndlRcv').once('value') ]);
+      var found = { ndl: toArr(s[0].val()), ndlRcv: toArr(s[1].val()) }, add = { ndl: [], ndlRcv: [] };
+      KINDS.forEach(function(k){
+        var have = {}; KIND[k].get().forEach(function(r){ if (r && r.id != null) have[String(r.id)] = 1; });
+        found[k].forEach(function(r){ if (r && r.id != null && !have[String(r.id)] && !tombed(k, r)) add[k].push(r); });
+      });
+      var total = add.ndl.length + add.ndlRcv.length;
+      if (!total) { if (st) st.textContent = '✅ উদ্ধার করার মতো কোনো আটকে-থাকা এন্ট্রি নেই'; updateUI(); alert('✅ কোনো আটকে-থাকা এন্ট্রি পাওয়া যায়নি।'); return; }
+      var dates = add.ndl.concat(add.ndlRcv).map(function(r){ return r.date || ''; }).filter(Boolean).sort();
+      if (!confirm('🧰 পুরনো নোডে ' + total + 'টি এন্ট্রি পাওয়া গেছে যা v3-তে নেই:\n• Needle Issue: ' + add.ndl.length + '\n• Needle Receive: ' + add.ndlRcv.length + '\n• তারিখ: ' + (dates[0] || '-') + ' থেকে ' + (dates[dates.length - 1] || '-') + '\n\nএগুলো v3-তে যোগ করবেন? (ডিলিট করা এন্ট্রি বাদ দেওয়া হয়েছে)')) { updateUI(); return; }
+      KINDS.forEach(function(k){ if (add[k].length) KIND[k].set(sortById(KIND[k].get().concat(add[k]))); });
+      await V3.syncNow();
+      scheduleRefresh(); updateUI();
+      alert('✅ ' + total + 'টি এন্ট্রি v3-তে যোগ হয়েছে।');
+    } catch(e) { console.error(e); alert('❌ উদ্ধার ব্যর্থ: ' + (e.message || e)); updateUI(); }
+  };
+
   // ───────────── Admin: মাইগ্রেশন (পুরনো igl_erp থেকে কপি; পুরনোটা অক্ষত) ─────────────
   function isAdmin(){ var u = window.IGL_CURRENT_USER; return !!(u && u.role === 'admin'); }
   async function writeMonths(kind, arr){
@@ -2924,6 +2962,8 @@ if('serviceWorker' in navigator){
       st.textContent = '✅ Needle v3 সক্রিয় (' + (V3.src === 'cache' ? 'লোকাল ক্যাশ' : 'পূর্ণ লোড') + ') — ' + n + ' issue' + (V3.error ? ' | ⚠️ ' + V3.error : '');
       st.style.color = V3.error ? '#e67e22' : '#2ecc71';
       if (btn) btn.style.display = 'none';
+      var rb = document.getElementById('igl-v3-recover-btn');
+      if (rb) rb.style.display = isAdmin() ? 'inline-block' : 'none';
     } else if (V3.decided) {
       st.textContent = '🪡 Needle v3: চালু নেই (পুরনো পদ্ধতি চলছে)';
       st.style.color = '#aab7b8';
@@ -4313,6 +4353,7 @@ window.iglSaveNavVisibility = function() {
         <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
           <div id="igl-v3-status" style="font-size:10px;color:#aab7b8;margin-bottom:5px;">🪡 Needle v3: যাচাই হচ্ছে...</div>
           <button id="igl-v3-migrate-btn" onclick="IGLV3.migrate();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.15);color:#2ecc71;cursor:pointer;font-weight:700;">🚀 Needle v3 চালু করুন (Admin)</button>
+          <button id="igl-v3-recover-btn" onclick="IGLV3.recover();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(241,196,15,0.5);background:rgba(241,196,15,0.12);color:#f1c40f;cursor:pointer;font-weight:700;">🧰 পুরনো ডিভাইসের আটকে-থাকা এন্ট্রি উদ্ধার (Admin)</button>
         </div>
         <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
           <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় Admin ব্যবহার করবে:</div>
