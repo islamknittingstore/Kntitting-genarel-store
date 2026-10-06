@@ -2456,14 +2456,14 @@ if('serviceWorker' in navigator){
 (function(){
   'use strict';
   var ROOT = 'igl_v3';
-  var BUILD = 'v3-ndl-1';
+  var BUILD = 'v3-gs-1';
   var CHUNK = 250;                 // একবারে সর্বোচ্চ কয়টা এন্ট্রি লেখা
   var PRUNE_DAYS = 45;             // এর চেয়ে পুরনো change-লগ মোছা হয়
   var RECENT_MS = 7 * 86400000;
 
   var V3 = window.IGLV3 = {
     build: BUILD, decided: false, enabled: false, ready: false,
-    epoch: 0, lastChg: '', src: '', error: null, meta: null, _off: 0
+    epoch: 0, gs: false, gsEpoch: 0, lastChg: '', src: '', error: null, meta: null, _off: 0
   };
 
   var KIND = {
@@ -2476,15 +2476,39 @@ if('serviceWorker' in navigator){
       tomb: 'ndlrcv:',
       get: function(){ try { return JSON.parse(localStorage.getItem('igl_ndl_rcv') || '[]'); } catch(e){ return []; } },
       set: function(a){ try { localStorage.setItem('igl_ndl_rcv', JSON.stringify(a)); } catch(e){} }
+    },
+    // General Store + Stationery + Packaging — সবই DB.receives / DB.issues এ থাকে (group ফিল্ড দিয়ে আলাদা)
+    rcv: {
+      tomb: 'rcv:',
+      get: function(){ try { return (typeof DB !== 'undefined') ? (DB.receives || []) : []; } catch(e){ return []; } },
+      set: function(a){ DB.receives = a; }
+    },
+    iss: {
+      tomb: 'iss:',
+      get: function(){ try { return (typeof DB !== 'undefined') ? (DB.issues || []) : []; } catch(e){ return []; } },
+      set: function(a){ DB.issues = a; }
     }
   };
-  var KINDS = ['ndl', 'ndlRcv'];
-  var S = { ndl: {}, ndlRcv: {} };            // id -> {m, j}  (সার্ভারের সাথে মিলে থাকা অবস্থা)
+  var KINDS = ['ndl', 'ndlRcv', 'rcv', 'iss'];
+  var LBL = { ndl: 'Needle Issue', ndlRcv: 'Needle Receive', rcv: 'Store Receive', iss: 'Store Issue' };
+  var SRC = { ndl: 'igl_erp/ndb/needles', ndlRcv: 'igl_erp/ndlRcv', rcv: 'igl_erp/db/receives', iss: 'igl_erp/db/issues' };
+  var S = { ndl: {}, ndlRcv: {}, rcv: {}, iss: {} };   // id -> {m, j}  (সার্ভারের সাথে মিলে থাকা অবস্থা)
+  // এই মুহূর্তে সক্রিয় ধরনগুলো (Needle মডিউল চালু থাকলে ndl*, Store মডিউলও চালু থাকলে rcv/iss)
+  function act(){ var o = []; if (V3.enabled) { o.push('ndl', 'ndlRcv'); if (V3.gs) o.push('rcv', 'iss'); } return o; }
+  V3.kindEnabled = function(k){ return act().indexOf(k) >= 0; };
 
   function db(){ return firebase.database(); }
   function canon(v){
     if (Array.isArray(v)) return v.map(canon);
-    if (v && typeof v === 'object') { var o = {}; Object.keys(v).sort().forEach(function(k){ if (v[k] !== null && v[k] !== undefined) o[k] = canon(v[k]); }); return o; }
+    if (v && typeof v === 'object') {
+      var o = {};
+      Object.keys(v).sort().forEach(function(k){
+        var x = v[k]; if (x === null || x === undefined) return;
+        if (typeof x === 'object' && Object.keys(x).length === 0) return;   // Firebase খালি array/object রাখে না
+        o[k] = canon(x);
+      });
+      return o;
+    }
     return v;
   }
   function jstr(r){ return JSON.stringify(canon(r)); }
@@ -2552,14 +2576,19 @@ if('serviceWorker' in navigator){
       ndlJ: Object.keys(S.ndl).map(function(id){ return S.ndl[id].j; }),
       ndlRcvJ: Object.keys(S.ndlRcv).map(function(id){ return S.ndlRcv[id].j; })
     };
+    if (V3.gs) {
+      rec.gsEpoch = V3.gsEpoch;
+      rec.rcvJ = Object.keys(S.rcv).map(function(id){ return S.rcv[id].j; });
+      rec.issJ = Object.keys(S.iss).map(function(id){ return S.iss[id].j; });
+    }
     return idbPut(rec);
   }
 
   // ───────────── রিমোট change প্রয়োগ ─────────────
-  var W = { ndl: [], ndlRcv: [] };   // অপেক্ষমাণ রিমোট পরিবর্তন: kind -> [{id, rec|null}]
+  var W = { ndl: [], ndlRcv: [], rcv: [], iss: [] };   // অপেক্ষমাণ রিমোট পরিবর্তন: kind -> [{id, rec|null}]
   var _flushT = null, _refreshT = null;
   function applyChange(c){
-    var k = c && c.k; if (!KIND[k]) return;
+    var k = c && c.k; if (!KIND[k] || act().indexOf(k) < 0) return;
     var id = String(c.i);
     if (c.o === 'd') { W[k].push({ id: id, rec: null }); delete S[k][id]; }
     else if (c.r) { W[k].push({ id: id, rec: c.r }); S[k][id] = { m: monthOf(c.r), j: jstr(c.r) }; }
@@ -2568,7 +2597,7 @@ if('serviceWorker' in navigator){
   // ফ্লাশের সময়ই (সিঙ্ক্রোনাসভাবে) লাইভ মেমরির ওপর প্রয়োগ — ইউজারের মাঝখানের এন্ট্রি হারানোর ঝুঁকি নেই
   function flushWork(){
     var changed = false;
-    KINDS.forEach(function(k){
+    act().forEach(function(k){
       var ops = W[k]; if (!ops.length) return;
       W[k] = [];
       var arr = KIND[k].get().slice(), idx = {}, dirty = false;
@@ -2589,7 +2618,9 @@ if('serviceWorker' in navigator){
     try { _refreshViews(); } finally { window.toast = _t; }
   }
   function _refreshViews(){
-    ['nmiRenderLog', 'renderNdlRcvLog', 'renderTodayNeedle', 'renderNeedleStock', 'renderUsedNeedleStock',
+    ['renderStock', 'renderReceiveLog', 'renderIssueLog', 'renderStationeryDashboard', 'renderStnManagerReport',
+     'renderPackagingDashboard', 'renderExtraMaterials', 'renderOilStoreTransfer',
+     'nmiRenderLog', 'renderNdlRcvLog', 'renderTodayNeedle', 'renderNeedleStock', 'renderUsedNeedleStock',
      'renderNeedleLedger', 'renderNeedleMonthly', 'renderUsedNeedleMonthly', 'renderNeedleDaily', 'renderNewSetLog',
      'renderNeedleUseReport', 'renderNdlStockRegister', 'updateDashboard'].forEach(function(fn){
       try { if (typeof window[fn] === 'function') window[fn](); } catch(e){}
@@ -2610,9 +2641,10 @@ if('serviceWorker' in navigator){
   }
 
   // ───────────── শুরু (অ্যাপ খুললে) ─────────────
-  function loadFull(){
-    return Promise.all([ db().ref(ROOT + '/ndl').once('value'), db().ref(ROOT + '/ndlRcv').once('value') ]).then(function(r){
-      return { ndl: flatten(r[0].val()), ndlRcv: flatten(r[1].val()) };
+  function loadFull(kinds){
+    kinds = kinds || ['ndl', 'ndlRcv'];
+    return Promise.all(kinds.map(function(k){ return db().ref(ROOT + '/' + k).once('value'); })).then(function(r){
+      var o = {}; kinds.forEach(function(k, i){ o[k] = flatten(r[i].val()); }); return o;
     });
   }
   function tombed(k, r){
@@ -2651,60 +2683,77 @@ if('serviceWorker' in navigator){
     var m = await Promise.race([metaP, timeoutP]);
     var meta, offlineMode = false;
     if (m.ok) meta = m.v;
-    else if (cache && cache.enabled) { meta = { ndl: { enabled: true, epoch: cache.epoch } }; offlineMode = true; }
+    else if (cache && cache.enabled) {
+      meta = { ndl: { enabled: true, epoch: cache.epoch } };
+      if (cache.gsEpoch) meta.gs = { enabled: true, epoch: cache.gsEpoch };
+      offlineMode = true;
+    }
     else { meta = (await metaP).v || {}; }          // অনলাইন না আসা পর্যন্ত অপেক্ষা
 
     if (m.denied) { V3.error = 'Firebase Rules-এ igl_v3 নোডের অনুমতি নেই'; }
     var nm = meta.ndl;
     V3.meta = nm || null;
     if (!nm || !nm.enabled) {
-      V3.enabled = false; V3.decided = true; V3.ready = false;
+      V3.enabled = false; V3.gs = false; V3.decided = true; V3.ready = false;
       watchMeta(); updateUI();
       return;
     }
     V3.epoch = nm.epoch || 0;
-    await waitFor(function(){ return typeof NDB !== 'undefined'; }, 15000);
+    var gm = meta.gs;
+    V3.gs = !!(gm && gm.enabled); V3.gsEpoch = V3.gs ? (gm.epoch || 0) : 0;
+    await waitFor(function(){ return typeof NDB !== 'undefined' && typeof DB !== 'undefined'; }, 15000);
 
-    var useCache = !!(cache && cache.epoch === V3.epoch && cache.lastChg && Array.isArray(cache.ndlJ) &&
-                      (!meta.chgFloor || cache.lastChg >= meta.chgFloor));
-    var arrN, arrR, from, threshold;
-    if (useCache) {
-      arrN = sortById(cache.ndlJ.map(function(j){ return JSON.parse(j); }));
-      arrR = sortById((cache.ndlRcvJ || []).map(function(j){ return JSON.parse(j); }));
-      from = cache.lastChg; threshold = cache.savedAt - 60000; V3.src = 'cache';
-    } else {
-      var baseKey = pad13(now() - 120000);
-      var full = await loadFull();
-      arrN = full.ndl; arrR = full.ndlRcv; from = baseKey;
-      threshold = Number(nm.epoch) || 0; V3.src = 'full';
+    var floorOk = !!(cache && cache.lastChg && (!meta.chgFloor || cache.lastChg >= meta.chgFloor));
+    var useN = !!(floorOk && cache.epoch === V3.epoch && Array.isArray(cache.ndlJ));
+    var useG = !!(V3.gs && floorOk && cache.gsEpoch === V3.gsEpoch && Array.isArray(cache.rcvJ) && Array.isArray(cache.issJ));
+    var parse = function(a){ return sortById((a || []).map(function(j){ return JSON.parse(j); })); };
+    var loaded = {}, thr = {}, needFull = [];
+    if (useN) { loaded.ndl = parse(cache.ndlJ); loaded.ndlRcv = parse(cache.ndlRcvJ); thr.ndl = thr.ndlRcv = cache.savedAt - 60000; }
+    else needFull.push('ndl', 'ndlRcv');
+    if (V3.gs) {
+      if (useG) { loaded.rcv = parse(cache.rcvJ); loaded.iss = parse(cache.issJ); thr.rcv = thr.iss = cache.savedAt - 60000; }
+      else needFull.push('rcv', 'iss');
     }
+    var baseKey = pad13(now() - 120000);
+    if (needFull.length) {
+      var full = await loadFull(needFull);
+      needFull.forEach(function(k){
+        loaded[k] = full[k];
+        thr[k] = (k === 'rcv' || k === 'iss') ? (Number(V3.gsEpoch) || 0) : (Number(nm.epoch) || 0);
+      });
+    }
+    // ক্যাশের কোনো অংশ ব্যবহার হলে সেই ক্যাশের শেষ পয়েন্ট থেকে change-লগ চালানো (পুনরায় প্রয়োগ নিরাপদ — একই ফলাফল)
+    var from = (useN || useG) ? cache.lastChg : baseKey;
+    V3.src = !needFull.length ? 'cache' : ((useN || useG) ? 'partial' : 'full');
 
     // লোকাল seed (localStorage) থেকে শুধু "সিঙ্কের পরে বানানো" এন্ট্রি pending হিসেবে রাখা হয়;
     // বাকিগুলো (সম্ভবত অন্য ডিভাইসে ডিলিট হওয়া) বাদ — প্রয়োজনে orphans-এ সেভ থাকে
-    var pending = 0, orphans = [];
-    var loaded = { ndl: arrN, ndlRcv: arrR };
-    KINDS.forEach(function(k){
+    var pending = 0, orphans = [], finalArr = {};
+    var kinds = ['ndl', 'ndlRcv'].concat(V3.gs ? ['rcv', 'iss'] : []);
+    kinds.forEach(function(k){
       var have = {}; loaded[k].forEach(function(r){ have[String(r.id)] = 1; });
-      var seed = KIND[k].get();
-      seed.forEach(function(r){
+      var extra = [];
+      KIND[k].get().forEach(function(r){
         if (!r || r.id == null || have[String(r.id)] || tombed(k, r)) return;
         var idn = Number(r.id) || 0;
-        if (idn > threshold) { loaded[k] = loaded[k].concat([r]); pending++; }
+        if (idn > thr[k]) { extra.push(r); pending++; }
         else if (idn > Date.now() - RECENT_MS) orphans.push({ k: k, r: r });
       });
+      buildSynced(k, loaded[k]);            // pending এন্ট্রি S-এ নেই ⇒ পরের সেভে লেখা হবে
+      finalArr[k] = sortById(loaded[k].concat(extra));
     });
-    buildSynced('ndl', arrN); buildSynced('ndlRcv', arrR);       // pending এন্ট্রি S-এ নেই ⇒ পরের সেভে লেখা হবে
-    KIND.ndl.set(sortById(loaded.ndl.slice())); KIND.ndlRcv.set(sortById(loaded.ndlRcv.slice()));
+    V3.enabled = true;
+    kinds.forEach(function(k){ KIND[k].set(finalArr[k]); });
     if (orphans.length) {
       try { localStorage.setItem('igl_v3_orphans', JSON.stringify(orphans)); } catch(e){}
       say('⚠️ ' + orphans.length + 'টি লোকাল এন্ট্রি v3-তে পাওয়া যায়নি (সম্ভবত অন্য ডিভাইসে ডিলিট) — বাদ দেওয়া হয়েছে', 'warning');
     }
 
-    V3.enabled = true; V3.decided = true;
+    V3.decided = true;
     attachFeed(from);
     V3.ready = true; V3.error = null;
     watchMeta(); updateUI(); scheduleRefresh();
-    if (pending) { say('⚠️ ' + pending + 'টি pending needle এন্ট্রি সিঙ্ক হচ্ছে', 'warning'); setTimeout(function(){ if (window.fbSaveAll) window.fbSaveAll(); }, 1500); }
+    if (pending) { say('⚠️ ' + pending + 'টি pending এন্ট্রি সিঙ্ক হচ্ছে', 'warning'); setTimeout(function(){ if (window.fbSaveAll) window.fbSaveAll(); }, 1500); }
     persistSoon(500);
     if (!offlineMode) setTimeout(pruneChanges, 20000);
   }
@@ -2721,6 +2770,14 @@ if('serviceWorker' in navigator){
         if (en && !V3.enabled) { say('🔄 Needle v3 চালু হয়েছে — অ্যাপ রিলোড হচ্ছে...', 'info'); setTimeout(function(){ location.reload(); }, 2500); }
         else if (en && V3.enabled && ep !== V3.epoch) { say('🔄 ডাটা রিবিল্ড হয়েছে — অ্যাপ রিলোড হচ্ছে...', 'info'); setTimeout(function(){ location.reload(); }, 2500); }
       });
+      db().ref(ROOT + '/meta/gs').on('value', function(s){
+        var v = s.val();
+        var en = !!(v && v.enabled), ep = (v && v.epoch) || 0;
+        if (!V3.decided || !V3.enabled) return;                  // Needle মডিউল ছাড়া Store মডিউল চলে না
+        if (V3._selfGsEpoch && ep === V3._selfGsEpoch) return;
+        if (en && !V3.gs) { say('🔄 Store v3 চালু হয়েছে — অ্যাপ রিলোড হচ্ছে...', 'info'); setTimeout(function(){ location.reload(); }, 2500); }
+        else if (en && V3.gs && ep !== V3.gsEpoch) { say('🔄 Store ডাটা রিবিল্ড হয়েছে — অ্যাপ রিলোড হচ্ছে...', 'info'); setTimeout(function(){ location.reload(); }, 2500); }
+      });
     } catch(e){}
   }
 
@@ -2729,7 +2786,7 @@ if('serviceWorker' in navigator){
     opts = opts || {};
     if (!V3.enabled || !V3.ready) throw new Error('v3 প্রস্তুত নয়');
     var ops = [], removedBy = {}, blocked = null;
-    KINDS.forEach(function(k){
+    act().forEach(function(k){
       var cur = KIND[k].get(), seen = {};
       cur.forEach(function(r){
         if (!r || r.id == null) return;
@@ -2747,15 +2804,15 @@ if('serviceWorker' in navigator){
       var okForce = false;
       if (isAdmin() && Date.now() - (V3._askedAt || 0) > 300000) {
         V3._askedAt = Date.now();
-        okForce = confirm('⚠️ ' + blocked.n + '/' + blocked.total + ' টা ' + blocked.k + ' এন্ট্রি ক্লাউড থেকে মুছে যাচ্ছে (সব ডিভাইস থেকে)।\n\nএটা কি ইচ্ছাকৃত (যেমন রিসেট/রিস্টোর)? ঠিক থাকলে OK চাপুন; ভুল হলে Cancel — তখন কিছুই মোছা হবে না।');
+        okForce = confirm('⚠️ ' + blocked.n + '/' + blocked.total + ' টা ' + LBL[blocked.k] + ' এন্ট্রি ক্লাউড থেকে মুছে যাচ্ছে (সব ডিভাইস থেকে)।\n\nএটা কি ইচ্ছাকৃত (যেমন রিসেট/রিস্টোর)? ঠিক থাকলে OK চাপুন; ভুল হলে Cancel — তখন কিছুই মোছা হবে না।');
       }
       if (!okForce) {
-        var msg = '⛔ ' + blocked.n + '/' + blocked.total + ' টা ' + blocked.k + ' এন্ট্রি একসাথে মুছে যাচ্ছে — নিরাপত্তার জন্য সিঙ্ক থামানো হলো (লোকাল ডাটা অসম্পূর্ণ হতে পারে)';
+        var msg = '⛔ ' + blocked.n + '/' + blocked.total + ' টা ' + LBL[blocked.k] + ' এন্ট্রি একসাথে মুছে যাচ্ছে — নিরাপত্তার জন্য সিঙ্ক থামানো হলো (লোকাল ডাটা অসম্পূর্ণ হতে পারে)';
         V3.error = msg; updateUI(); say(msg, 'error');
         throw new Error(msg);
       }
     }
-    KINDS.forEach(function(k){ removedBy[k].forEach(function(id){ ops.push({ k: k, id: id, m: S[k][id].m, o: 'd' }); }); });
+    act().forEach(function(k){ removedBy[k].forEach(function(id){ ops.push({ k: k, id: id, m: S[k][id].m, o: 'd' }); }); });
     for (var i = 0; i < ops.length; i += CHUNK) {
       var chunk = ops.slice(i, i + CHUNK), up = {};
       chunk.forEach(function(op){
@@ -2786,7 +2843,17 @@ if('serviceWorker' in navigator){
   // ───────────── fbSaveAll / fbLoadAll ইন্টিগ্রেশন ─────────────
   V3.corePayload = function(data){
     var up = {};
-    Object.keys(data).forEach(function(k){ if (k !== 'ndb' && k !== 'ndlRcv') up[k] = data[k]; });
+    Object.keys(data).forEach(function(k){
+      if (k === 'ndb' || k === 'ndlRcv') return;
+      if (k === 'db' && V3.gs && data.db) return;       // Store মডিউল চালু: db-র receives/issues আলাদা নোডে — বাকি অংশ আলাদা path-এ
+      up[k] = data[k];
+    });
+    if (V3.gs && data.db) {
+      Object.keys(data.db).forEach(function(k){
+        if (k === 'receives' || k === 'issues') return;
+        if (data.db[k] !== undefined) up['db/' + k] = data.db[k];
+      });
+    }
     if (data.ndb) {
       if (data.ndb.master !== undefined) up['ndb/master'] = data.ndb.master;
       if (data.ndb.workers !== undefined) up['ndb/workers'] = data.ndb.workers;
@@ -2798,7 +2865,7 @@ if('serviceWorker' in navigator){
     if (!V3.ready) return Promise.reject(new Error('v3 প্রস্তুত নয়'));
     return V3.syncNow().then(function(){
       var up = V3.corePayload(data), h = coreHash(up);
-      if (h === V3._lastCoreHash) return { skipped: true };       // শুধু Needle বদলেছে — বাকি ডাটা অপরিবর্তিত, তাই বড় লেখা/ts bump লাগছে না
+      if (h === V3._lastCoreHash) return { skipped: true };       // শুধু v3-এন্ট্রি বদলেছে — বাকি ডাটা অপরিবর্তিত, তাই বড় লেখা/ts bump লাগছে না
       if (up.ts) window._fbLastKnownTs = up.ts;                   // নিজের লেখার echo যেন নিজেকে রিলোড না করায়
       return db().ref('igl_erp').update(up).then(function(){ V3._lastCoreHash = h; return { skipped: false }; });
     });
@@ -2807,18 +2874,26 @@ if('serviceWorker' in navigator){
     var d = Object.assign({}, data);
     d.ndb = Object.assign({}, data.ndb || {}, { needles: KIND.ndl.get() });
     d.ndlRcv = KIND.ndlRcv.get();
+    if (V3.gs) d.db = Object.assign({}, data.db || {}, { receives: KIND.rcv.get(), issues: KIND.iss.get() });
     return d;
   };
   var CORE_TOP = ['ts', 'db', 'stn', 'pkg', 'rnaManage', 'bin', 'dropNeedle', 'deletedIds', 'settings'];
   var CORE_NDB = ['master', 'workers', 'offdays', 'offDaySwaps'];
-  V3.readCore = function(){        // fbLoadAll এর জন্য: igl_erp থেকে needles/ndlRcv ছাড়া সব
-    var ps = CORE_TOP.map(function(p){ return db().ref('igl_erp/' + p).once('value'); })
+  var CORE_DB = ['items', 'groups', 'machines', 'employees'];
+  V3.readCore = function(){        // fbLoadAll এর জন্য: igl_erp থেকে v3-তে সরে যাওয়া অংশ (needles/ndlRcv, আর Store চালু থাকলে db.receives/issues) ছাড়া সব
+    var top = V3.gs ? CORE_TOP.filter(function(x){ return x !== 'db'; }) : CORE_TOP;
+    var ps = top.map(function(p){ return db().ref('igl_erp/' + p).once('value'); })
       .concat(CORE_NDB.map(function(p){ return db().ref('igl_erp/ndb/' + p).once('value'); }));
+    if (V3.gs) ps = ps.concat(CORE_DB.map(function(p){ return db().ref('igl_erp/db/' + p).once('value'); }));
     return Promise.all(ps).then(function(snaps){
-      var o = {}, nd = {};
-      CORE_TOP.forEach(function(k, i){ var v = snaps[i].val(); if (v !== null && v !== undefined) o[k] = v; });
-      CORE_NDB.forEach(function(k, i){ var v = snaps[CORE_TOP.length + i].val(); if (v !== null && v !== undefined) nd[k] = v; });
+      var o = {}, nd = {}, dbo = {}, i = 0;
+      top.forEach(function(k){ var v = snaps[i++].val(); if (v !== null && v !== undefined) o[k] = v; });
+      CORE_NDB.forEach(function(k){ var v = snaps[i++].val(); if (v !== null && v !== undefined) nd[k] = v; });
+      if (V3.gs) CORE_DB.forEach(function(k){ var v = snaps[i++].val(); if (v !== null && v !== undefined) dbo[k] = v; });
       if (Object.keys(nd).length) o.ndb = nd;
+      if (V3.gs && Object.keys(dbo).length) o.db = dbo;
+      // ক্লাউডের বর্তমান অবস্থার হ্যাশ — এর সাথে হুবহু মিললে প্রথম সেভে অকারণে বড় লেখা/ts bump হবে না
+      try { V3._lastCoreHash = coreHash(V3.corePayload(o)); } catch(e){}
       return { exists: function(){ return Object.keys(o).length > 0; }, val: function(){ return o; } };
     });
   };
@@ -2826,6 +2901,13 @@ if('serviceWorker' in navigator){
   window.iglNeedleFreshSnap = function(){
     if (V3.enabled) return Promise.resolve({ val: function(){ return KIND.ndl.get(); } });
     return db().ref('igl_erp/ndb/needles').once('value');
+  };
+  // Stationery orphan রিপেয়ার টুল: লোকাল মেমরিতে নাম বদলে v3-তে পাঠানো
+  V3.renameStn = function(from, to){
+    var c = { rcv: 0, iss: 0 };
+    KIND.rcv.get().forEach(function(r){ if (r && r.group === 'Stationery' && r.item === from) { r.item = to; c.rcv++; } });
+    KIND.iss.get().forEach(function(r){ if (r && r.group === 'Stationery' && r.item === from) { r.item = to; c.iss++; } });
+    return V3.syncNow().then(function(){ return c; });
   };
   // মেশিন রিনেম টুল: লোকাল মেমরিতে বদলে v3-তে পাঠানো
   V3.renameMachines = function(map){
@@ -2855,7 +2937,7 @@ if('serviceWorker' in navigator){
   V3.applyTombstones = function(){
     if (!V3.enabled || !V3.ready) return 0;
     var n = 0;
-    KINDS.forEach(function(k){
+    act().forEach(function(k){
       var arr = KIND[k].get();
       var keep = arr.filter(function(r){ return !(r && r.id != null && tombed(k, r)); });
       if (keep.length !== arr.length) { n += arr.length - keep.length; KIND[k].set(keep); }
@@ -2869,20 +2951,22 @@ if('serviceWorker' in navigator){
   V3.recover = async function(){
     if (!isAdmin()) { alert('শুধু Admin এই কাজ করতে পারবে।'); return; }
     if (!V3.enabled || !V3.ready) { alert('v3 চালু/প্রস্তুত নয়।'); return; }
-    var st = document.getElementById('igl-v3-status');
+    var st = document.getElementById('igl-v3-status'), ks = act();
     try {
-      if (st) st.textContent = '⏳ পুরনো নোড পড়া হচ্ছে (একবারের জন্য ~৪.৫MB)...';
-      var s = await Promise.all([ db().ref('igl_erp/ndb/needles').once('value'), db().ref('igl_erp/ndlRcv').once('value') ]);
-      var found = { ndl: toArr(s[0].val()), ndlRcv: toArr(s[1].val()) }, add = { ndl: [], ndlRcv: [] };
-      KINDS.forEach(function(k){
+      if (st) st.textContent = '⏳ পুরনো নোড পড়া হচ্ছে (একবারের জন্য ~' + (V3.gs ? '৫' : '৪.৫') + 'MB)...';
+      var snaps = await Promise.all(ks.map(function(k){ return db().ref(SRC[k]).once('value'); }));
+      var add = {}, total = 0, dates = [];
+      ks.forEach(function(k, i){
+        add[k] = [];
         var have = {}; KIND[k].get().forEach(function(r){ if (r && r.id != null) have[String(r.id)] = 1; });
-        found[k].forEach(function(r){ if (r && r.id != null && !have[String(r.id)] && !tombed(k, r)) add[k].push(r); });
+        toArr(snaps[i].val()).forEach(function(r){ if (r && r.id != null && !have[String(r.id)] && !tombed(k, r)) { add[k].push(r); if (r.date) dates.push(r.date); } });
+        total += add[k].length;
       });
-      var total = add.ndl.length + add.ndlRcv.length;
       if (!total) { if (st) st.textContent = '✅ উদ্ধার করার মতো কোনো আটকে-থাকা এন্ট্রি নেই'; updateUI(); alert('✅ কোনো আটকে-থাকা এন্ট্রি পাওয়া যায়নি।'); return; }
-      var dates = add.ndl.concat(add.ndlRcv).map(function(r){ return r.date || ''; }).filter(Boolean).sort();
-      if (!confirm('🧰 পুরনো নোডে ' + total + 'টি এন্ট্রি পাওয়া গেছে যা v3-তে নেই:\n• Needle Issue: ' + add.ndl.length + '\n• Needle Receive: ' + add.ndlRcv.length + '\n• তারিখ: ' + (dates[0] || '-') + ' থেকে ' + (dates[dates.length - 1] || '-') + '\n\nএগুলো v3-তে যোগ করবেন? (ডিলিট করা এন্ট্রি বাদ দেওয়া হয়েছে)')) { updateUI(); return; }
-      KINDS.forEach(function(k){ if (add[k].length) KIND[k].set(sortById(KIND[k].get().concat(add[k]))); });
+      dates.sort();
+      var lines = ks.map(function(k){ return '• ' + LBL[k] + ': ' + add[k].length; }).join('\n');
+      if (!confirm('🧰 পুরনো নোডে ' + total + 'টি এন্ট্রি পাওয়া গেছে যা v3-তে নেই:\n' + lines + '\n• তারিখ: ' + (dates[0] || '-') + ' থেকে ' + (dates[dates.length - 1] || '-') + '\n\nএগুলো v3-তে যোগ করবেন? (ডিলিট করা এন্ট্রি বাদ দেওয়া হয়েছে)')) { updateUI(); return; }
+      ks.forEach(function(k){ if (add[k].length) KIND[k].set(sortById(KIND[k].get().concat(add[k]))); });
       await V3.syncNow();
       scheduleRefresh(); updateUI();
       alert('✅ ' + total + 'টি এন্ট্রি v3-তে যোগ হয়েছে।');
@@ -2948,6 +3032,56 @@ if('serviceWorker' in navigator){
     }
   };
 
+  // Admin: General Store + Stationery + Packaging (Receive/Issue) v3-তে আনা — পুরনো igl_erp/db/receives, issues অক্ষত থাকে
+  V3.migrateGs = async function(){
+    if (!isAdmin()) { alert('শুধু Admin এই কাজ করতে পারবে।'); return; }
+    if (!V3.enabled || !V3.ready) { alert('আগে Needle v3 চালু থাকতে হবে।'); return; }
+    if (V3.gs) { alert('Store v3 আগে থেকেই চালু আছে।'); return; }
+    if (!window._fbInitialLoadDone) { alert('Firebase লোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।'); return; }
+    if (!confirm('🚀 Store v3 চালু করবেন? (General Store + Stationery + Packaging)\n\n• পুরনো igl_erp ডাটা একটুও বদলাবে/মুছবে না (জমাট ব্যাকআপ থাকবে)\n• একবার ~০.৬MB পড়া ও নতুন নোডে কপি হবে\n• এরপর সব ডিভাইসে নতুন index.html ব্যবহার করতে হবে\n\nচালিয়ে যাবেন?')) return;
+    var st = document.getElementById('igl-v3-status');
+    function stat(t){ if (st) st.textContent = t; }
+    try {
+      stat('⏳ পুরনো Store ডাটা পড়া হচ্ছে...');
+      var s = await Promise.all([ db().ref(SRC.rcv).once('value'), db().ref(SRC.iss).once('value') ]);
+      var legR = toArr(s[0].val()), legI = toArr(s[1].val()), ex = 0;
+      [['rcv', legR], ['iss', legI]].forEach(function(p){
+        var have = {}; p[1].forEach(function(r){ have[String(r.id)] = 1; });
+        KIND[p[0]].get().forEach(function(r){
+          if (r && r.id != null && !have[String(r.id)] && !tombed(p[0], r) && Number(r.id) > Date.now() - RECENT_MS) { p[1].push(r); ex++; }
+        });
+      });
+      // ডিলিট-চিহ্নিত (tombstone) এন্ট্রি নতুন সিস্টেমে নেওয়া হয় না
+      legR = legR.filter(function(r){ return !tombed('rcv', r); });
+      legI = legI.filter(function(r){ return !tombed('iss', r); });
+      sortById(legR); sortById(legI);
+      stat('⏳ নতুন কাঠামোয় লেখা হচ্ছে (' + legR.length + ' + ' + legI.length + ')...');
+      await writeMonths('rcv', legR);
+      await writeMonths('iss', legI);
+      stat('⏳ যাচাই করা হচ্ছে...');
+      var back = await loadFull(['rcv', 'iss']);
+      var sum = function(a){ return a.reduce(function(t, r){ return t + (Number(r.qty) || 0); }, 0); };
+      if (back.rcv.length !== legR.length || back.iss.length !== legI.length ||
+          Math.abs(sum(back.rcv) - sum(legR)) > 1e-6 || Math.abs(sum(back.iss) - sum(legI)) > 1e-6) {
+        throw new Error('যাচাই ব্যর্থ: পুরনো ' + legR.length + '/' + legI.length + ' ≠ নতুন ' + back.rcv.length + '/' + back.iss.length + ' — Store v3 চালু করা হয়নি, পুরনো ডাটা অক্ষত');
+      }
+      var epoch = Date.now();
+      var meta = { enabled: true, epoch: epoch, migratedAt: new Date(epoch).toISOString(), by: (window.IGL_CURRENT_USER.username || window.IGL_CURRENT_USER.name || 'admin'), counts: { rcv: legR.length, iss: legI.length }, build: BUILD };
+      V3._selfGsEpoch = epoch;
+      await db().ref(ROOT + '/meta/gs').set(meta);
+      V3.gs = true; V3.gsEpoch = epoch;
+      buildSynced('rcv', legR); buildSynced('iss', legI);
+      KIND.rcv.set(legR.slice()); KIND.iss.set(legI.slice());
+      V3._lastCoreHash = null;                 // এখন core-এর আকার বদলেছে — পরের সেভে একবার নতুন আকারে লেখা হবে
+      persistSoon(300); updateUI(); scheduleRefresh();
+      alert('✅ Store v3 চালু হয়েছে!\n\nStore Receive: ' + legR.length + '\nStore Issue: ' + legI.length + (ex ? '\n(সাথে ' + ex + 'টি আনসিঙ্কড এন্ট্রিও যোগ হয়েছে)' : '') + '\n\nপুরনো igl_erp ডাটা অক্ষত আছে।\n⚠️ অন্য সব ডিভাইসে নতুন index.html ফাইল ব্যবহার করুন।');
+      if (window.fbSaveAll) setTimeout(function(){ window.fbSaveAll(); }, 800);
+    } catch(e) {
+      console.error(e); stat('❌ ' + (e.message || e));
+      alert('❌ Store মাইগ্রেশন বন্ধ: ' + (e.message || e) + '\n\n(পুরনো igl_erp ডাটা অপরিবর্তিত।)');
+    }
+  };
+
   // JSON ব্যাকআপ থেকে Restore (Admin) — v3 নোডও রিপ্লেস করে ও সব ডিভাইসকে রিলোড করায়
   V3.restoreFromData = async function(data){
     if (!V3.enabled) throw new Error('v3 চালু নেই');
@@ -2955,10 +3089,18 @@ if('serviceWorker' in navigator){
     var core = V3.corePayload(Object.assign({}, data, { ts: Date.now() }));
     await db().ref('igl_erp').update(core);
     KIND.ndl.set(sortById(nd.slice())); KIND.ndlRcv.set(sortById(rc.slice()));
+    if (V3.gs) {
+      KIND.rcv.set(sortById(toArr(data && data.db && data.db.receives).slice()));
+      KIND.iss.set(sortById(toArr(data && data.db && data.db.issues).slice()));
+    }
     await V3.syncNow({ force: true });
     var epoch = Date.now();
     V3.epoch = epoch; V3._selfEpoch = epoch;
     await db().ref(ROOT + '/meta/ndl').update({ epoch: epoch, restoredAt: new Date(epoch).toISOString() });
+    if (V3.gs) {
+      V3.gsEpoch = epoch; V3._selfGsEpoch = epoch;
+      await db().ref(ROOT + '/meta/gs').update({ epoch: epoch, restoredAt: new Date(epoch).toISOString() });
+    }
     persistSoon(300);
   };
 
@@ -2968,9 +3110,13 @@ if('serviceWorker' in navigator){
     if (!st) return;
     if (V3.enabled) {
       var n = Object.keys(S.ndl).length;
-      st.textContent = '✅ Needle v3 সক্রিয় (' + (V3.src === 'cache' ? 'লোকাল ক্যাশ' : 'পূর্ণ লোড') + ') — ' + n + ' issue' + (V3.error ? ' | ⚠️ ' + V3.error : '');
+      st.textContent = '✅ Needle v3 সক্রিয় (' + (V3.src === 'cache' ? 'লোকাল ক্যাশ' : 'পূর্ণ লোড') + ') — ' + n + ' issue | ' +
+        (V3.gs ? '🏪 Store v3 সক্রিয় — ' + Object.keys(S.rcv).length + ' receive, ' + Object.keys(S.iss).length + ' issue' : '🏪 Store v3: চালু নেই') +
+        (V3.error ? ' | ⚠️ ' + V3.error : '');
       st.style.color = V3.error ? '#e67e22' : '#2ecc71';
       if (btn) btn.style.display = 'none';
+      var gb = document.getElementById('igl-v3-gs-btn');
+      if (gb) gb.style.display = (isAdmin() && !V3.gs) ? 'inline-block' : 'none';
       var rb = document.getElementById('igl-v3-recover-btn');
       if (rb) rb.style.display = isAdmin() ? 'inline-block' : 'none';
     } else if (V3.decided) {
@@ -4363,6 +4509,7 @@ window.iglSaveNavVisibility = function() {
           <div id="igl-v3-status" style="font-size:10px;color:#aab7b8;margin-bottom:5px;">🪡 Needle v3: যাচাই হচ্ছে...</div>
           <button id="igl-v3-migrate-btn" onclick="IGLV3.migrate();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.15);color:#2ecc71;cursor:pointer;font-weight:700;">🚀 Needle v3 চালু করুন (Admin)</button>
           <button id="igl-v3-recover-btn" onclick="IGLV3.recover();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(241,196,15,0.5);background:rgba(241,196,15,0.12);color:#f1c40f;cursor:pointer;font-weight:700;">🧰 পুরনো ডিভাইসের আটকে-থাকা এন্ট্রি উদ্ধার (Admin)</button>
+          <button id="igl-v3-gs-btn" onclick="IGLV3.migrateGs();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(52,152,219,0.5);background:rgba(52,152,219,0.15);color:#5dade2;cursor:pointer;font-weight:700;margin-top:4px;">🏪 Store v3 চালু করুন (General/Stationery/Packaging) (Admin)</button>
         </div>
         <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
           <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় Admin ব্যবহার করবে:</div>
@@ -32478,7 +32625,7 @@ function stnImRepairOrphan(rowIdx) {
 
   var recCount = 0, issCount = 0;
 
-  firebase.database().ref('igl_erp/db').once('value').then(function(snap){
+  ((window.IGLV3 && window.IGLV3.kindEnabled('rcv')) ? window.IGLV3.renameStn(orphanName, target.name).then(function(c){ recCount = c.rcv; issCount = c.iss; }) : firebase.database().ref('igl_erp/db').once('value').then(function(snap){
     var dbNode = snap.val() || {};
     var receives = dbNode.receives || [];
     var issues   = dbNode.issues   || [];
@@ -32508,7 +32655,7 @@ function stnImRepairOrphan(rowIdx) {
         var stillOrphan = verifyArr.some(function(r){ return r && r.group === 'Stationery' && r.item === orphanName; });
         if (stillOrphan) { throw new Error('যাচাই ব্যর্থ — Firebase-এ এখনো পুরনো নাম দেখা যাচ্ছে'); }
       });
-  }).then(function(){
+  })).then(function(){
     // in-memory DB ও লোকালি আপডেট করো যাতে এই সেশনেও সাথে সাথে সব ঠিক দেখায়
     (DB.receives||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) r.item = target.name; });
     (DB.issues||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===orphanName) r.item = target.name; });
