@@ -43666,6 +43666,26 @@ function drgDeleteHistory(date) {
     return h;
   }
 
+  // একাধিক আইটেম সিলেক্ট করলে একেবারে নিচে সবার Value-র যোগফল (Qty যোগ করা হয় না — আইটেমভেদে একক আলাদা)
+  function ilgGrand(d){
+    var g = { n: d.blocks.length, open: 0, rv: 0, iv: 0, close: 0 };
+    d.blocks.forEach(function(b){ g.open += b.opening.value; g.rv += b.tRv; g.iv += b.tIv; g.close += b.closing.value; });
+    return g;
+  }
+  function grandHtml(d){
+    if (!d || !d.blocks || d.blocks.length < 2) return '';
+    var g = ilgGrand(d);
+    var cg = '<colgroup><col style="width:4%"><col style="width:8%"><col style="width:10%"><col style="width:7%"><col style="width:15%"><col style="width:5.5%"><col style="width:6%"><col style="width:7%"><col style="width:5.5%"><col style="width:6%"><col style="width:7%"><col style="width:5.5%"><col style="width:6%"><col style="width:7.5%"></colgroup>';
+    var st = 'background:#ffe9a8;font-weight:800;font-size:13px;';
+    return '<div class="il-item-block il-grand"><table class="il-tbl">' + cg + '<tbody>' +
+      '<tr style="' + st + '"><td colspan="5" style="text-align:right;">Total Opening Value (' + g.n + ' টি আইটেম)</td><td colspan="8"></td><td class="il-n" style="text-align:right;">' + m2(g.open) + '</td></tr>' +
+      '<tr style="' + st + 'border-top:3px double #111;"><td colspan="5" style="text-align:right;">GRAND TOTAL — Value (' + g.n + ' টি আইটেম)</td>' +
+      '<td></td><td></td><td class="il-n" style="text-align:right;">' + m2(g.rv) + '</td>' +
+      '<td></td><td></td><td class="il-n" style="text-align:right;">' + m2(g.iv) + '</td>' +
+      '<td></td><td></td><td class="il-n" style="text-align:right;">' + m2(g.close) + '</td></tr>' +
+      '</tbody></table></div>';
+  }
+
   window.ilgRender = function(){
     var d = ilgCompute(), box = document.getElementById('il-report');
     if (!d || !box) return;
@@ -43677,7 +43697,7 @@ function drgDeleteHistory(date) {
     box.innerHTML = '<div style="padding:15px 20px;">' +
       '<div style="font-size:12px;color:#666;margin-bottom:10px;">' + esc(periodText(d.from, d.to)) + ' &nbsp;|&nbsp; ' + d.blocks.length + ' টি আইটেম</div>' +
       (anyAnchor ? '<div style="font-size:11px;color:#b9770e;margin-bottom:8px;">ℹ️ কিছু Oil আইটেমের B/F নির্দিষ্ট তারিখ থেকে ধরা হয়েছে, তাই তার আগের এন্ট্রি হিসাবে নেই।</div>' : '') +
-      d.blocks.map(function(b){ return tableHtml(b, np); }).join('') + '</div>';
+      d.blocks.map(function(b){ return tableHtml(b, np); }).join('') + grandHtml(d) + '</div>';
   };
 
   window.ilgPrint = function(){
@@ -43772,6 +43792,20 @@ function drgDeleteHistory(date) {
           }
           r += 3;   // পরের আইটেমের আগে ফাঁকা সারি
         });
+
+        // একাধিক আইটেম হলে একেবারে নিচে Value-র Grand Total
+        if (d.blocks.length > 1) {
+          var G = ilgGrand(d), GOLD = 'FFFFE9A8';
+          function gRow(label, vals){
+            ws.mergeCells(r, 1, r, 5);
+            var lc = ws.getCell(r, 1); lc.value = label; lc.alignment = { horizontal: 'right' };
+            Object.keys(vals).forEach(function(col){ var vc = ws.getCell(r, Number(col)); vc.value = Math.round(vals[col] * 100) / 100; vc.numFmt = '#,##0.00'; vc.alignment = { horizontal: 'right' }; });
+            for (var gc = 1; gc <= 14; gc++) { var cc2 = ws.getCell(r, gc); cc2.border = border; cc2.font = { bold: true, size: 12 }; fill(cc2, GOLD); }
+            r++;
+          }
+          gRow('Total Opening Value (' + G.n + ' items)', { 14: G.open });
+          gRow('GRAND TOTAL — Value (' + G.n + ' items)', { 8: G.rv, 11: G.iv, 14: G.close });
+        }
 
         var fname = 'Item_Ledger_' + d.group.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') + '_' + (d.to || todayStr()) + '.xlsx';
         wb.xlsx.writeBuffer().then(function(buffer){
