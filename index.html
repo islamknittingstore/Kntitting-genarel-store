@@ -44237,7 +44237,7 @@ function drgDeleteHistory(date) {
   var box = null;
   function pastNotes(){
     var map = {};
-    ((window.NDB && NDB.needles) || []).forEach(function(r, i){
+    ((typeof NDB !== 'undefined' && NDB.needles) || []).forEach(function(r, i){
       var bn = String(r.noteBn || '').trim(), en = String(r.noteEn || '').trim();
       if (!bn && !en) return;
       var k = bn.toLowerCase() + '|' + en.toLowerCase();
@@ -44253,7 +44253,7 @@ function drgDeleteHistory(date) {
     var q = getNote().toLowerCase();
     var list = pastNotes().filter(function(x){
       return !q || x.bn.toLowerCase().indexOf(q) >= 0 || x.en.toLowerCase().indexOf(q) >= 0;
-    }).filter(function(x){ return x.bn.toLowerCase() !== q && x.en.toLowerCase() !== q; })
+    }).filter(function(x){ return !q || (x.bn.toLowerCase() !== q && x.en.toLowerCase() !== q); })
       .sort(function(a, b){ return (b.n - a.n) || (b.last - a.last); }).slice(0, 8);
     if (!list.length) { hideBox(); return; }
     if (!box) {
