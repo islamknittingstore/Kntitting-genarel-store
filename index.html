@@ -2463,7 +2463,7 @@ if('serviceWorker' in navigator){
 
   var V3 = window.IGLV3 = {
     build: BUILD, decided: false, enabled: false, ready: false,
-    epoch: 0, gs: false, gsEpoch: 0, lastChg: '', src: '', error: null, meta: null, _off: 0
+    epoch: 0, gs: false, gsEpoch: 0, lastChg: '', lastSeq: 0, remoteSeq: 0, src: '', error: null, meta: null, _off: 0
   };
 
   var KIND = {
@@ -2516,6 +2516,17 @@ if('serviceWorker' in navigator){
   function fkey(id){ return String(id).replace(/[.#$\/\[\]]/g, '_'); }
   function now(){ return Date.now() + (V3._off || 0); }
   function pad13(n){ return String(Math.max(0, Math.floor(n))).padStart(13, '0'); }
+  // ── পরিবর্তনের ক্রম: ঘড়ি নয়, সার্ভারে গোনা ক্রমিক নম্বর (ডিভাইসের ঘড়ি ভুল থাকলেও ঠিক কাজ করে) ──
+  var SEQ_MARGIN = 50;                       // ফিরে দেখার মার্জিন (পুনরায় প্রয়োগ নিরাপদ)
+  function seqKey(n){ return 's' + String(Math.max(0, Math.floor(n))).padStart(12, '0'); }
+  function seqOf(key){ return /^s\d+$/.test(String(key)) ? Number(String(key).slice(1)) : -1; }
+  function readSeq(){ return db().ref(ROOT + '/meta/seq').once('value').then(function(s){ return Number(s.val()) || 0; }); }
+  function reserveSeq(n){
+    return db().ref(ROOT + '/meta/seq').transaction(function(cur){ return (Number(cur) || 0) + n; }).then(function(res){
+      if (!res || !res.committed) throw new Error('সিকোয়েন্স নেওয়া যায়নি');
+      return Number(res.snapshot.val()) - n + 1;
+    });
+  }
   var _seq = 0;
   function devTag(){ return String(window._iglDeviceId || 'x').replace(/[^A-Za-z0-9]/g, '').slice(-4) || 'x'; }
   function nextKey(){ _seq = (_seq + 1) % 1000; return pad13(now()) + '_' + ('00' + _seq).slice(-3) + '_' + devTag(); }
@@ -2572,7 +2583,7 @@ if('serviceWorker' in navigator){
     if (!V3.enabled || !V3.ready) return Promise.resolve(false);
     // ⚠️ শুধু সার্ভারের সাথে মিলে থাকা (synced) অবস্থা সেভ হয় — আনসিঙ্কড এন্ট্রি নয়
     var rec = {
-      enabled: true, epoch: V3.epoch, lastChg: V3.lastChg, savedAt: Date.now(),
+      enabled: true, epoch: V3.epoch, lastSeq: V3.lastSeq, savedAt: Date.now(),
       ndlJ: Object.keys(S.ndl).map(function(id){ return S.ndl[id].j; }),
       ndlRcvJ: Object.keys(S.ndlRcv).map(function(id){ return S.ndlRcv[id].j; })
     };
@@ -2627,17 +2638,45 @@ if('serviceWorker' in navigator){
     });
   }
 
-  var _feedRef = null;
-  function attachFeed(fromKey){
+  var _feedRef = null, _wdRef = null, _wdT = null, _cuBusy = false, _wdStarted = false;
+  function attachFeed(fromSeq){
     try { if (_feedRef) _feedRef.off(); } catch(e){}
-    V3.lastChg = fromKey;
-    _feedRef = db().ref(ROOT + '/chg').orderByKey().startAt(fromKey);
+    V3.lastSeq = Number(fromSeq) || 0;
+    _feedRef = db().ref(ROOT + '/chg').orderByKey().startAt(seqKey(Math.max(0, V3.lastSeq - SEQ_MARGIN)));
     _feedRef.on('child_added', function(snap){
-      var c = snap.val(), key = snap.key;
+      var c = snap.val(), q = seqOf(snap.key);
       if (c) applyChange(c);
-      if (key > V3.lastChg) V3.lastChg = key;
+      if (q > V3.lastSeq) V3.lastSeq = q;
       scheduleFlush();
     }, function(err){ console.warn('v3 feed error', err); V3.error = String(err && err.message || err); updateUI(); });
+    startWatchdog();
+  }
+  // কোনো কারণে লাইভ পরিবর্তন মিস হলে (মোবাইল ব্যাকগ্রাউন্ড, নেট ওঠানামা ইত্যাদি) সার্ভারের সিকোয়েন্সের সাথে মিলিয়ে ধরা
+  function catchUp(){
+    if (!V3.enabled || !V3.ready || _cuBusy) return Promise.resolve(0);
+    _cuBusy = true;
+    return db().ref(ROOT + '/chg').orderByKey().startAt(seqKey(Math.max(0, V3.lastSeq - SEQ_MARGIN))).once('value').then(function(s){
+      var v = s.val() || {}, keys = Object.keys(v).sort(), n = 0;
+      keys.forEach(function(k){ if (v[k]) applyChange(v[k]); var q = seqOf(k); if (q > V3.lastSeq) V3.lastSeq = q; n++; });
+      if (V3.remoteSeq > V3.lastSeq) V3.lastSeq = V3.remoteSeq;       // লেখা হয়নি এমন (বাতিল) নম্বর বাদ
+      if (n) scheduleFlush();
+      return n;
+    }).catch(function(e){ console.warn('v3 catchUp', e); return 0; }).then(function(r){ _cuBusy = false; return r; });
+  }
+  V3.catchUp = catchUp;
+  V3._dropFeed = function(){ try { if (_feedRef) _feedRef.off(); } catch(e){} };       // শুধু টেস্টের জন্য
+  function checkSeq(){ return readSeq().then(function(q){ V3.remoteSeq = q; if (q > V3.lastSeq) return catchUp(); return 0; }).catch(function(){ return 0; }); }
+  function startWatchdog(){
+    if (_wdStarted) return; _wdStarted = true;
+    try {
+      _wdRef = db().ref(ROOT + '/meta/seq');
+      _wdRef.on('value', function(s){
+        var q = Number(s.val()) || 0; V3.remoteSeq = q;
+        if (q > V3.lastSeq) { clearTimeout(_wdT); _wdT = setTimeout(function(){ if (V3.remoteSeq > V3.lastSeq) catchUp(); }, 4000); }
+      });
+      document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') checkSeq(); });
+      window.addEventListener('online', function(){ setTimeout(checkSeq, 1500); });
+    } catch(e){ console.warn(e); }
   }
 
   // ───────────── শুরু (অ্যাপ খুললে) ─────────────
@@ -2670,8 +2709,6 @@ if('serviceWorker' in navigator){
 
   async function initOnce(){
     var cache = await idbGet();
-    var off = await db().ref('.info/serverTimeOffset').once('value').then(function(s){ return s.val() || 0; }).catch(function(){ return 0; });
-    V3._off = off;
 
     // meta পড়া — অফলাইনে আটকে গেলে ক্যাশ থাকলে ক্যাশ দিয়েই চালু
     var metaP = db().ref(ROOT + '/meta').once('value').then(function(s){ return { ok: true, v: s.val() || {} }; })
@@ -2703,7 +2740,7 @@ if('serviceWorker' in navigator){
     V3.gs = !!(gm && gm.enabled); V3.gsEpoch = V3.gs ? (gm.epoch || 0) : 0;
     await waitFor(function(){ return typeof NDB !== 'undefined' && typeof DB !== 'undefined'; }, 15000);
 
-    var floorOk = !!(cache && cache.lastChg && (!meta.chgFloor || cache.lastChg >= meta.chgFloor));
+    var floorOk = !!(cache && typeof cache.lastSeq === 'number' && cache.lastSeq >= (Number(meta.chgFloorSeq) || 0));   // পুরনো-ধরনের (ঘড়ি-ভিত্তিক) ক্যাশ ⇒ একবার পূর্ণ লোড (আগের মিস হওয়া ডাটা ঠিক হয়ে যায়)
     var useN = !!(floorOk && cache.epoch === V3.epoch && Array.isArray(cache.ndlJ));
     var useG = !!(V3.gs && floorOk && cache.gsEpoch === V3.gsEpoch && Array.isArray(cache.rcvJ) && Array.isArray(cache.issJ));
     var parse = function(a){ return sortById((a || []).map(function(j){ return JSON.parse(j); })); };
@@ -2714,7 +2751,7 @@ if('serviceWorker' in navigator){
       if (useG) { loaded.rcv = parse(cache.rcvJ); loaded.iss = parse(cache.issJ); thr.rcv = thr.iss = cache.savedAt - 60000; }
       else needFull.push('rcv', 'iss');
     }
-    var baseKey = pad13(now() - 120000);
+    var seq0 = await readSeq();               // পূর্ণ লোডের আগে সিকোয়েন্স জানা — লোডের সময়কার পরিবর্তনও পরে প্রয়োগ হবে
     if (needFull.length) {
       var full = await loadFull(needFull);
       needFull.forEach(function(k){
@@ -2723,7 +2760,7 @@ if('serviceWorker' in navigator){
       });
     }
     // ক্যাশের কোনো অংশ ব্যবহার হলে সেই ক্যাশের শেষ পয়েন্ট থেকে change-লগ চালানো (পুনরায় প্রয়োগ নিরাপদ — একই ফলাফল)
-    var from = (useN || useG) ? cache.lastChg : baseKey;
+    var from = (useN || useG) ? cache.lastSeq : seq0;
     V3.src = !needFull.length ? 'cache' : ((useN || useG) ? 'partial' : 'full');
 
     // লোকাল seed (localStorage) থেকে শুধু "সিঙ্কের পরে বানানো" এন্ট্রি pending হিসেবে রাখা হয়;
@@ -2815,8 +2852,9 @@ if('serviceWorker' in navigator){
     act().forEach(function(k){ removedBy[k].forEach(function(id){ ops.push({ k: k, id: id, m: S[k][id].m, o: 'd' }); }); });
     for (var i = 0; i < ops.length; i += CHUNK) {
       var chunk = ops.slice(i, i + CHUNK), up = {};
-      chunk.forEach(function(op){
-        var key = nextKey(), p = op.k + '/' + op.m + '/' + fkey(op.id);
+      var seqBase = await reserveSeq(chunk.length);
+      chunk.forEach(function(op, ci){
+        var key = seqKey(seqBase + ci), p = op.k + '/' + op.m + '/' + fkey(op.id);
         if (op.o === 's') {
           var rec = JSON.parse(op.j);
           up[p] = rec;
@@ -2922,12 +2960,13 @@ if('serviceWorker' in navigator){
     try {
       var last = Number(localStorage.getItem('igl_v3_pruned') || 0);
       if (Date.now() - last < 86400000) return;
-      var cut = pad13(now() - PRUNE_DAYS * 86400000);
-      db().ref(ROOT + '/chg').orderByKey().endAt(cut).limitToFirst(500).once('value').then(function(s){
+      var cutSeq = Math.max(V3.remoteSeq || 0, V3.lastSeq || 0) - 5000;      // সর্বশেষ ~৫০০০টি পরিবর্তন রাখা হয়
+      var cutKey = cutSeq > 0 ? seqKey(cutSeq) : '1~';                        // পুরনো (ঘড়ি-ভিত্তিক) কী গুলো সবসময় 's' এর আগে থাকে
+      db().ref(ROOT + '/chg').orderByKey().endAt(cutKey).limitToFirst(500).once('value').then(function(s){
         var v = s.val(); if (!v) { localStorage.setItem('igl_v3_pruned', String(Date.now())); return; }
         var up = {}; Object.keys(v).forEach(function(k){ up[k] = null; });
         return db().ref(ROOT + '/chg').update(up).then(function(){
-          return db().ref(ROOT + '/meta/chgFloor').set(cut);
+          return cutSeq > 0 ? db().ref(ROOT + '/meta/chgFloorSeq').set(cutSeq) : null;
         }).then(function(){ localStorage.setItem('igl_v3_pruned', String(Date.now())); });
       }).catch(function(){});
     } catch(e){}
@@ -3023,7 +3062,7 @@ if('serviceWorker' in navigator){
       V3.meta = meta; V3.epoch = epoch; V3.enabled = true; V3.decided = true;
       buildSynced('ndl', legN); buildSynced('ndlRcv', legR);
       KIND.ndl.set(legN.slice()); KIND.ndlRcv.set(legR.slice());
-      attachFeed(pad13(now() - 5000)); V3.ready = true; V3.error = null;
+      attachFeed(0); V3.ready = true; V3.error = null;
       persistSoon(300); updateUI(); watchMeta();
       alert('✅ Needle v3 চালু হয়েছে!\n\nNeedle Issue: ' + legN.length + '\nNeedle Receive: ' + legR.length + (ex ? '\n(সাথে ' + ex + 'টি আনসিঙ্কড এন্ট্রিও যোগ হয়েছে)' : '') + '\n\nপুরনো igl_erp ডাটা অক্ষত আছে।\n⚠️ অন্য সব ডিভাইসে নতুন index.html ফাইল ব্যবহার করুন।');
     } catch(e) {
@@ -12785,6 +12824,25 @@ function clearReceiveForm() {
 // 
 //  SAVE ISSUE
 // 
+// ── একই স্লিপ নাম্বার একই সিরিজে (Electrical / বাকি সব) অন্য তারিখে আগে ব্যবহার হয়েছে কি না ──
+function iglSlipDateConflict(slip, group, date) {
+  var s = String(slip || '').trim().toLowerCase();
+  if (!s || !date) return null;
+  var elec = (group === 'Electrical');
+  var yr = String(date).slice(0, 4);
+  var hits = (DB.issues || []).filter(function(r) {
+    if (!r || ['Stationery', 'Packaging', 'Needle'].indexOf(r.group) !== -1) return false;
+    if (String(r.slip || '').trim().toLowerCase() !== s) return false;
+    if ((r.group === 'Electrical') !== elec) return false;       // Electrical ↔ বাকি = আলাদা সিরিজ
+    if (!r.date || String(r.date).slice(0, 4) !== yr) return false;
+    return r.date !== date;
+  });
+  if (!hits.length) return null;
+  var dates = Array.from(new Set(hits.map(function(r) { return r.date; }))).sort();
+  var last = hits.slice().sort(function(a, b) { return (a.date < b.date ? -1 : a.date > b.date ? 1 : (Number(a.id) || 0) - (Number(b.id) || 0)); }).pop();
+  return { count: hits.length, dates: dates, last: last, series: elec ? 'Electrical' : 'অন্যান্য ক্যাটাগরি' };
+}
+
 async function saveIssue() {
   // ⚠️ Firebase থেকে প্রথম লোড সম্পূর্ণ না হওয়া পর্যন্ত নতুন কোনো Issue এন্ট্রি
   // সেভ করতে দেওয়া হবে না — একই কারণে যেই কারণে saveReceive()-এও একই গার্ড আছে।
@@ -12827,6 +12885,19 @@ async function saveIssue() {
     if (_dupIssue) {
       var _dupOk = await igl_confirm('⚠️ একই তারিখে (' + fmtDate(date) + ') মেশিন ' + machineNo + '-এ "' + item + '" আগে থেকেই ইস্যু করা আছে! আবার ইস্যু করবেন?', '', '⚠️');
       if (!_dupOk) return;
+    }
+  }
+
+  // ⚠️ একই স্লিপ নাম্বার (একই সিরিজে) আগে অন্য তারিখে ইস্যু হয়ে থাকলে সতর্ক করা — ভুল স্লিপ নাম্বার ধরার জন্য
+  var _slipC = iglSlipDateConflict(slip, group, date);
+  if (_slipC) {
+    window._gsSlipOk = window._gsSlipOk || {};
+    var _slipKey = _slipC.series + '|' + slip.trim().toLowerCase() + '|' + date;
+    if (!window._gsSlipOk[_slipKey]) {
+      var _dTxt = _slipC.dates.slice(-3).map(function(d){ return fmtDate(d); }).join(', ');
+      var _slipOk = await igl_confirm('⚠️ স্লিপ নাম্বার \"' + slip + '\" (' + _slipC.series + ') আগে ' + _dTxt + ' তারিখে ইস্যু হয়েছে (' + _slipC.count + 'টি এন্ট্রি, সর্বশেষ: ' + (_slipC.last.item || '') + '), কিন্তু এখন ' + fmtDate(date) + ' তারিখে ইস্যু করছেন। স্লিপ নাম্বার ঠিক আছে তো? তবুও ইস্যু করবেন?', '', '⚠️');
+      if (!_slipOk) return;
+      window._gsSlipOk[_slipKey] = true;      // একই স্লিপ+তারিখে পরের আইটেমগুলোতে আর জিজ্ঞেস করবে না
     }
   }
 
@@ -29693,15 +29764,16 @@ function renderOilItemLedger(itemName) {
   var isss = (DB.issues||[]).filter(function(r){ return r.item === itemName; });
 
   // BF তারিখ থেকে এই মাসের শুরুর আগের দিন পর্যন্ত balance এগিয়ে নিয়ে যাও (chain)
-  var cursor = new Date(bf.date + 'T00:00:00');
+  var _bfp = String(bf.date).split('-').map(Number);
+  var cursor = new Date(Date.UTC(_bfp[0], _bfp[1] - 1, _bfp[2]));
   var balance = Number(bf.qty) || 0;
-  var monthStart = new Date(year, month - 1, 1);
+  var monthStart = new Date(Date.UTC(year, month - 1, 1));
   while (cursor < monthStart) {
     var ds0 = cursor.toISOString().slice(0,10);
     var rcv0 = recs.filter(function(r){ return r.date === ds0; }).reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0);
     var iss0 = isss.filter(function(r){ return r.date === ds0; }).reduce(function(s,r){ return s + (Number(r.qty)||0); }, 0);
     balance = balance + rcv0 - iss0;
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   var daysInMonth = new Date(year, month, 0).getDate();
