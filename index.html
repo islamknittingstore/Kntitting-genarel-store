@@ -3172,6 +3172,51 @@ if('serviceWorker' in navigator){
 })();
 
 </script>
+<style id="igl-select-fit">
+/* General Store Receive/Issue ফর্ম: select-এর ভেতরের বাঁ-ডান বাড়তি ফাঁকা (আগে ১৮px) কমিয়ে লেখার জায়গা বাড়ানো */
+#page-receive .cf-pair select.form-control, #page-issue .cf-pair select.form-control { padding-left: 5px; padding-right: 2px; text-overflow: ellipsis; }
+/* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
+#page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
+</style>
+<script>
+/* লম্বা আইটেম/গ্রুপ নাম ঘরে না ধরলে ফন্ট ধাপে ধাপে ছোট হয় (সর্বনিম্ন 8.5px); সম্পূর্ণ নাম ঘরের ওপর মাউস রাখলে দেখা যায় */
+(function(){
+  var IDS = ['r-group', 'r-category', 'r-item', 'i-group', 'i-category', 'i-item', 'i-machine'];
+  var MIN = 8.5, state = {};
+  var cv = document.createElement('canvas').getContext('2d');
+  function fit(el){
+    if (!el || !el.options || el.selectedIndex < 0) return;
+    var o = el.options[el.selectedIndex], txt = (o && o.text) || '';
+    el.title = (txt && el.value) ? txt : '';
+    el.style.fontSize = '';
+    var w = el.clientWidth; if (!w) return;
+    var cs = getComputedStyle(el), base = parseFloat(cs.fontSize) || 12;
+    var avail = w - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0) - 24;   // ২৪ = ড্রপডাউন তীরের জায়গা
+    var size = base;
+    while (size > MIN) { cv.font = cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily; if (cv.measureText(txt).width <= avail) break; size -= 0.5; }
+    if (size < base) el.style.fontSize = size + 'px';
+    // সর্বনিম্ন ফন্টেও না ধরলে ঘরের নিচে সম্পূর্ণ নামটা ছোট লাইনে দেখানো — যাতে ঠিক আইটেম সিলেক্ট হয়েছে কি না বোঝা যায়
+    cv.font = cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+    var tooLong = txt && el.value && cv.measureText(txt).width > avail;
+    var par = el.parentNode, cap = par.querySelector('.igl-fullname');
+    if (tooLong && (el.id === 'r-item' || el.id === 'i-item' || el.id === 'r-category' || el.id === 'i-category')) {
+      if (!cap) { cap = document.createElement('div'); cap.className = 'igl-fullname'; cap.style.cssText = 'flex:0 0 100%;font-size:10.5px;font-weight:700;color:#1a5276;line-height:1.25;word-break:break-word;margin-top:1px;'; par.appendChild(cap); }
+      cap.textContent = '✔ ' + txt;
+      cap.style.marginLeft = Math.max(0, el.getBoundingClientRect().left - par.getBoundingClientRect().left) + 'px';
+      par.style.flexWrap = 'wrap';
+    } else if (cap) { cap.remove(); par.style.flexWrap = ''; }
+  }
+  window.iglFitSelectText = fit;
+  setInterval(function(){
+    IDS.forEach(function(id){
+      var el = document.getElementById(id); if (!el) return;
+      var o = el.options[el.selectedIndex], k = (o ? o.text : '') + '|' + el.clientWidth;
+      if (state[id] !== k) { state[id] = k; fit(el); }
+    });
+  }, 400);
+  document.addEventListener('change', function(e){ if (e.target && IDS.indexOf(e.target.id) >= 0) fit(e.target); }, true);
+})();
+</script>
 <style id="igl-bw-print-style">
 @media print {
   html,body,*,*::before,*::after{color:#000 !important;background:transparent !important;background-image:none !important;text-shadow:none !important;box-shadow:none !important;-webkit-text-fill-color:#000 !important;border-color:#000 !important;}
