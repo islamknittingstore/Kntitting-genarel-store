@@ -43753,7 +43753,7 @@ function drgDeleteHistory(date) {
     var h = '<div class="il-item-block' + (newPage ? ' il-brk' : '') + '"><table class="il-tbl">' +
       '<colgroup><col style="width:4%"><col style="width:8%"><col style="width:10%"><col style="width:7%"><col style="width:15%">' +
       '<col style="width:5.5%"><col style="width:6%"><col style="width:7%"><col style="width:5.5%"><col style="width:6%"><col style="width:7%"><col style="width:5.5%"><col style="width:6%"><col style="width:7.5%"></colgroup>' +
-      '<thead><tr>' +
+      '<thead><tr class="il-desc"><td colspan="14">' + esc(itemLine(b)) + '</td></tr><tr>' +
         '<th class="il-hb" rowspan="2">SL</th><th class="il-hb" rowspan="2">Trans Date</th><th class="il-hb" rowspan="2">Slip/Chalan No</th><th class="il-hb" rowspan="2">Trans Type</th><th class="il-hb" rowspan="2">Trans With</th>' +
         '<th class="il-hg" colspan="3">Receive</th><th class="il-hp" colspan="3">Issue</th><th class="il-ht" colspan="3">Balance</th></tr><tr>' +
         '<th class="il-hg">Qnty</th><th class="il-hg">Rate</th><th class="il-hg">Value</th>' +
@@ -43764,7 +43764,6 @@ function drgDeleteHistory(date) {
     var C = function(k){ return HL[b.name + '|' + k] ? ' il-hl' : ''; };
     h += '<tr class="il-open' + C('open') + '"' + K('open') + '><td colspan="5" style="text-align:right;">Opening Balance' + (b.bfRateAssumed ? ' <span style="font-weight:500;font-size:10px;color:#7d6608;">(B/F রেট = প্রথম Receive-এর রেট)</span>' : '') + '</td>' +
       '<td colspan="6"></td><td class="il-t il-n">' + q3(o.qty) + '</td><td class="il-t il-n">' + m2(o.rate) + '</td><td class="il-t il-n">' + m2(o.value) + '</td></tr>';
-    h += '<tr class="il-desc' + C('desc') + '"' + K('desc') + '><td colspan="14">' + esc(itemLine(b)) + '</td></tr>';
     if (!b.rows.length) h += '<tr><td colspan="14" style="text-align:center;color:#888;padding:14px;">এই সময়ে এই আইটেমের কোনো Receive / Issue এন্ট্রি নেই</td></tr>';
     b.rows.forEach(function(r, i){
       var isR = r.t === 'R';
@@ -43853,6 +43852,10 @@ function drgDeleteHistory(date) {
 
         var r = 5;
         d.blocks.forEach(function(b, bi){
+          // Item লাইন — প্রতিটা আইটেমের একেবারে ওপরে (SL হেডারের আগে)
+          ws.mergeCells(r, 1, r, 14);
+          var ic = ws.getCell(r, 1); ic.value = itemLine(b); ic.font = { bold: true }; ic.border = border;
+          r++;
           // হেডার (২ সারি)
           var h1 = r, h2 = r + 1;
           ['SL','Trans Date','Slip/Chalan No','Trans Type','Trans With'].forEach(function(t, i){
@@ -43876,10 +43879,6 @@ function drgDeleteHistory(date) {
             var cl = ws.getCell(r, c1); cl.border = border; cl.font = { bold: true }; fill(cl, c1 >= 12 ? TEAL : TAN);
             if (c1 >= 12) { cl.alignment = { horizontal: 'right' }; if (c1 > 12) cl.numFmt = '#,##0.00'; }
           }
-          r++;
-          // Item লাইন
-          ws.mergeCells(r, 1, r, 14);
-          var ic = ws.getCell(r, 1); ic.value = itemLine(b); ic.font = { bold: true }; ic.border = border;
           r++;
           // ডাটা সারি
           b.rows.forEach(function(x, i){
