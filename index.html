@@ -3177,6 +3177,7 @@ if('serviceWorker' in navigator){
 #page-receive .cf-pair select.form-control, #page-issue .cf-pair select.form-control { padding-left: 5px; padding-right: 2px; text-overflow: ellipsis; }
 /* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
+@media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 </style>
 <script>
 /* লম্বা আইটেম/গ্রুপ নাম ঘরে না ধরলে ফন্ট ধাপে ধাপে ছোট হয় (সর্বনিম্ন 8.5px); সম্পূর্ণ নাম ঘরের ওপর মাউস রাখলে দেখা যায় */
@@ -5454,9 +5455,9 @@ window.iglSaveNavVisibility = function() {
       <div class="card-header" style="background:#eaf2f8;">
         <span>👁️ Preview</span>
       </div>
-      <div class="card-body" style="overflow-x:auto;">
+      <div class="card-body" style="overflow:visible;">
         <div id="gmr-preview-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" class="no-print"></div>
-        <div id="gmr-preview-content"></div>
+        <div id="gmr-preview-content" style="max-height:calc(100vh - 250px);min-height:220px;overflow:auto;"></div>
       </div>
     </div>
 
@@ -13552,7 +13553,7 @@ function gsRenderPreviewExcelJS(wb, group, items){
   // অ্যাপের ফিক্সড টপ-বার-এর ঠিক নিচে বসে; দুই লেভেলের হেডার থাকলে (item + sub-column)
   // দ্বিতীয় লেভেলটা প্রথম লেভেলের প্রকৃত উচ্চতা মেপে তার নিচে বসানো হয়
   function stickifyHeaders(root){
-    var navOffset = 60; // var(--navbar-h)
+    var navOffset = 0; // হেডার এখন প্রিভিউ-বক্সের (gmr-preview-content) ভেতরে স্ক্রল-বক্সের মাথায় আটকে থাকে
     var lvl1 = root.querySelectorAll('.gmr-sh-lvl1');
     var lvl2 = root.querySelectorAll('.gmr-sh-lvl2');
     lvl1.forEach(function(el){
