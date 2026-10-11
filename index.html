@@ -3178,6 +3178,10 @@ if('serviceWorker' in navigator){
 /* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
+/* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
+#cs-report .table-wrap { max-height: calc(100vh - 260px); min-height: 220px; overflow: auto; }
+#cs-report .table-wrap thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
+@media print { #cs-report .table-wrap { max-height: none !important; overflow: visible !important; } #cs-report .table-wrap thead th { position: static !important; box-shadow: none !important; } }
 </style>
 <script>
 /* লম্বা আইটেম/গ্রুপ নাম ঘরে না ধরলে ফন্ট ধাপে ধাপে ছোট হয় (সর্বনিম্ন 8.5px); সম্পূর্ণ নাম ঘরের ওপর মাউস রাখলে দেখা যায় */
