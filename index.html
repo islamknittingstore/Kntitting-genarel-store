@@ -3179,6 +3179,11 @@ if('serviceWorker' in navigator){
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 /* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
+/* Needle সেকশন — Monthly Machine Wise (New/Used) ও Machine Wise + Production: স্ক্রল করলেও ডেট-লাইন (১,২,৩…৩১) ওপরে আটকে থাকবে।
+   শুধু CSS (স্ক্রল-বক্স + sticky); কোনো হিসাব বা ডাটা-কোড বদলায়নি */
+#needleMonthlyGrid, #usedNeedleMonthlyGrid, #needleMonthlyProdGrid { max-height: calc(100vh - 240px); min-height: 220px; overflow: auto; }
+#needleMonthlyGrid thead th, #usedNeedleMonthlyGrid thead th, #needleMonthlyProdGrid thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
+@media print { #needleMonthlyProdGrid { max-height: none !important; overflow: visible !important; } #needleMonthlyProdGrid thead th { position: static !important; box-shadow: none !important; } #needleMonthlyGrid thead th, #usedNeedleMonthlyGrid thead th { position: static !important; box-shadow: none !important; } }
 #cs-report .table-wrap { max-height: calc(100vh - 260px); min-height: 220px; overflow: auto; }
 #cs-report .table-wrap thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
 @media print { #cs-report .table-wrap { max-height: none !important; overflow: visible !important; } #cs-report .table-wrap thead th { position: static !important; box-shadow: none !important; } }
