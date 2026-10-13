@@ -3184,6 +3184,10 @@ if('serviceWorker' in navigator){
 #needleMonthlyGrid, #usedNeedleMonthlyGrid, #needleMonthlyProdGrid { max-height: calc(100vh - 240px); min-height: 220px; overflow: auto; }
 #needleMonthlyGrid thead th, #usedNeedleMonthlyGrid thead th, #needleMonthlyProdGrid thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
 @media print { #needleMonthlyProdGrid { max-height: none !important; overflow: visible !important; } #needleMonthlyProdGrid thead th { position: static !important; box-shadow: none !important; } #needleMonthlyGrid thead th, #usedNeedleMonthlyGrid thead th { position: static !important; box-shadow: none !important; } }
+/* General Store — Oil vs Production (Machine Wise ও Date Wise Excel Super/Textol Oil): স্ক্রল করলেও হেডার (তারিখ/ডেট-লাইন) ওপরে আটকে থাকবে। শুধু CSS, কোনো হিসাব বদলায়নি */
+#oilMonthlyProdGrid, #oilLedgerSection { max-height: calc(100vh - 240px); overflow: auto; border-top: 1px solid #1c2833; }
+#oilMonthlyProdGrid thead th, #oilLedgerSection thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
+@media print { #oilMonthlyProdGrid, #oilLedgerSection { max-height: none !important; overflow: visible !important; } #oilMonthlyProdGrid thead th, #oilLedgerSection thead th { position: static !important; box-shadow: none !important; } }
 #cs-report .table-wrap { max-height: calc(100vh - 260px); min-height: 220px; overflow: auto; }
 #cs-report .table-wrap thead th { position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 0 #000; }
 @media print { #cs-report .table-wrap { max-height: none !important; overflow: visible !important; } #cs-report .table-wrap thead th { position: static !important; box-shadow: none !important; } }
