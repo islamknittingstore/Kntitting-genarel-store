@@ -9163,6 +9163,13 @@ function ok(msg) {
               title="Print Font Size (pt)">
             <span style="font-size:10px;color:#888;">pt</span>
           </span>
+          <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">📄 Paper:</label>
+            <select id="rna-orient" onchange="try{localStorage.setItem('igl_rna_orient',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;" title="প্রিন্টের কাগজের দিক (Landscape / Portrait)">
+              <option value="landscape">Landscape</option>
+              <option value="portrait">Portrait</option>
+            </select>
+          </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
@@ -9437,6 +9444,13 @@ function ok(msg) {
               onchange="localStorage.setItem('igl_rna_font_size',this.value)"
               title="Print Font Size (pt)">
             <span style="font-size:10px;color:#888;">pt</span>
+          </span>
+          <span class="no-print" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">📄 Paper:</label>
+            <select id="rna-orient" onchange="try{localStorage.setItem('igl_rna_orient',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;" title="প্রিন্টের কাগজের দিক (Landscape / Portrait)">
+              <option value="landscape">Landscape</option>
+              <option value="portrait">Portrait</option>
+            </select>
           </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
@@ -34370,6 +34384,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // ── Print All: কোন কোন পেজ প্রিন্ট হবে তার সিলেকশন (ডিফল্ট হিসেবে সেভ থাকে) ──
+  // প্রিন্টের কাগজের দিক: 'landscape' (ডিফল্ট) বা 'portrait' — ড্রপডাউন থেকে, না থাকলে মনে-রাখা পছন্দ থেকে
+  function rnaOrient(){
+    var v = (document.getElementById('rna-orient') || {}).value;
+    if (!v) { try { v = localStorage.getItem('igl_rna_orient'); } catch(e){} }
+    return v === 'portrait' ? 'portrait' : 'landscape';
+  }
   function rnaGetPrintAllSelection(){
     try{
       var raw = localStorage.getItem('igl_rna_printall_pages');
@@ -34397,6 +34417,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
   function rnaInitPrintAllCheckboxes(){
     var sel = rnaGetPrintAllSelection();
+    try { var _ro = document.getElementById('rna-orient'); if (_ro) _ro.value = (localStorage.getItem('igl_rna_orient') === 'portrait') ? 'portrait' : 'landscape'; } catch(e){}
     document.querySelectorAll('.rna-printall-chk').forEach(function(chk){
       var idx = parseInt(chk.getAttribute('data-page'),10) - 1;
       chk.checked = !!sel[idx];
@@ -34427,8 +34448,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       return '<div class="rna-print-page">' + _rnaTabData[i] + '</div>';
     }).join('');
 
-    var css = _rnaPrintCSS('A4 landscape', '6mm', fontSize);
-    var win = window.open('', '_blank', 'width=1200,height=800');
+    var _or = rnaOrient();
+    var css = _rnaPrintCSS('A4 ' + _or, '6mm', fontSize);
+    var win = window.open('', '_blank', _or === 'portrait' ? 'width=860,height=1100' : 'width=1200,height=800');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account</title><style>' + css + '</style></head><body>' + bodyHTML + '</body></html>');
     win.document.close();
     win.focus();
@@ -34455,7 +34477,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + _rnaTabData[tabIdx]
       + '</div>';
 
-    var css = _rnaPrintCSS('A4 landscape', '6mm 8mm', fontSize);
+    var _or = rnaOrient(), _pw = (_or === 'portrait' ? 210 : 297), _ph = (_or === 'portrait' ? 297 : 210);
+    var css = _rnaPrintCSS('A4 ' + _or, '6mm 8mm', fontSize);
 
     var fitScript = '<script>window.onload=function(){'
       + 'var el=document.getElementById("rna-content-wrap");'
@@ -34463,13 +34486,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + 'var tbl=el.querySelector("table");'
       + 'if(!tbl)return;'
       + 'var mmPx=96/25.4;'
-      + 'var availW=(297-16)*mmPx;'
-      + 'var availH=(210-12)*mmPx;'
+      + 'var availW=(' + (_pw-16) + ')*mmPx;'
+      + 'var availH=(' + (_ph-12) + ')*mmPx;'
       + 'var tblW=tbl.offsetWidth;'
       + 'var tblH=el.offsetHeight;'
       + 'var zoomW=tblW>0?availW/tblW:1;'
       + 'var zoomH=tblH>0?availH/tblH:1;'
-      + 'var zoom=Math.min(zoomW,zoomH,1);'
+      + 'var zoom=' + (_or === 'portrait' ? 'Math.min(zoomW,1)' : 'Math.min(zoomW,zoomH,1)') + ';'
       + 'if(zoom<1){document.body.style.zoom=zoom;}'
       + 'setTimeout(function(){window.print();},400);'
       + '};<\/script>';
@@ -34484,7 +34507,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       tabExtraCss='';
     }
 
-    var win = window.open('', '_blank', 'width=1400,height=900');
+    var win = window.open('', '_blank', (_or === 'portrait' ? 'width=860,height=1100' : 'width=1400,height=900'));
     var _rnaTabNamesForTitle = RNA_TAB_NAMES || ['S/J & Fleece','Rib & Interlock','Sinker','Jacquard'];
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account — ' + _rnaTabNamesForTitle[tabIdx] + '</title><style>' + css + combinedExtraCss + tabExtraCss + '</style></head><body>' + bodyHTML + fitScript + '</body></html>');
     win.document.close();
