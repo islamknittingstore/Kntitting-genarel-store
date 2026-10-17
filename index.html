@@ -9170,6 +9170,9 @@ function ok(msg) {
               <option value="portrait">Portrait</option>
             </select>
           </span>
+          <label class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর লুকানো থাকবে (জায়গা বাঁচে)" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;font-size:11px;color:#555;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="rna-hide-empty" checked onchange="try{localStorage.setItem('igl_rna_hide_empty',this.checked?'1':'0')}catch(e){}" style="margin:0;cursor:pointer;"> ফাঁকা ঘর লুকান
+          </label>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
@@ -9452,6 +9455,9 @@ function ok(msg) {
               <option value="portrait">Portrait</option>
             </select>
           </span>
+          <label class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর লুকানো থাকবে (জায়গা বাঁচে)" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;font-size:11px;color:#555;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="rna-hide-empty" checked onchange="try{localStorage.setItem('igl_rna_hide_empty',this.checked?'1':'0')}catch(e){}" style="margin:0;cursor:pointer;"> ফাঁকা ঘর লুকান
+          </label>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
@@ -34384,6 +34390,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // ── Print All: কোন কোন পেজ প্রিন্ট হবে তার সিলেকশন (ডিফল্ট হিসেবে সেভ থাকে) ──
+  // প্রিন্টে ফাঁকা (নিডেল-নেই) মেশিন-ঘর লুকানো হবে কি না — টিক-বক্স থেকে; না থাকলে মনে-রাখা পছন্দ; কিছুই না থাকলে ডিফল্ট = লুকানো
+  function rnaHideEmpty(){
+    var el = document.getElementById('rna-hide-empty');
+    if (el) return !!el.checked;
+    try { var v = localStorage.getItem('igl_rna_hide_empty'); if (v === '0') return false; } catch(e){}
+    return true;
+  }
   // প্রিন্টের কাগজের দিক: 'landscape' (ডিফল্ট) বা 'portrait' — ড্রপডাউন থেকে, না থাকলে মনে-রাখা পছন্দ থেকে
   function rnaOrient(){
     var v = (document.getElementById('rna-orient') || {}).value;
@@ -34418,6 +34431,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function rnaInitPrintAllCheckboxes(){
     var sel = rnaGetPrintAllSelection();
     try { var _ro = document.getElementById('rna-orient'); if (_ro) _ro.value = (localStorage.getItem('igl_rna_orient') === 'portrait') ? 'portrait' : 'landscape'; } catch(e){}
+    try { var _he = document.getElementById('rna-hide-empty'); if (_he) _he.checked = (localStorage.getItem('igl_rna_hide_empty') !== '0'); } catch(e){}
     document.querySelectorAll('.rna-printall-chk').forEach(function(chk){
       var idx = parseInt(chk.getAttribute('data-page'),10) - 1;
       chk.checked = !!sel[idx];
@@ -34533,6 +34547,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'td:nth-child(2), td:nth-child(3), td:nth-child(n+5) { white-space: nowrap; text-align: center; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
+      (rnaHideEmpty() ? '.rna-empty { display: none !important; }' : ''),
       'button { display: none !important; }',
     ].join('\n');
   }
@@ -35157,7 +35172,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
             +'<span style="font-size:'+qtyFs+';font-weight:900;display:block;white-space:nowrap;overflow:hidden;line-height:1.4;color:#000;text-align:left;">'+qty+'</span>'
             +'</span>';
         } else {
-          machineCells += '<span style="display:inline-block;border:1px solid #eee;border-radius:2px;margin:0 1px;padding:1px 1px;background:#f9f9f9;width:'+cellW+'px;overflow:hidden;vertical-align:top;">'
+          machineCells += '<span class="rna-empty" style="display:inline-block;border:1px solid #eee;border-radius:2px;margin:0 1px;padding:1px 1px;background:#f9f9f9;width:'+cellW+'px;overflow:hidden;vertical-align:top;">'
             +'<span style="font-size:'+lblFs+';display:block;line-height:1.4;">&nbsp;</span>'
             +'<span style="font-size:'+qtyFs+';display:block;line-height:1.4;">&nbsp;</span>'
             +'</span>';
