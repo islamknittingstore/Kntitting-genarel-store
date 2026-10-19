@@ -2456,7 +2456,7 @@ if('serviceWorker' in navigator){
 (function(){
   'use strict';
   var ROOT = 'igl_v3';
-  var BUILD = 'v3-gs-1';
+  var BUILD = 'v3-gs-2';
   var CHUNK = 250;                 // একবারে সর্বোচ্চ কয়টা এন্ট্রি লেখা
   var PRUNE_DAYS = 45;             // এর চেয়ে পুরনো change-লগ মোছা হয়
   var RECENT_MS = 7 * 86400000;
@@ -2580,7 +2580,7 @@ if('serviceWorker' in navigator){
     _persistT = setTimeout(persistNow, delay == null ? 8000 : delay);
   }
   function persistNow(){
-    if (!V3.enabled || !V3.ready) return Promise.resolve(false);
+    if (!V3.enabled || !V3.ready || V3._noPersist) return Promise.resolve(false);
     // ⚠️ শুধু সার্ভারের সাথে মিলে থাকা (synced) অবস্থা সেভ হয় — আনসিঙ্কড এন্ট্রি নয়
     var rec = {
       enabled: true, epoch: V3.epoch, lastSeq: V3.lastSeq, savedAt: Date.now(),
@@ -2674,10 +2674,96 @@ if('serviceWorker' in navigator){
         var q = Number(s.val()) || 0; V3.remoteSeq = q;
         if (q > V3.lastSeq) { clearTimeout(_wdT); _wdT = setTimeout(function(){ if (V3.remoteSeq > V3.lastSeq) catchUp(); }, 4000); }
       });
-      document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') checkSeq(); });
+      document.addEventListener('visibilitychange', function(){
+        if (document.visibilityState === 'hidden') { _hiddenAt = Date.now(); return; }
+        if (document.visibilityState === 'visible') {
+          checkSeq();
+          if (_hiddenAt && Date.now() - _hiddenAt > 120000) setTimeout(function(){ reconcile(autoKinds()).then(function(r){ if (r && r.total) say('🔄 সার্ভার থেকে ' + r.total + 'টি এন্ট্রি মিলিয়ে নেওয়া হয়েছে', 'info'); }); }, 1500);
+          _hiddenAt = 0;
+        }
+      });
       window.addEventListener('online', function(){ setTimeout(checkSeq, 1500); });
     } catch(e){ console.warn(e); }
   }
+
+  // ───────────── সার্ভারের সাথে মিলিয়ে নেওয়া (হারানো এন্ট্রি ফেরানো) ─────────────
+  // change-লগ/লাইভ ফিড কোনো কারণে (মোবাইল ব্যাকগ্রাউন্ড, নেট ওঠানামা, পুরনো ক্যাশ ইত্যাদি) কিছু মিস করলেও চলতি ও আগের মাসের নোড
+  // সরাসরি সার্ভারের সাথে মিলিয়ে ঠিক করে দেয়। ছোট নোড (Needle Receive, Store Receive/Issue) অ্যাপ খুললে ও ব্যাকগ্রাউন্ড থেকে ফিরলে নিজে থেকে।
+  var _rcBusy = false, _hiddenAt = 0;
+  function autoKinds(){ return ['ndlRcv'].concat(V3.gs ? ['rcv', 'iss'] : []); }
+  function monthKeys(){
+    var d = new Date(), y = d.getFullYear(), m = d.getMonth() + 1;
+    var py = (m === 1) ? y - 1 : y, pm = (m === 1) ? 12 : m - 1;
+    return [y + '-' + ('0' + m).slice(-2), py + '-' + ('0' + pm).slice(-2)];
+  }
+  function reconcile(kinds){
+    if (!V3.enabled || !V3.ready || _rcBusy) return Promise.resolve(null);
+    _rcBusy = true;
+    var months = monthKeys(), jobs = [];
+    kinds.forEach(function(k){ months.forEach(function(m){
+      jobs.push(db().ref(ROOT + '/' + k + '/' + m).once('value').then(function(sn){ return { k: k, m: m, srv: sn.val() || {} }; }));
+    }); });
+    return Promise.all(jobs).then(function(res){
+      var rep = { added: {}, updated: {}, removed: {}, skipped: 0, total: 0 };
+      kinds.forEach(function(k){ rep.added[k] = 0; rep.updated[k] = 0; rep.removed[k] = 0; });
+      res.forEach(function(x){
+        var k = x.k, srv = x.srv, local = {};
+        KIND[k].get().forEach(function(r){ if (r && r.id != null) local[String(r.id)] = r; });
+        // সার্ভারে আছে, এখানে নেই (বা এখানে পুরনো অবস্থায়)
+        Object.keys(srv).forEach(function(fid){
+          var r = srv[fid]; if (!r || r.id == null) return;
+          var id = String(r.id); if (tombed(k, r)) return;
+          var cur = local[id], sj = jstr(r);
+          if (!cur) { W[k].push({ id: id, rec: r }); S[k][id] = { m: monthOf(r), j: sj }; rep.added[k]++; }
+          else if (jstr(cur) !== sj) {
+            var s0 = S[k][id];
+            if (s0 && s0.j === jstr(cur)) { W[k].push({ id: id, rec: r }); S[k][id] = { m: monthOf(r), j: sj }; rep.updated[k]++; }   // লোকালে অসিঙ্কড বদল থাকলে ছোঁয়া হয় না
+          }
+        });
+        // সার্ভারে নেই অথচ এখানে সিঙ্ক-করা (অন্য ডিভাইসে ডিলিট) — নিরাপত্তা-সীমাসহ
+        var gone = Object.keys(S[k]).filter(function(id){
+          return S[k][id].m === x.m && !srv[fkey(id)] && local[id] && jstr(local[id]) === S[k][id].j;
+        });
+        if (gone.length && (Object.keys(srv).length > 0 || gone.length <= 3) && gone.length <= 25) {
+          gone.forEach(function(id){ W[k].push({ id: id, rec: null }); delete S[k][id]; rep.removed[k]++; });
+        } else if (gone.length) { rep.skipped += gone.length; }
+      });
+      kinds.forEach(function(k){ rep.total += rep.added[k] + rep.updated[k] + rep.removed[k]; });
+      if (rep.total) { flushWork(); }
+      return rep;
+    }).catch(function(e){ console.warn('v3 reconcile', e); return null; }).then(function(r){ _rcBusy = false; return r; });
+  }
+  V3.reconcile = reconcile;
+
+  var KLABEL = { ndl: 'Needle Issue', ndlRcv: 'Needle Receive', rcv: 'Store Receive', iss: 'Store Issue' };
+  // হাতে চাপার বাটন: সব সক্রিয় ধরনের চলতি ও আগের মাস সার্ভারের সাথে মিলিয়ে ঠিক করে ও রিপোর্ট দেয়
+  V3.verify = async function(){
+    if (!V3.enabled || !V3.ready) { alert('v3 প্রস্তুত নয়।'); return; }
+    var st = document.getElementById('igl-v3-status');
+    if (st) st.textContent = '⏳ সার্ভারের সাথে মিলিয়ে দেখা হচ্ছে...';
+    var rep = await reconcile(act());
+    updateUI();
+    if (!rep) { alert('⚠️ এখন যাচাই করা যায়নি (আগের কাজ চলছে বা নেট সমস্যা)। একটু পরে আবার চেষ্টা করুন।'); return; }
+    if (!rep.total) { alert('✅ সব ঠিক আছে — এই ডিভাইসের ডাটা সার্ভারের (চলতি ও আগের মাস) সাথে মিলে গেছে।' + (rep.skipped ? '\n(নিরাপত্তার জন্য ' + rep.skipped + 'টি সন্দেহজনক মুছে-ফেলা এন্ট্রি ছোঁয়া হয়নি)' : '')); return; }
+    var lines = [];
+    act().forEach(function(k){ var a = rep.added[k], u = rep.updated[k], d = rep.removed[k]; if (a || u || d) lines.push('• ' + KLABEL[k] + ': ' + a + 'টি যোগ' + (u ? ', ' + u + 'টি হালনাগাদ' : '') + (d ? ', ' + d + 'টি বাদ (অন্য ডিভাইসে মোছা)' : '')); });
+    alert('🔄 সার্ভারের সাথে মিলিয়ে ঠিক করা হয়েছে:\n\n' + lines.join('\n'));
+  };
+
+  // এক-চাপে পূর্ণ রিসিঙ্ক: এই ডিভাইসের v3 ক্যাশ মুছে সার্ভার থেকে সব নতুন করে নামানো (সার্ভারের ডাটা অক্ষত থাকে)
+  V3.resync = async function(){
+    if (!confirm('🔄 এই ডিভাইসের v3 ক্যাশ মুছে সার্ভার থেকে সব Needle/Store ডাটা নতুন করে নামানো হবে (একবার ~৫MB ডাউনলোড)।\n\nসার্ভারের কোনো ডাটা মুছবে না বা বদলাবে না। চালিয়ে যাবেন?')) return;
+    var st = document.getElementById('igl-v3-status');
+    if (st) st.textContent = '⏳ ক্যাশ মুছে রিলোড হচ্ছে...';
+    V3._noPersist = true;
+    try {
+      await idbOpen().then(function(d){ return new Promise(function(res){
+        var tx = d.transaction('kv', 'readwrite'); tx.objectStore('kv').delete('cache');
+        tx.oncomplete = function(){ res(true); }; tx.onerror = function(){ res(false); };
+      }); });
+    } catch(e){}
+    setTimeout(function(){ location.reload(); }, 400);
+  };
 
   // ───────────── শুরু (অ্যাপ খুললে) ─────────────
   function loadFull(kinds){
@@ -2792,7 +2878,7 @@ if('serviceWorker' in navigator){
     watchMeta(); updateUI(); scheduleRefresh();
     if (pending) { say('⚠️ ' + pending + 'টি pending এন্ট্রি সিঙ্ক হচ্ছে', 'warning'); setTimeout(function(){ if (window.fbSaveAll) window.fbSaveAll(); }, 1500); }
     persistSoon(500);
-    if (!offlineMode) setTimeout(pruneChanges, 20000);
+    if (!offlineMode) { setTimeout(pruneChanges, 20000); setTimeout(function(){ reconcile(autoKinds()).then(function(r){ if (r && r.total) say('🔄 সার্ভার থেকে ' + r.total + 'টি এন্ট্রি মিলিয়ে নেওয়া হয়েছে', 'info'); }); }, 3500); }
   }
 
   // মেটা পরিবর্তন (অন্য ডিভাইসে মাইগ্রেশন/রিবিল্ড) হলে এই ডিভাইস রিলোড হবে
@@ -3151,13 +3237,15 @@ if('serviceWorker' in navigator){
       var n = Object.keys(S.ndl).length;
       st.textContent = '✅ Needle v3 সক্রিয় (' + (V3.src === 'cache' ? 'লোকাল ক্যাশ' : 'পূর্ণ লোড') + ') — ' + n + ' issue | ' +
         (V3.gs ? '🏪 Store v3 সক্রিয় — ' + Object.keys(S.rcv).length + ' receive, ' + Object.keys(S.iss).length + ' issue' : '🏪 Store v3: চালু নেই') +
-        (V3.error ? ' | ⚠️ ' + V3.error : '');
+        (V3.error ? ' | ⚠️ ' + V3.error : '') + ' | ' + BUILD;
       st.style.color = V3.error ? '#e67e22' : '#2ecc71';
       if (btn) btn.style.display = 'none';
       var gb = document.getElementById('igl-v3-gs-btn');
       if (gb) gb.style.display = (isAdmin() && !V3.gs) ? 'inline-block' : 'none';
       var rb = document.getElementById('igl-v3-recover-btn');
       if (rb) rb.style.display = isAdmin() ? 'inline-block' : 'none';
+      var vb = document.getElementById('igl-v3-verify-btn'); if (vb) vb.style.display = isAdmin() ? 'inline-block' : 'none';
+      var sb = document.getElementById('igl-v3-resync-btn'); if (sb) sb.style.display = isAdmin() ? 'inline-block' : 'none';
     } else if (V3.decided) {
       st.textContent = '🪡 Needle v3: চালু নেই (পুরনো পদ্ধতি চলছে)';
       st.style.color = '#aab7b8';
@@ -4608,6 +4696,8 @@ window.iglSaveNavVisibility = function() {
           <button id="igl-v3-migrate-btn" onclick="IGLV3.migrate();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.15);color:#2ecc71;cursor:pointer;font-weight:700;">🚀 Needle v3 চালু করুন (Admin)</button>
           <button id="igl-v3-recover-btn" onclick="IGLV3.recover();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(241,196,15,0.5);background:rgba(241,196,15,0.12);color:#f1c40f;cursor:pointer;font-weight:700;">🧰 পুরনো ডিভাইসের আটকে-থাকা এন্ট্রি উদ্ধার (Admin)</button>
           <button id="igl-v3-gs-btn" onclick="IGLV3.migrateGs();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(52,152,219,0.5);background:rgba(52,152,219,0.15);color:#5dade2;cursor:pointer;font-weight:700;margin-top:4px;">🏪 Store v3 চালু করুন (General/Stationery/Packaging) (Admin)</button>
+          <button id="igl-v3-verify-btn" onclick="IGLV3.verify();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.12);color:#58d68d;cursor:pointer;font-weight:700;margin-top:4px;">🩺 v3 যাচাই ও হারানো এন্ট্রি ফেরান (Admin)</button>
+          <button id="igl-v3-resync-btn" onclick="IGLV3.resync();" style="display:none;font-size:10px;padding:4px 12px;border-radius:8px;border:1px solid rgba(231,76,60,0.5);background:rgba(231,76,60,0.12);color:#ec7063;cursor:pointer;font-weight:700;margin-top:4px;">♻️ v3 ক্যাশ মুছে পূর্ণ রিসিঙ্ক (Admin)</button>
         </div>
         <div class="admin-only-action" style="margin-top:8px;padding-left:18px;border-top:1px solid #1e2d3d;padding-top:8px;">
           <div style="font-size:10px;color:#e67e22;margin-bottom:5px;">⚠️ শুধু Firebase সমস্যায় Admin ব্যবহার করবে:</div>
@@ -9170,9 +9260,14 @@ function ok(msg) {
               <option value="portrait">Portrait</option>
             </select>
           </span>
-          <label class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর লুকানো থাকবে (জায়গা বাঁচে)" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;font-size:11px;color:#555;cursor:pointer;white-space:nowrap;">
-            <input type="checkbox" id="rna-hide-empty" checked onchange="try{localStorage.setItem('igl_rna_hide_empty',this.checked?'1':'0')}catch(e){}" style="margin:0;cursor:pointer;"> ফাঁকা ঘর লুকান
-          </label>
+          <span class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর কীভাবে দেখাবে" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">▫️ ফাঁকা ঘর:</label>
+            <select id="rna-empty-mode" onchange="try{localStorage.setItem('igl_rna_empty_mode',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;">
+              <option value="align">অদৃশ্য (মেশিনের কলাম ঠিক থাকে)</option>
+              <option value="compact">ঘেঁষে বসানো (জায়গা বাঁচে)</option>
+              <option value="show">দেখানো (বর্ডারসহ)</option>
+            </select>
+          </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
@@ -9455,9 +9550,14 @@ function ok(msg) {
               <option value="portrait">Portrait</option>
             </select>
           </span>
-          <label class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর লুকানো থাকবে (জায়গা বাঁচে)" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;font-size:11px;color:#555;cursor:pointer;white-space:nowrap;">
-            <input type="checkbox" id="rna-hide-empty" checked onchange="try{localStorage.setItem('igl_rna_hide_empty',this.checked?'1':'0')}catch(e){}" style="margin:0;cursor:pointer;"> ফাঁকা ঘর লুকান
-          </label>
+          <span class="no-print" title="প্রিন্টে নিডেল-নেই ফাঁকা মেশিন-ঘর কীভাবে দেখাবে" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 8px;margin-top:16px;">
+            <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">▫️ ফাঁকা ঘর:</label>
+            <select id="rna-empty-mode" onchange="try{localStorage.setItem('igl_rna_empty_mode',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;">
+              <option value="align">অদৃশ্য (মেশিনের কলাম ঠিক থাকে)</option>
+              <option value="compact">ঘেঁষে বসানো (জায়গা বাঁচে)</option>
+              <option value="show">দেখানো (বর্ডারসহ)</option>
+            </select>
+          </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
         <span class="no-print" id="rna-printall-pages" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 10px;margin-top:16px;">
             <label style="font-size:11px;color:#555;margin:0;white-space:nowrap;">🖨️ Pages:</label>
@@ -34390,12 +34490,13 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   }
 
   // ── Print All: কোন কোন পেজ প্রিন্ট হবে তার সিলেকশন (ডিফল্ট হিসেবে সেভ থাকে) ──
-  // প্রিন্টে ফাঁকা (নিডেল-নেই) মেশিন-ঘর লুকানো হবে কি না — টিক-বক্স থেকে; না থাকলে মনে-রাখা পছন্দ; কিছুই না থাকলে ডিফল্ট = লুকানো
-  function rnaHideEmpty(){
-    var el = document.getElementById('rna-hide-empty');
-    if (el) return !!el.checked;
-    try { var v = localStorage.getItem('igl_rna_hide_empty'); if (v === '0') return false; } catch(e){}
-    return true;
+  // প্রিন্টে ফাঁকা (নিডেল-নেই) মেশিন-ঘর কীভাবে থাকবে: 'align' = অদৃশ্য কিন্তু জায়গা ধরা (প্রতিটা মেশিন সব সারিতে একই কলামে — ডিফল্ট),
+  // 'compact' = সরিয়ে ফেলা (ভরা ঘর বাঁ দিকে ঘেঁষে বসে), 'show' = বর্ডারসহ দেখানো (আগের মতো)
+  function rnaEmptyMode(){
+    var v = (document.getElementById('rna-empty-mode') || {}).value;
+    if (!v) { try { v = localStorage.getItem('igl_rna_empty_mode'); } catch(e){} }
+    if (!v) { try { if (localStorage.getItem('igl_rna_hide_empty') === '0') v = 'show'; } catch(e){} }
+    return (v === 'compact' || v === 'show') ? v : 'align';
   }
   // প্রিন্টের কাগজের দিক: 'landscape' (ডিফল্ট) বা 'portrait' — ড্রপডাউন থেকে, না থাকলে মনে-রাখা পছন্দ থেকে
   function rnaOrient(){
@@ -34431,7 +34532,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function rnaInitPrintAllCheckboxes(){
     var sel = rnaGetPrintAllSelection();
     try { var _ro = document.getElementById('rna-orient'); if (_ro) _ro.value = (localStorage.getItem('igl_rna_orient') === 'portrait') ? 'portrait' : 'landscape'; } catch(e){}
-    try { var _he = document.getElementById('rna-hide-empty'); if (_he) _he.checked = (localStorage.getItem('igl_rna_hide_empty') !== '0'); } catch(e){}
+    try { var _em = document.getElementById('rna-empty-mode'); if (_em) { var _mv = localStorage.getItem('igl_rna_empty_mode'); if (!_mv && localStorage.getItem('igl_rna_hide_empty') === '0') _mv = 'show'; _em.value = (_mv === 'compact' || _mv === 'show') ? _mv : 'align'; } } catch(e){}
     document.querySelectorAll('.rna-printall-chk').forEach(function(chk){
       var idx = parseInt(chk.getAttribute('data-page'),10) - 1;
       chk.checked = !!sel[idx];
@@ -34459,7 +34560,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var fontSize = parseFloat((document.getElementById('rna-font-size-quick')||{}).value || localStorage.getItem('igl_rna_font_size') || '7');
     var bodyHTML = selectedIdx.map(function(i){
-      return '<div class="rna-print-page">' + _rnaTabData[i] + '</div>';
+      return '<div class="rna-print-page">' + _rnaPrintTabHtml(i, nm, rcv, issues, fromDate, toDate) + '</div>';
     }).join('');
 
     var _or = rnaOrient();
@@ -34488,7 +34589,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
     var bodyHTML =
       '<div id="rna-content-wrap">'
-      + _rnaTabData[tabIdx]
+      + _rnaPrintTabHtml(tabIdx, nm, rcv, issues, fromDate, toDate)
       + '</div>';
 
     var _or = rnaOrient(), _pw = (_or === 'portrait' ? 210 : 297), _ph = (_or === 'portrait' ? 297 : 210);
@@ -34547,7 +34648,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       'td:nth-child(2), td:nth-child(3), td:nth-child(n+5) { white-space: nowrap; text-align: center; }',
       'tr { background: #fff !important; color: #000 !important; page-break-inside: avoid; }',
       '* { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: economy !important; print-color-adjust: economy !important; }',
-      (rnaHideEmpty() ? '.rna-empty { display: none !important; }' : ''),
+      (rnaEmptyMode() === 'compact' ? '.rna-empty { display: none !important; }' : rnaEmptyMode() === 'align' ? '.rna-empty { visibility: hidden !important; }' : ''),
       'button { display: none !important; }',
     ].join('\n');
   }
@@ -34922,7 +35023,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     toast('✅ Excel Downloaded: ' + fn, 'success');
   }
 
-  function buildRNATable(tabIdx, nmAll, rcvAll, issuesAll, fromDate, toDate){
+  // প্রিন্টের জন্য ট্যাবের HTML: 'align' মোডে মেশিন-কলাম মেলানো সংস্করণ (প্রতিবার নতুন), নইলে আগের (ক্যাশ করা) সংস্করণ
+  function _rnaPrintTabHtml(i, nm, rcv, issues, fromDate, toDate){
+    if (rnaEmptyMode() === 'align') return buildRNATable(i, nm, rcv, issues, fromDate, toDate, true);
+    if (_rnaTabData[i] === null) { _rnaTabData[i] = buildRNATable(i, nm, rcv, issues, fromDate, toDate); }
+    return _rnaTabData[i];
+  }
+
+  function buildRNATable(tabIdx, nmAll, rcvAll, issuesAll, fromDate, toDate, aligned){
     var needleObjs = getRNANeedles()[tabIdx] || [];
     var tabName = RNA_TAB_NAMES[tabIdx];
 
@@ -35100,7 +35208,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     html += '<th style="'+S+'padding:3px 3px;text-align:left;width:78px;font-size:7.5pt;">Needle / Sinker No</th>';
     html += '<th style="'+S+'padding:4px;width:42px;text-align:center;">B/F</th>';
     html += '<th style="'+S+'padding:4px;width:34px;text-align:center;">Rcv</th>';
-    html += '<th style="'+S+'padding:4px;text-align:left;white-space:nowrap;">Machine &amp; Issue (A+B+C)</th>';
+    html += '<th style="'+S+'padding:4px;text-align:left;white-space:nowrap;">Machine &amp; Issue (A+B+C)' + (aligned ? '@@RNA_MH@@' : '') + '</th>';
     html += '<th style="'+S+'padding:4px;width:36px;text-align:center;background:#0d3b5e;">Issue</th>';
     html += '<th style="'+S+'padding:4px;width:44px;text-align:center;background:#0a3d22;">B/L</th>';
     html += '</tr></thead><tbody>';
@@ -35124,6 +35232,14 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if(cnt > maxMapped) maxMapped = cnt;
     });
 
+    // মেশিন-কলাম মেলানো সংস্করণ (শুধু প্রিন্টে): ট্যাবের যেসব মেশিনে অন্তত একটা নিডেলের ইস্যু আছে তাদের সর্বজনীন কলাম-তালিকা
+    var colMachines = allMachines;
+    if(aligned){
+      colMachines = allMachines.filter(function(m){
+        return rows.some(function(row){ var ms = row.machineShifts[m]; return ms && ms.shifts.some(function(v){return v>0;}); });
+      });
+      maxMapped = colMachines.length;
+    }
     var cellW, lblFs, qtyFs;
     if (maxMapped <= 0) {
       cellW = 51;
@@ -35139,6 +35255,25 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     lblFs = cellW >= 51 ? '6px' : cellW >= 40 ? '6px' : cellW >= 30 ? '5.5px' : cellW >= 22 ? '5px' : '4.5px';
     qtyFs = cellW >= 51 ? '10px' : cellW >= 40 ? '9.5px' : cellW >= 30 ? '9px' : cellW >= 22 ? '8px' : '7px';
 
+    // সরু ঘর (কলাম অনেক): মেশিনের নাম টেবিলের মাথায় খাড়া লেখায় একবার, ঘরে শুধু সংখ্যা (শুধু কলাম-মেলানো সংস্করণে)
+    var narrow = !!aligned && cellW < 36 && colMachines.length > 0;
+    if (aligned) {
+      var _strip = '';
+      if (narrow) {
+        _strip = '<div style="white-space:nowrap;font-size:0;line-height:0;margin-top:3px;">'
+          + colMachines.map(function(m){
+              var nmx0 = getNeedleMachines().find(function(x){return x.id===m;});
+              var r0 = nmx0 ? (nmx0.retail||m) : m, e0 = nmx0 && nmx0.erp ? nmx0.erp : '';
+              var lb0 = (e0 && r0.indexOf(e0)<0) ? r0+' ('+e0+')' : r0;
+              return '<span style="display:inline-block;border:1px solid transparent;margin:0 1px;padding:1px 1px;width:'+cellW+'px;height:58px;vertical-align:bottom;position:relative;overflow:hidden;">'
+                + '<span style="position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:flex-end;justify-content:center;">'
+                + '<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:6px;font-weight:800;line-height:1;white-space:nowrap;color:#fff;max-height:56px;overflow:hidden;">'+_esc(lb0)+'</span></span></span>';
+            }).join('')
+          + '</div>';
+      }
+      html = html.replace('@@RNA_MH@@', _strip);
+    }
+
     // ── Data rows ──
     rows.forEach(function(row, ri){
       var bg = ri%2===0?'#fff':'#f5f8fb';
@@ -35151,10 +35286,10 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
 
       // Machine cells — সব mapped machine দেখাও (alignment এর জন্য), খালি হলে ছোট span
       var machineCells = '';
-      allMachines.forEach(function(m){
+      colMachines.forEach(function(m){
         var ms = row.machineShifts[m];
         var hasIssue = ms && ms.shifts.some(function(v){return v>0;});
-        if(!ms || (!ms.mapped && !hasIssue)) return;
+        if(!ms || (!aligned && !ms.mapped && !hasIssue)) return;
         var s = ms.shifts;
         var parts=[]; s.forEach(function(v){if(v)parts.push(v);});
         var qty = parts.join('+');
@@ -35168,12 +35303,12 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
         }
         if(qty) {
           machineCells += '<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 1px;background:#fff;width:'+cellW+'px;text-align:center;overflow:hidden;vertical-align:top;">'
-            +'<span style="font-size:'+lblFs+';color:#000;font-weight:900;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;text-align:left;letter-spacing:0.2px;">'+_esc(mlabel)+'</span>'
+            +(narrow ? '' : '<span style="font-size:'+lblFs+';color:#000;font-weight:900;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;text-align:left;letter-spacing:0.2px;">'+_esc(mlabel)+'</span>')
             +'<span style="font-size:'+qtyFs+';font-weight:900;display:block;white-space:nowrap;overflow:hidden;line-height:1.4;color:#000;text-align:left;">'+qty+'</span>'
             +'</span>';
         } else {
           machineCells += '<span class="rna-empty" style="display:inline-block;border:1px solid #eee;border-radius:2px;margin:0 1px;padding:1px 1px;background:#f9f9f9;width:'+cellW+'px;overflow:hidden;vertical-align:top;">'
-            +'<span style="font-size:'+lblFs+';display:block;line-height:1.4;">&nbsp;</span>'
+            +(narrow ? '' : '<span style="font-size:'+lblFs+';display:block;line-height:1.4;">&nbsp;</span>')
             +'<span style="font-size:'+qtyFs+';display:block;line-height:1.4;">&nbsp;</span>'
             +'</span>';
         }
