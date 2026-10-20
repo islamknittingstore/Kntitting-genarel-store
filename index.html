@@ -3265,6 +3265,8 @@ if('serviceWorker' in navigator){
 #page-receive .cf-pair select.form-control, #page-issue .cf-pair select.form-control { padding-left: 5px; padding-right: 2px; text-overflow: ellipsis; }
 /* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
+/* Receive Goods: সেভের পরেও রেখে-দেওয়া চালান/বিল/সাপ্লাইয়ার ঘরে হালকা হলুদ আভা (নতুন চালানে বদলাতে মনে করানোর জন্য) */
+.form-control.rcv-sticky { background: #fff8dc !important; box-shadow: 0 0 0 1px #e6b800 inset; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 /* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
 /* Needle সেকশন — Monthly Machine Wise (New/Used) ও Machine Wise + Production: স্ক্রল করলেও ডেট-লাইন (১,২,৩…৩১) ওপরে আটকে থাকবে।
@@ -12902,7 +12904,7 @@ function saveReceive() {
 
   gsAutoSyncRow('receive', rec);
   toast(`✅ Receive saved! ${item} - Qty: ${qty}`, 'success');
-  clearReceiveForm();
+  clearReceiveForm(true);
   triggerAutoSave();
   try { renderDashboard(); } catch(e) {}
   try { renderStock(); } catch(e) {}
@@ -12965,16 +12967,19 @@ function savePendingBillRow(id) {
   toast('✅ "'+arr[idx].item+'" এর বিল আপডেট হয়েছে', 'success');
 }
 
-function clearReceiveForm() {
+function clearReceiveForm(keepChallan) {
   // Date, Group, Category — keep previous (sticky)
   // Only reset Item, Qty, Challan
+  // keepChallan = true (সেভের পর): একই চালানে ১০/১২টা আইটেম দিতে চালান নং, বিল নং ও সাপ্লাইয়ার রেখে দেওয়া হয়; "Clear Form" বাটনে সব মোছে
   const grp = document.getElementById('r-group').value;
   const cat = document.getElementById('r-category').value;
 
   document.getElementById('r-item').innerHTML = '<option value="">-- Select Item --</option>';
-  document.getElementById('r-chalan').value = '';
-  if (document.getElementById('r-bill')) document.getElementById('r-bill').value = '';
-  if (document.getElementById('r-supplier')) document.getElementById('r-supplier').value = '';
+  ['r-chalan', 'r-bill', 'r-supplier'].forEach(function(id){
+    var el = document.getElementById(id); if (!el) return;
+    if (keepChallan) { if (String(el.value || '').trim()) el.classList.add('rcv-sticky'); }
+    else { el.value = ''; el.classList.remove('rcv-sticky'); }
+  });
   if (document.getElementById('r-brand')) document.getElementById('r-brand').value = '';
   if (document.getElementById('r-country')) document.getElementById('r-country').value = '';
   document.getElementById('r-qty').value = '';
@@ -12999,6 +13004,10 @@ function clearReceiveForm() {
     document.getElementById('r-date').value = todayStr();
   }
 }
+// রেখে-দেওয়া চালান/বিল/সাপ্লাইয়ারের ঘরে নিজে কিছু বদলালে হলুদ আভা সরে যায়
+document.addEventListener('input', function(e){
+  var t = e.target; if (t && (t.id === 'r-chalan' || t.id === 'r-bill' || t.id === 'r-supplier')) t.classList.remove('rcv-sticky');
+}, true);
 
 // 
 //  SAVE ISSUE
