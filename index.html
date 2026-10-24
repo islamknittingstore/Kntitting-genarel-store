@@ -15845,6 +15845,9 @@ function stnReqBuildChecklist() {
     h += '<td style="'+cellS+'text-align:center;color:#607d8b;font-weight:700;width:34px;">'+(++serialNo)+'</td>';
     h += '<td style="'+cellS+'text-align:center;width:30px;"><input type="checkbox" id="req-chk-'+it.id+'" onchange="stnReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:15px;height:15px;accent-color:#00838f;cursor:pointer;vertical-align:middle;"></td>';
     h += '<td style="'+cellS+'"><label for="req-chk-'+it.id+'" style="display:block;cursor:pointer;font-size:13px;line-height:1.2;font-weight:'+(checked?'700':'400')+';">'+it.name+(isPkg?' <span style="font-size:10px;background:#e67e22;color:#fff;border-radius:3px;padding:0 4px;">PKG</span>':'')+'</label></td>';
+    var stk = 0; try { stk = Number(getStock(it.name)) || 0; } catch(e) {}
+    var bc = stk <= 0 ? ['#c0392b','#fdecea','#f5b7b1'] : stk <= 10 ? ['#b9770e','#fff4d6','#f7dc6f'] : ['#1e8449','#e6f7ec','#a9dfbf'];
+    h += '<td style="'+cellS+'text-align:center;width:78px;"><span title="বর্তমান স্টক" style="display:inline-block;min-width:48px;padding:0 8px;border-radius:10px;font-size:12px;font-weight:700;line-height:18px;color:'+bc[0]+';background:'+bc[1]+';border:1px solid '+bc[2]+';">'+stk+'</span></td>';
     h += '<td style="'+cellS+'width:70px;"><input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" oninput="stnReqQtyTyped(\''+it.id+'\')" style="'+inS+'width:64px;text-align:center;"></td>';
     h += '<td style="'+cellS+'width:74px;"><select id="req-unit-'+it.id+'" onchange="stnReqUpdatePreview()" style="'+inS+'width:68px;background:#fff;">'+uOpts+'</select></td>';
     h += '<td style="'+cellS+'width:84px;"><input type="number" id="req-rate-'+it.id+'" placeholder="Rate ৳" min="0" value="'+(savedRate||'')+'" oninput="stnReqSaveRate(\''+it.id+'\',this.value);stnReqUpdatePreview();" style="'+inS+'width:78px;text-align:center;border-color:#e8c84a;background:#fffde7;"></td>';
@@ -15856,14 +15859,14 @@ function stnReqBuildChecklist() {
   var html = '<table id="req-item-table" style="width:100%;border-collapse:collapse;font-size:13px;">'
     + '<thead><tr style="background:#1b2a41;color:#fff;position:sticky;top:0;z-index:3;">'
     + '<th style="padding:4px 5px;width:34px;">SL</th><th style="padding:4px 5px;width:30px;">✓</th><th style="padding:4px 8px;text-align:left;">Item Name</th>'
-    + '<th style="padding:4px 5px;">Qty</th><th style="padding:4px 5px;">Unit</th><th style="padding:4px 5px;">Rate ৳</th><th style="padding:4px 8px;text-align:left;">Remarks</th></tr></thead><tbody>';
+    + '<th style="padding:4px 5px;">Balance</th><th style="padding:4px 5px;">Qty</th><th style="padding:4px 5px;">Unit</th><th style="padding:4px 5px;">Rate ৳</th><th style="padding:4px 8px;text-align:left;">Remarks</th></tr></thead><tbody>';
   if (stnFiltered.length) {
-    html += '<tr><td colspan="7" style="padding:3px 10px;background:#e8f4fd;font-size:11px;font-weight:700;color:#1a5276;">📋 STATIONERY</td></tr>';
+    html += '<tr><td colspan="8" style="padding:3px 10px;background:#e8f4fd;font-size:11px;font-weight:700;color:#1a5276;">📋 STATIONERY</td></tr>';
     stnReqOrderItems(stnFiltered).forEach(function(it){ html += buildRow(it, false); });
   }
   if (pkgItems.length) {
     serialNo = 0;
-    html += '<tr><td colspan="7" style="padding:3px 10px;background:#fdebd0;font-size:11px;font-weight:700;color:#784212;">📦 PACKAGING</td></tr>';
+    html += '<tr><td colspan="8" style="padding:3px 10px;background:#fdebd0;font-size:11px;font-weight:700;color:#784212;">📦 PACKAGING</td></tr>';
     pkgItems.forEach(function(it){ html += buildRow(it, true); });
   }
   html += '</tbody></table>';
