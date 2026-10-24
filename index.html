@@ -6163,11 +6163,15 @@ window.iglSaveNavVisibility = function() {
     <!-- Summary Stats -->
     <div class="stats-grid" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
 
-    <!-- Low Stock Alert + Item-wise Table -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <!-- Low Stock / Recent — বাটনে ক্লিক করলে দেখাবে (সার্চ বক্স যেন নিচে চলে না যায়) -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <button id="stn-btn-low" onclick="stnTogglePanel('low')" style="background:linear-gradient(135deg,#b7950b,#d4ac0d);border:2px solid transparent;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Low Stock Alert <span id="stn-low-btn-count" style="background:rgba(255,255,255,0.3);border-radius:12px;padding:1px 9px;font-size:11px;margin-left:4px;"></span></button>
+      <button id="stn-btn-recent" onclick="stnTogglePanel('recent')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:2px solid transparent;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🔄 Recent Transactions</button>
+    </div>
+    <div id="stn-panels" style="display:none;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
 
       <!-- Low Stock Alert -->
-      <div class="card">
+      <div class="card" id="stn-panel-low" style="display:none;">
         <div class="card-header" style="background:linear-gradient(135deg,#b7950b,#d4ac0d);color:#fff;border-bottom:none;">
           ⚠️ Low Stock Alert
           <span id="stn-low-count" style="margin-left:auto;background:rgba(255,255,255,0.25);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
@@ -6183,7 +6187,7 @@ window.iglSaveNavVisibility = function() {
       </div>
 
       <!-- Recent Transactions -->
-      <div class="card">
+      <div class="card" id="stn-panel-recent" style="display:none;">
         <div class="card-header" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border-bottom:none;">
           🔄 Recent Stationery Transactions
         </div>
@@ -6693,13 +6697,17 @@ window.iglSaveNavVisibility = function() {
     </div>
 
     <!-- Summary Stats -->
-    <div class="stats-grid" id="statGrid-stationery" style="grid-template-columns:repeat(4,1fr);"></div>
+    <div class="stats-grid" id="statGrid-packaging" style="grid-template-columns:repeat(4,1fr);"></div>
 
-    <!-- Low Stock Alert + Item-wise Table -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <!-- Low Stock / Recent — বাটনে ক্লিক করলে দেখাবে -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <button id="pkg-btn-low" onclick="pkgTogglePanel('low')" style="background:linear-gradient(135deg,#b7950b,#d4ac0d);border:2px solid transparent;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">⚠️ Low Stock Alert <span id="pkg-low-btn-count" style="background:rgba(255,255,255,0.3);border-radius:12px;padding:1px 9px;font-size:11px;margin-left:4px;"></span></button>
+      <button id="pkg-btn-recent" onclick="pkgTogglePanel('recent')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:2px solid transparent;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🔄 Recent Transactions</button>
+    </div>
+    <div id="pkg-panels" style="display:none;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
 
       <!-- Low Stock Alert -->
-      <div class="card">
+      <div class="card" id="pkg-panel-low" style="display:none;">
         <div class="card-header" style="background:linear-gradient(135deg,#b7950b,#d4ac0d);color:#fff;border-bottom:none;">
           ⚠️ Low Stock Alert
           <span id="pkg-low-count" style="margin-left:auto;background:rgba(255,255,255,0.25);border-radius:12px;padding:2px 10px;font-size:11px;"></span>
@@ -6715,7 +6723,7 @@ window.iglSaveNavVisibility = function() {
       </div>
 
       <!-- Recent Transactions -->
-      <div class="card">
+      <div class="card" id="pkg-panel-recent" style="display:none;">
         <div class="card-header" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border-bottom:none;">
           🔄 Recent Packaging Transactions
         </div>
@@ -18427,6 +18435,20 @@ function stnIsItemVisible(itemId) {
   return stnGetHiddenItems().indexOf(itemId) === -1;
 }
 
+function stnTogglePanel(which) {
+  var panel = document.getElementById('stn-panel-' + which);
+  var btn = document.getElementById('stn-btn-' + which);
+  if (!panel) return;
+  var show = panel.style.display === 'none';
+  panel.style.display = show ? '' : 'none';
+  if (btn) { btn.style.borderColor = show ? '#fff' : 'transparent'; btn.style.boxShadow = show ? '0 0 0 3px rgba(0,0,0,.25)' : ''; }
+  var lowOn = document.getElementById('stn-panel-low').style.display !== 'none';
+  var recOn = document.getElementById('stn-panel-recent').style.display !== 'none';
+  var wrap = document.getElementById('stn-panels');
+  wrap.style.display = (lowOn || recOn) ? 'grid' : 'none';
+  wrap.style.gridTemplateColumns = (lowOn && recOn) ? '1fr 1fr' : '1fr';
+}
+
 function renderStationeryDashboard() {
   var q = ((document.getElementById('stn-search') ? document.getElementById('stn-search').value : '') || '').trim().toLowerCase();
   var _dateFrom = (document.getElementById('stn-date-from')||{value:''}).value;
@@ -18451,17 +18473,40 @@ function renderStationeryDashboard() {
   var lowCount = itemStats.filter(function(i){return i.stk > 0 && i.stk <= 10;}).length;
   var outCount = itemStats.filter(function(i){return i.stk <= 0;}).length;
 
+  // গত মাসের (পূর্ববর্তী ক্যালেন্ডার মাস) Receive / Issue / ক্লোজিং ব্যালেন্স — একই কার্ডের ভেতরে দেখানোর জন্য
+  var _now = new Date();
+  var _pm = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+  var _pmEnd = new Date(_now.getFullYear(), _now.getMonth(), 0);
+  function _p2(n){ return (n < 10 ? '0' : '') + n; }
+  var pmFrom = _pm.getFullYear() + '-' + _p2(_pm.getMonth() + 1) + '-01';
+  var pmTo   = _pmEnd.getFullYear() + '-' + _p2(_pmEnd.getMonth() + 1) + '-' + _p2(_pmEnd.getDate());
+  var pmName = ['January','February','March','April','May','June','July','August','September','October','November','December'][_pm.getMonth()];
+  var pmRec = 0, pmIss = 0, pmClose = 0;
+  stnItems.forEach(function(it){
+    var rr = DB.receives.filter(function(r){ return r.item===it.name; });
+    var ii = DB.issues.filter(function(r){ return r.item===it.name; });
+    pmRec += rr.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    pmIss += ii.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    pmClose += (Number(it.bf)||0)
+      + rr.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0)
+      - ii.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+  });
+  function _pmLine(label, val, color) {
+    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);font-size:12px;font-weight:700;color:'+color+';">গত মাস ('+pmName+'): '+val+'</div>';
+  }
+
   // Stats Cards
   document.getElementById('statGrid-stationery').innerHTML =
     '<div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value" style="color:#2980b9">' + stnItems.length + '</div><div class="stat-sub">Stationery Items</div></div>' +
-    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div></div>' +
-    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div></div>' +
-    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div></div>';
+    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine('rec', pmRec, '#1e8449') + '</div>' +
+    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine('iss', pmIss, '#c0392b') + '</div>' +
+    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + _pmLine('bal', pmClose + ' (মাস শেষে)', '#b9770e') + '</div>';
 
   // Low Stock
   var lowItems = itemStats.filter(function(i){ return i.stk <= 10; }).sort(function(a,b){ return a.stk - b.stk; });
   var lowCountEl = document.getElementById('stn-low-count');
   if (lowCountEl) lowCountEl.textContent = lowItems.length + ' items';
+  var lowBtnCnt = document.getElementById('stn-low-btn-count'); if (lowBtnCnt) lowBtnCnt.textContent = lowItems.length;
   document.getElementById('stn-low-table').innerHTML = lowItems.length === 0
     ? '<tr><td colspan="3" class="no-data" style="color:#27ae60;">All items have sufficient stock</td></tr>'
     : lowItems.map(function(r){
@@ -22661,6 +22706,20 @@ function pkgIsItemVisible(itemId) {
   return pkgGetHiddenItems().indexOf(itemId) === -1;
 }
 
+function pkgTogglePanel(which) {
+  var panel = document.getElementById('pkg-panel-' + which);
+  var btn = document.getElementById('pkg-btn-' + which);
+  if (!panel) return;
+  var show = panel.style.display === 'none';
+  panel.style.display = show ? '' : 'none';
+  if (btn) { btn.style.borderColor = show ? '#fff' : 'transparent'; btn.style.boxShadow = show ? '0 0 0 3px rgba(0,0,0,.25)' : ''; }
+  var lowOn = document.getElementById('pkg-panel-low').style.display !== 'none';
+  var recOn = document.getElementById('pkg-panel-recent').style.display !== 'none';
+  var wrap = document.getElementById('pkg-panels');
+  wrap.style.display = (lowOn || recOn) ? 'grid' : 'none';
+  wrap.style.gridTemplateColumns = (lowOn && recOn) ? '1fr 1fr' : '1fr';
+}
+
 function renderPackagingDashboard() {
   var q = ((document.getElementById('pkg-search') ? document.getElementById('pkg-search').value : '') || '').trim().toLowerCase();
   var _dateFrom = (document.getElementById('pkg-date-from')||{value:''}).value;
@@ -22685,17 +22744,40 @@ function renderPackagingDashboard() {
   var lowCount = itemStats.filter(function(i){return i.stk > 0 && i.stk <= 10;}).length;
   var outCount = itemStats.filter(function(i){return i.stk <= 0;}).length;
 
-  // Stats Cards
-  document.getElementById('statGrid-stationery').innerHTML =
+  // গত মাসের (পূর্ববর্তী ক্যালেন্ডার মাস) Receive / Issue / ক্লোজিং ব্যালেন্স
+  var _now = new Date();
+  var _pm = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+  var _pmEnd = new Date(_now.getFullYear(), _now.getMonth(), 0);
+  function _p2(n){ return (n < 10 ? '0' : '') + n; }
+  var pmFrom = _pm.getFullYear() + '-' + _p2(_pm.getMonth() + 1) + '-01';
+  var pmTo   = _pmEnd.getFullYear() + '-' + _p2(_pmEnd.getMonth() + 1) + '-' + _p2(_pmEnd.getDate());
+  var pmName = ['January','February','March','April','May','June','July','August','September','October','November','December'][_pm.getMonth()];
+  var pmRec = 0, pmIss = 0, pmClose = 0;
+  pkgItems.forEach(function(it){
+    var rr = DB.receives.filter(function(r){ return r.item===it.name; });
+    var ii = DB.issues.filter(function(r){ return r.item===it.name; });
+    pmRec += rr.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    pmIss += ii.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    pmClose += (Number(it.bf)||0)
+      + rr.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0)
+      - ii.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+  });
+  function _pmLine(val, color) {
+    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);font-size:12px;font-weight:700;color:'+color+';">গত মাস ('+pmName+'): '+val+'</div>';
+  }
+
+  // Stats Cards (Packaging নিজের grid-এ — আগে ভুলে Stationery-র grid id ব্যবহার হচ্ছিল)
+  document.getElementById('statGrid-packaging').innerHTML =
     '<div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value" style="color:#2980b9">' + pkgItems.length + '</div><div class="stat-sub">Packaging Items</div></div>' +
-    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div></div>' +
-    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div></div>' +
-    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div></div>';
+    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine(pmRec, '#1e8449') + '</div>' +
+    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine(pmIss, '#c0392b') + '</div>' +
+    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + _pmLine(pmClose + ' (মাস শেষে)', '#b9770e') + '</div>';
 
   // Low Stock
   var lowItems = itemStats.filter(function(i){ return i.stk <= 10; }).sort(function(a,b){ return a.stk - b.stk; });
   var lowCountEl = document.getElementById('pkg-low-count');
   if (lowCountEl) lowCountEl.textContent = lowItems.length + ' items';
+  var lowBtnCnt = document.getElementById('pkg-low-btn-count'); if (lowBtnCnt) lowBtnCnt.textContent = lowItems.length;
   document.getElementById('pkg-low-table').innerHTML = lowItems.length === 0
     ? '<tr><td colspan="3" class="no-data" style="color:#27ae60;">All items have sufficient stock</td></tr>'
     : lowItems.map(function(r){
