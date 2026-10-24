@@ -1289,7 +1289,7 @@ if('serviceWorker' in navigator){
   .sidebar-submenu .sidebar-submenu li a { padding-left: 50px; margin-left: 16px; font-size: 11px; }
 
   .sidebar-footer {
-    padding: 8px 18px; font-size: 11px; color: #d6ecf5; text-shadow: 0 1px 2px rgba(0,0,0,.45);
+    padding: 8px 18px; font-size: 11px; color: rgba(255,255,255,0.38); letter-spacing: 0.4px; text-shadow: none; pointer-events: none; user-select: none;
     border-top: 1px solid #1e2d3d; margin-top: 8px;
     background: linear-gradient(135deg, rgba(0,188,212,0.05), rgba(171,71,188,0.05));
   }
@@ -7889,6 +7889,7 @@ function ok(msg) {
             <tbody id="nmi-log-used-tbody"></tbody></table>
           </div>
         </div>
+        <div id="nmi-log-bottom-total" style="display:none;margin-top:12px;background:#1b2a41;color:#fff;border-radius:6px;padding:9px 14px;font-size:14px;font-weight:800;"></div>
       </div>
     </div>
     <!-- User-wise Needle Issue Summary (Admin only) -->
@@ -13270,22 +13271,14 @@ async function saveIssue() {
     }
   }
 
+  // 🚫 ব্যালেন্স না থাকলে বা ইস্যু পরিমাণ ব্যালেন্সের বেশি হলে ইস্যু হবে না (অ্যাডমিনের জন্যও)
   const stock = getStock(item);
-  var _isAdmin = window.IGL_CURRENT_USER && window.IGL_CURRENT_USER.role === 'admin';
   if (stock <= 0) {
-    if (!_isAdmin) {
-      toast('❌ স্টক শূন্য! বর্তমান ব্যালেন্স: ' + stock + '। ইস্যু করা যাবে না।', 'error');
-      return;
-    }
-    const ok = await igl_confirm('স্টক খালি! বর্তমান স্টক: ' + stock + '। তবুও ইস্যু করবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ স্টক শূন্য! বর্তমান ব্যালেন্স: ' + stock + '। ইস্যু করা যাবে না।', 'error');
+    return;
   } else if (qty > stock) {
-    if (!_isAdmin) {
-      toast('❌ ইস্যু পরিমাণ (' + qty + ') স্টকের (' + stock + ') বেশি! ইস্যু করা যাবে না।', 'error');
-      return;
-    }
-    const ok = await igl_confirm('ইস্যু পরিমাণ (' + qty + ') স্টকের (' + stock + ') বেশি। এগিয়ে যাবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ ইস্যু পরিমাণ (' + qty + ') স্টকের (' + stock + ') বেশি! ইস্যু করা যাবে না।', 'error');
+    return;
   }
 
   const iss = { id: Date.now(), date, slip, group, category, item, qty, unit, rate, amount, machineId, machineNo, machineCat, remarks, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
@@ -14670,13 +14663,14 @@ async function stnSaveIssue() {
     return;
   }
 
+  // 🚫 ব্যালেন্স না থাকলে বা ইস্যু পরিমাণ ব্যালেন্সের বেশি হলে ইস্যু হবে না
   var stock = getStock(item);
   if (stock <= 0) {
-    const ok = await igl_confirm('স্টক শেষ! (স্টক: ' + stock + ')। তবুও ইস্যু করবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ "' + item + '" এর ব্যালেন্স নেই (স্টক: ' + stock + ') — ইস্যু করা যাবে না।', 'error');
+    return;
   } else if (qty > stock) {
-    const ok = await igl_confirm('ইস্যু পরিমাণ (' + qty + ') স্টকের (' + stock + ') বেশি। এগিয়ে যাবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ ইস্যু পরিমাণ (' + qty + ') ব্যালেন্সের (' + stock + ') বেশি — ইস্যু করা যাবে না।', 'error');
+    return;
   }
 
   var iss = { id: Date.now(), date: date, slip: slip, group: section, category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
@@ -18481,26 +18475,33 @@ function renderStationeryDashboard() {
   var pmFrom = _pm.getFullYear() + '-' + _p2(_pm.getMonth() + 1) + '-01';
   var pmTo   = _pmEnd.getFullYear() + '-' + _p2(_pmEnd.getMonth() + 1) + '-' + _p2(_pmEnd.getDate());
   var pmName = ['January','February','March','April','May','June','July','August','September','October','November','December'][_pm.getMonth()];
-  var pmRec = 0, pmIss = 0, pmClose = 0;
+  var _cmFrom = _now.getFullYear() + '-' + _p2(_now.getMonth() + 1) + '-01';
+  var _cmEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 0);
+  var _cmTo = _cmEnd.getFullYear() + '-' + _p2(_cmEnd.getMonth() + 1) + '-' + _p2(_cmEnd.getDate());
+  var _mAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var pmAbbr = _mAbbr[_pm.getMonth()], cmAbbr = _mAbbr[_now.getMonth()];
+  var pmRec = 0, pmIss = 0, cmRec = 0, cmIss = 0;
   stnItems.forEach(function(it){
     var rr = DB.receives.filter(function(r){ return r.item===it.name; });
     var ii = DB.issues.filter(function(r){ return r.item===it.name; });
     pmRec += rr.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     pmIss += ii.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
-    pmClose += (Number(it.bf)||0)
-      + rr.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0)
-      - ii.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    cmRec += rr.filter(function(r){ return r.date>=_cmFrom && r.date<=_cmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    cmIss += ii.filter(function(r){ return r.date>=_cmFrom && r.date<=_cmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
   });
-  function _pmLine(label, val, color) {
-    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);font-size:12px;font-weight:700;color:'+color+';">গত মাস ('+pmName+'): '+val+'</div>';
+  function _pmLine(pv, cv, color) {
+    var st = 'font-size:13px;font-weight:700;color:'+color+';';
+    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);">'
+      + '<div style="'+st+'">'+pmAbbr+'-'+pv+'</div>'
+      + '<div style="'+st+'">'+cmAbbr+'-'+cv+'</div></div>';
   }
 
   // Stats Cards
   document.getElementById('statGrid-stationery').innerHTML =
     '<div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value" style="color:#2980b9">' + stnItems.length + '</div><div class="stat-sub">Stationery Items</div></div>' +
-    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine('rec', pmRec, '#1e8449') + '</div>' +
-    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine('iss', pmIss, '#c0392b') + '</div>' +
-    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + _pmLine('bal', pmClose + ' (মাস শেষে)', '#b9770e') + '</div>';
+    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine(pmRec, cmRec, '#1e8449') + '</div>' +
+    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine(pmIss, cmIss, '#c0392b') + '</div>' +
+    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + '</div>';
 
   // Low Stock
   var lowItems = itemStats.filter(function(i){ return i.stk <= 10; }).sort(function(a,b){ return a.stk - b.stk; });
@@ -20035,13 +20036,14 @@ async function pkgSaveIssue() {
     return;
   }
 
+  // 🚫 ব্যালেন্স না থাকলে বা ইস্যু পরিমাণ ব্যালেন্সের বেশি হলে ইস্যু হবে না
   var stock = getStock(item);
   if (stock <= 0) {
-    const ok = await igl_confirm('স্টক শেষ! (স্টক: ' + stock + ')। তবুও ইস্যু করবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ "' + item + '" এর ব্যালেন্স নেই (স্টক: ' + stock + ') — ইস্যু করা যাবে না।', 'error');
+    return;
   } else if (qty > stock) {
-    const ok = await igl_confirm('ইস্যু পরিমাণ (' + qty + ') স্টকের (' + stock + ') বেশি। এগিয়ে যাবেন?', '', '⚠️');
-    if (!ok) return;
+    toast('❌ ইস্যু পরিমাণ (' + qty + ') ব্যালেন্সের (' + stock + ') বেশি — ইস্যু করা যাবে না।', 'error');
+    return;
   }
 
   var iss = { id: Date.now(), date: date, slip: slip, group: 'Packaging', category: '', item: item, qty: qty, userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString(),
@@ -22752,26 +22754,33 @@ function renderPackagingDashboard() {
   var pmFrom = _pm.getFullYear() + '-' + _p2(_pm.getMonth() + 1) + '-01';
   var pmTo   = _pmEnd.getFullYear() + '-' + _p2(_pmEnd.getMonth() + 1) + '-' + _p2(_pmEnd.getDate());
   var pmName = ['January','February','March','April','May','June','July','August','September','October','November','December'][_pm.getMonth()];
-  var pmRec = 0, pmIss = 0, pmClose = 0;
+  var _cmFrom = _now.getFullYear() + '-' + _p2(_now.getMonth() + 1) + '-01';
+  var _cmEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 0);
+  var _cmTo = _cmEnd.getFullYear() + '-' + _p2(_cmEnd.getMonth() + 1) + '-' + _p2(_cmEnd.getDate());
+  var _mAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var pmAbbr = _mAbbr[_pm.getMonth()], cmAbbr = _mAbbr[_now.getMonth()];
+  var pmRec = 0, pmIss = 0, cmRec = 0, cmIss = 0;
   pkgItems.forEach(function(it){
     var rr = DB.receives.filter(function(r){ return r.item===it.name; });
     var ii = DB.issues.filter(function(r){ return r.item===it.name; });
     pmRec += rr.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
     pmIss += ii.filter(function(r){ return r.date>=pmFrom && r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
-    pmClose += (Number(it.bf)||0)
-      + rr.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0)
-      - ii.filter(function(r){ return r.date<=pmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    cmRec += rr.filter(function(r){ return r.date>=_cmFrom && r.date<=_cmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+    cmIss += ii.filter(function(r){ return r.date>=_cmFrom && r.date<=_cmTo; }).reduce(function(s,r){return s+(Number(r.qty)||0);},0);
   });
-  function _pmLine(val, color) {
-    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);font-size:12px;font-weight:700;color:'+color+';">গত মাস ('+pmName+'): '+val+'</div>';
+  function _pmLine(pv, cv, color) {
+    var st = 'font-size:13px;font-weight:700;color:'+color+';';
+    return '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,.2);">'
+      + '<div style="'+st+'">'+pmAbbr+'-'+pv+'</div>'
+      + '<div style="'+st+'">'+cmAbbr+'-'+cv+'</div></div>';
   }
 
   // Stats Cards (Packaging নিজের grid-এ — আগে ভুলে Stationery-র grid id ব্যবহার হচ্ছিল)
   document.getElementById('statGrid-packaging').innerHTML =
     '<div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value" style="color:#2980b9">' + pkgItems.length + '</div><div class="stat-sub">Packaging Items</div></div>' +
-    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine(pmRec, '#1e8449') + '</div>' +
-    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine(pmIss, '#c0392b') + '</div>' +
-    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + _pmLine(pmClose + ' (মাস শেষে)', '#b9770e') + '</div>';
+    '<div class="stat-card green"><div class="stat-label">Total Received</div><div class="stat-value" style="color:#27ae60">' + totalRec + '</div><div class="stat-sub">All time receive</div>' + _pmLine(pmRec, cmRec, '#1e8449') + '</div>' +
+    '<div class="stat-card red"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:#e74c3c">' + totalIss + '</div><div class="stat-sub">All time issue</div>' + _pmLine(pmIss, cmIss, '#c0392b') + '</div>' +
+    '<div class="stat-card orange"><div class="stat-label">Current Stock</div><div class="stat-value" style="color:#e67e22">' + totalStk + '</div><div class="stat-sub">' + lowCount + ' low | ' + outCount + ' out</div>' + '</div>';
 
   // Low Stock
   var lowItems = itemStats.filter(function(i){ return i.stk <= 10; }).sort(function(a,b){ return a.stk - b.stk; });
@@ -36827,6 +36836,9 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(sel){
       sel.innerHTML='<option value="">All</option>';
       cats.forEach(function(c){sel.innerHTML+='<option value="'+c+'">'+c+'</option>';});
+      // ডিফল্ট Section = Circular (থাকলে)
+      var _circ = cats.find(function(c){ return String(c).toLowerCase()==='circular'; });
+      if (_circ) sel.value = _circ;
     }
     nmiLoadMachines();
     nmiRenderLog();
@@ -37418,6 +37430,28 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ─── Stock Balance Check (Used Needle) — ব্যালেন্স না থাকলে Issue হবে না ───
+    if (needleType === 'used') {
+      var _usedErrors = [];
+      checked.forEach(function(cb){
+        var _uId   = cb.dataset.nid;
+        var _uQtyEl = document.querySelector('.nmi-qty[data-nid="'+_uId+'"]');
+        var _uQty  = Number(_uQtyEl ? _uQtyEl.value : 0) || 0;
+        if (!_uQty) return;
+        var _uNeedle = nm.find(function(n){ return n.id === _uId; });
+        if (!_uNeedle) return;
+        var _uBal = ndlComputeCurrentStock(_uId, 'used');
+        if (_uBal === null) _uBal = 0;
+        if (_uQty > _uBal) {
+          _usedErrors.push('⚠️ <b>'+(_uNeedle.name||_uNeedle.code)+'</b> (Used): চাওয়া হয়েছে <b>'+_uQty+'</b> কিন্তু Stock আছে মাত্র <b>'+Math.max(0,_uBal)+'</b>');
+        }
+      });
+      if (_usedErrors.length) {
+        toast('❌ Used Stock অপর্যাপ্ত — Issue করা যাবে না!<br><small style="line-height:1.8;">'+_usedErrors.join('<br>')+'</small>', 'error', 5500);
+        return;
+      }
+    }
+
     var arr=NDB.needles;
     var saved=0;
     var newSetNdlIds=[];  // New Set auto-mapping এর জন্য
@@ -37651,8 +37685,26 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           +(iglCanEdit('needle',r) ? '<button onclick="event.stopPropagation();openEditModal(\'needle\','+r.id+')" style="margin-left:4px;background:#e67e22;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700;" title="Edit">✏️</button>' : '')
         +'</td></tr>';
     }
-    newTbody.innerHTML=newIss.length?newIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো New Needle issue নেই</td></tr>';
-    usedTbody.innerHTML=usedIss.length?usedIss.map(makeRow).join(''):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো Used Needle issue নেই</td></tr>';
+    // টেবিলের নিচে মোট সারি — ইউজার/তারিখ/মেশিন যে ফিল্টারই হোক, ফিল্টার করা এন্ট্রির টোটাল দেখায়
+    function totalRow(list, color){
+      var q=list.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var cols=(isAdmin?10:9);
+      return '<tr class="nmi-total-row" style="background:'+color+';color:#fff;font-weight:800;">'
+        +'<td colspan="4" style="text-align:right;padding:6px 10px;">মোট ('+list.length+' এন্ট্রি)</td>'
+        +'<td style="text-align:center;font-size:15px;">'+q+'</td>'
+        +'<td colspan="'+(cols-5)+'"></td></tr>';
+    }
+    newTbody.innerHTML=newIss.length?(newIss.map(makeRow).join('')+totalRow(newIss,'#2980b9')):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো New Needle issue নেই</td></tr>';
+    usedTbody.innerHTML=usedIss.length?(usedIss.map(makeRow).join('')+totalRow(usedIss,'#e67e22')):'<tr><td colspan="'+(isAdmin?10:9)+'" class="no-data">কোনো Used Needle issue নেই</td></tr>';
+    var bottomTotal=document.getElementById('nmi-log-bottom-total');
+    if(bottomTotal){
+      var _nq=newIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      var _uq=usedIss.reduce(function(s,r){return s+(Number(r.qty)||0);},0);
+      if(filtered.length){
+        bottomTotal.style.display='block';
+        bottomTotal.innerHTML='🧮 সর্বমোট Issue: '+(_nq+_uq)+' পিস &nbsp;<span style="font-weight:600;opacity:.85;">(🆕 New: '+_nq+' | ♻️ Used: '+_uq+' | এন্ট্রি: '+filtered.length+' টি)</span>';
+      } else { bottomTotal.style.display='none'; }
+    }
 
     // মোট (Total) বার — মেশিন ফিল্টার দিলে সেই মেশিনের ডেট-টু-ডেট মোট Issue এখানে দেখাবে
     var totalBar=document.getElementById('nmi-log-total-bar');
