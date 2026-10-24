@@ -6059,7 +6059,6 @@ window.iglSaveNavVisibility = function() {
                 <label>Section *</label>
                 <select class="form-control" id="stn-r-section" onchange="stnPopulateItems('stn-r-item', this.value); stnUpdateReceiveStock();">
                   <option value="Stationery">📋 Stationery</option>
-                  <option value="Packaging">📦 Packaging</option>
                 </select>
               </div>
               <div class="form-group">
@@ -6119,7 +6118,6 @@ window.iglSaveNavVisibility = function() {
                 <label>Section *</label>
                 <select class="form-control" id="stn-i-section" onchange="stnPopulateItems('stn-i-item', this.value); stnUpdateIssueStock();">
                   <option value="Stationery">📋 Stationery</option>
-                  <option value="Packaging">📦 Packaging</option>
                 </select>
               </div>
               <div class="form-group">
@@ -15864,15 +15862,10 @@ function stnReqBuildChecklist() {
     html += '<tr><td colspan="8" style="padding:3px 10px;background:#e8f4fd;font-size:11px;font-weight:700;color:#1a5276;">📋 STATIONERY</td></tr>';
     stnReqOrderItems(stnFiltered).forEach(function(it){ html += buildRow(it, false); });
   }
-  if (pkgItems.length) {
-    serialNo = 0;
-    html += '<tr><td colspan="8" style="padding:3px 10px;background:#fdebd0;font-size:11px;font-weight:700;color:#784212;">📦 PACKAGING</td></tr>';
-    pkgItems.forEach(function(it){ html += buildRow(it, true); });
-  }
   html += '</tbody></table>';
 
   var el = document.getElementById('req-item-checklist');
-  if (el) el.innerHTML = (stnFiltered.length || pkgItems.length) ? html : '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
+  if (el) el.innerHTML = stnFiltered.length ? html : '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
   stnReqUpdatePreview();
 }
 
