@@ -3266,6 +3266,9 @@ if('serviceWorker' in navigator){
 /* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
 /* Receive Goods: সেভের পরেও রেখে-দেওয়া চালান/বিল/সাপ্লাইয়ার ঘরে হালকা হলুদ আভা (নতুন চালানে বদলাতে মনে করানোর জন্য) */
+.rg-pb-row { cursor:pointer; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; position:relative; user-select:none; }
+.rg-pb-row:hover { transform: translateY(-4px); box-shadow: 0 8px 14px rgba(0,0,0,.18); background:#fffdf2; z-index:2; }
+.rg-pb-row.rg-pb-active { background:#fff3e0; }
 .form-control.rcv-sticky { background: #fff8dc !important; box-shadow: 0 0 0 1px #e6b800 inset; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 /* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
@@ -5011,10 +5014,11 @@ window.iglSaveNavVisibility = function() {
         <span style="background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;font-size:16px;letter-spacing:0.3px;">📥 Receive Form</span>
       </div>
       <div class="card-body">
+        <div id="r-update-banner" style="display:none;background:#fff3e0;border:1px solid #e67e22;color:#a04000;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:13px;font-weight:600;"></div>
         <div class="compact-form-grid cf-cols-4">
           <div class="cf-pair"><label>Date *</label><input type="date" class="form-control" id="r-date"></div>
           <div class="cf-pair"><label>Challan No.</label><input type="text" class="form-control" id="r-chalan" placeholder="optional"></div>
-          <div class="cf-pair"><label>Supplier Name</label><input type="text" class="form-control" id="r-supplier" placeholder="optional" autocomplete="off" list="r-supplier-list" onchange="gsSaveSupplierName(this.value)"><datalist id="r-supplier-list"></datalist></div>
+          <div class="cf-pair"><label>Supplier Name</label><input type="text" class="form-control" id="r-supplier" placeholder="optional" autocomplete="off" list="r-supplier-list" onfocus="this.select()" onchange="gsSaveSupplierName(this.value); gsSetLastSupplier(this.value)"><datalist id="r-supplier-list"></datalist></div>
           <div class="cf-pair"><label>Rate (Unit Price)</label><input type="number" class="form-control" id="r-rate" placeholder="ঐচ্ছিক" min="0" step="0.01" oninput="rCalcAmount()"></div>
 
           <div class="cf-pair"><label>Item Category *</label><select class="form-control" id="r-group" onchange="filterRCategory()"><option value="">-- Select Category --</option></select></div>
@@ -5046,6 +5050,12 @@ window.iglSaveNavVisibility = function() {
           <button class="btn btn-block" onclick="saveReceive()" style="max-width:220px;color:#fff;font-weight:700;border:none;background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);background-size:300% 100%;animation:rainbowMove 4s linear infinite;box-shadow:0 3px 10px rgba(0,0,0,0.25);">
             Save Receive
           </button>
+          <button class="btn btn-block" id="r-update-btn" onclick="updateReceiveEntry()" disabled style="max-width:180px;color:#fff;font-weight:700;border:none;background:#e67e22;box-shadow:0 3px 10px rgba(0,0,0,0.25);opacity:.45;cursor:not-allowed;" title="নিচের 'বিল বাকি' তালিকা থেকে কোনো আইটেমে ক্লিক করলে এই বাটন চালু হবে">
+            ✏️ Update
+          </button>
+          <button class="btn btn-block" id="r-delete-btn" onclick="deleteReceiveEntry()" disabled style="max-width:180px;color:#fff;font-weight:700;border:none;background:#c0392b;box-shadow:0 3px 10px rgba(0,0,0,0.25);opacity:.45;cursor:not-allowed;" title="বিল-বাকি তালিকা থেকে ডাবল ক্লিক করলে এই বাটন চালু হবে">
+            🗑️ Delete
+          </button>
           <button class="btn btn-outline" onclick="clearReceiveForm()">Clear Form</button>
         </div>
       </div>
@@ -5059,11 +5069,11 @@ window.iglSaveNavVisibility = function() {
       </div>
       <div class="card-body">
         <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">
-          চালান দিয়ে সেভ করা হয়েছে কিন্তু এখনো বিল নং/এমাউন্ট বসানো হয়নি — এমন এন্ট্রিগুলো এখানে দেখাবে। বিল আসলে সরাসরি এখানেই বসিয়ে "💾 Save" চাপুন।
+          চালান দিয়ে সেভ করা হয়েছে কিন্তু এখনো বিল বসানো হয়নি — এমন এন্ট্রিগুলো এখানে দেখাবে। যেকোনো সারিতে <b>ডাবল ক্লিক</b> করলে উপরের Receive ফর্মে যাবে — সেখানে বাকি ঘর পূরণ করে "Update" বা "Delete" করুন।
         </p>
         <div style="overflow-x:auto;">
           <table class="table">
-            <thead><tr><th>Date</th><th>Category</th><th>Item</th><th>চালান নং</th><th>Qty</th><th style="width:130px;">বিল নং</th><th style="width:120px;">বিল এমাউন্ট</th><th style="width:70px;"></th></tr></thead>
+            <thead><tr><th>Date</th><th>Category</th><th>Group</th><th>Item</th><th>চালান নং</th><th>Qty</th></tr></thead>
             <tbody id="rg-pending-bill-table"></tbody>
           </table>
         </div>
@@ -12294,7 +12304,9 @@ function showPage(name, el) {
     else if (name === 'issue_log') { populateLogFilters(); renderIssueLog(); slipqInit(); }
     else if (name === 'master') { renderMaster(); populateMasterDataLists(); }
     else if (name === 'receive') {
+      if (window._rcvEditId) { try { rcvExitUpdateMode(true); } catch(e) {} }
       populateFormDropdowns();
+      (function(){ var se = document.getElementById('r-supplier'); if (se && !String(se.value||'').trim()) se.value = gsGetLastSupplier(); })();
       // Set date only on first load
       if (!document.getElementById('r-date').value) document.getElementById('r-date').value = todayStr();
       renderPendingBillList();
@@ -12630,7 +12642,19 @@ function gsAutoFillItemBrandCountry(itemName) {
   var info = map[safeKey];
   brandEl.value = (info && info.brand) ? info.brand : '';
   countryEl.value = (info && info.country) ? info.country : '';
-  if (supplierEl) supplierEl.value = (info && info.supplier) ? info.supplier : '';
+  // সাপ্লাইয়ার একবার বাছলে বদলানো পর্যন্ত থেকে যাবে — আইটেম বদলালে মুছবে না।
+  // ঘর ফাঁকা থাকলেই শুধু শেষ সাপ্লাইয়ার (না থাকলে আইটেমের মনে-রাখা সাপ্লাইয়ার) বসবে।
+  if (supplierEl && !String(supplierEl.value || '').trim() && !window._rcvEditId) {
+    supplierEl.value = gsGetLastSupplier() || ((info && info.supplier) ? info.supplier : '');
+  }
+}
+// ── সর্বশেষ বাছা Supplier মনে রাখা (রিলোড করলেও থাকবে) ──
+function gsGetLastSupplier() {
+  try { return localStorage.getItem('igl_gs_last_supplier') || ''; } catch(e) { return ''; }
+}
+function gsSetLastSupplier(name) {
+  if (window._rcvEditId) return;
+  try { localStorage.setItem('igl_gs_last_supplier', String(name || '').trim()); } catch(e) {}
 }
 // item name দিয়ে সরাসরি সর্বশেষ Supplier/Brand/Country তথ্য বের করা — Requisition
 // রিপোর্টে Available Stock/Supplier/Brand/Country কলাম অটো-ফিল করার জন্য ব্যবহার হয়
@@ -12870,6 +12894,7 @@ function saveReceive() {
     toast('⏳ Firebase থেকে ডাটা এখনো লোড হয়নি — একটু অপেক্ষা করুন (কিছুক্ষণের মধ্যে সংযোগ হয়ে যাবে), তারপর আবার চেষ্টা করুন।', 'warning');
     return;
   }
+  if (window._rcvEditId) { toast('✏️ এখন আপডেট মোড চালু — "Update" বাটন চাপুন, অথবা "Clear Form" দিয়ে বাতিল করুন।', 'warning'); return; }
   const date = document.getElementById('r-date').value;
   const group = document.getElementById('r-group').value;
   const category = document.getElementById('r-category').value;
@@ -12898,6 +12923,7 @@ function saveReceive() {
   arr.push(rec);
   DB.receives = arr;
   gsSaveSupplierName(supplier);
+  gsSetLastSupplier(supplier);
   gsSaveBrandName(brand);
   gsSaveCountryName(country);
   gsSaveItemBrandCountry(item, brand, country, supplier);
@@ -12926,20 +12952,18 @@ function renderPendingBillList() {
   if (countEl) countEl.textContent = data.length ? data.length : '';
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="no-data">🎉 সব এন্ট্রির বিল বসানো আছে</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">🎉 সব এন্ট্রির বিল বসানো আছে</td></tr>';
     return;
   }
 
   tbody.innerHTML = data.map(function(r){
-    return '<tr>'
+    return '<tr class="rg-pb-row'+(window._rcvEditId===r.id?' rg-pb-active':'')+'" title="ডাবল ক্লিক করুন — উপরের ফর্মে আপডেট/ডিলিটের জন্য যাবে" ondblclick="rcvLoadForUpdate('+r.id+', event)">'
       + '<td>' + fmtDate(r.date) + '</td>'
       + '<td>' + (r.group||'-') + '</td>'
+      + '<td>' + (r.category||'-') + '</td>'
       + '<td><b>' + (r.item||'-') + '</b></td>'
       + '<td><span style="font-weight:600;color:#1a5276;">' + (r.chalan||'-') + '</span></td>'
       + '<td><b style="color:#1a5276;">' + r.qty + '</b></td>'
-      + '<td><input type="text" class="form-control" id="pb-bill-'+r.id+'" placeholder="Bill No." style="padding:5px 8px;font-size:12px;"></td>'
-      + '<td><input type="number" min="0" step="0.01" class="form-control" id="pb-amount-'+r.id+'" placeholder="Amount" style="padding:5px 8px;font-size:12px;"></td>'
-      + '<td><button class="btn btn-sm" style="background:#1e8449;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:700;" onclick="savePendingBillRow('+r.id+')">💾</button></td>'
       + '</tr>';
   }).join('');
 }
@@ -12967,7 +12991,151 @@ function savePendingBillRow(id) {
   toast('✅ "'+arr[idx].item+'" এর বিল আপডেট হয়েছে', 'success');
 }
 
+// ══════════════════════════════════════════════════════════════
+//  বিল বাকি তালিকা থেকে ফর্মে লোড করে আপডেট
+//  লক: Date, Category, Group, Item, Challan, Supplier, Qty, Unit
+//  আপডেট করা যাবে: Brand, Country Of Origin, Rate, Bill No., Amount
+// ══════════════════════════════════════════════════════════════
+var _RCV_LOCK_IDS = ['r-date','r-group','r-category','r-item','r-chalan','r-supplier','r-qty','r-unit'];
+function rcvLoadForUpdate(id, ev) {
+  if (ev && ev.target && ev.target.closest && ev.target.closest('input,button,select,textarea,a')) return;
+  var rec = (DB.receives||[]).find(function(r){ return r.id === id; });
+  if (!rec) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+  var lkErr = window.iglCheckMonthLock('gs', rec.date);
+  if (lkErr) { toast(lkErr, 'error'); return; }
+
+  // প্রথমবার আপডেট মোডে ঢোকার আগের ফর্ম অবস্থা মনে রাখা
+  if (!window._rcvEditId) {
+    window._rcvPrev = {
+      date: document.getElementById('r-date').value,
+      group: document.getElementById('r-group').value,
+      category: document.getElementById('r-category').value,
+      supplier: document.getElementById('r-supplier').value,
+      chalan: document.getElementById('r-chalan').value
+    };
+  }
+  window._rcvEditId = null; // ফর্ম সাজানোর সময় অটো-ফিল আটকাতে নিচে সেট হবে
+  RCV_LOADING = true;
+  _RCV_LOCK_IDS.forEach(function(x){ var e = document.getElementById(x); if (e) e.disabled = false; });
+
+  document.getElementById('r-date').value = rec.date || '';
+  document.getElementById('r-group').value = rec.group || '';
+  filterRCategory();
+  document.getElementById('r-category').value = rec.category || '';
+  filterRItems();
+  var itemSel = document.getElementById('r-item');
+  var has = Array.prototype.some.call(itemSel.options, function(o){ return o.value === rec.item; });
+  if (!has) { var o = document.createElement('option'); o.value = rec.item; o.textContent = rec.item; itemSel.appendChild(o); }
+  itemSel.value = rec.item;
+  document.getElementById('r-stock-badge').innerHTML = stockBadge(getStock(rec.item));
+  document.getElementById('r-chalan').value = rec.chalan || '';
+  document.getElementById('r-supplier').value = rec.supplier || '';
+  document.getElementById('r-brand').value = rec.brand || '';
+  document.getElementById('r-country').value = rec.country || '';
+  document.getElementById('r-qty').value = rec.qty;
+  var uEl = document.getElementById('r-unit');
+  if (uEl) {
+    var uOk = Array.prototype.some.call(uEl.options, function(o){ return o.value === (rec.unit||'Pcs'); });
+    if (!uOk) { var uo = document.createElement('option'); uo.value = rec.unit; uo.textContent = rec.unit; uEl.appendChild(uo); }
+    uEl.value = rec.unit || 'Pcs';
+  }
+  document.getElementById('r-bill').value = rec.bill || '';
+  document.getElementById('r-rate').value = rec.rate || '';
+  document.getElementById('r-amount').value = rec.amount || '';
+  RCV_LOADING = false;
+
+  window._rcvEditId = id;
+  _RCV_LOCK_IDS.forEach(function(x){ var e = document.getElementById(x); if (e) { e.disabled = true; e.style.background = '#eef0f2'; } });
+  document.getElementById('r-chalan').classList.remove('rcv-sticky');
+  var ub = document.getElementById('r-update-btn');
+  ub.disabled = false; ub.style.opacity = '1'; ub.style.cursor = 'pointer';
+  var db_ = document.getElementById('r-delete-btn'); if (db_) { db_.disabled = false; db_.style.opacity = '1'; db_.style.cursor = 'pointer'; }
+  var banner = document.getElementById('r-update-banner');
+  banner.style.display = 'block';
+  banner.innerHTML = '✏️ আপডেট মোড — <b>' + _gsAttr(rec.item) + '</b> (' + fmtDate(rec.date) + '). বাকি ঘর (Brand, Country Of Origin, Rate, Bill No., Amount) পূরণ করে Update চাপুন, অথবা Delete করুন। Date/Category/Group/Item/Challan/Qty লক করা।';
+  var sb = document.querySelector('#page-receive button[onclick="saveReceive()"]');
+  if (sb) { sb.disabled = true; sb.style.opacity = '.45'; sb.style.cursor = 'not-allowed'; }
+  renderPendingBillList();
+  try { document.getElementById('page-receive').scrollIntoView({behavior:'smooth', block:'start'}); } catch(e) {}
+  var bEl = document.getElementById('r-brand'); if (bEl) bEl.focus();
+}
+var RCV_LOADING = false;
+
+function rcvExitUpdateMode(silentNoClear) {
+  window._rcvEditId = null;
+  _RCV_LOCK_IDS.forEach(function(x){ var e = document.getElementById(x); if (e) { e.disabled = false; e.style.background = ''; } });
+  var ub = document.getElementById('r-update-btn');
+  if (ub) { ub.disabled = true; ub.style.opacity = '.45'; ub.style.cursor = 'not-allowed'; }
+  var db0 = document.getElementById('r-delete-btn'); if (db0) { db0.disabled = true; db0.style.opacity = '.45'; db0.style.cursor = 'not-allowed'; }
+  var sb = document.querySelector('#page-receive button[onclick="saveReceive()"]');
+  if (sb) { sb.disabled = false; sb.style.opacity = ''; sb.style.cursor = ''; }
+  var banner = document.getElementById('r-update-banner');
+  if (banner) banner.style.display = 'none';
+
+  // ফর্ম খালি করে আগের Date/Category/Supplier ফিরিয়ে আনা
+  var prev = window._rcvPrev || {};
+  window._rcvPrev = null;
+  ['r-chalan','r-bill','r-brand','r-country','r-qty','r-rate','r-amount'].forEach(function(x){ var e = document.getElementById(x); if (e) e.value = ''; });
+  document.getElementById('r-stock-badge').innerHTML = '';
+  var uEl = document.getElementById('r-unit'); if (uEl) uEl.value = 'Pcs';
+  document.getElementById('r-group').value = prev.group || '';
+  filterRCategory();
+  if (prev.group && prev.category) { document.getElementById('r-category').value = prev.category; filterRItems(); }
+  document.getElementById('r-date').value = prev.date || todayStr();
+  document.getElementById('r-supplier').value = gsGetLastSupplier() || prev.supplier || '';
+  document.getElementById('r-chalan').value = prev.chalan || '';
+  try { renderPendingBillList(); } catch(e) {}
+}
+
+async function deleteReceiveEntry() {
+  var id = window._rcvEditId;
+  if (!id) { toast('প্রথমে তালিকা থেকে একটি আইটেমে ডাবল ক্লিক করুন।', 'warning'); return; }
+  await deleteReceive(id);
+  var still = (DB.receives||[]).some(function(r){ return r.id === id; });
+  if (!still) rcvExitUpdateMode();
+}
+
+function updateReceiveEntry() {
+  var id = window._rcvEditId;
+  if (!id) { toast('প্রথমে নিচের বিল-বাকি তালিকা থেকে একটি আইটেমে ক্লিক করুন।', 'warning'); return; }
+  if (!window._fbInitialLoadDone) { toast('⏳ Firebase থেকে ডাটা এখনো লোড হয়নি — একটু অপেক্ষা করুন।', 'warning'); return; }
+  var arr = DB.receives;
+  var idx = arr.findIndex(function(r){ return r.id === id; });
+  if (idx === -1) { toast('❌ এন্ট্রি পাওয়া যায়নি।', 'error'); return; }
+  var old = arr[idx];
+  var lkErr = window.iglCheckMonthLock('gs', old.date);
+  if (lkErr) { toast(lkErr, 'error'); return; }
+
+  var brand = document.getElementById('r-brand').value.trim();
+  var country = document.getElementById('r-country').value.trim();
+  var bill = document.getElementById('r-bill').value.trim();
+  var rate = parseFloat(document.getElementById('r-rate').value) || 0;
+  var amount = parseFloat(document.getElementById('r-amount').value) || 0;
+  var qty = Number(old.qty) || 0;
+  if (!amount && rate && qty) amount = rate * qty;
+  if (!rate && amount && qty) rate = amount / qty;
+
+  // শুধু অনুমোদিত ফিল্ড বদলায় — Date/Category/Group/Item/Challan/Supplier/Qty/Unit অক্ষত
+  arr[idx] = Object.assign({}, old, {
+    brand: brand, country: country, bill: bill, rate: rate, amount: amount,
+    editedAt: new Date().toISOString(),
+    editedBy: window.IGL_CURRENT_USER ? window.IGL_CURRENT_USER.role : ''
+  });
+  DB.receives = arr;
+  gsSaveBrandName(brand);
+  gsSaveCountryName(country);
+  gsSaveItemBrandCountry(old.item, brand, country, old.supplier || '');
+  triggerAutoSave();
+  toast('✅ "' + old.item + '" আপডেট হয়েছে', 'success');
+  rcvExitUpdateMode();
+  try { renderReceiveLog(); } catch(e) {}
+  try { renderDashboard(); } catch(e) {}
+  try { renderStock(); } catch(e) {}
+}
+
 function clearReceiveForm(keepChallan) {
+  // আপডেট মোডে থাকলে "Clear Form" = আপডেট বাতিল, আগের ফর্ম অবস্থায় ফিরবে
+  if (window._rcvEditId && !keepChallan) { rcvExitUpdateMode(); return; }
   // Date, Group, Category — keep previous (sticky)
   // Only reset Item, Qty, Challan
   // keepChallan = true (সেভের পর): একই চালানে ১০/১২টা আইটেম দিতে চালান নং, বিল নং ও সাপ্লাইয়ার রেখে দেওয়া হয়; "Clear Form" বাটনে সব মোছে
@@ -12977,6 +13145,11 @@ function clearReceiveForm(keepChallan) {
   document.getElementById('r-item').innerHTML = '<option value="">-- Select Item --</option>';
   ['r-chalan', 'r-bill', 'r-supplier'].forEach(function(id){
     var el = document.getElementById(id); if (!el) return;
+    if (id === 'r-supplier') {
+      // সাপ্লাইয়ার সব সময় থাকে (Clear Form-এও) — শুধু নিজে বদলালে বদলাবে
+      if (!String(el.value || '').trim()) el.value = gsGetLastSupplier();
+      return;
+    }
     if (keepChallan) { if (String(el.value || '').trim()) el.classList.add('rcv-sticky'); }
     else { el.value = ''; el.classList.remove('rcv-sticky'); }
   });
