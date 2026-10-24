@@ -3273,6 +3273,7 @@ if('serviceWorker' in navigator){
 #rg-pending-bill-table tr.rg-pb-row:hover td { background:#ffd27a !important; color:#4a2c00 !important; transform:translateY(-3px); box-shadow:0 6px 8px -3px rgba(0,0,0,.35); z-index:2; }
 #rg-pending-bill-table tr.rg-pb-row:hover td b, #rg-pending-bill-table tr.rg-pb-row:hover td span { color:#4a2c00 !important; }
 #rg-pending-bill-table tr.rg-pb-row.rg-pb-active td { background:#ffe0b2 !important; }
+#req-item-table tbody tr.req-item-row:hover { background:#e1f5fe !important; }
 .form-control.rcv-sticky { background: #fff8dc !important; box-shadow: 0 0 0 1px #e6b800 inset; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 /* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
@@ -6376,7 +6377,7 @@ window.iglSaveNavVisibility = function() {
           <button onclick="stnReqClearAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:12px;cursor:pointer;font-weight:700;">✕ সব Clear</button>
           <button onclick="stnReqSaveRequisition()" style="padding:7px 18px;border-radius:6px;border:none;background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;font-size:13px;cursor:pointer;font-weight:700;">💾 Save Requisition</button>
         </div>
-        <div id="req-item-checklist" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;max-height:460px;overflow-y:auto;padding:4px;"></div>
+        <div id="req-item-checklist" style="max-height:560px;overflow:auto;border:1px solid #cfd8dc;border-radius:6px;"></div>
       </div>
     </div>
 
@@ -15824,6 +15825,7 @@ function stnReqBuildChecklist() {
   var rates = {};
   try { rates = JSON.parse(localStorage.getItem('igl_stn_rates') || '{}'); } catch(e){}
 
+  var serialNo = 0;
   function buildRow(it, isPkg) {
     var checked     = savedIds.indexOf(it.id) >= 0;
     var savedQty    = '', savedUnit = 'Pcs', savedRemarks = '';
@@ -15836,34 +15838,72 @@ function stnReqBuildChecklist() {
     }).join('');
     var savedRate = it.rate || rates[it.id] || '';
     var rowBg = checked ? '#e8f8f2' : (isPkg ? '#fff8f0' : '#fff');
+    var cellS = 'padding:1px 5px;border-bottom:1px solid #e3e8ea;';
+    var inS = 'padding:1px 4px;height:22px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;font-size:12px;';
     var h = '';
-    h += '<div class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;background:'+rowBg+';">';
-    h += '<input type="checkbox" id="req-chk-'+it.id+'" onchange="stnReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:16px;height:16px;accent-color:#00838f;cursor:pointer;">';
-    h += '<label for="req-chk-'+it.id+'" style="flex:1;font-size:13px;cursor:pointer;font-weight:'+(checked?'600':'400')+';">'+it.name+(isPkg?' <span style="font-size:10px;background:#e67e22;color:#fff;border-radius:3px;padding:1px 4px;">PKG</span>':'')+'</label>';
-    h += '<input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" '+(checked?'':'disabled')+' oninput="stnReqUpdatePreview()" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:center;">';
-    h += '<select id="req-unit-'+it.id+'" '+(checked?'':'disabled')+' onchange="stnReqUpdatePreview()" style="width:68px;padding:4px 5px;border:1px solid #ccc;border-radius:5px;font-size:12px;background:#fff;">'+uOpts+'</select>';
-    h += '<input type="number" id="req-rate-'+it.id+'" placeholder="Rate ৳" min="0" value="'+(savedRate||'')+'" oninput="stnReqSaveRate(\''+it.id+'\',this.value);stnReqUpdatePreview();" style="width:75px;padding:4px 6px;border:1px solid #e8c84a;border-radius:5px;font-size:12px;text-align:center;background:#fffde7;">';
-    h += '<input type="text" id="req-rmk-'+it.id+'" placeholder="Remarks" value="'+(savedRemarks||'')+'" '+(checked?'':'disabled')+' oninput="stnReqUpdatePreview()" style="width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:12px;">';
-    h += '</div>';
+    h += '<tr class="req-item-row" data-id="'+it.id+'" data-name="'+it.name+'" style="background:'+rowBg+';">';
+    h += '<td style="'+cellS+'text-align:center;color:#607d8b;font-weight:700;width:34px;">'+(++serialNo)+'</td>';
+    h += '<td style="'+cellS+'text-align:center;width:30px;"><input type="checkbox" id="req-chk-'+it.id+'" onchange="stnReqCheckChange(\''+it.id+'\')" '+(checked?'checked':'')+' style="width:15px;height:15px;accent-color:#00838f;cursor:pointer;vertical-align:middle;"></td>';
+    h += '<td style="'+cellS+'"><label for="req-chk-'+it.id+'" style="display:block;cursor:pointer;font-size:13px;line-height:1.2;font-weight:'+(checked?'700':'400')+';">'+it.name+(isPkg?' <span style="font-size:10px;background:#e67e22;color:#fff;border-radius:3px;padding:0 4px;">PKG</span>':'')+'</label></td>';
+    h += '<td style="'+cellS+'width:70px;"><input type="number" id="req-qty-'+it.id+'" placeholder="Qty" min="0" value="'+(savedQty||'')+'" oninput="stnReqQtyTyped(\''+it.id+'\')" style="'+inS+'width:64px;text-align:center;"></td>';
+    h += '<td style="'+cellS+'width:74px;"><select id="req-unit-'+it.id+'" onchange="stnReqUpdatePreview()" style="'+inS+'width:68px;background:#fff;">'+uOpts+'</select></td>';
+    h += '<td style="'+cellS+'width:84px;"><input type="number" id="req-rate-'+it.id+'" placeholder="Rate ৳" min="0" value="'+(savedRate||'')+'" oninput="stnReqSaveRate(\''+it.id+'\',this.value);stnReqUpdatePreview();" style="'+inS+'width:78px;text-align:center;border-color:#e8c84a;background:#fffde7;"></td>';
+    h += '<td style="'+cellS+'"><input type="text" id="req-rmk-'+it.id+'" placeholder="Remarks" value="'+(savedRemarks||'')+'" oninput="stnReqUpdatePreview()" style="'+inS+'width:100%;min-width:90px;"></td>';
+    h += '</tr>';
     return h;
   }
 
-  var html = '';
+  var html = '<table id="req-item-table" style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<thead><tr style="background:#1b2a41;color:#fff;position:sticky;top:0;z-index:3;">'
+    + '<th style="padding:4px 5px;width:34px;">SL</th><th style="padding:4px 5px;width:30px;">✓</th><th style="padding:4px 8px;text-align:left;">Item Name</th>'
+    + '<th style="padding:4px 5px;">Qty</th><th style="padding:4px 5px;">Unit</th><th style="padding:4px 5px;">Rate ৳</th><th style="padding:4px 8px;text-align:left;">Remarks</th></tr></thead><tbody>';
   if (stnFiltered.length) {
-    html += '<div style="padding:6px 10px;background:#e8f4fd;font-size:11px;font-weight:700;color:#1a5276;border-radius:4px;margin-bottom:4px;">📋 STATIONERY</div>';
-    stnFiltered.forEach(function(it){ html += buildRow(it, false); });
+    html += '<tr><td colspan="7" style="padding:3px 10px;background:#e8f4fd;font-size:11px;font-weight:700;color:#1a5276;">📋 STATIONERY</td></tr>';
+    stnReqOrderItems(stnFiltered).forEach(function(it){ html += buildRow(it, false); });
   }
   if (pkgItems.length) {
-    html += '<div style="padding:6px 10px;background:#fdebd0;font-size:11px;font-weight:700;color:#784212;border-radius:4px;margin:8px 0 4px;">📦 PACKAGING</div>';
+    serialNo = 0;
+    html += '<tr><td colspan="7" style="padding:3px 10px;background:#fdebd0;font-size:11px;font-weight:700;color:#784212;">📦 PACKAGING</td></tr>';
     pkgItems.forEach(function(it){ html += buildRow(it, true); });
   }
+  html += '</tbody></table>';
 
   var el = document.getElementById('req-item-checklist');
-  if (el) el.innerHTML = html || '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
+  if (el) el.innerHTML = (stnFiltered.length || pkgItems.length) ? html : '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
   stnReqUpdatePreview();
 }
 
-function stnReqCheckChange(id) {
+// একই নামের গ্রুপ (প্রথম ২ শব্দ মিললে, যেমন "Register Khata ...") পাশাপাশি দেখানো —
+// পরে যোগ করা আইটেম লিস্টের শেষে না গিয়ে আগের সমগোত্রীয় আইটেমের কাছে বসবে। (শুধু দেখানোর ক্রম, ডাটা বদলায় না)
+function stnReqOrderItems(list) {
+  function key(n) {
+    var t = String(n || '').toLowerCase().replace(/[^a-z0-9ঀ-৿]+/g, ' ').trim().split(' ');
+    return t.length > 1 ? t[0] + ' ' + t[1] : t[0];
+  }
+  var order = [], groups = {};
+  (list || []).forEach(function(it){
+    var k = key(it.name);
+    if (!groups[k]) { groups[k] = []; order.push(k); }
+    groups[k].push(it);
+  });
+  var out = [];
+  order.forEach(function(k){ groups[k].forEach(function(it){ out.push(it); }); });
+  return out;
+}
+
+// Qty লিখলেই আইটেম নিজে থেকে টিক হয়ে যাবে
+function stnReqQtyTyped(id) {
+  var chk = document.getElementById('req-chk-'+id);
+  var q = document.getElementById('req-qty-'+id);
+  if (chk && !chk.checked && q && Number(q.value) > 0) {
+    chk.checked = true;
+    stnReqCheckChange(id, true);
+  } else {
+    stnReqUpdatePreview();
+  }
+}
+
+function stnReqCheckChange(id, fromQty) {
   var chk    = document.getElementById('req-chk-'+id);
   var qtyInp = document.getElementById('req-qty-'+id);
   var unitSel= document.getElementById('req-unit-'+id);
@@ -15871,15 +15911,13 @@ function stnReqCheckChange(id) {
   var row    = chk ? chk.closest('.req-item-row') : null;
   if (!chk) return;
   if (chk.checked) {
-    if (qtyInp)  { qtyInp.disabled  = false; qtyInp.focus(); }
-    if (unitSel) { unitSel.disabled = false; }
-    if (rmkInp)  { rmkInp.disabled  = false; }
-    if (row) { row.style.background='#e8f8f2'; row.querySelector('label').style.fontWeight='600'; }
+    if (qtyInp && !fromQty && !qtyInp.value) qtyInp.focus();
+    if (row) { row.style.background='#e8f8f2'; var l1=row.querySelector('label'); if (l1) l1.style.fontWeight='700'; }
   } else {
-    if (qtyInp)  { qtyInp.disabled  = true; qtyInp.value = ''; }
-    if (unitSel) { unitSel.disabled = true; unitSel.value = 'Pcs'; }
-    if (rmkInp)  { rmkInp.disabled  = true; rmkInp.value = ''; }
-    if (row) { row.style.background='#fff'; row.querySelector('label').style.fontWeight='400'; }
+    if (qtyInp)  { qtyInp.value = ''; }
+    if (unitSel) { unitSel.value = 'Pcs'; }
+    if (rmkInp)  { rmkInp.value = ''; }
+    if (row) { row.style.background='#fff'; var l2=row.querySelector('label'); if (l2) l2.style.fontWeight='400'; }
   }
   stnReqUpdatePreview();
 }
@@ -15922,7 +15960,7 @@ function stnReqGetRates() {
 function stnReqGetSelected() {
   var rates = stnReqGetRates();
   var items = [];
-  (DB.stnItems||[]).forEach(function(it){
+  stnReqOrderItems(DB.stnItems||[]).forEach(function(it){
     var chk = document.getElementById('req-chk-'+it.id);
     if (chk && chk.checked) {
       var qtyInp  = document.getElementById('req-qty-'+it.id);
