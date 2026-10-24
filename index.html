@@ -3266,9 +3266,13 @@ if('serviceWorker' in navigator){
 /* ফন্ট ছোট হলেও ড্রপডাউন তালিকার লেখা স্বাভাবিক থাকবে */
 #page-receive select.form-control option, #page-issue select.form-control option { font-size: 13px; }
 /* Receive Goods: সেভের পরেও রেখে-দেওয়া চালান/বিল/সাপ্লাইয়ার ঘরে হালকা হলুদ আভা (নতুন চালানে বদলাতে মনে করানোর জন্য) */
-.rg-pb-row { cursor:pointer; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; position:relative; user-select:none; }
-.rg-pb-row:hover { transform: translateY(-4px); box-shadow: 0 8px 14px rgba(0,0,0,.18); background:#fffdf2; z-index:2; }
-.rg-pb-row.rg-pb-active { background:#fff3e0; }
+#rg-pending-bill-table tr.rg-pb-row { cursor:pointer; background:#fff !important; }
+#rg-pending-bill-table tr.rg-pb-row td { padding:2px 10px !important; font-size:12px; line-height:1.15 !important; height:auto !important; border-bottom:1px dashed #f0c987 !important; background:#fff !important; transition: transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease; position:relative; }
+#rg-pending-bill-table tr.rg-pb-row td:first-child { border-left:4px solid #e67e22 !important; border-radius:6px 0 0 6px; }
+#rg-pending-bill-table tr.rg-pb-row td:last-child { border-radius:0 6px 6px 0; }
+#rg-pending-bill-table tr.rg-pb-row:hover td { background:#ffd27a !important; color:#4a2c00 !important; transform:translateY(-3px); box-shadow:0 6px 8px -3px rgba(0,0,0,.35); z-index:2; }
+#rg-pending-bill-table tr.rg-pb-row:hover td b, #rg-pending-bill-table tr.rg-pb-row:hover td span { color:#4a2c00 !important; }
+#rg-pending-bill-table tr.rg-pb-row.rg-pb-active td { background:#ffe0b2 !important; }
 .form-control.rcv-sticky { background: #fff8dc !important; box-shadow: 0 0 0 1px #e6b800 inset; }
 @media print { #gmr-preview-content { max-height: none !important; overflow: visible !important; } }
 /* General Store Closing Stock: স্ক্রল করলেও কলাম-হেডার (B/F, Receive, Issue, Closing Stock) বক্সের মাথায় আটকে থাকবে */
@@ -5047,7 +5051,7 @@ window.iglSaveNavVisibility = function() {
         </div>
         <div class="divider"></div>
         <div class="action-bar">
-          <button class="btn btn-block" onclick="saveReceive()" style="max-width:220px;color:#fff;font-weight:700;border:none;background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);background-size:300% 100%;animation:rainbowMove 4s linear infinite;box-shadow:0 3px 10px rgba(0,0,0,0.25);">
+          <button class="btn btn-block" onclick="saveReceive()" style="max-width:220px;color:#fff;font-weight:700;border:none;background:linear-gradient(90deg,#ff5e62,#ff9966,#ffd93d,#6bcB77,#4d96ff,#a06cd5);background-size:300% 100%;animation:rainbowMove 12s linear infinite;box-shadow:0 3px 10px rgba(0,0,0,0.25);">
             Save Receive
           </button>
           <button class="btn btn-block" id="r-update-btn" onclick="updateReceiveEntry()" disabled style="max-width:180px;color:#fff;font-weight:700;border:none;background:#e67e22;box-shadow:0 3px 10px rgba(0,0,0,0.25);opacity:.45;cursor:not-allowed;" title="নিচের 'বিল বাকি' তালিকা থেকে কোনো আইটেমে ক্লিক করলে এই বাটন চালু হবে">
@@ -5064,13 +5068,10 @@ window.iglSaveNavVisibility = function() {
     <!-- বিল বাকি আছে — এমন Receive এন্ট্রিগুলোর তালিকা, এখানেই দ্রুত বিল নং/এমাউন্ট বসানো যায় -->
     <div class="card">
       <div class="card-header" style="background:#fef9e7;color:#7d6608;display:flex;align-items:center;gap:8px;">
-        <span>⏳ বিল বাকি আছে এমন Receive</span>
+        <span>⏳ বিল বাকি আছে</span>
         <span id="rg-pending-bill-count" style="background:#e67e22;color:#fff;border-radius:12px;padding:1px 9px;font-size:11px;font-weight:700;"></span>
       </div>
       <div class="card-body">
-        <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">
-          চালান দিয়ে সেভ করা হয়েছে কিন্তু এখনো বিল বসানো হয়নি — এমন এন্ট্রিগুলো এখানে দেখাবে। যেকোনো সারিতে <b>ডাবল ক্লিক</b> করলে উপরের Receive ফর্মে যাবে — সেখানে বাকি ঘর পূরণ করে "Update" বা "Delete" করুন।
-        </p>
         <div style="overflow-x:auto;">
           <table class="table">
             <thead><tr><th>Date</th><th>Category</th><th>Group</th><th>Item</th><th>চালান নং</th><th>Qty</th></tr></thead>
