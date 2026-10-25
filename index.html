@@ -7772,7 +7772,7 @@ function ok(msg) {
             <input type="hidden" id="nmi-machine">
           </div>
           <div class="cf-pair ni-cell"><label>Shift<span class="ni-req">*</span></label>
-            <select class="form-control" id="nmi-shift" style="font-weight:700;" onchange="stickyWorker('nmi-shift',this.value)">
+            <select class="form-control" id="nmi-shift" style="font-weight:700;" onchange="stickyWorker('nmi-shift',this.value);nmiRenderLog()">
               <option value="A">A Shift (সকাল)</option>
               <option value="B">B Shift (দুপুর)</option>
               <option value="C">C Shift (রাত)</option>
@@ -7872,6 +7872,7 @@ function ok(msg) {
         </div>
       </div>
       <div id="nmi-log-total-bar" style="display:none;background:#fdf2e3;border-bottom:1px solid #f5cba7;padding:8px 14px;font-size:13px;font-weight:700;color:#9c4600;"></div>
+      <div id="nmi-log-shift-bar" style="display:none;background:#eaf4fb;border-bottom:1px solid #aed6f1;padding:8px 14px;font-size:13px;font-weight:700;color:#1a5276;line-height:1.9;"></div>
       <div class="card-body" style="padding:10px;">
         <!-- New Needle -->
         <div style="margin-bottom:12px;">
@@ -36841,6 +36842,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       if (_circ) sel.value = _circ;
     }
     nmiLoadMachines();
+    (function(){ var _t=document.getElementById('nmi-type'); if(_t && !_t.disabled) _t.value='broken'; })(); // ডিফল্ট Issue Type = Broken
     nmiRenderLog();
     try { renderTodayNeedle(); } catch(e) {}
     try { var _nmiEmpSel = document.getElementById('nmi-employee'); if (_nmiEmpSel) _nmiEmpSel.innerHTML = stnBuildEmployeeOptions('', '-- Employee (ঐচ্ছিক) --'); } catch(e) {}
@@ -36851,6 +36853,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // Apply color to issue type dropdown on init
     var typeSel=document.getElementById('nmi-type');
     if(typeSel) nmiTypeColor(typeSel);
+    try{ nmiRenderLog(); }catch(e){}
   }
 
   // Issue Type dropdown color coding
@@ -36890,6 +36893,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     if(div) div.style.display='none';
     var ndlDiv=document.getElementById('nmi-needle-list');
     if(ndlDiv) ndlDiv.style.display='none';
+    nmiApplyFlatKnit('');
   }
   function nmiPopulateMachineSel(list){
     var sel=document.getElementById('nmi-machine-input');
@@ -36913,7 +36917,34 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     });
   }
 
+  // Flat Knit সেকশনের যেকোনো মেশিন সিলেক্ট করলে Issue Type নিজে থেকে "Flat Knit" হয়ে লক হয়ে যায়;
+  // অন্য মেশিন বা মেশিন ছাড়লে আগের টাইপ ফিরে আসে এবং ড্রপডাউন আবার খোলা হয়।
+  function nmiApplyFlatKnit(machineId){
+    var sel=document.getElementById('nmi-type');
+    if(!sel) return;
+    var m=machineId ? getNeedleMachines().find(function(x){return x.id===machineId;}) : null;
+    var isFlat=!!(m && /flat/i.test(m.section||''));
+    var _before=sel.value+'|'+sel.disabled;
+    if(isFlat){
+      if(!sel.dataset.flatLocked){
+        sel.dataset.prevType=sel.value;
+        sel.dataset.flatLocked='1';
+      }
+      sel.value='flatknit';
+      sel.disabled=true;
+      sel.title='Flat Knit মেশিন — Issue Type Flat Knit হিসেবেই হবে';
+    } else if(sel.dataset.flatLocked){
+      sel.disabled=false;
+      sel.title='';
+      sel.value='broken'; // Circular/অন্য মেশিনে ফিরলে ডিফল্ট Broken
+      delete sel.dataset.flatLocked;
+      delete sel.dataset.prevType;
+    }
+    return (sel.value+'|'+sel.disabled)!==_before;
+  }
+
   function nmiOnMachineSelect(machineId){
+    var _flatChanged=nmiApplyFlatKnit(machineId);
     var hidden=document.getElementById('nmi-machine');
     var idDisplay=document.getElementById('nmi-machine-id-display');
     if(machineId){
@@ -36937,6 +36968,8 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }
     // Remarks: newset/accident select থাকলে machine change এ auto update
     nmiRemarksRefresh();
+    // Flat Knit লক/আনলকে টাইপের রং ও নিডেল তালিকা নতুন টাইপ অনুযায়ী আপডেট
+    if(_flatChanged){ try{ nmiTypeColor(document.getElementById('nmi-type')); nmiRemarksRefresh(); }catch(e){} }
   }
 
   // ── Needle List এর Balance কলাম (আগের Stock Panel এর হিসাবই হুবহু): B/F(মাস শুরুর আগে) + চলতি মাসের Receive − Issue ──
@@ -37721,6 +37754,31 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       } else {
         totalBar.style.display='none';
       }
+    }
+
+    // চলতি Shift-এর সারাংশ — এন্ট্রি ফর্মে যে Shift সিলেক্ট করা, সেই Shift-এর Broken / Wash / Flat Knit / New / Used মোট।
+    // Shift বদলালে এই লাইনও সাথে সাথে বদলে যায়।
+    var shiftBar=document.getElementById('nmi-log-shift-bar');
+    if(shiftBar){
+      var curShift=(document.getElementById('nmi-shift')||{}).value||'';
+      var shRows=filtered.filter(function(r){return (r.shift||'')===curShift;});
+      function _sq(list){return list.reduce(function(s,r){return s+(Number(r.qty)||0);},0);}
+      function _tq(t){return _sq(shRows.filter(function(r){return (r.type||'')===t;}));}
+      var shBroken=_tq('broken'), shWash=_tq('afterwash'), shFlat=_tq('flatknit');
+      var shNew=_sq(shRows.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used';}));
+      var shUsed=_sq(shRows.filter(function(r){return (r.needleType||'').toLowerCase()==='used';}));
+      var shAll=_sq(shRows);
+      var shOther=shAll-shBroken-shWash-shFlat;
+      function _chip(label,val,color){return '<span style="display:inline-block;background:#fff;border:1px solid '+color+';color:'+color+';border-radius:14px;padding:1px 10px;margin:2px 4px 2px 0;">'+label+': <b>'+val+'</b></span>';}
+      shiftBar.style.display='block';
+      shiftBar.innerHTML='🕒 <span style="background:#2980b9;color:#fff;border-radius:4px;padding:1px 9px;">'+(curShift?curShift+' Shift':'Shift নেই')+'</span> &nbsp;'
+        +_chip('🔴 Broken',shBroken,'#c0392b')
+        +_chip('🔵 Wash',shWash,'#1a5276')
+        +_chip('🟡 Flat Knit',shFlat,'#9a7d0a')
+        +(shOther>0?_chip('অন্যান্য',shOther,'#7d3c98'):'')
+        +_chip('🆕 New',shNew,'#2980b9')
+        +_chip('♻️ Used',shUsed,'#e67e22')
+        +_chip('মোট',shAll,'#1b2a41');
     }
 
     // User-wise Summary (Admin only)
