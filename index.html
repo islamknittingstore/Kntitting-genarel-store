@@ -37765,15 +37765,20 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       function _sq(list){return list.reduce(function(s,r){return s+(Number(r.qty)||0);},0);}
       function _tq(t){return _sq(shRows.filter(function(r){return (r.type||'')===t;}));}
       var shBroken=_tq('broken'), shWash=_tq('afterwash'), shFlat=_tq('flatknit');
+      function _tqk(t,used){return _sq(shRows.filter(function(r){var u=(r.needleType||'new').toLowerCase()==='used';return (r.type||'')===t && u===used;}));}
+      var shBrokenNew=_tqk('broken',false), shBrokenUsed=_tqk('broken',true);
+      var shWashNew=_tqk('afterwash',false), shWashUsed=_tqk('afterwash',true);
       var shNew=_sq(shRows.filter(function(r){return (r.needleType||'new').toLowerCase()!=='used';}));
       var shUsed=_sq(shRows.filter(function(r){return (r.needleType||'').toLowerCase()==='used';}));
       var shAll=_sq(shRows);
       var shOther=shAll-shBroken-shWash-shFlat;
       function _chip(label,val,color){return '<span style="display:inline-block;background:#fff;border:1px solid '+color+';color:'+color+';border-radius:14px;padding:1px 10px;margin:2px 4px 2px 0;">'+label+': <b>'+val+'</b></span>';}
       shiftBar.style.display='block';
+      // Broken ও Wash — একই বাটনে New-এর নিচে Used
+      function _chip2(label,newV,usedV,color){return '<span style="display:inline-block;vertical-align:middle;background:#fff;border:1px solid '+color+';color:'+color+';border-radius:10px;padding:1px 10px;margin:2px 4px 2px 0;line-height:1.5;">'+label+' New: <b>'+newV+'</b><br><span style="color:#e67e22;">♻️ Used: <b>'+usedV+'</b></span></span>';}
       shiftBar.innerHTML='🕒 <span style="background:#2980b9;color:#fff;border-radius:4px;padding:1px 9px;">'+(curShift?curShift+' Shift':'Shift নেই')+'</span> &nbsp;'
-        +_chip('🔴 Broken',shBroken,'#c0392b')
-        +_chip('🔵 Wash',shWash,'#1a5276')
+        +_chip2('🔴 Broken',shBrokenNew,shBrokenUsed,'#c0392b')
+        +_chip2('🔵 Wash',shWashNew,shWashUsed,'#1a5276')
         +_chip('🟡 Flat Knit',shFlat,'#9a7d0a')
         +(shOther>0?_chip('অন্যান্য',shOther,'#7d3c98'):'')
         +_chip('🆕 New',shNew,'#2980b9')
