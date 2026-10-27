@@ -35681,6 +35681,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
           var _r = nmx ? (nmx.retail||m) : m;
           var _e = nmx && nmx.erp ? nmx.erp : '';
           mlabel = (_e && _r.indexOf(_e)<0) ? _r+' ('+_e+')' : _r;
+          if(/Jacquard/i.test(m) && _e){ var _suf=' ('+_e+')'; if(mlabel.slice(-_suf.length)===_suf) mlabel=mlabel.slice(0,-_suf.length); mlabel=_e+' · '+mlabel; }   // নম্বর আগে — লম্বা নামে কেটে না যাওয়ার জন্য
         }
         if(qty) {
           machineCells += '<span style="display:inline-block;border:1px solid #aaa;border-radius:2px;margin:0 1px;padding:1px 1px;background:#fff;width:'+cellW+'px;text-align:center;overflow:hidden;vertical-align:top;">'
@@ -37776,7 +37777,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       var onclickHandler='(function(tr){tr.classList.toggle(\'nmi-row-selected\');})( this.closest(\'tr\'))';
       return '<tr id="'+rowId+'" style="cursor:pointer;" onclick="'+onclickHandler+'">'
         +'<td style="font-weight:600;color:'+rowFg+';">'+fmtDate(r.date)+'</td>'
-        +'<td style="color:'+rowFg+';"><b>'+r.machine+'</b></td>'
+        +'<td style="color:'+rowFg+';white-space:normal;word-break:break-word;min-width:170px;max-width:none;"><b>'+r.machine+'</b></td>'
         +'<td style="font-weight:700;color:'+rowFg+';">'+code+'</td>'
         +'<td style="color:'+rowFg+';">'+r.type+'</td>'
         +'<td style="text-align:center;font-weight:800;font-size:14px;color:'+rowFg+';">'+r.qty+'</td>'
@@ -38406,7 +38407,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var div=document.getElementById('nmap-needle-list');if(!div)return;
     if(!mId){div.innerHTML='<p style="color:#aaa;padding:10px;">Machine select করুন</p>';return;}
     var nm=ndlGetMaster();
-    var list=cat?nm.filter(function(n){return (n.cat||'')=== cat;}):nm;
+    var list=cat?nm.filter(function(n){return (n.cat||'')=== cat || n.type==='Sinker' || (n.machines||[]).indexOf(mId)>=0;}):nm;   // Sinker সব সেকশনেই দেখাবে
     div.innerHTML='<p style="font-size:12px;color:#555;margin-bottom:10px;"><b>'+mId+'</b> — কোন needle চলে:</p>'
       +'<div style="display:flex;flex-wrap:wrap;gap:6px;" id="nmap-mn-chk-list">'
       +list.map(function(n){
