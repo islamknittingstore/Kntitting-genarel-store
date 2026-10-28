@@ -6601,7 +6601,13 @@ window.iglSaveNavVisibility = function() {
         <h2>📦 Packaging Dashboard</h2>
         <p>Packaging items stock summary, low stock alert & item-wise details</p>
       </div>
-      <div style="display:flex;gap:10px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="pkgToggleForm('receive')" id="pkg-btn-receive">
+          📥 Receive
+        </button>
+        <button class="btn btn-danger" onclick="pkgToggleForm('issue')" id="pkg-btn-issue">
+          📤 Issue
+        </button>
         <button onclick="pkgItemAddAuth()" class="admin-only-action" style="background:linear-gradient(135deg,#00838f,#00acc1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">➕ Item Add</button>
         <button onclick="pkgShowBFModal()" class="admin-only-action" style="background:linear-gradient(135deg,#4a235a,#7d3c98);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="তারিখ পর্যন্তের Balance কে B/F হিসেবে Save করুন">📅 B/F Update</button>
         <button onclick="pkgShowVisibilityModal()" class="admin-only-action" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;" title="কোন Item গুলো Show/Hide করবেন">👁️ Item Visibility</button>
