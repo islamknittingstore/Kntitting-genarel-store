@@ -1352,6 +1352,13 @@ if('serviceWorker' in navigator){
     /* Monthly Report → Summary প্রিভিউ: item name cell-এ hover করলে বোঝা যাবে
        ডাবল-ক্লিক করলে Requisition-এ যুক্ত করার অপশন আসবে */
     .gmr-req-clickable:hover { background:#fdf3d8 !important; text-decoration:underline dotted; }
+
+/* ── মোবাইল পারফরম্যান্স: অবিরাম অ্যানিমেশন ও ব্লার বন্ধ (ডাটা/হিসাবে কোনো প্রভাব নেই) ── */
+@media (max-width: 900px), (pointer: coarse) {
+  .navbar-logo, .dash-logo-wrap svg, .dash-star, .dash-cloud { animation: none !important; }
+  .autosave-status .autosave-dot { animation: none !important; }
+  * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
 </style>
 <script>
 // ===== PRE-LOADED DATA =====
@@ -3332,7 +3339,7 @@ if('serviceWorker' in navigator){
       var o = el.options[el.selectedIndex], k = (o ? o.text : '') + '|' + el.clientWidth;
       if (state[id] !== k) { state[id] = k; fit(el); }
     });
-  }, 400);
+  }, 1000);
   document.addEventListener('change', function(e){ if (e.target && IDS.indexOf(e.target.id) >= 0) fit(e.target); }, true);
 })();
 </script>
@@ -12024,6 +12031,23 @@ function seedData() {
 // 
 //  HELPERS
 // 
+// DB.items getter প্রতিবার JSON পার্স করে — getStock প্রতি আইটেমে ডাকলে অ্যাপ খুলতে অনেক সময় নিত।
+// ইনপুট (localStorage raw + preItems) অপরিবর্তিত থাকলে একই ফলাফল পুনরায় ব্যবহার (ফলাফল হুবহু একই)।
+var _gsItemCache = { key: null, pre: null, map: null };
+function _gsItemByName(name) {
+  var key;
+  try { key = (localStorage.getItem('igl_items') || '') + '\u0001' + (localStorage.getItem('igl_local_deleted_ids') || ''); } catch(e) { key = null; }
+  var pre = window.preItems;
+  if (key === null || _gsItemCache.key !== key || _gsItemCache.pre !== pre || !_gsItemCache.map) {
+    var map = {};
+    DB.items.forEach(function(x){ if (x && !Object.prototype.hasOwnProperty.call(map, x.name)) map[x.name] = x; });
+    _gsItemCache = { key: key, pre: pre, map: map };
+    // getter নিজে localStorage বদলাতে পারে — তাই বদলের পরের key রাখো
+    try { _gsItemCache.key = (localStorage.getItem('igl_items') || '') + '\u0001' + (localStorage.getItem('igl_local_deleted_ids') || ''); } catch(e) { _gsItemCache.key = null; }
+  }
+  return Object.prototype.hasOwnProperty.call(_gsItemCache.map, name) ? _gsItemCache.map[name] : undefined;
+}
+
 function getStock(itemName) {
   // 🛢️ Oil আইটেমের জন্য যদি আলাদা date-anchored BF (igl_oil_bf, Oil Item Ledger থেকে সেট করা)
   // থাকে, সেটা দিয়েই হিসাব করো — সাধারণ item.bf (lifetime বেস) দিয়ে না, কারণ Oil-এর BF একটা
@@ -12048,8 +12072,8 @@ function getStock(itemName) {
     var itP = DB.pkgItems.find(function(x){ return x.name === itemName; });
     if (itP) { bf = Number(itP.bf) || 0; foundInStn = true; }
   }
-  if (!foundInStn && typeof DB !== 'undefined' && DB.items) {
-    var itG = DB.items.find(function(x){ return x.name === itemName; });
+  if (!foundInStn && typeof DB !== 'undefined') {
+    var itG = _gsItemByName(itemName);
     if (itG) bf = Number(itG.bf) || 0;
   }
   const rec = DB.receives.filter(r => r.item === itemName).reduce((s,r) => s + Number(r.qty), 0);
@@ -45169,7 +45193,7 @@ window.iglFreshGate = async function(){
       } else if(bar){ bar.remove(); bar=null; }
     }catch(e){}
   }
-  setInterval(tick,700); setTimeout(tick,300);
+  var _tk, _okN=0; _tk=setInterval(function(){ tick(); if(ready()){ _okN++; if(_okN>3) clearInterval(_tk); } else _okN=0; },1500); setTimeout(tick,300);
 })();
 </script>
 </body>
