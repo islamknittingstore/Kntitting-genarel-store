@@ -36901,6 +36901,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   // ── Multi Issue ─────────────────────────────
   function nmiInit(){
     _seedRetailMachinesIfEmpty();
+    setTimeout(function(){ try{ var _m=document.getElementById('nmi-machine'); if(_m&&_m.value&&typeof nmiLoadNeedles==='function') nmiLoadNeedles(); }catch(e){} },0);   // ম্যাপিং বদলালে পেজ খুললেই লিস্ট নতুন
     populateWorkerDrops();
     var d=new Date();
     document.getElementById('nmi-date').value=d.toISOString().split('T')[0];
@@ -38398,6 +38399,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     });
     ndlSetMaster(nm);
     ndlMapShowNeedleMachines();
+    try{ var _m=document.getElementById('nmi-machine'); if(_m&&_m.value&&typeof nmiLoadNeedles==='function') nmiLoadNeedles(); }catch(e){}
     toast('✅ Saved — '+ndlIds.length+' needle, '+checkedMids.length+' machine assigned','success');
   }
 
@@ -38434,6 +38436,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     });
     ndlSetMaster(nm);
     ndlMapShowMachineNeedles();
+    try{ var _m=document.getElementById('nmi-machine'); if(_m&&_m.value&&typeof nmiLoadNeedles==='function') nmiLoadNeedles(); }catch(e){}
     var cnt=document.querySelectorAll('#nmap-mn-chk-list input[type=checkbox]:checked').length;
     toast('✅ Saved — '+cnt+' needle assigned','success');
   }
