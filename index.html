@@ -45225,73 +45225,100 @@ function drgDeleteHistory(date) {
   function find(a, id){ for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
   function num(v){ var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }
 
-  // ── পেজের লিস্ট কার্ড (Requisition তালিকা + রিছিভ) ──
+  // ── তারিখ + Slip No. (Requisition লিস্টের মাথায়) ──
+  function metaLoad(){ try { var m = JSON.parse(localStorage.getItem(KEY + '_meta') || '{}'); return (m && typeof m === 'object') ? m : {}; } catch(e){ return {}; } }
+  function metaSave(m){ try { localStorage.setItem(KEY + '_meta', JSON.stringify(m)); } catch(e){} }
+  function today(){ return new Date().toISOString().split('T')[0]; }
+  function meta(){ var m = metaLoad(); return { date: m.date || today(), slip: m.slip || '' }; }
+  function fmtD(d){ try { return fmtDate(d); } catch(e){ return d; } }
+  window.nrqMeta = function(inp, key){ var m = metaLoad(); m[key] = (inp.value || '').trim(); if (key === 'date' && !m.date) m.date = today(); metaSave(m); var o = document.querySelectorAll('.nrq-meta-' + key); o.forEach(function(e){ if (e !== inp) e.value = inp.value; }); render(); };
+
+  // ── পেজের Requisition লিস্ট কার্ড ──
   function render(){
     var box = document.getElementById('nrq-card-body'); if (!box) return;
     var list = load(), nm = ndlGetMaster(), map = {};
     nm.forEach(function(n){ map[n.id] = n; });
     list = list.filter(function(x){ return map[x.id]; });
     var cnt = document.getElementById('nrq-count'); if (cnt) cnt.textContent = list.length;
+    var mt = meta();
+    var head = '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;"><span>📅 <b>Date:</b> ' + esc(fmtD(mt.date)) + '</span><span>🧾 <b>Slip No:</b> ' + (mt.slip ? esc(mt.slip) : '<i style="color:#c0392b;">দেওয়া হয়নি</i>') + '</span></div>';
     if (!list.length) {
-      box.innerHTML = '<div style="text-align:center;padding:22px 10px;color:#7f8c8d;font-size:13px;">কোনো আইটেম Requisition লিস্টে নেই।<br><b>"📋 Requisition Needle List"</b> বাটন চেপে Needle/Sinker বেছে নিন।</div>';
+      box.innerHTML = head + '<div style="text-align:center;padding:18px 10px;color:#7f8c8d;font-size:13px;">কোনো আইটেম Requisition লিস্টে নেই।<br><b>"📋 Requisition Needle List"</b> বাটন চেপে Needle/Sinker বেছে নিন।</div>';
       return;
     }
+    var tq = 0;
     var rows = list.map(function(x, i){
-      var n = map[x.id], b = bal(x.id), st = status(b);
+      var n = map[x.id], b = bal(x.id), st = status(b); tq += num(x.qty);
       return '<tr data-id="' + esc(x.id) + '">'
         + '<td style="text-align:center;">' + (i + 1) + '</td>'
         + '<td><b>' + esc(n.name || n.code) + '</b></td>'
         + '<td style="text-align:center;"><b style="color:' + st[1] + ';font-size:14px;">' + b + '</b> <span style="background:' + st[2] + ';color:' + st[1] + ';border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
-        + '<td style="text-align:center;"><input type="number" min="0" class="form-control nrq-req" value="' + (x.qty || '') + '" placeholder="0" style="width:78px;margin:auto;text-align:center;padding:3px 4px;" oninput="nrqEdit(this)"></td>'
-        + '<td style="text-align:center;"><input type="number" min="0" class="form-control nrq-rcv" value="' + (x.rcv != null ? x.rcv : (x.qty || '')) + '" placeholder="0" style="width:78px;margin:auto;text-align:center;padding:3px 4px;border-color:#1abc9c;" oninput="nrqEdit(this)"></td>'
+        + '<td style="text-align:center;"><b>' + (x.qty || 0) + '</b></td>'
         + '<td style="text-align:center;"><button type="button" onclick="nrqRemove(\'' + esc(x.id) + '\')" title="লিস্ট থেকে সরান" style="background:#fdedec;color:#c0392b;border:1px solid #f5b7b1;border-radius:5px;padding:1px 8px;cursor:pointer;font-weight:700;">✕</button></td></tr>';
     }).join('');
-    box.innerHTML = '<div class="table-scroll"><table style="width:100%;font-size:13px;"><thead><tr style="background:#117a65;color:#fff;">'
-      + '<th style="width:36px;">#</th><th>Needle / Sinker</th><th style="text-align:center;">Balance</th><th style="text-align:center;">Req Qty</th><th style="text-align:center;">Receive Qty</th><th style="width:44px;"></th></tr></thead>'
+    box.innerHTML = head + '<div class="table-scroll"><table class="nrq-tbl" style="width:100%;font-size:13px;"><thead><tr style="background:#117a65;color:#fff;">'
+      + '<th style="width:36px;">#</th><th>Needle / Sinker</th><th style="text-align:center;">Balance</th><th style="text-align:center;">Req Qty</th><th style="width:44px;"></th></tr></thead>'
       + '<tbody>' + rows + '</tbody>'
-      + '<tfoot><tr style="background:#1b2a41;color:#fff;font-weight:800;"><td colspan="2" class="nrq-tf-l" style="text-align:right;padding:7px 10px;">মোট (<span id="nrq-t-items">0</span> আইটেম)</td>'
-      + '<td style="text-align:center;" id="nrq-t-req">0</td><td style="text-align:center;" id="nrq-t-rcv">0</td><td></td></tr></tfoot></table></div>'
+      + '<tfoot><tr style="background:#1b2a41;color:#fff;font-weight:800;"><td colspan="3" style="text-align:right;padding:7px 10px;">মোট (' + list.length + ' আইটেম)</td><td style="text-align:center;">' + tq + '</td><td></td></tr></tfoot></table></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
-      + '<button class="btn btn-success" onclick="nrqSaveAll()" style="min-width:210px;font-weight:700;">✅ Save Receive (লিস্টের সব)</button>'
+      + '<button class="btn btn-success" onclick="nrqRcvOpen()" style="min-width:200px;font-weight:700;">📥 Receive Table খুলুন</button>'
       + '<button class="btn btn-outline" onclick="nrqOpen()">➕ আরও যোগ করুন</button>'
       + '<button class="btn btn-outline" onclick="nrqPrint()">🖨️ Print</button>'
-      + '<button class="btn btn-outline" onclick="nrqClear()" style="color:#c0392b;border-color:#e6b0aa;">লিস্ট খালি করুন</button></div>'
-      + '<div style="font-size:11px;color:#7f8c8d;margin-top:8px;">তারিখ, Slip No. ও Needle Type উপরের ফর্ম থেকে নেওয়া হবে। Receive Qty 0 বা ফাঁকা থাকলে ওই আইটেম সেভ হবে না ও লিস্টে থেকে যাবে।</div>';
-    totals();
+      + '<button class="btn btn-outline" onclick="nrqClear()" style="color:#c0392b;border-color:#e6b0aa;">লিস্ট খালি করুন</button></div>';
   }
-  function totals(){
-    var items = 0, rq = 0, rc = 0;
-    document.querySelectorAll('#nrq-card-body tbody tr').forEach(function(tr){
-      items++; rq += num((tr.querySelector('.nrq-req') || {}).value); rc += num((tr.querySelector('.nrq-rcv') || {}).value);
-    });
-    var a = document.getElementById('nrq-t-items'), b = document.getElementById('nrq-t-req'), c = document.getElementById('nrq-t-rcv');
-    if (a) a.textContent = items; if (b) b.textContent = rq; if (c) c.textContent = rc;
-  }
-  window.nrqEdit = function(inp){
-    var tr = inp.closest('tr'); if (!tr) return;
-    var id = tr.getAttribute('data-id'), a = load(), x = find(a, id); if (!x) return;
-    if (inp.classList.contains('nrq-req')) {
-      x.qty = num(inp.value) || 0;
-      var r = tr.querySelector('.nrq-rcv'); if (r && (x.rcv == null)) r.value = x.qty || '';   // Receive Qty আলাদা বদলানো না থাকলে Req Qty-র সাথে চলে
-    } else { x.rcv = inp.value === '' ? 0 : num(inp.value); }
-    save(a); totals();
-  };
-  window.nrqRemove = function(id){ save(load().filter(function(x){ return x.id !== id; })); render(); modalRefresh(); };
+  window.nrqRemove = function(id){ save(load().filter(function(x){ return x.id !== id; })); render(); modalRefresh(); rcvRefresh(); };
   window.nrqClear = async function(){
     if (!(await igl_confirm('Requisition লিস্টের সব আইটেম খালি করবেন?', 'শুধু লিস্ট খালি হবে — কোনো স্টক/রিছিভ ডাটা বদলাবে না।', '📋'))) return;
-    save([]); render(); modalRefresh();
+    save([]); render(); modalRefresh(); rcvRefresh();
   };
 
-  // ── Receive সেভ (লিস্টের সব) — রেকর্ডের গঠন saveNeedleReceive-এর হুবহু ──
+  // ── Receive Table (মডাল): লিস্টের সব আইটেম টেবিলে, একসাথে রিছিভ, Slip No. সহ ──
+  function ensureRcvModal(){
+    var m = document.getElementById('nrq-rcv-modal'); if (m) return m;
+    m = document.createElement('div'); m.id = 'nrq-rcv-modal';
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(10,25,40,.62);z-index:99991;align-items:center;justify-content:center;padding:6px;';
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:640px;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);">'
+      + '<div style="background:linear-gradient(135deg,#1b2a41,#2c3e50);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:800;">📥 Requisition Receive Table</div><button onclick="nrqRcvClose()" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:15px;">✕</button></div>'
+      + '<div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;background:#f8fafa;border-bottom:1px solid #e5e8e8;">'
+      + '<label style="font-size:12px;font-weight:700;">Date<br><input type="date" id="nrq-r-date" class="form-control nrq-meta-date" style="width:150px;" onchange="nrqMeta(this,\'date\')"></label>'
+      + '<label style="font-size:12px;font-weight:700;flex:1;min-width:140px;">Slip No.<br><input type="text" id="nrq-r-slip" class="form-control nrq-meta-slip" placeholder="Slip No..." onchange="nrqMeta(this,\'slip\')" oninput="nrqMeta(this,\'slip\')"></label></div>'
+      + '<div style="overflow:auto;flex:1;"><table class="nrq-tbl" style="width:100%;font-size:13px;border-collapse:collapse;"><thead style="position:sticky;top:0;"><tr style="background:#117a65;color:#fff;"><th style="padding:7px;width:36px;">#</th><th style="text-align:left;padding:7px;">Needle / Sinker</th><th style="padding:7px;">Balance</th><th style="padding:7px;">Req</th><th style="padding:7px;width:96px;">Receive Qty</th></tr></thead><tbody id="nrq-r-body"></tbody></table></div>'
+      + '<div style="padding:10px 14px;border-top:2px solid #117a65;background:#eafaf1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:14px;font-weight:800;color:#0e6655;" id="nrq-r-total"></div><button class="btn btn-success" onclick="nrqSaveAll()" style="margin-left:auto;min-width:200px;font-weight:700;">✅ Save Receive (সব)</button></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', function(e){ if (e.target === m) nrqRcvClose(); });
+    return m;
+  }
+  function rcvRefresh(){ var m = document.getElementById('nrq-rcv-modal'); if (m && m.style.display === 'flex') nrqRcvOpen(); }
+  window.nrqRcvOpen = function(){
+    var m = ensureRcvModal(), list = load(), nm = ndlGetMaster(), map = {}; nm.forEach(function(n){ map[n.id] = n; });
+    var mt = meta(); document.getElementById('nrq-r-date').value = mt.date; document.getElementById('nrq-r-slip').value = mt.slip;
+    list = list.filter(function(x){ return map[x.id]; });
+    document.getElementById('nrq-r-body').innerHTML = list.length ? list.map(function(x, i){
+      var n = map[x.id], b = bal(x.id), st = status(b);
+      return '<tr data-id="' + esc(x.id) + '" style="border-bottom:1px solid #eef1f1;"><td style="text-align:center;padding:5px;">' + (i + 1) + '</td><td style="padding:5px;"><b>' + esc(n.name || n.code) + '</b></td>'
+        + '<td style="text-align:center;"><b style="color:' + st[1] + ';">' + b + '</b></td><td style="text-align:center;">' + (x.qty || 0) + '</td>'
+        + '<td style="text-align:center;"><input type="number" min="0" step="50" class="form-control nrq-rcv" value="' + (x.qty || '') + '" placeholder="0" style="width:84px;margin:auto;text-align:center;padding:3px 4px;border-color:#1abc9c;" oninput="nrqRcvTot()"></td></tr>';
+    }).join('') : '<tr><td colspan="5" style="text-align:center;padding:22px;color:#888;">Requisition লিস্ট খালি — আগে "📋 Requisition Needle List" থেকে আইটেম যোগ করুন।</td></tr>';
+    m.style.display = 'flex'; nrqRcvTot();
+  };
+  window.nrqRcvClose = function(){ var m = document.getElementById('nrq-rcv-modal'); if (m) m.style.display = 'none'; };
+  window.nrqRcvTot = function(){
+    var items = 0, q = 0;
+    document.querySelectorAll('#nrq-r-body tr[data-id]').forEach(function(tr){ var v = num((tr.querySelector('.nrq-rcv') || {}).value); if (v > 0) { items++; q += v; } });
+    var t = document.getElementById('nrq-r-total'); if (t) t.textContent = 'মোট: ' + items + 'টি আইটেম | ' + q + ' pcs';
+  };
+
+  // ── Receive সেভ — রেকর্ডের গঠন saveNeedleReceive-এর হুবহু; Slip No. = challan ──
   window.nrqSaveAll = function(){
-    var date = (document.getElementById('nr-date') || {}).value;
-    var challan = ((document.getElementById('nr-challan') || {}).value || '').trim();
+    var date = (document.getElementById('nrq-r-date') || {}).value;
+    var challan = ((document.getElementById('nrq-r-slip') || {}).value || '').trim();
     var stockType = stype();
     if (!date) { toast('Date দিন!', 'warning'); return; }
+    if (!challan) { toast('Slip No. দিন!', 'warning'); return; }
     var e1 = window.iglCheckBackdate(date); if (e1) { toast(e1, 'error'); return; }
     var e2 = window.iglCheckMonthLock('needle', date); if (e2) { toast(e2, 'error'); return; }
     var list = load(), nm = ndlGetMaster(), todo = [];
-    document.querySelectorAll('#nrq-card-body tbody tr').forEach(function(tr){
+    document.querySelectorAll('#nrq-r-body tr[data-id]').forEach(function(tr){
       var id = tr.getAttribute('data-id'), q = num((tr.querySelector('.nrq-rcv') || {}).value);
       if (q > 0) todo.push({ id: id, qty: q });
     });
@@ -45307,13 +45334,13 @@ function drgDeleteHistory(date) {
     done.forEach(function(rec){ try { gsAutoSyncNeedleRow('receive', rec); } catch(e){} });
     var ids = {}; done.forEach(function(r){ ids[r.needleId] = 1; });
     save(list.filter(function(x){ return !ids[x.id]; }));      // রিছিভ হওয়া আইটেম লিস্ট থেকে বাদ, বাকিগুলো থাকে
-    toast('✅ ' + saved + 'টি আইটেম রিছিভ সেভ — মোট ' + totalQ + ' pcs', 'success');
+    toast('✅ ' + saved + 'টি আইটেম রিছিভ সেভ — Slip ' + challan + ' | মোট ' + totalQ + ' pcs', 'success');
     try { triggerAutoSave(); } catch(e){}
     try { renderNdlRcvLog(); } catch(e){}
     try { updateNrCurrentStock(); } catch(e){}
     try { renderNeedleStock(); } catch(e){}
     try { renderUsedNeedleStock(); } catch(e){}
-    render(); modalRefresh();
+    render(); modalRefresh(); nrqRcvClose();
   };
 
   window.nrqPrint = function(){
@@ -45323,7 +45350,7 @@ function drgDeleteHistory(date) {
       return '<tr><td>' + (i + 1) + '</td><td>' + esc(n.name || n.code) + '</td><td>' + esc(n.type) + '</td><td>' + esc(sec(n)) + '</td><td style="text-align:right">' + bal(x.id) + '</td><td style="text-align:right"><b>' + (x.qty || '') + '</b></td></tr>';
     }).join('');
     var w = window.open('', '_blank'); if (!w) { toast('পপ-আপ ব্লক হয়েছে', 'warning'); return; }
-    w.document.write('<html><head><title>Needle Requisition</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #444;padding:5px 8px}th{background:#117a65;color:#fff}h2{margin:0 0 4px}</style></head><body><h2>Islam Garments Ltd. — Needle / Sinker Requisition</h2><div style="margin-bottom:10px;font-size:12px">Date: ' + new Date().toLocaleDateString('en-GB') + '</div><table><thead><tr><th>#</th><th>Needle / Sinker</th><th>Type</th><th>Section</th><th>Balance</th><th>Req Qty</th></tr></thead><tbody>' + rows + '</tbody><tfoot><tr><td colspan="5" style="text-align:right"><b>Total</b></td><td style="text-align:right"><b>' + tq + '</b></td></tr></tfoot></table></body></html>');
+    w.document.write('<html><head><title>Needle Requisition</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #444;padding:5px 8px}th{background:#117a65;color:#fff}h2{margin:0 0 4px}</style></head><body><h2>Islam Garments Ltd. — Needle / Sinker Requisition</h2><div style="margin-bottom:10px;font-size:12px">Date: ' + esc(fmtD(meta().date)) + ' &nbsp;|&nbsp; Slip No: ' + esc(meta().slip) + '</div><table><thead><tr><th>#</th><th>Needle / Sinker</th><th>Type</th><th>Section</th><th>Balance</th><th>Req Qty</th></tr></thead><tbody>' + rows + '</tbody><tfoot><tr><td colspan="5" style="text-align:right"><b>Total</b></td><td style="text-align:right"><b>' + tq + '</b></td></tr></tfoot></table></body></html>');
     w.document.close(); w.focus(); setTimeout(function(){ w.print(); }, 400);
   };
 
@@ -45334,19 +45361,23 @@ function drgDeleteHistory(date) {
     m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(10,25,40,.62);z-index:99990;align-items:center;justify-content:center;padding:10px;';
     m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:620px;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);">'
       + '<div style="background:linear-gradient(135deg,#0e6655,#1abc9c);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:16px;font-weight:800;">📋 Needle / Sinker Requisition List</div><div style="margin-left:auto;font-size:12px;opacity:.9;" id="nrq-m-sub"></div><button onclick="nrqClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:15px;">✕</button></div>'
+      + '<div style="padding:10px 14px 0;display:flex;gap:10px;flex-wrap:wrap;background:#f8fafa;">'
+      + '<label style="font-size:12px;font-weight:700;">📅 Date<br><input type="date" id="nrq-m-date" class="form-control nrq-meta-date" style="width:150px;" onchange="nrqMeta(this,\'date\')"></label>'
+      + '<label style="font-size:12px;font-weight:700;flex:1;min-width:140px;">🧾 Slip No.<br><input type="text" id="nrq-m-slip" class="form-control nrq-meta-slip" placeholder="Slip No..." oninput="nrqMeta(this,\'slip\')"></label></div>'
       + '<div style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e8e8;background:#f8fafa;">'
       + '<input id="nrq-q" class="form-control" placeholder="🔎 নাম/কোড খুঁজুন..." style="flex:1;min-width:150px;" oninput="nrqFilter()">'
                   + '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="nrq-only" onchange="nrqFilter()"> শুধু লিস্টেরগুলো</label>'
       + '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="nrq-low" onchange="nrqFilter()"> শুধু কম/শেষ (≤10)</label></div>'
       + '<div style="overflow:auto;flex:1;"><table class="nrq-tbl" style="width:100%;font-size:13px;border-collapse:collapse;"><thead style="position:sticky;top:0;z-index:1;"><tr style="background:#1b2a41;color:#fff;"><th style="padding:7px;width:38px;">#</th><th style="text-align:left;padding:7px;">Needle / Sinker</th><th style="padding:7px;">Balance</th><th style="padding:7px;width:90px;">Qty</th><th style="padding:7px;width:56px;"></th></tr></thead><tbody id="nrq-m-body"></tbody></table></div>'
-      + '<div style="padding:10px 14px;border-top:2px solid #117a65;background:#eafaf1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:14px;font-weight:800;color:#0e6655;" id="nrq-m-total"></div><button class="btn btn-success" onclick="nrqClose()" style="margin-left:auto;min-width:200px;font-weight:700;">✅ Confirm — Receive-এ নিন</button></div></div>';
+      + '<div style="padding:10px 14px;border-top:2px solid #117a65;background:#eafaf1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:14px;font-weight:800;color:#0e6655;" id="nrq-m-total"></div><button class="btn btn-success" onclick="nrqClose()" style="margin-left:auto;min-width:200px;font-weight:700;">✅ Confirm</button></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', function(e){ if (e.target === m) nrqClose(); });
     return m;
   }
   function modalRefresh(){ var m = document.getElementById('nrq-modal'); if (m && m.style.display === 'flex') nrqFilter(); }
   window.nrqOpen = function(){
-    var m = ensureModal();
+    var m = ensureModal(); var mt = meta();
+    document.getElementById('nrq-m-date').value = mt.date; document.getElementById('nrq-m-slip').value = mt.slip;
     m.style.display = 'flex'; nrqFilter();
   };
   window.nrqClose = function(){ var m = document.getElementById('nrq-modal'); if (m) m.style.display = 'none'; render(); };
@@ -45365,7 +45396,7 @@ function drgDeleteHistory(date) {
       return '<tr style="' + (it ? 'background:#eafaf1;' : '') + 'border-bottom:1px solid #eef1f1;" data-id="' + esc(x.id) + '">'
         + '<td style="text-align:center;padding:5px;">' + n + '</td><td style="padding:5px;"><b>' + esc(x.name || x.code) + '</b></td>'
         + '<td style="text-align:center;"><b style="color:' + st[1] + ';font-size:14px;">' + b + '</b> <span style="background:' + st[2] + ';color:' + st[1] + ';border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
-        + '<td style="text-align:center;"><input type="number" min="0" class="form-control nrq-m-q" placeholder="0" value="' + (it && it.qty ? it.qty : '') + '" style="width:76px;margin:auto;text-align:center;padding:3px;" onchange="nrqQtyChange(this)"></td>'
+        + '<td style="text-align:center;"><input type="number" min="0" step="50" class="form-control nrq-m-q" placeholder="0" value="' + (it && it.qty ? it.qty : '') + '" style="width:76px;margin:auto;text-align:center;padding:3px;" onchange="nrqQtyChange(this)"></td>'
         + '<td style="text-align:center;">' + (it
           ? '<button type="button" onclick="nrqToggle(\'' + esc(x.id) + '\')" title="লিস্ট থেকে বাদ দিন" style="background:#117a65;color:#fff;border:none;border-radius:6px;width:38px;height:28px;cursor:pointer;font-weight:800;font-size:15px;">✔</button>'
           : '<button type="button" onclick="nrqToggle(\'' + esc(x.id) + '\')" title="Requisition-এ যোগ করুন" style="background:#fff;color:#117a65;border:1.5px solid #117a65;border-radius:6px;width:38px;height:28px;cursor:pointer;font-weight:800;font-size:16px;">+</button>') + '</td></tr>';
@@ -45404,6 +45435,15 @@ function drgDeleteHistory(date) {
       + '<button class="btn btn-sm" onclick="nrqOpen()" style="margin-left:auto;background:#1abc9c;color:#fff;border:none;font-weight:700;padding:6px 14px;border-radius:6px;">📋 Requisition Needle List</button></div>'
       + '<div class="card-body" id="nrq-card-body"></div>';
     hdr.insertAdjacentElement('afterend', card);
+    try {
+      var logHdr = [].slice.call(pg.querySelectorAll('.card-header')).filter(function(h){ return /Receive Log/.test(h.textContent); })[0];
+      if (logHdr && !document.getElementById('nrq-log-btn')) {
+        var bt = document.createElement('button'); bt.id = 'nrq-log-btn'; bt.className = 'btn btn-sm';
+        bt.style.cssText = 'background:#117a65;color:#fff;border:none;font-weight:700;padding:5px 12px;border-radius:6px;margin-right:8px;';
+        bt.innerHTML = '📥 Requisition Receive Table'; bt.onclick = function(){ nrqRcvOpen(); };
+        logHdr.insertBefore(bt, logHdr.children[0] ? logHdr.children[0] : null);
+      }
+    } catch(e){}
     render();
   }
   document.addEventListener('DOMContentLoaded', function(){ inject(); });
