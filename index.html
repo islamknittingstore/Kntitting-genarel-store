@@ -9312,7 +9312,7 @@ function ok(msg) {
             <select id="rna-empty-mode" onchange="try{localStorage.setItem('igl_rna_empty_mode',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;">
               <option value="align">অদৃশ্য (মেশিনের কলাম ঠিক থাকে)</option>
               <option value="compact">ঘেঁষে বসানো (জায়গা বাঁচে)</option>
-              <option value="show">দেখানো (বর্ডারসহ)</option>
+              <option value="show" selected>দেখানো (বর্ডারসহ)</option>
             </select>
           </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
@@ -9602,7 +9602,7 @@ function ok(msg) {
             <select id="rna-empty-mode" onchange="try{localStorage.setItem('igl_rna_empty_mode',this.value)}catch(e){}" style="border:none;outline:none;font-size:12px;font-weight:700;color:#1a5276;background:transparent;cursor:pointer;padding:0;">
               <option value="align">অদৃশ্য (মেশিনের কলাম ঠিক থাকে)</option>
               <option value="compact">ঘেঁষে বসানো (জায়গা বাঁচে)</option>
-              <option value="show">দেখানো (বর্ডারসহ)</option>
+              <option value="show" selected>দেখানো (বর্ডারসহ)</option>
             </select>
           </span>
         <button class="btn btn-outline btn-sm no-print" onclick="rnaPrintAll()" style="margin-top:16px;">🖨️ Print All</button>
@@ -34953,7 +34953,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     var v = (document.getElementById('rna-empty-mode') || {}).value;
     if (!v) { try { v = localStorage.getItem('igl_rna_empty_mode'); } catch(e){} }
     if (!v) { try { if (localStorage.getItem('igl_rna_hide_empty') === '0') v = 'show'; } catch(e){} }
-    return (v === 'compact' || v === 'show') ? v : 'align';
+    return (v === 'compact' || v === 'align') ? v : 'show';   // সেভ করা পছন্দ না থাকলে আগের চেহারা (বর্ডারসহ, মেশিনের নাম ঘরের ভিতরে)
   }
   // প্রিন্টের কাগজের দিক: 'landscape' (ডিফল্ট) বা 'portrait' — ড্রপডাউন থেকে, না থাকলে মনে-রাখা পছন্দ থেকে
   function rnaOrient(){
@@ -34989,7 +34989,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
   function rnaInitPrintAllCheckboxes(){
     var sel = rnaGetPrintAllSelection();
     try { var _ro = document.getElementById('rna-orient'); if (_ro) _ro.value = (localStorage.getItem('igl_rna_orient') === 'portrait') ? 'portrait' : 'landscape'; } catch(e){}
-    try { var _em = document.getElementById('rna-empty-mode'); if (_em) { var _mv = localStorage.getItem('igl_rna_empty_mode'); if (!_mv && localStorage.getItem('igl_rna_hide_empty') === '0') _mv = 'show'; _em.value = (_mv === 'compact' || _mv === 'show') ? _mv : 'align'; } } catch(e){}
+    try { var _em = document.getElementById('rna-empty-mode'); if (_em) { var _mv = localStorage.getItem('igl_rna_empty_mode'); if (!_mv && localStorage.getItem('igl_rna_hide_empty') === '0') _mv = 'show'; _em.value = (_mv === 'compact' || _mv === 'align') ? _mv : 'show'; } } catch(e){}
     document.querySelectorAll('.rna-printall-chk').forEach(function(chk){
       var idx = parseInt(chk.getAttribute('data-page'),10) - 1;
       chk.checked = !!sel[idx];
