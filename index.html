@@ -35035,7 +35035,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     }).join('');
 
     var _or = rnaOrient();
-    var css = _rnaPrintCSS('A4 ' + _or, '6mm', fontSize);
+    var css = _rnaPrintCSS('A4 ' + _or, (_or === 'portrait' ? '6mm 6mm 6mm 20mm' : '6mm'), fontSize);   // Portrait: বাঁ দিকে পান্সের জায়গা
     var win = window.open('', '_blank', _or === 'portrait' ? 'width=860,height=1100' : 'width=1200,height=800');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Retail Needle Account</title><style>' + css + '</style></head><body>' + bodyHTML + '</body></html>');
     win.document.close();
@@ -35064,7 +35064,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + '</div>';
 
     var _or = rnaOrient(), _pw = (_or === 'portrait' ? 210 : 297), _ph = (_or === 'portrait' ? 297 : 210);
-    var css = _rnaPrintCSS('A4 ' + _or, '6mm 8mm', fontSize);
+    var css = _rnaPrintCSS('A4 ' + _or, (_or === 'portrait' ? '6mm 8mm 6mm 20mm' : '6mm 8mm'), fontSize);   // Portrait: বাঁ দিকে পান্সের জায়গা
 
     var fitScript = '<script>window.onload=function(){'
       + 'var el=document.getElementById("rna-content-wrap");'
@@ -35072,7 +35072,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       + 'var tbl=el.querySelector("table");'
       + 'if(!tbl)return;'
       + 'var mmPx=96/25.4;'
-      + 'var availW=(' + (_pw-16) + ')*mmPx;'
+      + 'var availW=(' + (_pw-(_or === 'portrait' ? 28 : 16)) + ')*mmPx;'
       + 'var availH=(' + (_ph-12) + ')*mmPx;'
       + 'var tblW=tbl.offsetWidth;'
       + 'var tblH=el.offsetHeight;'
