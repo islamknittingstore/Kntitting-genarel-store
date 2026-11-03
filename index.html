@@ -42853,7 +42853,8 @@ function buildNeedleEditForm(e) {
         +'<select id="edit-n-worker" class="form-control" style="border-color:#2980b9;">'+workerOpts+'</select></div>'
     +'</div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#e67e22;display:block;margin-bottom:5px;">📝 Remarks</label>'
-      +'<input type="text" id="edit-n-remarks" value="'+(e.remarks||'')+'" class="form-control" placeholder="Remarks"></div>'
+      +'<select id="edit-n-remarks-drop" class="form-control" style="margin-bottom:6px;" onchange="editNRemarkPick(this)">'+editNRemarkOpts(e.remarks)+'</select>'
+      +'<input type="text" id="edit-n-remarks" value="'+String(e.remarks||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="Remarks (ড্রপডাউন থেকে বেছে নিন, বা নিজে লিখুন/এডিট করুন)"></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">নোট (বাংলা)</label>'
       +'<input type="text" id="edit-n-note-bn" value="'+String(e.noteBn||'').replace(/"/g,'&quot;')+'" class="form-control" placeholder="বাংলা নোট"></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:#1a5276;display:block;margin-bottom:5px;">Note (English)</label>'
@@ -42891,6 +42892,34 @@ function buildNeedleReceiveEditForm(e) {
   +'</div>';
 }
 
+// ── Needle Issue Edit: Remarks ড্রপডাউন (Issue ফর্মের একই তালিকা) — বেছে নিলে নিচের ঘরে বসে, চাইলে নিজে এডিটও করা যায় ──
+function editNRemarkOpts(cur){
+  var list = []; try { list = ndlGetRemarks(); } catch(e){}
+  cur = String(cur || '');
+  var sel = '';
+  var opts = list.map(function(r){
+    var t = String(r.text || '');
+    var isSel = !sel && cur && t && t !== '__others__' && cur.indexOf(t) === 0;
+    if (isSel) sel = r.id;
+    return '<option value="' + String(r.id).replace(/"/g,'&quot;') + '"' + (isSel ? ' selected' : '') + '>' + String(r.label || r.text || r.id).replace(/</g,'&lt;') + '</option>';
+  }).join('');
+  return '<option value=""' + (sel ? '' : ' selected') + '>-- Remarks বেছে নিন --</option>' + opts;
+}
+function editNRemarkPick(selEl){
+  var inp = document.getElementById('edit-n-remarks'); if (!inp) return;
+  var val = selEl.value;
+  if (!val) return;
+  if (val === 'others') { inp.value = ''; inp.focus(); return; }
+  var list = []; try { list = ndlGetRemarks(); } catch(e){}
+  var found = list.find(function(r){ return r.id === val; });
+  if (!found || !found.text || found.text === '__others__') return;
+  var mId = (document.getElementById('edit-n-machine') || {}).value || '';
+  var erp = ''; try { var m = getNeedleMachines().find(function(x){ return x.id === mId; }); erp = (m && m.erp) || ''; } catch(e){}
+  var txt = found.text;
+  if (val === 'newset') txt = 'New Set (' + (erp || '?') + ')';
+  else if (val === 'accident') txt = 'm/c accident (' + (erp || '?') + ')';
+  inp.value = txt;
+}
 function editPopulateNeedleReceiveDropdown(e) {
   var entry = e || (function(){
     var arr = ndlGetRcv();
