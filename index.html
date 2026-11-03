@@ -32837,6 +32837,18 @@ function stnItemAddAuth(){
   ov.querySelector('#stn-pwok').addEventListener('click',tryLogin);
   ov.querySelector('#stn-pwcancel').addEventListener('click',function(){document.body.removeChild(ov);});
 }
+// Issue ফর্মের Department ড্রপডাউন: Stationery + Packaging উভয় তালিকা ও পুরনো Issue রেকর্ডের Department মিলিয়ে — কোনোটাই বাদ পড়বে না
+function iglAllDeptsFor(kind){
+  var out = [];
+  function add(a){ (a || []).forEach(function(d){ d = String(d || '').trim(); if (d && out.indexOf(d) < 0) out.push(d); }); }
+  try { add(kind === 'pkg' ? pkgGetDepts() : stnGetDepts()); } catch(e){}
+  try { add(kind === 'pkg' ? stnGetDepts() : pkgGetDepts()); } catch(e){}
+  try {
+    var names = {}; ((kind === 'pkg' ? DB.pkgItems : DB.stnItems) || []).forEach(function(it){ names[it.name] = 1; });
+    add((DB.issues || []).filter(function(r){ return names[r.item]; }).map(function(r){ return r.machineId; }));
+  } catch(e){}
+  return out;
+}
 // ── Stationery Department Management ──
 var STN_DEPT_KEY = 'igl_stn_depts';
 function stnGetDepts(){
@@ -32846,7 +32858,7 @@ function stnGetDepts(){
 function stnSaveDepts(arr){ localStorage.setItem(STN_DEPT_KEY, JSON.stringify(arr)); stnPopulateDeptDropdown(); if(typeof triggerAutoSave==='function') triggerAutoSave(); }
 function stnPopulateDeptDropdown(){
   var sel=document.getElementById('stn-i-dept'); if(!sel) return;
-  var depts=stnGetDepts(); var prev=sel.value;
+  var depts=iglAllDeptsFor('stn'); var prev=sel.value;
   sel.innerHTML='<option value="">-- Select Department --</option>'+depts.map(function(d){ return '<option value="'+d+'"'+(d===prev?' selected':'')+'>'+d+'</option>'; }).join('');
 }
 document.addEventListener('DOMContentLoaded', function(){ stnPopulateDeptDropdown(); });
@@ -33809,12 +33821,14 @@ function pkgItemAddAuth(){
 var PKG_DEPT_KEY = 'igl_pkg_depts';
 function pkgGetDepts(){
   try{ var d=JSON.parse(localStorage.getItem(PKG_DEPT_KEY)||'null'); if(d) return d; }catch(e){}
+  // Packaging-এর নিজস্ব তালিকা এখনো সেভ না থাকলে Stationery-র (আগের সব) Department তালিকাই দেখাও
+  try { var sd = stnGetDepts(); if (sd && sd.length) return sd.slice(); } catch(e){}
   return ['Knitting Store','Knitting Floor','Yarn Store','Fabric Store','Flat Knit','Quality','Others'];
 }
 function pkgSaveDepts(arr){ localStorage.setItem(PKG_DEPT_KEY, JSON.stringify(arr)); pkgPopulateDeptDropdown(); if(typeof triggerAutoSave==='function') triggerAutoSave(); }
 function pkgPopulateDeptDropdown(){
   var sel=document.getElementById('pkg-i-dept'); if(!sel) return;
-  var depts=pkgGetDepts(); var prev=sel.value;
+  var depts=iglAllDeptsFor('pkg'); var prev=sel.value;
   sel.innerHTML='<option value="">-- Select Department --</option>'+depts.map(function(d){ return '<option value="'+d+'"'+(d===prev?' selected':'')+'>'+d+'</option>'; }).join('');
 }
 document.addEventListener('DOMContentLoaded', function(){ pkgPopulateDeptDropdown(); });
@@ -45451,6 +45465,16 @@ function drgDeleteHistory(date) {
   if (typeof _sp === 'function') window.showPage = function(name){ var r = _sp.apply(this, arguments); if (name === 'needle_receive') { inject(); try { render(); } catch(e){} } return r; };
   var nt = document.getElementById('nr-needle-type'); if (nt) nt.addEventListener('change', function(){ render(); });
 })();
+</script>
+<script>
+// ফর্ম খোলার সময় Department ড্রপডাউন নতুন করে ভরা (ফায়ারবেজ লোডের পর পুরনো Issue-র Department-ও যাতে আসে)
+['stnToggleForm','pkgToggleForm'].forEach(function(n){
+  var o = window[n]; if (typeof o !== 'function') return;
+  window[n] = function(){
+    try { (n === 'stnToggleForm' ? stnPopulateDeptDropdown : pkgPopulateDeptDropdown)(); } catch(e){}
+    return o.apply(this, arguments);
+  };
+});
 </script>
 <script>
 // ─── সেভের আগে ফায়ারবেজ থেকে সর্বশেষ ডাটা লোড-যাচাই (ইসু/রিছিভ/নিডেল) ───
