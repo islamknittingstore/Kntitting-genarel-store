@@ -33300,6 +33300,7 @@ function stnImOpenOrphanRepair() {
       + '<div style="display:flex;gap:6px;align-items:center;">'
       + '<select id="orphan-target-'+i+'" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;"><option value="">— বর্তমান কোন Item এর সাথে যুক্ত হবে? —</option>'+itemOptions+'</select>'
       + '<button onclick="stnImRepairOrphan('+i+')" style="padding:6px 14px;background:#1a6b3a;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;">🔗 রিপেয়ার</button>'
+      + '<button onclick="stnImSplitOrphan('+i+')" style="padding:6px 10px;background:#2980b9;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;" title="রেকর্ড আলাদা আলাদা Item-এ ভাগ করুন">✂️ ভাগ</button>'
       + '</div></div>';
   }).join('');
 
@@ -33321,6 +33322,106 @@ function stnImOpenOrphanRepair() {
 // এই ভার্সন Firebase থেকে তাজা receives/issues সরাসরি টেনে আনে, শুধু ওই দুটো path-এ
 // টার্গেটেড write করে (পুরো নোড ছোঁয় না), এবং লেখার পর আবার পড়ে যাচাই করে যে
 // আসলেই বদলেছে কিনা — তাই এখন হয় স্থায়ীভাবে ঠিক হবে, নয়তো স্পষ্ট error দেখাবে।
+// ── Item নাম বদলালে Stationery Receive/Issue-এর নাম সরাসরি Firebase-এ সেভ (debounce/race এড়াতে) ──
+function stnImPersistRename(from, to) {
+  try {
+    var p;
+    if (window.IGLV3 && window.IGLV3.kindEnabled && window.IGLV3.kindEnabled('rcv')) {
+      p = window.IGLV3.renameStn(from, to);
+    } else if (typeof firebase !== 'undefined' && firebase.database && navigator.onLine) {
+      p = firebase.database().ref('igl_erp/db').once('value').then(function(snap){
+        var d = snap.val() || {}, n = 0;
+        var fix = function(a){ return (a||[]).map(function(r){ if (r && r.group==='Stationery' && r.item===from) { n++; return Object.assign({}, r, {item: to}); } return r; }); };
+        var rc = fix(d.receives), is = fix(d.issues);
+        if (!n) return;
+        return firebase.database().ref('igl_erp/db/receives').set(rc)
+          .then(function(){ return firebase.database().ref('igl_erp/db/issues').set(is); })
+          .then(function(){ return firebase.database().ref('igl_erp/ts').set(Date.now()); });
+      });
+    } else { return; }
+    p.catch(function(e){ console.error('stnImPersistRename', e); toast('⚠️ নাম বদলের রেকর্ড ক্লাউডে সেভ হয়নি — আবার চেষ্টা করুন', 'error'); });
+  } catch(e) { console.error('stnImPersistRename', e); }
+}
+
+// ── হারানো Item-এর রেকর্ড আলাদা আলাদা করে (যেমন 20&24 → 20 / 24) ভাগ করা ──
+function stnImSplitOrphan(rowIdx) {
+  var orphanName = (window._stnOrphanNames||[])[rowIdx];
+  if (!orphanName) return;
+  var recs = [];
+  (DB.receives||[]).forEach(function(r){ if (r && r.group==='Stationery' && r.item===orphanName) recs.push({k:'rcv', r:r}); });
+  (DB.issues||[]).forEach(function(r){ if (r && r.group==='Stationery' && r.item===orphanName) recs.push({k:'iss', r:r}); });
+  recs.sort(function(a,b){ return String(a.r.date||'').localeCompare(String(b.r.date||'')); });
+  window._stnSplitRecs = recs;
+  var opts = (DB.stnItems||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); })
+    .map(function(it){ return '<option value="'+it.id+'">'+_esc(it.name)+'</option>'; }).join('');
+  var rows = recs.map(function(x,i){
+    var r = x.r, info = [r.chalan, r.slip, r.dept, r.department, r.supplier, r.remarks].filter(Boolean).join(' | ');
+    return '<tr style="border-bottom:1px solid #eee;">'
+      + '<td style="padding:5px;font-size:11px;">'+(x.k==='rcv'?'📥 Rcv':'📤 Iss')+'</td>'
+      + '<td style="padding:5px;font-size:11px;white-space:nowrap;">'+_esc(r.date||'')+'</td>'
+      + '<td style="padding:5px;font-size:11px;font-weight:700;">'+(Number(r.qty)||0)+'</td>'
+      + '<td style="padding:5px;font-size:10px;color:#777;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_esc(info)+'</td>'
+      + '<td style="padding:5px;"><select id="split-t-'+i+'" style="width:100%;padding:4px;font-size:11px;border:1px solid #ddd;border-radius:4px;"><option value="">— অপরিবর্তিত —</option>'+opts+'</select></td></tr>';
+  }).join('');
+  var ov = document.createElement('div');
+  ov.id = 'stn-split-overlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000000;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:13px;padding:20px 22px;width:680px;max-width:96vw;max-height:86vh;overflow-y:auto;">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">✂️ "'+_esc(orphanName)+'" — রেকর্ড ভাগ করুন</div>'
+    + '<div style="font-size:11px;color:#777;margin-bottom:10px;">প্রতিটা রেকর্ডের জন্য সঠিক Item সিলেক্ট করুন। যেগুলো ফাঁকা (অপরিবর্তিত) রাখবেন সেগুলো পরে আবার রিপেয়ার করা যাবে।</div>'
+    + '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><select id="split-all" style="flex:1;padding:5px;font-size:12px;border:1px solid #ddd;border-radius:5px;"><option value="">— সবগুলোতে একসাথে বসাতে Item বাছুন —</option>'+opts+'</select>'
+    + '<button onclick="var v=document.getElementById(\'split-all\').value;document.querySelectorAll(\'[id^=split-t-]\').forEach(function(s){s.value=v;});" style="padding:5px 10px;font-size:11px;border:1px solid #ccc;background:#f5f5f5;border-radius:5px;cursor:pointer;">সব সেট</button></div>'
+    + '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f5f5f5;font-size:11px;"><th style="padding:5px;text-align:left;">ধরন</th><th style="padding:5px;text-align:left;">তারিখ</th><th style="padding:5px;text-align:left;">Qty</th><th style="padding:5px;text-align:left;">তথ্য</th><th style="padding:5px;text-align:left;">Item</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '<div style="text-align:right;margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">'
+    + '<button onclick="document.body.removeChild(document.getElementById(\'stn-split-overlay\'))" style="padding:8px 18px;background:#f0f0f0;border:none;border-radius:7px;cursor:pointer;font-size:12px;">বাতিল</button>'
+    + '<button id="split-save-btn" onclick="stnImSplitSave()" style="padding:8px 20px;background:#1a6b3a;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;">✅ সেভ</button></div></div>';
+  document.body.appendChild(ov);
+}
+
+function stnImSplitSave() {
+  try {
+    var recs = window._stnSplitRecs || [], map = {}, n = 0;
+    recs.forEach(function(x,i){
+      var sel = document.getElementById('split-t-'+i);
+      if (!sel || !sel.value) return;
+      var t = (DB.stnItems||[]).find(function(it){ return it.id === sel.value; });
+      if (t) { map[x.k+':'+x.r.id] = t.name; }
+    });
+    var keys = Object.keys(map);
+    if (!keys.length) { toast('⚠️ কোনো রেকর্ডে Item সিলেক্ট করা হয়নি', 'warning'); return; }
+    if (!navigator.onLine) { toast('❌ ইন্টারনেট সংযোগ নেই', 'error'); return; }
+    var btn = document.getElementById('split-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ সেভ হচ্ছে...'; }
+    // in-memory
+    (DB.receives||[]).forEach(function(r){ var m = map['rcv:'+r.id]; if (m) { r.item = m; n++; } });
+    (DB.issues||[]).forEach(function(r){ var m = map['iss:'+r.id]; if (m) { r.item = m; n++; } });
+    var p;
+    if (window.IGLV3 && window.IGLV3.kindEnabled && window.IGLV3.kindEnabled('rcv')) {
+      p = window.IGLV3.syncNow();
+    } else {
+      p = firebase.database().ref('igl_erp/db').once('value').then(function(snap){
+        var d = snap.val() || {};
+        var fix = function(a, k){ return (a||[]).map(function(r){ var m = r && map[k+':'+r.id]; return m ? Object.assign({}, r, {item: m}) : r; }); };
+        return firebase.database().ref('igl_erp/db/receives').set(fix(d.receives,'rcv'))
+          .then(function(){ return firebase.database().ref('igl_erp/db/issues').set(fix(d.issues,'iss')); })
+          .then(function(){ return firebase.database().ref('igl_erp/ts').set(Date.now()); });
+      });
+    }
+    p.then(function(){
+      toast('✅ '+n+'টি রেকর্ড আপডেট হয়েছে', 'success');
+      var ov = document.getElementById('stn-split-overlay'); if (ov) document.body.removeChild(ov);
+      var ov2 = document.getElementById('stn-orphan-overlay'); if (ov2) document.body.removeChild(ov2);
+      try { renderStationeryDashboard(); } catch(e){}
+      try { stnItemMasterRender(); } catch(e){}
+      try { stnImOpenOrphanRepair(); } catch(e){}
+    }).catch(function(e){
+      console.error('stnImSplitSave', e);
+      toast('❌ সেভ ব্যর্থ: '+(e && e.message ? e.message : e), 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '✅ সেভ'; }
+    });
+  } catch(e) { console.error('stnImSplitSave', e); toast('❌ '+e.message, 'error'); }
+}
+
 function stnImRepairOrphan(rowIdx) {
  try {
   var orphanName = (window._stnOrphanNames||[])[rowIdx];
@@ -33555,6 +33656,7 @@ function stnImEdit(idx) {
     if (oldName !== newName) {
       (DB.issues||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
       (DB.receives||[]).forEach(function(r){ if(r.item===oldName && r.group==='Stationery') r.item=newName; });
+      stnImPersistRename(oldName, newName);
       // Requisition এও আপডেট করো
       var reqs = DB.stnRequisitions || {};
       Object.keys(reqs).forEach(function(k){
