@@ -30074,8 +30074,18 @@ function addOilStoreTransfer() {
   var qty  = Number((document.getElementById('ost-qty')||{}).value);
   if (!date) { toast('তারিখ দিন!', 'warning'); return; }
   if (!qty || qty <= 0) { toast('সঠিক কোয়ান্টিটি দিন!', 'warning'); return; }
+  // ডাবল/ট্রিপল ক্লিকে একই এন্ট্রি বারবার যোগ হওয়া আটকাতে — ২.৫ সেকেন্ডের লক
+  if (window._ostAddLock) return;
+  window._ostAddLock = true;
+  setTimeout(function(){ window._ostAddLock = false; }, 2500);
   var arr = getOilStoreTransfers();
-  arr.push({ id: 'ost'+Date.now(), date: date, type: type, shift: shift, name: name, qty: qty });
+  var _now = Date.now();
+  var _dup = arr.some(function(t){
+    return t.date===date && t.type===type && t.shift===shift && t.name===name && Number(t.qty)===qty
+      && String(t.id||'').indexOf('ost')===0 && (_now - Number(String(t.id).slice(3))) < 15000;
+  });
+  if (_dup) { toast('⚠️ একই এন্ট্রি এইমাত্র যোগ হয়েছে', 'warning'); return; }
+  arr.push({ id: 'ost'+_now, date: date, type: type, shift: shift, name: name, qty: qty });
   setOilStoreTransfers(arr);
   document.getElementById('ost-qty').value = '35'; // ডিফল্ট আবার ৩৫ এ ফিরে যাবে
   renderOilStoreTransfer();
@@ -32849,6 +32859,54 @@ function iglAllDeptsFor(kind){
   } catch(e){}
   return out;
 }
+// ── Department মার্জ: দুইটা আলাদা নাম (যেমন F.Delivery / Fabric delivery) এক নামে একত্র করা ──
+function iglDeptGroupOf(kind){ return kind==='pkg' ? 'Packaging' : 'Stationery'; }
+function iglDeptMergeNames(kind){
+  var g=iglDeptGroupOf(kind), out=[];
+  function add(n){ n=String(n||'').trim(); if(n && out.indexOf(n)<0) out.push(n); }
+  try{ (kind==='pkg'?pkgGetDepts():stnGetDepts()).forEach(add); }catch(e){}
+  (DB.issues||[]).forEach(function(r){ if(r && r.group===g) add(r.machineId); });
+  return out;
+}
+function iglDeptMergeFill(kind){
+  var f=document.getElementById(kind+'-dm-from'), t=document.getElementById(kind+'-dm-to');
+  if(!f||!t) return;
+  var names=iglDeptMergeNames(kind);
+  var o='<option value="">-- বেছে নিন --</option>'+names.map(function(n){ return '<option value="'+_esc(n)+'">'+_esc(n)+'</option>'; }).join('');
+  f.innerHTML=o; t.innerHTML=o;
+}
+async function iglDeptMerge(kind){
+  var from=(document.getElementById(kind+'-dm-from')||{}).value||'';
+  var to=(document.getElementById(kind+'-dm-to')||{}).value||'';
+  if(!from||!to){ toast('দুইটা নামই বেছে নিন','warning'); return; }
+  if(from===to){ toast('একই নাম বেছেছেন','warning'); return; }
+  var g=iglDeptGroupOf(kind);
+  var ok=await igl_confirm('"'+from+'" → "'+to+'" মার্জ করবেন?','"'+from+'" নামের সব Issue রেকর্ড "'+to+'" নামে চলে যাবে।','🔀');
+  if(!ok) return;
+  var n=0;
+  (DB.issues||[]).forEach(function(r){ if(r && r.group===g && r.machineId===from){ r.machineId=to; n++; } });
+  // dept তালিকা: পুরনো নাম বাদ, নতুন নাম নিশ্চিত
+  var list=(kind==='pkg'?pkgGetDepts():stnGetDepts()).slice();
+  list=list.filter(function(d){ return d!==from; });
+  if(list.indexOf(to)<0) list.push(to);
+  if(kind==='pkg') pkgSaveDepts(list); else stnSaveDepts(list);
+  try{
+    var p;
+    if(window.IGLV3 && window.IGLV3.kindEnabled && window.IGLV3.kindEnabled('iss')){
+      p=window.IGLV3.syncNow();
+    } else if(typeof firebase!=='undefined' && firebase.database && navigator.onLine){
+      p=firebase.database().ref('igl_erp/db/issues').once('value').then(function(snap){
+        var a=snap.val()||[]; if(!Array.isArray(a)) a=Object.keys(a).map(function(k){return a[k];});
+        a=a.map(function(r){ return (r && r.group===g && r.machineId===from) ? Object.assign({},r,{machineId:to}) : r; });
+        return firebase.database().ref('igl_erp/db/issues').set(a).then(function(){ return firebase.database().ref('igl_erp/ts').set(Date.now()); });
+      });
+    }
+    if(p) await p;
+  }catch(e){ console.error('iglDeptMerge',e); toast('⚠️ ক্লাউডে সেভ হয়নি — আবার চেষ্টা করুন','error'); return; }
+  triggerAutoSave();
+  if(kind==='pkg') pkgRenderDeptList(); else stnRenderDeptList();
+  toast('✅ মার্জ হয়েছে — '+n+'টি Issue রেকর্ড আপডেট','success');
+}
 // ── Stationery Department Management ──
 var STN_DEPT_KEY = 'igl_stn_depts';
 function stnGetDepts(){
@@ -32883,6 +32941,7 @@ function stnSwitchTab(tab){
 }
 function stnRenderDeptList(){
   var div=document.getElementById('stn-dept-list'); if(!div) return;
+  try{ iglDeptMergeFill('stn'); }catch(e){}
   var depts=stnGetDepts();
   if(!depts.length){ div.innerHTML='<p style="color:#aaa;text-align:center;padding:20px;">কোনো Department নেই</p>'; return; }
   div.innerHTML=depts.map(function(d,i){
@@ -32992,6 +33051,16 @@ function stnOpenModal(){
           <div id="stn-dept-msg" style="font-size:12px;min-height:15px;margin-bottom:10px;"></div>
           <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">📋 বর্তমান Departments:</div>
           <div id="stn-dept-list"></div>
+          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed #ccc;">
+            <div style="font-size:12px;font-weight:700;color:#6d4c41;margin-bottom:8px;">🔀 Department মার্জ (দুইটা নাম এক করুন)</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <select id="stn-dm-from" class="form-control" style="flex:1;min-width:130px;"></select>
+              <span style="font-weight:700;">→</span>
+              <select id="stn-dm-to" class="form-control" style="flex:1;min-width:130px;"></select>
+              <button onclick="iglDeptMerge('stn')" style="background:#6c3483;color:#fff;border:none;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;">🔀 মার্জ</button>
+            </div>
+            <div style="font-size:11px;color:#888;margin-top:5px;">বাম পাশের নামের সব Issue রেকর্ড ডান পাশের নামে চলে যাবে এবং বাম নামটা লিস্ট থেকে বাদ যাবে।</div>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(md);
@@ -33955,6 +34024,7 @@ function pkgSwitchTab(tab){
 }
 function pkgRenderDeptList(){
   var div=document.getElementById('pkg-dept-list'); if(!div) return;
+  try{ iglDeptMergeFill('pkg'); }catch(e){}
   var depts=pkgGetDepts();
   if(!depts.length){ div.innerHTML='<p style="color:#aaa;text-align:center;padding:20px;">কোনো Department নেই</p>'; return; }
   div.innerHTML=depts.map(function(d,i){
@@ -34063,6 +34133,16 @@ function pkgOpenModal(){
           <div id="pkg-dept-msg" style="font-size:12px;min-height:15px;margin-bottom:10px;"></div>
           <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">📋 বর্তমান Departments:</div>
           <div id="pkg-dept-list"></div>
+          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed #ccc;">
+            <div style="font-size:12px;font-weight:700;color:#6d4c41;margin-bottom:8px;">🔀 Department মার্জ (দুইটা নাম এক করুন)</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <select id="pkg-dm-from" class="form-control" style="flex:1;min-width:130px;"></select>
+              <span style="font-weight:700;">→</span>
+              <select id="pkg-dm-to" class="form-control" style="flex:1;min-width:130px;"></select>
+              <button onclick="iglDeptMerge('pkg')" style="background:#6c3483;color:#fff;border:none;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;">🔀 মার্জ</button>
+            </div>
+            <div style="font-size:11px;color:#888;margin-top:5px;">বাম পাশের নামের সব Issue রেকর্ড ডান পাশের নামে চলে যাবে এবং বাম নামটা লিস্ট থেকে বাদ যাবে।</div>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(md);
