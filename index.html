@@ -45489,10 +45489,11 @@ function drgDeleteHistory(date) {
   // ── তারিখ + Slip No. (Requisition লিস্টের মাথায়) ──
   function metaLoad(){ try { var m = JSON.parse(localStorage.getItem(KEY + '_meta') || '{}'); return (m && typeof m === 'object') ? m : {}; } catch(e){ return {}; } }
   function metaSave(m){ try { localStorage.setItem(KEY + '_meta', JSON.stringify(m)); } catch(e){} touch(); }
-  function today(){ return new Date().toISOString().split('T')[0]; }
-  function meta(){ var m = metaLoad(); return { date: m.date || today(), slip: m.slip || '' }; }
+  function today(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // তারিখ: হাতে বদলানো তারিখ শুধু সেদিনই থাকে; পরদিন থেকে অটো আজকের (রানিং) তারিখ
+  function meta(){ var m = metaLoad(), t = today(); return { date: (m.date && m.dateDay === t) ? m.date : t, slip: m.slip || '' }; }
   function fmtD(d){ try { return fmtDate(d); } catch(e){ return d; } }
-  window.nrqMeta = function(inp, key){ var m = metaLoad(); m[key] = (inp.value || '').trim(); if (key === 'date' && !m.date) m.date = today(); metaSave(m); var o = document.querySelectorAll('.nrq-meta-' + key); o.forEach(function(e){ if (e !== inp) e.value = inp.value; }); render(); };
+  window.nrqMeta = function(inp, key){ var m = metaLoad(); m[key] = (inp.value || '').trim(); if (key === 'date') { if (!m.date) m.date = today(); m.dateDay = today(); } metaSave(m); var o = document.querySelectorAll('.nrq-meta-' + key); o.forEach(function(e){ if (e !== inp) e.value = inp.value; }); render(); };
 
   // ── পেজের Requisition লিস্ট কার্ড ──
   function render(){
