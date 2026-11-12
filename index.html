@@ -1805,6 +1805,7 @@ if('serviceWorker' in navigator){
           oilBF:           _fbSafeParse('igl_oil_bf', {}),
           oilStoreTransfers: _fbSafeParse('igl_oil_store_transfers', []),
           oilStoreAdjust:    _fbSafeParse('igl_oil_store_adjust', {}),
+          ndlReq:            { list: _fbSafeParse('igl_ndl_reqlist', []), meta: _fbSafeParse('igl_ndl_reqlist_meta', {}), ts: Number(localStorage.getItem('igl_ndl_reqlist_ts')||0) },
           extraItems:        _fbSafeParse('igl_extra_items', []),
           extraTxs:          _fbSafeParse('igl_extra_txs', [])
         }
@@ -2247,6 +2248,16 @@ if('serviceWorker' in navigator){
             localStorage.setItem('igl_oil_store_transfers', JSON.stringify(_mergedOst));
           }
           if(data.settings.oilStoreAdjust) { localStorage.setItem('igl_oil_store_adjust', JSON.stringify(data.settings.oilStoreAdjust)); }
+          if(data.settings.ndlReq && typeof data.settings.ndlReq === 'object') {
+            // Needle Requisition লিস্ট — সর্বশেষ পরিবর্তন (ts) যার, সেটাই জেতে
+            var _nr = data.settings.ndlReq, _nrLocalTs = Number(localStorage.getItem('igl_ndl_reqlist_ts')||0);
+            if (Number(_nr.ts||0) > _nrLocalTs) {
+              localStorage.setItem('igl_ndl_reqlist', JSON.stringify(Array.isArray(_nr.list) ? _nr.list : []));
+              localStorage.setItem('igl_ndl_reqlist_meta', JSON.stringify(_nr.meta || {}));
+              localStorage.setItem('igl_ndl_reqlist_ts', String(_nr.ts));
+              try { if (window.nrqRefresh) window.nrqRefresh(); } catch(e){}
+            }
+          }
           if(data.settings.extraItems) {
             // union merge by id — এই ডিভাইসে যোগ করা কিন্তু sync না হওয়া আইটেম হারাবে না
             var _localExI = []; try { _localExI = JSON.parse(localStorage.getItem('igl_extra_items')||'[]'); } catch(e){}
@@ -45442,7 +45453,8 @@ function drgDeleteHistory(date) {
   var F = { type: '', sec: '', q: '', only: false };
   function esc(v){ return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function load(){ try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
-  function save(a){ try { localStorage.setItem(KEY, JSON.stringify(a)); } catch(e){} }
+  function touch(){ try { localStorage.setItem(KEY + '_ts', String(Date.now())); if (typeof triggerAutoSave === 'function') triggerAutoSave(); } catch(e){} }
+  function save(a){ try { localStorage.setItem(KEY, JSON.stringify(a)); } catch(e){} touch(); }
   function stype(){ return ((document.getElementById('nr-needle-type') || {}).value) || 'new'; }
   function bal(id){ try { var b = ndlComputeCurrentStock(id, stype()); return b == null ? 0 : b; } catch(e){ return 0; } }
   function sec(n){ return n.rnaSection || n.cat || n.section || (n.type === 'Sinker' ? 'Sinker' : ''); }
@@ -45450,9 +45462,33 @@ function drgDeleteHistory(date) {
   function find(a, id){ for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
   function num(v){ var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }
 
+  // ── শেষ Issue কত দিন আগে: ৩০ দিনে ইস্যু নেই = গাড় লাল, ৭ দিনে ইস্যু নেই = হালকা লাল ──
+  function dayMs(d){ var t = new Date(String(d||'').slice(0,10) + 'T00:00:00').getTime(); return isFinite(t) ? t : 0; }
+  function lastIssueMap(){
+    var m = {}, a = (typeof NDB !== 'undefined' && NDB.needles) ? NDB.needles : [];
+    a.forEach(function(r){
+      if (!r || !r.needleId || r.nsrOnly || r.source === 'nsr') return;
+      var t = dayMs(r.date); if (t && (!m[r.needleId] || t > m[r.needleId])) m[r.needleId] = t;
+    });
+    return m;
+  }
+  function ageInfo(map, id){
+    var t = map[id], now = new Date(); now.setHours(0,0,0,0);
+    if (!t) return { tier: 'dark', days: null, txt: 'ইস্যু নেই' };
+    var days = Math.max(0, Math.round((now.getTime() - t) / 86400000));
+    var tier = days > 30 ? 'dark' : (days > 7 ? 'light' : '');
+    var txt = days === 0 ? 'আজ' : days + ' দিন আগে';
+    return { tier: tier, days: days, txt: txt, date: fmtD(new Date(t).toISOString().split('T')[0]) };
+  }
+  function rowStyle(tier, i){
+    if (tier === 'dark') return 'background:#a93226;color:#fff;';
+    if (tier === 'light') return 'background:#fadbd8;color:#78281f;';
+    return 'background:' + (i % 2 ? '#f7fbfa' : '#fff') + ';';
+  }
+
   // ── তারিখ + Slip No. (Requisition লিস্টের মাথায়) ──
   function metaLoad(){ try { var m = JSON.parse(localStorage.getItem(KEY + '_meta') || '{}'); return (m && typeof m === 'object') ? m : {}; } catch(e){ return {}; } }
-  function metaSave(m){ try { localStorage.setItem(KEY + '_meta', JSON.stringify(m)); } catch(e){} }
+  function metaSave(m){ try { localStorage.setItem(KEY + '_meta', JSON.stringify(m)); } catch(e){} touch(); }
   function today(){ return new Date().toISOString().split('T')[0]; }
   function meta(){ var m = metaLoad(); return { date: m.date || today(), slip: m.slip || '' }; }
   function fmtD(d){ try { return fmtDate(d); } catch(e){ return d; } }
@@ -45471,26 +45507,37 @@ function drgDeleteHistory(date) {
       box.innerHTML = head + '<div style="text-align:center;padding:18px 10px;color:#7f8c8d;font-size:13px;">কোনো আইটেম Requisition লিস্টে নেই।<br><b>"📋 Requisition Needle List"</b> বাটন চেপে Needle/Sinker বেছে নিন।</div>';
       return;
     }
-    var tq = 0;
+    var tq = 0, lim = lastIssueMap();
+    var td = 'padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);';
     var rows = list.map(function(x, i){
-      var n = map[x.id], b = bal(x.id), st = status(b); tq += num(x.qty);
-      return '<tr data-id="' + esc(x.id) + '">'
-        + '<td style="text-align:center;">' + (i + 1) + '</td>'
-        + '<td><b>' + esc(n.name || n.code) + '</b></td>'
-        + '<td style="text-align:center;"><b style="color:' + st[1] + ';font-size:14px;">' + b + '</b> <span style="background:' + st[2] + ';color:' + st[1] + ';border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
-        + '<td style="text-align:center;"><b>' + (x.qty || 0) + '</b></td>'
-        + '<td style="text-align:center;"><button type="button" onclick="nrqRemove(\'' + esc(x.id) + '\')" title="লিস্ট থেকে সরান" style="background:#fdedec;color:#c0392b;border:1px solid #f5b7b1;border-radius:5px;padding:1px 8px;cursor:pointer;font-weight:700;">✕</button></td></tr>';
+      var n = map[x.id], b = bal(x.id), st = status(b), ai = ageInfo(lim, x.id); tq += num(x.qty);
+      var dk = ai.tier === 'dark';
+      var pill = dk ? 'background:rgba(255,255,255,.2);color:#fff;' : 'background:' + st[2] + ';color:' + st[1] + ';';
+      var balClr = dk ? '#fff' : st[1];
+      var lastTxt = ai.days === null ? '<b>ইস্যু নেই</b>' : esc(ai.date) + '<div style="font-size:11px;opacity:.8;">' + esc(ai.txt) + '</div>';
+      return '<tr data-id="' + esc(x.id) + '" style="' + rowStyle(ai.tier, i) + '">'
+        + '<td style="' + td + 'text-align:center;width:36px;">' + (i + 1) + '</td>'
+        + '<td style="' + td + 'font-weight:700;">' + esc(n.name || n.code) + '</td>'
+        + '<td style="' + td + 'text-align:center;font-size:12px;">' + lastTxt + '</td>'
+        + '<td style="' + td + 'text-align:center;"><b style="color:' + balClr + ';font-size:14px;">' + b + '</b> <span style="' + pill + 'border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
+        + '<td style="' + td + 'text-align:center;font-weight:800;">' + (x.qty || 0) + '</td>'
+        + '<td style="' + td + 'text-align:center;"><button type="button" onclick="nrqRemove(\'' + esc(x.id) + '\')" title="লিস্ট থেকে সরান" style="background:#fdedec;color:#c0392b;border:1px solid #f5b7b1;border-radius:5px;padding:1px 8px;cursor:pointer;font-weight:700;">✕</button></td></tr>';
     }).join('');
-    box.innerHTML = head + '<div class="table-scroll"><table class="nrq-tbl" style="width:100%;font-size:13px;"><thead><tr style="background:#117a65;color:#fff;">'
-      + '<th style="width:36px;">#</th><th>Needle / Sinker</th><th style="text-align:center;">Balance</th><th style="text-align:center;">Req Qty</th><th style="width:44px;"></th></tr></thead>'
+    var th = 'padding:10px;font-size:12px;letter-spacing:.3px;text-transform:uppercase;';
+    var legend = '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin-bottom:8px;color:#555;">'
+      + '<span><i style="display:inline-block;width:12px;height:12px;background:#a93226;border-radius:3px;vertical-align:-2px;"></i> ৩০ দিনে ইস্যু নেই</span>'
+      + '<span><i style="display:inline-block;width:12px;height:12px;background:#fadbd8;border:1px solid #e6b0aa;border-radius:3px;vertical-align:-2px;"></i> ৭ দিনে ইস্যু নেই</span></div>';
+    box.innerHTML = head + legend + '<div class="table-scroll" style="border:1px solid #d5dbdb;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);"><table class="nrq-tbl" style="width:100%;font-size:13px;border-collapse:collapse;"><thead><tr style="background:linear-gradient(135deg,#0e6655,#117a65);color:#fff;">'
+      + '<th style="' + th + 'width:36px;">#</th><th style="' + th + 'text-align:left;">Needle / Sinker</th><th style="' + th + 'text-align:center;">Last Issue</th><th style="' + th + 'text-align:center;">Balance</th><th style="' + th + 'text-align:center;">Req Qty</th><th style="width:44px;"></th></tr></thead>'
       + '<tbody>' + rows + '</tbody>'
-      + '<tfoot><tr style="background:#1b2a41;color:#fff;font-weight:800;"><td colspan="3" style="text-align:right;padding:7px 10px;">মোট (' + list.length + ' আইটেম)</td><td style="text-align:center;">' + tq + '</td><td></td></tr></tfoot></table></div>'
+      + '<tfoot><tr style="background:#1b2a41;color:#fff;font-weight:800;"><td colspan="4" style="text-align:right;padding:9px 12px;">মোট (' + list.length + ' আইটেম)</td><td style="text-align:center;">' + tq + '</td><td></td></tr></tfoot></table></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
       + '<button class="btn btn-success" onclick="nrqRcvOpen()" style="min-width:200px;font-weight:700;">📥 Receive Table খুলুন</button>'
       + '<button class="btn btn-outline" onclick="nrqOpen()">➕ আরও যোগ করুন</button>'
       + '<button class="btn btn-outline" onclick="nrqPrint()">🖨️ Print</button>'
       + '<button class="btn btn-outline" onclick="nrqClear()" style="color:#c0392b;border-color:#e6b0aa;">লিস্ট খালি করুন</button></div>';
   }
+  window.nrqRefresh = function(){ render(); modalRefresh(); rcvRefresh(); };
   window.nrqRemove = function(id){ save(load().filter(function(x){ return x.id !== id; })); render(); modalRefresh(); rcvRefresh(); };
   window.nrqClear = async function(){
     if (!(await igl_confirm('Requisition লিস্টের সব আইটেম খালি করবেন?', 'শুধু লিস্ট খালি হবে — কোনো স্টক/রিছিভ ডাটা বদলাবে না।', '📋'))) return;
@@ -45518,10 +45565,11 @@ function drgDeleteHistory(date) {
     var m = ensureRcvModal(), list = load(), nm = ndlGetMaster(), map = {}; nm.forEach(function(n){ map[n.id] = n; });
     var mt = meta(); document.getElementById('nrq-r-date').value = mt.date; document.getElementById('nrq-r-slip').value = mt.slip;
     list = list.filter(function(x){ return map[x.id]; });
+    var rlim = lastIssueMap();
     document.getElementById('nrq-r-body').innerHTML = list.length ? list.map(function(x, i){
-      var n = map[x.id], b = bal(x.id), st = status(b);
-      return '<tr data-id="' + esc(x.id) + '" style="border-bottom:1px solid #eef1f1;"><td style="text-align:center;padding:5px;">' + (i + 1) + '</td><td style="padding:5px;"><b>' + esc(n.name || n.code) + '</b></td>'
-        + '<td style="text-align:center;"><b style="color:' + st[1] + ';">' + b + '</b></td><td style="text-align:center;">' + (x.qty || 0) + '</td>'
+      var n = map[x.id], b = bal(x.id), st = status(b), ai = ageInfo(rlim, x.id);
+      return '<tr data-id="' + esc(x.id) + '" style="border-bottom:1px solid #eef1f1;' + rowStyle(ai.tier, i) + '"><td style="text-align:center;padding:6px;">' + (i + 1) + '</td><td style="padding:6px;"><b>' + esc(n.name || n.code) + '</b></td>'
+        + '<td style="text-align:center;"><b style="color:' + (ai.tier === 'dark' ? '#fff' : st[1]) + ';">' + b + '</b></td><td style="text-align:center;">' + (x.qty || 0) + '</td>'
         + '<td style="text-align:center;"><input type="number" min="0" step="50" class="form-control nrq-rcv" value="' + (x.qty || '') + '" placeholder="0" style="width:84px;margin:auto;text-align:center;padding:3px 4px;border-color:#1abc9c;" oninput="nrqRcvTot()"></td></tr>';
     }).join('') : '<tr><td colspan="5" style="text-align:center;padding:22px;color:#888;">Requisition লিস্ট খালি — আগে "📋 Requisition Needle List" থেকে আইটেম যোগ করুন।</td></tr>';
     m.style.display = 'flex'; nrqRcvTot();
