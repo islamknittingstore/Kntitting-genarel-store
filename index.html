@@ -45509,7 +45509,7 @@ function drgDeleteHistory(date) {
       return;
     }
     var tq = 0, lim = lastIssueMap();
-    var td = 'padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);';
+    var td = 'padding:3px 10px;border-top:1px solid rgba(0,0,0,.13);border-bottom:1px solid rgba(0,0,0,.13);';
     var rows = list.map(function(x, i){
       var n = map[x.id], b = bal(x.id), st = status(b), ai = ageInfo(lim, x.id); tq += num(x.qty);
       var dk = ai.tier === 'dark';
@@ -45658,7 +45658,7 @@ function drgDeleteHistory(date) {
   window.nrqFilter = function(){
     var q = ((document.getElementById('nrq-q') || {}).value || '').toLowerCase().trim();
     var only = (document.getElementById('nrq-only') || {}).checked, low = (document.getElementById('nrq-low') || {}).checked;
-    var nm = ndlGetMaster(), list = load(), n = 0;
+    var nm = ndlGetMaster(), list = load(), n = 0, mlim = lastIssueMap();
     var body = document.getElementById('nrq-m-body'); if (!body) return;
     var html = nm.filter(function(x){
       if (q && ((x.name || '') + ' ' + (x.code || '')).toLowerCase().indexOf(q) < 0) return false;
@@ -45666,11 +45666,14 @@ function drgDeleteHistory(date) {
       if (low && bal(x.id) > 10) return false;
       return true;
     }).map(function(x){
-      n++; var b = bal(x.id), st = status(b), it = find(list, x.id);
-      return '<tr style="' + (it ? 'background:#eafaf1;' : '') + 'border-bottom:1px solid #eef1f1;" data-id="' + esc(x.id) + '">'
-        + '<td style="text-align:center;padding:5px;">' + n + '</td><td style="padding:5px;"><b>' + esc(x.name || x.code) + '</b></td>'
-        + '<td style="text-align:center;"><b style="color:' + st[1] + ';font-size:14px;">' + b + '</b> <span style="background:' + st[2] + ';color:' + st[1] + ';border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
-        + '<td style="text-align:center;"><input type="number" min="0" step="50" class="form-control nrq-m-q" placeholder="0" value="' + (it && it.qty ? it.qty : '') + '" style="width:76px;margin:auto;text-align:center;padding:3px;" onchange="nrqQtyChange(this)"></td>'
+      n++; var b = bal(x.id), st = status(b), it = find(list, x.id), ai = ageInfo(mlim, x.id), dk = ai.tier === 'dark';
+      var bg = ai.tier ? rowStyle(ai.tier, 0) : (it ? 'background:#d5f5e3;' : 'background:#fff;');
+      var pill = dk ? 'background:rgba(255,255,255,.22);color:#fff;' : 'background:' + st[2] + ';color:' + st[1] + ';';
+      var sub = ai.days === null ? 'ইস্যু নেই' : 'শেষ ইস্যু: ' + ai.txt;
+      return '<tr style="' + bg + '" data-id="' + esc(x.id) + '">'
+        + '<td style="text-align:center;">' + n + '</td><td><b>' + esc(x.name || x.code) + '</b> <span style="font-size:10px;opacity:.75;margin-left:6px;">' + esc(sub) + '</span></td>'
+        + '<td style="text-align:center;white-space:nowrap;"><b style="color:' + (dk ? '#fff' : st[1]) + ';font-size:13px;">' + b + '</b> <span style="' + pill + 'border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">' + st[0] + '</span></td>'
+        + '<td style="text-align:center;"><input type="number" min="0" step="50" class="form-control nrq-m-q" placeholder="0" value="' + (it && it.qty ? it.qty : '') + '" style="width:76px;margin:auto;text-align:center;" onchange="nrqQtyChange(this)"></td>'
         + '<td style="text-align:center;">' + (it
           ? '<button type="button" onclick="nrqToggle(\'' + esc(x.id) + '\')" title="লিস্ট থেকে বাদ দিন" style="background:#117a65;color:#fff;border:none;border-radius:6px;width:38px;height:28px;cursor:pointer;font-weight:800;font-size:15px;">✔</button>'
           : '<button type="button" onclick="nrqToggle(\'' + esc(x.id) + '\')" title="Requisition-এ যোগ করুন" style="background:#fff;color:#117a65;border:1.5px solid #117a65;border-radius:6px;width:38px;height:28px;cursor:pointer;font-weight:800;font-size:16px;">+</button>') + '</td></tr>';
@@ -45696,7 +45699,7 @@ function drgDeleteHistory(date) {
   };
 
   var st = document.createElement('style');
-  st.textContent = '#nrq-m-body tr,#nrq-card-body tbody tr{transition:transform .15s,box-shadow .15s,background .15s;position:relative}#nrq-m-body tr:hover,#nrq-card-body tbody tr:hover{background:#d6f5ec!important;transform:translateY(-2px) scale(1.01);box-shadow:0 4px 12px rgba(17,122,101,.28);z-index:2;cursor:pointer}#nrq-m-body tr:hover td:first-child{border-left:4px solid #117a65}#nrq-modal th{white-space:nowrap;font-size:12px}@media (max-width:700px){#nrq-modal th,#nrq-card-body th{font-size:10px!important;padding:4px 3px!important}#nrq-modal .nrq-m-q,#nrq-card-body .form-control{width:46px!important}#nrq-m-body td:nth-child(2){font-size:12px;word-break:break-word}#nrq-modal{padding:4px!important}.nrq-hm{display:none!important}#nrq-card-body td,#nrq-card-body th,#nrq-m-body td{padding:4px 3px!important}#nrq-m-body button{padding:3px 6px!important;font-size:11px!important}}';
+  st.textContent = '#nrq-m-body tr,#nrq-card-body tbody tr{transition:filter .12s}#nrq-m-body tr:hover,#nrq-card-body tbody tr:hover{filter:brightness(.94);cursor:pointer}#nrq-m-body td{padding:2px 6px!important;line-height:1.15;border-top:1px solid rgba(0,0,0,.13);border-bottom:1px solid rgba(0,0,0,.13)}#nrq-m-body input.nrq-m-q{padding:1px 3px!important;height:22px!important;font-size:12px}#nrq-m-body button{height:22px!important;padding:0 8px!important;line-height:1}#nrq-modal th{white-space:nowrap;font-size:12px}@media (max-width:700px){#nrq-modal th,#nrq-card-body th{font-size:10px!important;padding:4px 3px!important}#nrq-modal .nrq-m-q,#nrq-card-body .form-control{width:46px!important}#nrq-m-body td:nth-child(2){font-size:12px;word-break:break-word}#nrq-modal{padding:4px!important}.nrq-hm{display:none!important}#nrq-card-body td,#nrq-card-body th,#nrq-m-body td{padding:4px 3px!important}#nrq-m-body button{padding:3px 6px!important;font-size:11px!important}}';
   document.head.appendChild(st);
   // ── পেজে UI বসানো ──
   function inject(){
