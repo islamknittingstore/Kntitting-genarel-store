@@ -5361,7 +5361,8 @@ window.iglSaveNavVisibility = function() {
     <div class="card">
       <div class="card-header" style="background:#f0f3f7;">
         <span>Issue Log</span>
-        <div style="margin-left:auto;" class="no-print">
+        <div style="margin-left:auto;display:flex;gap:6px;" class="no-print">
+          <button class="btn btn-sm" onclick="mwsOpen()" style="background:#1a5276;color:#fff;border:none;font-weight:700;">⚙️ Machine Wise Search</button>
           <button class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
         </div>
       </div>
@@ -25281,6 +25282,74 @@ async function deleteReceive(id) {
 // 
 //  ISSUE LOG
 // 
+
+// ── Issue Log: Machine Wise Search — মেশিন নাম্বার দিয়ে সেই মেশিনের Oil ছাড়া সব আইটেমের Issue লিস্ট (তারিখ অনুযায়ী) ──
+function mwsEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function mwsOpen(){
+  var m = document.getElementById('mws-modal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'mws-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:12px;';
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:1000px;max-width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.4);">'
+      + '<div style="background:linear-gradient(135deg,#1a5276,#2471a3);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:10px;"><b style="font-size:16px;">⚙️ Machine Wise Issue Search</b><span style="font-size:12px;opacity:.8;">(Oil বাদে)</span>'
+      + '<button onclick="mwsClose()" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:16px;">✕</button></div>'
+      + '<div style="padding:12px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e3e8ee;">'
+      + '<input type="text" id="mws-no" class="form-control" placeholder="মেশিন নাম্বার লিখুন (যেমন 136)" style="width:230px;" onkeydown="if(event.key===\'Enter\')mwsSearch()">'
+      + '<button class="btn btn-primary btn-sm" onclick="mwsSearch()">🔍 খুঁজুন</button>'
+      + '<button class="btn btn-outline btn-sm" onclick="mwsPrint()">🖨️ Print</button>'
+      + '<span id="mws-info" style="margin-left:auto;font-weight:700;color:#1a5276;font-size:13px;"></span></div>'
+      + '<div id="mws-body" style="overflow:auto;flex:1;padding:0;"><div style="padding:30px;text-align:center;color:#888;">মেশিন নাম্বার দিয়ে খুঁজুন।</div></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', function(e){ if (e.target === m) mwsClose(); });
+  }
+  m.style.display = 'flex';
+  setTimeout(function(){ var i = document.getElementById('mws-no'); if (i) { i.focus(); i.select(); } }, 50);
+}
+function mwsClose(){ var m = document.getElementById('mws-modal'); if (m) m.style.display = 'none'; }
+function mwsData(){
+  var q = String((document.getElementById('mws-no')||{}).value || '').trim().toLowerCase().replace(/\s+/g,' ');
+  if (!q) return null;
+  var rows = (DB.issues||[]).filter(function(r){
+    if (!r || ['Stationery','Packaging','Needle','Oil'].indexOf(r.group) !== -1) return false;
+    return String(r.machineNo||'').trim().toLowerCase().replace(/\s+/g,' ') === q;
+  });
+  rows.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')) || (Number(b.id)||0) - (Number(a.id)||0); });
+  return { q: q, rows: rows };
+}
+function mwsTableHtml(rows){
+  var tq = 0, sl = 1;
+  var tr = rows.map(function(r){
+    tq += Number(r.qty)||0;
+    return '<tr style="border-bottom:1px solid #e8edf2;">'
+      + '<td style="padding:6px 8px;text-align:center;">' + (sl++) + '</td>'
+      + '<td style="padding:6px 8px;white-space:nowrap;font-weight:600;">' + mwsEsc(fmtDate(r.date)) + '</td>'
+      + '<td style="padding:6px 8px;"><b style="color:#922b21;">' + mwsEsc(r.slip||'-') + '</b></td>'
+      + '<td style="padding:6px 8px;">' + mwsEsc(r.group||'-') + '</td>'
+      + '<td style="padding:6px 8px;">' + mwsEsc(r.category||'-') + '</td>'
+      + '<td style="padding:6px 8px;"><b>' + mwsEsc(r.item) + '</b></td>'
+      + '<td style="padding:6px 8px;text-align:right;"><b style="color:#922b21;">' + mwsEsc(r.qty) + '</b> <span style="color:#777;font-size:11px;">' + mwsEsc(r.unit||'Pcs') + '</span></td>'
+      + '<td style="padding:6px 8px;">' + mwsEsc(r.machineId||'-') + '</td>'
+      + '<td style="padding:6px 8px;color:#555;">' + mwsEsc(r.remarks||'-') + '</td></tr>';
+  }).join('');
+  return { tq: tq, html: '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead style="position:sticky;top:0;"><tr style="background:#1b2a41;color:#fff;">'
+    + '<th style="padding:8px;">SL</th><th style="padding:8px;text-align:left;">Date</th><th style="padding:8px;text-align:left;">Slip</th><th style="padding:8px;text-align:left;">Category</th><th style="padding:8px;text-align:left;">Item Grp.</th><th style="padding:8px;text-align:left;">Item</th><th style="padding:8px;text-align:right;">Qty</th><th style="padding:8px;text-align:left;">Machine ID</th><th style="padding:8px;text-align:left;">Remarks</th></tr></thead><tbody>' + tr + '</tbody></table>' };
+}
+function mwsSearch(){
+  var d = mwsData(), body = document.getElementById('mws-body'), info = document.getElementById('mws-info');
+  if (!d) { toast('মেশিন নাম্বার লিখুন', 'warning'); return; }
+  if (!d.rows.length) { body.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">মেশিন "' + mwsEsc(d.q) + '" এর কোনো Issue (Oil বাদে) পাওয়া যায়নি।</div>'; info.textContent = ''; return; }
+  var t = mwsTableHtml(d.rows);
+  body.innerHTML = t.html;
+  info.textContent = 'মেশিন ' + d.q + ' — ' + d.rows.length + 'টি রেকর্ড';
+}
+function mwsPrint(){
+  var d = mwsData(); if (!d || !d.rows.length) { toast('আগে সার্চ করুন', 'warning'); return; }
+  var t = mwsTableHtml(d.rows);
+  var w = window.open('', '_blank'); if (!w) { toast('পপআপ ব্লক হয়েছে', 'warning'); return; }
+  w.document.write('<html><head><title>Machine ' + mwsEsc(d.q) + ' Issue List</title><style>body{font-family:Arial;padding:18px}h3{margin:0 0 4px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #999;padding:4px 6px}th{background:#eee}</style></head><body>'
+    + '<h3>Islam Garments Limited — Machine Wise Issue List (Oil বাদে)</h3><div style="margin-bottom:8px;font-size:12px;">Machine No: <b>' + mwsEsc(d.q) + '</b> | Records: ' + d.rows.length + ' | Print: ' + mwsEsc(fmtDate(todayStr())) + '</div>' + t.html + '</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 300);
+}
 function renderIssueLog() {
   const q = (document.getElementById('ilog-search').value || '').trim().toLowerCase();
   const grp = document.getElementById('ilog-group').value;
