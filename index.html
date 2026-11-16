@@ -281,6 +281,13 @@ if('serviceWorker' in navigator){
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: #2c3e50; border-radius: 4px; }
 
+
+  /* Retail Needle Account — স্ক্রিন ভিউতে Needle/Sinker নাম্বার বড় ও স্পষ্ট (প্রিন্টে কোনো পরিবর্তন নেই) */
+  @media screen {
+    #rna-content td.rna-ndl-name { font-size: 14px !important; font-weight: 700 !important; width: auto !important; min-width: 190px !important; max-width: none !important; padding: 5px 8px !important; overflow: visible !important; text-overflow: clip !important; color: #12263a; letter-spacing: .2px; }
+    #rna-content th.rna-ndl-th { font-size: 13px !important; width: auto !important; min-width: 190px !important; padding: 7px 8px !important; }
+    #rna-content tbody tr:hover td { background-color: #eaf4fb; }
+  }
   /* ── Top-level section nav — Dashboard / Store / Needle / Stationery / Packaging / Settings / Personal, as a row of buttons ── */
   .top-section-nav {
     position: fixed; top: var(--navbar-h); left: 0; right: 0; height: var(--topnav-h);
@@ -35952,7 +35959,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
     // ── Simple table: each row is independent ──
     html += '<table style="border-collapse:collapse;font-size:10px;width:auto;max-width:100%;">';
     html += '<thead><tr style="background:#1a5276;color:#fff;">';
-    html += '<th style="'+S+'padding:3px 3px;text-align:left;width:78px;font-size:7.5pt;">Needle / Sinker No</th>';
+    html += '<th class="rna-ndl-th" style="'+S+'padding:3px 3px;text-align:left;width:78px;font-size:7.5pt;">Needle / Sinker No</th>';
     html += '<th style="'+S+'padding:4px;width:42px;text-align:center;">B/F</th>';
     html += '<th style="'+S+'padding:4px;width:34px;text-align:center;">Rcv</th>';
     html += '<th style="'+S+'padding:4px;text-align:left;white-space:nowrap;">Machine &amp; Issue (A+B+C)' + (aligned ? '@@RNA_MH@@' : '') + '</th>';
@@ -36027,7 +36034,7 @@ window.NEEDLE_MASTER = [{"id": "N001", "code": "60320 CB 0641 C1w", "name": "603
       html += '<tr style="background:'+bg+';height:20px;">';
       var ndlColW = tabIdx===0 ? 78 : tabIdx===2 ? 155 : 95;
       var ndlFs = '8px';
-      html += '<td style="'+S+'padding:2px 3px;font-weight:700;font-size:'+ndlFs+';width:'+ndlColW+'px;min-width:'+ndlColW+'px;max-width:'+ndlColW+'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(row.name)+'</td>';
+      html += '<td class="rna-ndl-name" style="'+S+'padding:2px 3px;font-weight:700;font-size:'+ndlFs+';width:'+ndlColW+'px;min-width:'+ndlColW+'px;max-width:'+ndlColW+'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(row.name)+'</td>';
       html += '<td style="'+S+'padding:2px;text-align:center;width:34px;font-size:10px;">'+(row.bf||'')+'</td>';
       html += '<td style="'+S+'padding:2px;text-align:center;color:#1a5276;font-weight:600;width:34px;font-size:10px;">'+(row.rcv||'')+'</td>';
 
