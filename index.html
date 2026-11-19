@@ -1821,7 +1821,8 @@ if('serviceWorker' in navigator){
           monthLocks:      _fbSafeParse('igl_month_locks', {}),
           lockPasscode:    localStorage.getItem('igl_lock_unlock_pw') || '',
           oilBF:           _fbSafeParse('igl_oil_bf', {}),
-          oilStoreTransfers: _fbSafeParse('igl_oil_store_transfers', []),
+          oilStoreTransfers: (function(){ var _d = _fbSafeParse('igl_ost_deleted', {}); return _fbSafeParse('igl_oil_store_transfers', []).filter(function(t){ return !(t && _d[t.id]); }); })(),
+          oilStoreDeleted:   _fbSafeParse('igl_ost_deleted', {}),
           oilStoreAdjust:    _fbSafeParse('igl_oil_store_adjust', {}),
           ndlReq:            { list: _fbSafeParse('igl_ndl_reqlist', []), meta: _fbSafeParse('igl_ndl_reqlist_meta', {}), ts: Number(localStorage.getItem('igl_ndl_reqlist_ts')||0) },
           extraItems:        _fbSafeParse('igl_extra_items', []),
@@ -2257,12 +2258,20 @@ if('serviceWorker' in navigator){
           if(data.settings.lockPasscode) { localStorage.setItem('igl_lock_unlock_pw', data.settings.lockPasscode); }
           // 🛢️ Oil BF — একই নিরাপত্তা: খালি ডাটা দিয়ে ওভাররাইট না করে, Firebase-এ আসলেই কিছু থাকলেই শুধু apply করো
           if(data.settings.oilBF && Object.keys(data.settings.oilBF).length) { localStorage.setItem('igl_oil_bf', JSON.stringify(data.settings.oilBF)); }
-          if(data.settings.oilStoreTransfers) {
-            // union merge by id — এই ডিভাইসে এইমাত্র যোগ করা কিন্তু এখনো sync না হওয়া এন্ট্রি হারাবে না
+          if(data.settings.oilStoreTransfers || data.settings.oilStoreDeleted) {
+            // union merge by id + ডিলিট করা এন্ট্রি (tombstone) আর কখনো ফিরে আসবে না — যেকোনো ডিভাইসের পুরনো কপি থেকেও না
             var _localOst = []; try { _localOst = JSON.parse(localStorage.getItem('igl_oil_store_transfers')||'[]'); } catch(e){}
-            var _remoteOst = data.settings.oilStoreTransfers;
-            var _remoteOstIds = {}; _remoteOst.forEach(function(t){ _remoteOstIds[t.id]=true; });
-            var _mergedOst = _remoteOst.concat(_localOst.filter(function(t){ return !_remoteOstIds[t.id]; }));
+            var _remoteOst = data.settings.oilStoreTransfers || [];
+            if (!Array.isArray(_remoteOst)) _remoteOst = Object.keys(_remoteOst).map(function(k){ return _remoteOst[k]; });
+            var _delOst = {}; try { _delOst = JSON.parse(localStorage.getItem('igl_ost_deleted')||'{}'); } catch(e){}
+            var _remDel = data.settings.oilStoreDeleted || {};
+            Object.keys(_remDel).forEach(function(k){ if (!_delOst[k]) _delOst[k] = _remDel[k]; });
+            localStorage.setItem('igl_ost_deleted', JSON.stringify(_delOst));
+            var _seenOst = {};
+            var _mergedOst = _remoteOst.concat(_localOst).filter(function(t){
+              if (!t || !t.id || _delOst[t.id] || _seenOst[t.id]) return false;
+              _seenOst[t.id] = true; return true;
+            });
             localStorage.setItem('igl_oil_store_transfers', JSON.stringify(_mergedOst));
           }
           if(data.settings.oilStoreAdjust) { localStorage.setItem('igl_oil_store_adjust', JSON.stringify(data.settings.oilStoreAdjust)); }
@@ -30232,11 +30241,9 @@ function addOilStoreTransfer() {
   setTimeout(function(){ window._ostAddLock = false; }, 2500);
   var arr = getOilStoreTransfers();
   var _now = Date.now();
-  var _dup = arr.some(function(t){
-    return t.date===date && t.type===type && t.shift===shift && t.name===name && Number(t.qty)===qty
-      && String(t.id||'').indexOf('ost')===0 && (_now - Number(String(t.id).slice(3))) < 15000;
-  });
-  if (_dup) { toast('⚠️ একই এন্ট্রি এইমাত্র যোগ হয়েছে', 'warning'); return; }
+  // একই তারিখে একই Oil টাইপ (Textol / Excel) দুইবার সেভ করা যাবে না; Textol ও Excel আলাদা আলাদা একবার করে হবে
+  var _dup = arr.filter(function(t){ return t.date===date && t.type===type; })[0];
+  if (_dup) { toast('⚠️ ' + date + ' তারিখে ' + OIL_STORE_TYPES[type].label + ' এর এন্ট্রি আগেই আছে (' + _dup.shift + ', ' + _dup.name + ', ' + _dup.qty + ' L)। দরকার হলে আগেরটা ডিলিট করে নতুন দিন।', 'warning'); return; }
   arr.push({ id: 'ost'+_now, date: date, type: type, shift: shift, name: name, qty: qty });
   setOilStoreTransfers(arr);
   document.getElementById('ost-qty').value = '35'; // ডিফল্ট আবার ৩৫ এ ফিরে যাবে
@@ -30245,6 +30252,11 @@ function addOilStoreTransfer() {
 }
 function deleteOilStoreTransfer(id) {
   if (!confirm('এই এন্ট্রিটা ডিলিট করতে চান?')) return;
+  try {
+    var _d = {}; try { _d = JSON.parse(localStorage.getItem('igl_ost_deleted')||'{}'); } catch(e){}
+    _d[id] = Date.now();
+    localStorage.setItem('igl_ost_deleted', JSON.stringify(_d));
+  } catch(e){}
   setOilStoreTransfers(getOilStoreTransfers().filter(function(t){ return t.id!==id; }));
   renderOilStoreTransfer();
   toast('ডিলিট হয়েছে', 'warning');
