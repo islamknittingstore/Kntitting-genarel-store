@@ -16061,6 +16061,8 @@ function stnReqApplyLock(on) {
     var lab = row.querySelector('label'); if (lab) lab.style.pointerEvents = on ? 'none' : '';
     row.ondblclick = on ? function(){ stnReqUnlockRow(row); } : null;
     row.style.cursor = on ? 'pointer' : '';
+    var _c = row.querySelector('input[type=checkbox]');
+    row.style.display = (on && !(_c && _c.checked)) ? 'none' : '';
     row.removeAttribute('data-unlocked');
     row.style.outline = '';
   });
@@ -16071,7 +16073,7 @@ function stnReqApplyLock(on) {
   }
   if (h) {
     h.style.cssText = on ? 'display:block;background:#fff8e1;border:1px solid #f0d27a;color:#8a6d00;border-radius:6px;padding:5px 10px;margin-bottom:6px;font-size:12px;font-weight:700;' : 'display:none;';
-    h.innerHTML = '🔒 পিছনের মাস — শুধু দেখা যাবে। Qty/Rate বদলাতে আইটেমের উপর <u>ডাবল ক্লিক</u> করুন, তারপর 💾 Save Requisition।';
+    h.innerHTML = '🔒 পিছনের মাস — শুধু ওই মাসের আইটেম দেখাচ্ছে। Qty/Rate বদলাতে আইটেমের উপর <u>ডাবল ক্লিক</u> করুন, তারপর 💾 Save Requisition।';
   }
 }
 function stnReqUnlockRow(row) {
@@ -16292,7 +16294,9 @@ function stnReqFilterItems() {
   var q = (document.getElementById('req-item-search').value||'').toLowerCase();
   document.querySelectorAll('.req-item-row').forEach(function(row){
     var name = (row.getAttribute('data-name')||'').toLowerCase();
-    row.style.display = name.includes(q) ? '' : 'none';
+    var _lk = document.getElementById('req-lock-hint'), _cb = row.querySelector('input[type=checkbox]');
+    var _hide = _lk && _lk.style.display === 'block' && !(_cb && _cb.checked);
+    row.style.display = (!_hide && name.includes(q)) ? '' : 'none';
   });
 }
 
