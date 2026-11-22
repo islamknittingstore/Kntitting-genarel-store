@@ -6090,6 +6090,7 @@ window.iglSaveNavVisibility = function() {
         <button class="btn btn-primary" onclick="stnToggleForm('receive')" id="stn-btn-receive">
           📥 Receive
         </button>
+        <button onclick="stnRqrOpen()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;">📋 Requisition Receive</button>
         <button class="btn btn-danger" onclick="stnToggleForm('issue')" id="stn-btn-issue">
           📤 Issue
         </button>
@@ -6109,6 +6110,7 @@ window.iglSaveNavVisibility = function() {
           <button onclick="stnToggleForm('receive')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
         </div>
         <div class="card-body">
+          <div id="stn-rqr-banner" style="display:none;margin-bottom:12px;"></div>
           <div class="form-grid">
             <div>
               <div class="form-group">
@@ -6393,6 +6395,11 @@ window.iglSaveNavVisibility = function() {
             title="Print Font Size (pt) — সব Requisition প্রিন্টে apply হবে">
           <span style="font-size:10px;color:#888;">pt</span>
         </span>
+        <label style="font-size:12px;font-weight:700;color:#444;display:inline-flex;align-items:center;gap:6px;margin-right:6px;">রিছিভ ধরা হবে:
+          <select id="req-rcv-mode" onchange="try{localStorage.setItem('igl_stn_req_rcv_mode',this.value)}catch(e){}" style="padding:7px 8px;border:1px solid #bbb;border-radius:6px;font-size:12px;font-weight:600;">
+            <option value="all">সব রিছিভ (লোকাল সহ)</option>
+            <option value="req">শুধু Requisition Receive</option>
+          </select></label>
         <button onclick="stnReqSimplePrint('req-print-area-1','#00838f')" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">🖨️ Print (Rate ছাড়া)</button>
         <button onclick="stnReqPrintWithRate()" style="background:linear-gradient(135deg,#7d3c98,#9b59b6);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">💰 Print (Rate সহ)</button>
         <button onclick="stnReqPrintDiffPercent()" style="background:linear-gradient(135deg,#1a5276,#2980b9);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;" title="Requisition Record এর Print (Diff/%) এর মতোই — Req Qty, Rcv Qty, Diff ও % কম/বেশি সহ">🖨️ Print (Diff/%)</button>
@@ -6433,6 +6440,14 @@ window.iglSaveNavVisibility = function() {
         </div>
       </div>
       <div class="card-body" style="padding:14px;">
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;background:#eef7f2;border:1px solid #c3e3d1;border-radius:8px;padding:8px 12px;">
+          <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">📅 Requisition Date
+            <input type="date" id="req-date" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;"></label>
+          <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">🏪 Supplier
+            <input type="text" id="req-supplier" list="stn-supplier-list" value="আক্তার স্টোর" autocomplete="off" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;width:190px;"></label>
+          <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">🧾 Challan No (Receive-এ অটো বসবে)
+            <input type="text" id="req-chalan" placeholder="যেমন Dec-26" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;width:150px;"></label>
+        </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
           <input type="text" id="req-item-search" placeholder="🔍 Item খুঁজুন..." oninput="stnReqFilterItems()" style="padding:7px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;flex:1;min-width:180px;">
           <button onclick="stnReqSelectAll()" style="padding:7px 14px;border-radius:6px;border:1px solid #00838f;background:#fff;color:#00838f;font-size:12px;cursor:pointer;font-weight:700;">✅ সব Select</button>
@@ -14202,6 +14217,124 @@ function stnCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId) {
   return existing.length > 0;
 }
 
+// ════════════════════════════════════════════════════════════════
+// 📋 Requisition Receive — আক্তার স্টোর (Accessories Store) থেকে রিকোজিশন অনুযায়ী রিছিভ
+// ════════════════════════════════════════════════════════════════
+var STN_MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var STN_MONFULL = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+function stnReqDefaultChalan(year, month) { return STN_MON3[(Number(month) || 1) - 1] + '-' + String(year).slice(-2); }
+function stnReqFindKey(year, month) {
+  var reqs = DB.stnRequisitions || {}, found = '';
+  Object.keys(reqs).forEach(function(k){ var r = reqs[k]; if (r && Number(r.year) === Number(year) && Number(r.month) === Number(month)) found = k; });
+  return found;
+}
+function stnReqFillMeta(saved, year, month) {
+  var d = document.getElementById('req-date'), sp = document.getElementById('req-supplier'), ch = document.getElementById('req-chalan');
+  if (d)  d.value  = (saved && saved.reqDate) || todayStr();
+  if (sp) sp.value = (saved && saved.supplier) || 'আক্তার স্টোর';
+  if (ch) ch.value = (saved && saved.chalan) || stnReqDefaultChalan(year, month);
+}
+// Req vs Receive রিপোর্টে কোন রিছিভগুলো ধরা হবে (all = সব রিছিভ; req = শুধু Requisition Receive)
+function stnReqRcvPool(year, month) {
+  var base = (DB.receives || []).filter(function(r){ return r.group === 'Stationery' && !r.excludeReqPrint; });
+  var mode = (document.getElementById('req-rcv-mode') || {}).value || 'all';
+  if (mode !== 'req') return base;
+  var key = stnReqFindKey(year, month);
+  var mFrom = year + '-' + String(month).padStart(2, '0') + '-01';
+  // রিছিভ পরের মাসে হলেও ওই রিকোজিশনের হিসাবে ধরার জন্য তারিখ মাসের শুরুতে ধরা হলো (শুধু রিপোর্টের হিসাবে; আসল রেকর্ড বদলায় না)
+  return base.filter(function(r){ return key && r.reqKey === key; }).map(function(r){ return Object.assign({}, r, { date: mFrom }); });
+}
+function stnRqrRcvQty(key, name) {
+  return (DB.receives || []).filter(function(r){ return r.group === 'Stationery' && r.reqKey === key && r.item === name; })
+    .reduce(function(s, r){ return s + (Number(r.qty) || 0); }, 0);
+}
+function stnRqrEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function stnRqrClose() { var m = document.getElementById('stn-rqr-modal'); if (m) m.remove(); }
+function stnRqrShell(title, bodyHtml) {
+  stnRqrClose();
+  var m = document.createElement('div');
+  m.id = 'stn-rqr-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:12px;';
+  m.innerHTML = '<div style="background:#fff;border-radius:12px;width:820px;max-width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.4);">'
+    + '<div style="background:linear-gradient(135deg,#1a6b3a,#27ae60);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:10px;"><b style="font-size:16px;">' + title + '</b>'
+    + '<button onclick="stnRqrClose()" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:16px;">✕</button></div>'
+    + '<div style="overflow:auto;flex:1;">' + bodyHtml + '</div></div>';
+  m.addEventListener('click', function(e){ if (e.target === m) stnRqrClose(); });
+  document.body.appendChild(m);
+}
+function stnRqrOpen() {
+  var reqs = DB.stnRequisitions || {};
+  var keys = Object.keys(reqs).filter(function(k){ return reqs[k] && reqs[k].items && reqs[k].items.length; })
+    .sort(function(a, b){ return (reqs[b].year * 100 + reqs[b].month) - (reqs[a].year * 100 + reqs[a].month); });
+  if (!keys.length) { toast('⚠️ কোনো সেভ করা Requisition নেই', 'warning'); return; }
+  var rows = keys.map(function(k){
+    var r = reqs[k], tReq = 0, tRcv = 0;
+    r.items.forEach(function(it){ tReq += Number(it.qty) || 0; tRcv += Math.min(stnRqrRcvQty(k, it.name), Number(it.qty) || 0); });
+    var pct = tReq ? Math.round(tRcv * 100 / tReq) : 0;
+    return '<tr onclick="stnRqrOpenMonth(\'' + k + '\')" style="cursor:pointer;border-bottom:1px solid #e8edf2;" onmouseover="this.style.background=\'#eafaf1\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="padding:10px 14px;font-weight:700;font-size:14px;">📅 ' + STN_MONFULL[r.month] + ' ' + r.year + (r.title ? '<div style="font-size:11px;color:#777;font-weight:400;">' + stnRqrEsc(r.title) + '</div>' : '') + '</td>'
+      + '<td style="padding:10px;text-align:center;">' + r.items.length + '</td>'
+      + '<td style="padding:10px;text-align:center;">' + stnRqrEsc(r.reqDate || '-') + '</td>'
+      + '<td style="padding:10px;">' + stnRqrEsc(r.supplier || 'আক্তার স্টোর') + '</td>'
+      + '<td style="padding:10px;text-align:center;font-weight:700;color:#1a6b3a;">' + stnRqrEsc(r.chalan || stnReqDefaultChalan(r.year, r.month)) + '</td>'
+      + '<td style="padding:10px;text-align:center;"><b style="color:' + (pct >= 100 ? '#1a6b3a' : '#c0392b') + ';">' + pct + '%</b></td></tr>';
+  }).join('');
+  stnRqrShell('📋 Requisition Receive — মাস বাছুন',
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f0f3f7;color:#555;font-size:12px;">'
+    + '<th style="padding:8px 14px;text-align:left;">মাস</th><th style="padding:8px;">Items</th><th style="padding:8px;">Req Date</th><th style="padding:8px;text-align:left;">Supplier</th><th style="padding:8px;">Challan</th><th style="padding:8px;">Received</th></tr></thead><tbody>' + rows + '</tbody></table>');
+}
+function stnRqrOpenMonth(key) {
+  var req = (DB.stnRequisitions || {})[key];
+  if (!req) return;
+  var rows = req.items.map(function(it, i){
+    var rq = Number(it.qty) || 0, rc = stnRqrRcvQty(key, it.name), pend = rq - rc;
+    var st = pend <= 0 ? '<span style="background:#d5f5e3;color:#1a6b3a;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">✔ Complete</span>'
+                       : '<b style="color:#c0392b;">' + pend + '</b>';
+    return '<tr onclick="stnRqrPick(\'' + key + '\',' + i + ')" style="cursor:pointer;border-bottom:1px solid #e8edf2;' + (pend <= 0 ? 'background:#f3fbf6;' : '') + '" onmouseover="this.style.filter=\'brightness(.95)\'" onmouseout="this.style.filter=\'\'">'
+      + '<td style="padding:7px 12px;text-align:center;color:#888;">' + (i + 1) + '</td>'
+      + '<td style="padding:7px 10px;font-weight:700;">' + stnRqrEsc(it.name) + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;">' + rq + ' <span style="color:#888;font-size:11px;">' + stnRqrEsc(it.unit || '') + '</span></td>'
+      + '<td style="padding:7px 10px;text-align:center;color:#1a6b3a;font-weight:700;">' + rc + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;">' + st + '</td>'
+      + '<td style="padding:7px 10px;text-align:center;"><span style="background:#1a6b3a;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">📥 Receive</span></td></tr>';
+  }).join('');
+  var head = '<div style="padding:10px 16px;background:#eef7f2;border-bottom:1px solid #c3e3d1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;">'
+    + '<button onclick="stnRqrOpen()" style="background:#fff;border:1px solid #1a6b3a;color:#1a6b3a;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700;">← মাস তালিকা</button>'
+    + '<b>' + STN_MONFULL[req.month] + ' ' + req.year + '</b><span>🏪 ' + stnRqrEsc(req.supplier || 'আক্তার স্টোর') + '</span><span>🧾 ' + stnRqrEsc(req.chalan || stnReqDefaultChalan(req.year, req.month)) + '</span></div>';
+  stnRqrShell('📋 Requisition Receive — আইটেম বাছুন',
+    head + '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f0f3f7;color:#555;font-size:12px;">'
+    + '<th style="padding:8px;">#</th><th style="padding:8px;text-align:left;">Item</th><th style="padding:8px;">Req Qty</th><th style="padding:8px;">Received</th><th style="padding:8px;">Pending</th><th style="padding:8px;"></th></tr></thead><tbody>' + rows + '</tbody></table>');
+}
+function stnRqrPick(key, idx) {
+  var req = (DB.stnRequisitions || {})[key], it = req && req.items[idx];
+  if (!it) return;
+  stnRqrClose();
+  var form = document.getElementById('stn-form-receive');
+  if (form && form.style.display === 'none') stnToggleForm('receive');
+  var sec = document.getElementById('stn-r-section'); if (sec) sec.value = 'Stationery';
+  stnPopulateItems('stn-r-item', 'Stationery');
+  document.getElementById('stn-r-item').value = it.name;
+  document.getElementById('stn-r-date').value = todayStr();
+  document.getElementById('stn-r-chalan').value = req.chalan || stnReqDefaultChalan(req.year, req.month);
+  document.getElementById('stn-r-supplier').value = req.supplier || 'আক্তার স্টোর';
+  var rq = Number(it.qty) || 0, rc = stnRqrRcvQty(key, it.name), pend = Math.max(0, rq - rc);
+  var q = document.getElementById('stn-r-qty'); q.value = ''; q.placeholder = 'বাকি: ' + pend;
+  try { stnUpdateReceiveStock(); } catch (e) {}
+  window._stnRqr = { key: key, item: it.name };
+  var b = document.getElementById('stn-rqr-banner');
+  if (b) {
+    b.style.display = 'block';
+    b.innerHTML = '<div style="background:#eafaf1;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;">'
+      + '📋 <b>Requisition Receive</b> — ' + STN_MONFULL[req.month] + ' ' + req.year + ' • <b>' + stnRqrEsc(it.name) + '</b> • Req ' + rq + ' | Rcv ' + rc + ' | Pending <b style="color:#c0392b;">' + pend + '</b>'
+      + '<button onclick="stnRqrCancelLink()" style="margin-left:auto;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:12px;">✕ লিংক বাদ</button></div>';
+  }
+  q.focus();
+}
+function stnRqrCancelLink() {
+  window._stnRqr = null;
+  var b = document.getElementById('stn-rqr-banner'); if (b) { b.style.display = 'none'; b.innerHTML = ''; }
+}
+
 function stnSaveReceive() {
   var date     = document.getElementById('stn-r-date').value;
   var item     = document.getElementById('stn-r-item').value;
@@ -14225,6 +14358,9 @@ function stnSaveReceive() {
   }
 
   var rec = { id: Date.now(), date: date, group: section, category: '', item: item, chalan: chalan, supplier: supplier, qty: Number(qty), userId: (window.IGL_CURRENT_USER?window.IGL_CURRENT_USER.role:''), entryTime: new Date().toISOString() };
+  // 📋 Requisition Receive থেকে এলে রিকোজিশনের সাথে লিংক ট্যাগ (লোকাল ক্রয়ে এই ট্যাগ থাকে না)
+  var _rqrLink = (window._stnRqr && window._stnRqr.item === item) ? window._stnRqr : null;
+  if (_rqrLink) rec.reqKey = _rqrLink.key;
   var arr = DB.receives;
   arr.push(rec);
   DB.receives = arr;
@@ -14239,6 +14375,8 @@ function stnSaveReceive() {
   document.getElementById('stn-r-stock-badge').innerHTML = '';
   renderStationeryDashboard();
   triggerAutoSave();
+  if (_rqrLink) { var _k = _rqrLink.key; stnRqrCancelLink(); stnRqrOpenMonth(_k); }
+  else stnRqrCancelLink();
 }
 
 function stnClearReceiveForm() {
@@ -14249,6 +14387,7 @@ function stnClearReceiveForm() {
   document.getElementById('stn-r-supplier').value = '';
   document.getElementById('stn-r-qty').value      = '';
   document.getElementById('stn-r-stock-badge').innerHTML = '';
+  stnRqrCancelLink();
 }
 
 // ── Stationery Remarks Autocomplete ──────────────────────────────
@@ -15853,6 +15992,11 @@ function stnReqInit() {
 
   stnReqPopulateHistory();
   stnReqBuildChecklist();
+  try {
+    var _rk = stnReqFindKey(Number(document.getElementById('req-year').value), Number(cm));
+    stnReqFillMeta(_rk ? (DB.stnRequisitions||{})[_rk] : null, document.getElementById('req-year').value, cm);
+    var _md = localStorage.getItem('igl_stn_req_rcv_mode'); var _ms = document.getElementById('req-rcv-mode'); if (_ms && _md) _ms.value = _md;
+  } catch(e){}
   setTimeout(function(){ stnReqRenderRegister(); }, 50);
 }
 
@@ -15871,6 +16015,7 @@ function stnReqOnMonthChange() {
     var saved = reqs[key];
     var titleEl = document.getElementById('req-title');
     if (titleEl && saved.title) titleEl.value = saved.title;
+    stnReqFillMeta(saved, year, month);
     stnReqBuildChecklistFromSaved(saved.items);
     toast('📂 ' + year + '/' + String(month).padStart(2,'0') + ' এর Requisition লোড হয়েছে।', 'success');
   } else {
@@ -15890,6 +16035,7 @@ function stnReqOnMonthChange() {
       var rateInp3 = document.getElementById('req-rate-'+it.id);
       if (rateInp3 && it.rate) rateInp3.value = it.rate;
     });
+    stnReqFillMeta(null, year, month);
     stnReqUpdatePreview();
     toast('🆕 নতুন মাস — চেকলিস্ট রিসেট হয়েছে।', 'info');
   }
@@ -15928,6 +16074,7 @@ function stnReqLoadHistory(key) {
   if (reqY) reqY.value = saved.year;
   var titleEl = document.getElementById('req-title');
   if (titleEl) titleEl.value = saved.title || '';
+  stnReqFillMeta(saved, saved.year, saved.month);
   // Checklist rebuild করো saved data দিয়ে
   stnReqBuildChecklistFromSaved(saved.items);
   toast('📂 '+key.replace('req_','').replace('_',' / ')+' এর Requisition লোড হয়েছে।', 'success');
@@ -16335,7 +16482,11 @@ function stnReqSaveRequisition() {
   var addedCount = newItems.filter(function(ni){
     return !prevItems.find(function(pi){ return pi.id===ni.id||pi.name===ni.name; });
   }).length;
-  reqs[key] = { month: Number(month), year: Number(year), title: title, items: merged, savedAt: new Date().toISOString() };
+  reqs[key] = { month: Number(month), year: Number(year), title: title, items: merged, savedAt: new Date().toISOString(),
+    reqDate: (document.getElementById('req-date')||{}).value || '',
+    supplier: ((document.getElementById('req-supplier')||{}).value || '').trim() || 'আক্তার স্টোর',
+    chalan: ((document.getElementById('req-chalan')||{}).value || '').trim() || stnReqDefaultChalan(year, month) };
+  try { stnSaveSupplierName(reqs[key].supplier); } catch(e){}
   DB.stnRequisitions = reqs;
   // Save করার পর — Item Master এ rate আপডেট করো (পরের মাসের জন্য)
   var _stnArr = DB.stnItems || [];
@@ -16536,7 +16687,7 @@ function stnReqPrintDiffPercent() {
   var mFrom = mStr + '-01';
   var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
 
-  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && !r.excludeReqPrint; });
+  var allRcv = stnReqRcvPool(year, month);
   var totalReq = 0, totalRcv = 0;
 
   var rows = items.map(function(it, i){
@@ -16622,7 +16773,7 @@ function stnReqPrintComparison() {
   var mFrom = mStr + '-01';
   var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
 
-  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && !r.excludeReqPrint; });
+  var allRcv = stnReqRcvPool(year, month);
 
   var totalReqAmt=0, totalRcvAmt=0;
 
@@ -16715,7 +16866,7 @@ function stnReqPrintComparisonNoRate() {
   var mFrom = mStr + '-01';
   var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
 
-  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && !r.excludeReqPrint; });
+  var allRcv = stnReqRcvPool(year, month);
 
   var rows = items.map(function(it, i) {
     var reqQty = Number(it.qty)||0;
@@ -16782,7 +16933,7 @@ function stnReqPrintFull() {
   var mFrom = mStr + '-01';
   var mTo   = mStr + '-' + String(new Date(year, month, 0).getDate()).padStart(2,'0');
 
-  var allRcv = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && !r.excludeReqPrint; });
+  var allRcv = stnReqRcvPool(year, month);
   var totalReq=0, totalRcv=0, totalReqAmt=0, totalRcvAmt=0, totalDiff=0;
 
   var rows = items.map(function(it, i) {
