@@ -6087,7 +6087,7 @@ window.iglSaveNavVisibility = function() {
         <p>Stationery items stock summary, low stock alert & item-wise details</p>
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" onclick="stnToggleForm('receive')" id="stn-btn-receive">
+        <button class="btn btn-primary" onclick="stnRqrCancelLink();stnToggleForm('receive')" id="stn-btn-receive">
           📥 Receive
         </button>
         <button onclick="stnRqrOpen()" style="background:linear-gradient(135deg,#1a6b3a,#27ae60);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;">📋 Requisition Receive</button>
@@ -6107,7 +6107,7 @@ window.iglSaveNavVisibility = function() {
       <div class="card" style="border-top:4px solid #2980b9;">
         <div class="card-header" style="background:linear-gradient(135deg,#1a5276,#2980b9);color:#fff;border-bottom:none;display:flex;align-items:center;justify-content:space-between;">
           📥 Stationery / Packaging — Receive Entry
-          <button onclick="stnToggleForm('receive')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+          <button onclick="stnRqrCancelLink();stnToggleForm('receive')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
         </div>
         <div class="card-body">
           <div id="stn-rqr-banner" style="display:none;margin-bottom:12px;"></div>
@@ -6444,7 +6444,7 @@ window.iglSaveNavVisibility = function() {
           <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">📅 Requisition Date
             <input type="date" id="req-date" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;"></label>
           <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">🏪 Supplier
-            <input type="text" id="req-supplier" list="stn-supplier-list" value="আক্তার স্টোর" autocomplete="off" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;width:190px;"></label>
+            <input type="text" id="req-supplier" list="stn-supplier-list" value="Akter Store(Accessories Store)" autocomplete="off" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;width:190px;"></label>
           <label style="font-size:11px;font-weight:700;color:#1a6b3a;display:flex;flex-direction:column;gap:3px;">🧾 Challan No (Receive-এ অটো বসবে)
             <input type="text" id="req-chalan" placeholder="যেমন Dec-26" style="padding:6px 8px;border:1px solid #b8d8c6;border-radius:6px;font-size:13px;width:150px;"></label>
         </div>
@@ -12167,7 +12167,7 @@ function fmtDate(d) {
 }
 
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  var n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
 }
 
 function toast(msg, type='success', duration=3500) {
@@ -14231,7 +14231,7 @@ function stnReqFindKey(year, month) {
 function stnReqFillMeta(saved, year, month) {
   var d = document.getElementById('req-date'), sp = document.getElementById('req-supplier'), ch = document.getElementById('req-chalan');
   if (d)  d.value  = (saved && saved.reqDate) || todayStr();
-  if (sp) sp.value = (saved && saved.supplier) || 'আক্তার স্টোর';
+  if (sp) sp.value = ((saved && saved.supplier) === 'আক্তার স্টোর' ? '' : (saved && saved.supplier)) || 'Akter Store(Accessories Store)';
   if (ch) ch.value = (saved && saved.chalan) || stnReqDefaultChalan(year, month);
 }
 // Req vs Receive রিপোর্টে কোন রিছিভগুলো ধরা হবে (all = সব রিছিভ; req = শুধু Requisition Receive)
@@ -14275,7 +14275,7 @@ function stnRqrOpen() {
       + '<td style="padding:10px 14px;font-weight:700;font-size:14px;">📅 ' + STN_MONFULL[r.month] + ' ' + r.year + (r.title ? '<div style="font-size:11px;color:#777;font-weight:400;">' + stnRqrEsc(r.title) + '</div>' : '') + '</td>'
       + '<td style="padding:10px;text-align:center;">' + r.items.length + '</td>'
       + '<td style="padding:10px;text-align:center;">' + stnRqrEsc(r.reqDate || '-') + '</td>'
-      + '<td style="padding:10px;">' + stnRqrEsc(r.supplier || 'আক্তার স্টোর') + '</td>'
+      + '<td style="padding:10px;">' + stnRqrEsc((r.supplier && r.supplier !== 'আক্তার স্টোর') ? r.supplier : 'Akter Store(Accessories Store)') + '</td>'
       + '<td style="padding:10px;text-align:center;font-weight:700;color:#1a6b3a;">' + stnRqrEsc(r.chalan || stnReqDefaultChalan(r.year, r.month)) + '</td>'
       + '<td style="padding:10px;text-align:center;"><b style="color:' + (pct >= 100 ? '#1a6b3a' : '#c0392b') + ';">' + pct + '%</b></td></tr>';
   }).join('');
@@ -14300,7 +14300,7 @@ function stnRqrOpenMonth(key) {
   }).join('');
   var head = '<div style="padding:10px 16px;background:#eef7f2;border-bottom:1px solid #c3e3d1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;">'
     + '<button onclick="stnRqrOpen()" style="background:#fff;border:1px solid #1a6b3a;color:#1a6b3a;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700;">← মাস তালিকা</button>'
-    + '<b>' + STN_MONFULL[req.month] + ' ' + req.year + '</b><span>🏪 ' + stnRqrEsc(req.supplier || 'আক্তার স্টোর') + '</span><span>🧾 ' + stnRqrEsc(req.chalan || stnReqDefaultChalan(req.year, req.month)) + '</span></div>';
+    + '<b>' + STN_MONFULL[req.month] + ' ' + req.year + '</b><span>🏪 ' + stnRqrEsc((req.supplier && req.supplier !== 'আক্তার স্টোর') ? req.supplier : 'Akter Store(Accessories Store)') + '</span><span>🧾 ' + stnRqrEsc(req.chalan || stnReqDefaultChalan(req.year, req.month)) + '</span></div>';
   stnRqrShell('📋 Requisition Receive — আইটেম বাছুন',
     head + '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f0f3f7;color:#555;font-size:12px;">'
     + '<th style="padding:8px;">#</th><th style="padding:8px;text-align:left;">Item</th><th style="padding:8px;">Req Qty</th><th style="padding:8px;">Received</th><th style="padding:8px;">Pending</th><th style="padding:8px;"></th></tr></thead><tbody>' + rows + '</tbody></table>');
@@ -14316,7 +14316,7 @@ function stnRqrPick(key, idx) {
   document.getElementById('stn-r-item').value = it.name;
   document.getElementById('stn-r-date').value = todayStr();
   document.getElementById('stn-r-chalan').value = req.chalan || stnReqDefaultChalan(req.year, req.month);
-  document.getElementById('stn-r-supplier').value = req.supplier || 'আক্তার স্টোর';
+  document.getElementById('stn-r-supplier').value = (req.supplier && req.supplier !== 'আক্তার স্টোর') ? req.supplier : 'Akter Store(Accessories Store)';
   var rq = Number(it.qty) || 0, rc = stnRqrRcvQty(key, it.name), pend = Math.max(0, rq - rc);
   var q = document.getElementById('stn-r-qty'); q.value = ''; q.placeholder = 'বাকি: ' + pend;
   try { stnUpdateReceiveStock(); } catch (e) {}
@@ -14326,7 +14326,7 @@ function stnRqrPick(key, idx) {
     b.style.display = 'block';
     b.innerHTML = '<div style="background:#eafaf1;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;">'
       + '📋 <b>Requisition Receive</b> — ' + STN_MONFULL[req.month] + ' ' + req.year + ' • <b>' + stnRqrEsc(it.name) + '</b> • Req ' + rq + ' | Rcv ' + rc + ' | Pending <b style="color:#c0392b;">' + pend + '</b>'
-      + '<button onclick="stnRqrCancelLink()" style="margin-left:auto;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:12px;">✕ লিংক বাদ</button></div>';
+      + '</div>';
   }
   q.focus();
 }
@@ -16037,11 +16037,52 @@ function stnReqOnMonthChange() {
     });
     stnReqFillMeta(null, year, month);
     stnReqUpdatePreview();
+    stnReqApplyLock(false);
     toast('🆕 নতুন মাস — চেকলিস্ট রিসেট হয়েছে।', 'info');
   }
   // History dropdown sync
   var histSel = document.getElementById('req-history-select');
   if (histSel) histSel.value = reqs[key] ? key : '';
+}
+
+
+// পিছনের মাসের Requisition: শুধু লিস্ট দেখায়; আইটেমে ডাবল ক্লিক করলে Qty ও Rate এডিট করা যায়
+function stnReqIsPastMonth() {
+  var m = Number((document.getElementById('req-month')||{}).value), y = Number((document.getElementById('req-year')||{}).value);
+  if (!m || !y) return false;
+  var n = new Date();
+  return (y * 12 + m) < (n.getFullYear() * 12 + n.getMonth() + 1);
+}
+function stnReqApplyLock(on) {
+  var rows = document.querySelectorAll('#req-item-checklist .req-item-row');
+  Array.prototype.forEach.call(rows, function(row){
+    var inputs = row.querySelectorAll('input,select');
+    Array.prototype.forEach.call(inputs, function(el){ el.style.pointerEvents = on ? 'none' : ''; el.tabIndex = on ? -1 : 0; });
+    var lab = row.querySelector('label'); if (lab) lab.style.pointerEvents = on ? 'none' : '';
+    row.ondblclick = on ? function(){ stnReqUnlockRow(row); } : null;
+    row.style.cursor = on ? 'pointer' : '';
+    row.removeAttribute('data-unlocked');
+    row.style.outline = '';
+  });
+  var h = document.getElementById('req-lock-hint');
+  if (!h) {
+    var host = document.getElementById('req-item-checklist');
+    if (host) { h = document.createElement('div'); h.id = 'req-lock-hint'; host.parentNode.insertBefore(h, host); }
+  }
+  if (h) {
+    h.style.cssText = on ? 'display:block;background:#fff8e1;border:1px solid #f0d27a;color:#8a6d00;border-radius:6px;padding:5px 10px;margin-bottom:6px;font-size:12px;font-weight:700;' : 'display:none;';
+    h.innerHTML = '🔒 পিছনের মাস — শুধু দেখা যাবে। Qty/Rate বদলাতে আইটেমের উপর <u>ডাবল ক্লিক</u> করুন, তারপর 💾 Save Requisition।';
+  }
+}
+function stnReqUnlockRow(row) {
+  if (!row) return;
+  var id = row.getAttribute('data-id');
+  ['req-qty-', 'req-rate-'].forEach(function(p){
+    var el = document.getElementById(p + id); if (el) { el.style.pointerEvents = ''; el.tabIndex = 0; }
+  });
+  row.setAttribute('data-unlocked', '1');
+  row.style.outline = '2px solid #f39c12';
+  var q = document.getElementById('req-qty-' + id); if (q) { q.focus(); q.select && q.select(); }
 }
 
 function stnReqPopulateHistory() {
@@ -16105,6 +16146,7 @@ function stnReqBuildChecklistFromSaved(savedItems) {
     }
   });
   stnReqUpdatePreview();
+  stnReqApplyLock(stnReqIsPastMonth());
 }
 
 // History delete করো
@@ -16178,6 +16220,7 @@ function stnReqBuildChecklist() {
   var el = document.getElementById('req-item-checklist');
   if (el) el.innerHTML = stnFiltered.length ? html : '<p style="color:#999;padding:10px;">কোনো Item নেই।</p>';
   stnReqUpdatePreview();
+  stnReqApplyLock(false);
 }
 
 // একই নামের গ্রুপ (প্রথম ২ শব্দ মিললে, যেমন "Register Khata ...") পাশাপাশি দেখানো —
@@ -16230,6 +16273,7 @@ function stnReqCheckChange(id, fromQty) {
 }
 
 function stnReqSelectAll() {
+  if (document.getElementById('req-lock-hint') && document.getElementById('req-lock-hint').style.display === 'block') { toast('🔒 পিছনের মাস — আগে আইটেমে ডাবল ক্লিক করুন', 'warning'); return; }
   (DB.stnItems||[]).concat(DB.pkgItems||[]).forEach(function(it){
     var chk = document.getElementById('req-chk-'+it.id);
     if (chk && !chk.checked) { chk.checked = true; stnReqCheckChange(it.id); }
@@ -16237,6 +16281,7 @@ function stnReqSelectAll() {
 }
 
 function stnReqClearAll() {
+  if (document.getElementById('req-lock-hint') && document.getElementById('req-lock-hint').style.display === 'block') { toast('🔒 পিছনের মাস — আগে আইটেমে ডাবল ক্লিক করুন', 'warning'); return; }
   (DB.stnItems||[]).concat(DB.pkgItems||[]).forEach(function(it){
     var chk = document.getElementById('req-chk-'+it.id);
     if (chk && chk.checked) { chk.checked = false; stnReqCheckChange(it.id); }
@@ -16484,7 +16529,7 @@ function stnReqSaveRequisition() {
   }).length;
   reqs[key] = { month: Number(month), year: Number(year), title: title, items: merged, savedAt: new Date().toISOString(),
     reqDate: (document.getElementById('req-date')||{}).value || '',
-    supplier: ((document.getElementById('req-supplier')||{}).value || '').trim() || 'আক্তার স্টোর',
+    supplier: ((document.getElementById('req-supplier')||{}).value || '').trim() || 'Akter Store(Accessories Store)',
     chalan: ((document.getElementById('req-chalan')||{}).value || '').trim() || stnReqDefaultChalan(year, month) };
   try { stnSaveSupplierName(reqs[key].supplier); } catch(e){}
   DB.stnRequisitions = reqs;
