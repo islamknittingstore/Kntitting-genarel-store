@@ -1650,7 +1650,19 @@ if('serviceWorker' in navigator){
       });
 
       // local item list (deleted বাদে)
+      // id-ছাড়া পুরনো আইটেমে নামভিত্তিক স্থির id বসাও (সব ডিভাইসে একই id হয়, তাই ডুপ্লিকেট হয় না)
+      if (typeof DB !== 'undefined') (DB.stnItems||[]).forEach(function(it){
+        if (it && !it.id && it.name) { var _h = 0, _n = String(it.name); for (var _i = 0; _i < _n.length; _i++) _h = (_h * 31 + _n.charCodeAt(_i)) >>> 0; it.id = 'stn_item_n' + _h; }
+      });
+      if (Array.isArray(remoteStnItems)) remoteStnItems.forEach(function(it){
+        if (it && !it.id && it.name) { var _h = 0, _n = String(it.name); for (var _i = 0; _i < _n.length; _i++) _h = (_h * 31 + _n.charCodeAt(_i)) >>> 0; it.id = 'stn_item_n' + _h; }
+      });
       var _localStnItems = (typeof DB !== 'undefined') ? (DB.stnItems||[]).filter(function(it){ return !(_delCache||{})['stn_item:'+String(it.id)]; }) : [];
+      // এই ডিভাইসে কোনো লোকাল পরিবর্তন না থাকলে Firebase-এর আইটেমই মাস্টার — পুরনো তালিকা দিয়ে নতুন নাম/রেট ঢাকা পড়বে না
+      if (!window._stnItemsDirtyTs && Array.isArray(remoteStnItems)) {
+        var _remById = {}; remoteStnItems.forEach(function(it){ if (it && it.id) _remById[it.id] = it; });
+        _localStnItems = _localStnItems.map(function(it){ return (it && _remById[it.id]) ? _remById[it.id] : it; });
+      }
       var _localPkgItems = (typeof DB !== 'undefined') ? (DB.pkgItems||[]).filter(function(it){ return !(_delCache||{})['pkg_item:'+String(it.id)]; }) : [];
 
       // Merge: local এ যা আছে তা রাখো (local edits প্রাধান্য পাবে), আর remote-এ থাকা কিন্তু
@@ -1842,6 +1854,7 @@ if('serviceWorker' in navigator){
           window._fbLastKnownItemsCount    = _itemsArr.length;
           window._fbLastKnownGroupsCount   = _groupsArr.length;
           window._fbLastKnownStnItemsCount = _stnItemsArr.length;
+          window._stnItemsDirtyTs = 0;
           window._fbLastKnownPkgItemsCount = _pkgItemsArr.length;
           // পুরনো legacy localStorage keys cleanup
           localStorage.removeItem('igl_deleted_needle_ids');
@@ -2160,6 +2173,7 @@ if('serviceWorker' in navigator){
             DB.stnItems = data.stn.items.filter(function(it){
               return !_allDelIds['stn_item:'+String(it.id)];
             });
+            window._stnItemsDirtyTs = 0;
           }
           // Stationery requisitions → DB.stnRequisitions
           if(data.stn.requisitions){
@@ -2191,6 +2205,7 @@ if('serviceWorker' in navigator){
           DB.stnItems = data.stnItems.filter(function(it){
             return !_allDelIds['stn_item:'+String(it.id)];
           });
+          window._stnItemsDirtyTs = 0;
         }
         if(data.ndlRcv){
           // Needle receive এও pending merge করো
@@ -10725,6 +10740,7 @@ const DB = {
   },
   set stnItems(v) {
     window._stnItemsArr = (v || []).slice(); // copy — reference problem এড়াতে
+    window._stnItemsDirtyTs = Date.now(); // এই ডিভাইসে লোকাল পরিবর্তন হয়েছে (Firebase থেকে লোড/সেভ সফল হলে 0 হয়)
   },
   get pkgItems() {
     return window._pkgItemsArr || [];
@@ -33458,7 +33474,7 @@ function stnModalAdd(){
   } else {
     // অন্য category → stnItems-এ যাবে
     var arr=DB.stnItems;
-    arr.push({group:'Stationery',category:cat,name:name});
+    arr.push({id:'stn_item_'+Date.now(),group:'Stationery',category:cat,name:name});
     DB.stnItems=arr;
     clearTimeout(window._fbSaveTimer);
     if(typeof window.fbSaveAll === 'function') window.fbSaveAll();
@@ -34106,7 +34122,7 @@ function stnImEdit(idx) {
       });
       DB.stnRecordOnly = recs;
     }
-    triggerAutoSave();
+    stnFbSaveNow();
     document.body.removeChild(overlay);
     stnItemMasterRender();
     toast('✅ Item আপডেট হয়েছে','success');
@@ -34140,7 +34156,7 @@ function stnImPageAdd() {
     var arr = DB.stnItems||[];
     arr.push({id:'stn_item_'+Date.now(), name:name, category:cat, group:'Stationery', unit:unit, rate:rate, rateEffDate:new Date().toISOString().slice(0,7), rateHistory:rh});
     DB.stnItems = arr;
-    triggerAutoSave();
+    stnFbSaveNow();
     stnPopulateItems('stn-r-item', document.getElementById('stn-r-section')?document.getElementById('stn-r-section').value:''); stnPopulateItems('stn-i-item', document.getElementById('stn-i-section')?document.getElementById('stn-i-section').value:'');
     document.body.removeChild(overlay);
     stnItemMasterRender();
@@ -34194,7 +34210,7 @@ function stnImSetRate(idx) {
     if(it2.rate && it2.rate!==newRate) it2.rateHistory.push({rate:it2.rate,month:it2.rateEffDate||effMonth,setAt:new Date().toISOString()});
     it2.rate=newRate; it2.rateEffDate=effMonth;
     DB.stnItems = _stnArr;
-    triggerAutoSave();
+    stnFbSaveNow();
     document.body.removeChild(overlay);
     stnItemMasterRender();
     toast('✅ Rate: ৳'+newRate.toLocaleString()+' ('+effMonth+')','success');
