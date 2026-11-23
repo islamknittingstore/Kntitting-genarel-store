@@ -15074,7 +15074,7 @@ function stnGetTableData() {
 
   if (_stnTab === 'slip') {
     var slipIss = DB.issues.filter(function(r){
-      return stnNames.includes(r.item) && (!q || (r.slip||'').toLowerCase().includes(q) || r.item.toLowerCase().includes(q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
+      return stnNames.includes(r.item) && (!q || stnSlipMatch(r.slip, q)) && (!dateFrom||r.date>=dateFrom) && (!dateTo||r.date<=dateTo);
     }).sort(function(a,b){ return a.date > b.date ? -1 : a.date < b.date ? 1 : b.id-a.id; });
     var sTot = slipIss.reduce(function(s,r){return s+r.qty;},0);
     return {
@@ -19011,7 +19011,7 @@ function renderStationeryDashboard() {
       // ⚠️ Slip ট্যাবে সার্চ শুধু Slip No. দিয়ে মিলবে — Item নামের সাথে মেলানো হবে না,
       // কারণ এতে আগে "20" লিখলে Slip No. 20 এর সাথে "Register Khata - 20" জাতীয়
       // item ও ভুলভাবে চলে আসতো।
-      if (q && !(r.slip||'').toLowerCase().includes(q)) return false;
+      if (q && !stnSlipMatch(r.slip, q)) return false;
       if (dateFrom2 && r.date < dateFrom2) return false;
       if (dateTo2   && r.date > dateTo2)   return false;
       return true;
@@ -33689,6 +33689,15 @@ function stnItemMasterRender() {
 // repair) সেভ হওয়ার আগেই পুরনো ডাটা দিয়ে ওভাররাইট হয়ে যেতে পারে। তাই এই ধরনের
 // গুরুত্বপূর্ণ Stationery ডাটা এডিটের পর ডিবাউন্স উপেক্ষা করে সাথে সাথেই Firebase এ
 // পাঠিয়ে দেওয়া হয়, যাতে race window যতটা সম্ভব কমে যায়।
+// Slip সার্চ: শুধু সংখ্যা (যেমন 01) লিখলে সংখ্যা-মাত্র Slip No. মিলবে — ST-01 জাতীয় অক্ষরসহ Slip আসবে না; অক্ষরসহ (ST-01) লিখলে হুবহু সেই Slip-ই মিলবে
+function stnSlipMatch(slip, q) {
+  var sl = String(slip || '').trim().toLowerCase();
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return true;
+  if (/^\d+$/.test(q) && /[^\d]/.test(sl)) return false;
+  if (/[^\d]/.test(q)) return sl === q;
+  return sl.indexOf(q) !== -1;
+}
 function stnFbSaveNow() {
   try { triggerAutoSave(); } catch(e) { console.error('triggerAutoSave error', e); }
   try {
