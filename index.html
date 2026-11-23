@@ -33727,6 +33727,17 @@ function stnFindOrphanedStnItems() {
   return orphans;
 }
 
+// 💡 পুরনো নাম → বর্তমান Item (একই id ধরে)। আগের preset তালিকায় যে id-তে পুরনো নাম ছিল,
+// এখন সেই একই id-র Item-টাই (নাম বদলানো/এডিট হওয়া) সাজেশন। শুধু পরামর্শ — নিজে থেকে কিছু বদলায় না।
+function stnOrphanSuggestId(orphanName) {
+  try {
+    var pre = (window.preStnItems || []).find(function(p){ return p && p.name === orphanName; });
+    if (!pre) return '';
+    var cur = (DB.stnItems || []).find(function(it){ return it.id === pre.id; });
+    return cur ? cur.id : '';
+  } catch(e) { return ''; }
+}
+
 function stnImOpenOrphanRepair() {
   var orphans = stnFindOrphanedStnItems();
   var names = Object.keys(orphans);
@@ -33752,11 +33763,15 @@ function stnImOpenOrphanRepair() {
   var rowsHtml = names.map(function(nm, i){
     var o = orphans[nm];
     var rowId = 'orphan-row-'+i;
+    var sugId = stnOrphanSuggestId(nm);
+    var sugItem = sugId ? (DB.stnItems||[]).find(function(it){ return it.id === sugId; }) : null;
+    var itemOptionsRow = sugId ? itemOptions.replace('value="'+sugId+'"', 'value="'+sugId+'" selected') : itemOptions;
     return '<div id="'+rowId+'" style="border:1px solid #f0d9b5;background:#fffaf0;border-radius:8px;padding:10px 12px;margin-bottom:8px;">'
       + '<div style="font-weight:700;color:#b9770e;font-size:13px;">⚠️ "'+_esc(nm)+'"</div>'
       + '<div style="font-size:11px;color:#777;margin:3px 0 8px;">Receive: '+o.recCount+' রেকর্ড ('+o.recQty+' qty) &nbsp;|&nbsp; Issue: '+o.issCount+' রেকর্ড ('+o.issQty+' qty)</div>'
       + '<div style="display:flex;gap:6px;align-items:center;">'
-      + '<select id="orphan-target-'+i+'" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;"><option value="">— বর্তমান কোন Item এর সাথে যুক্ত হবে? —</option>'+itemOptions+'</select>'
+      + (sugItem ? '<div style="font-size:11px;color:#1a6b3a;margin:-4px 0 6px;">💡 সাজেশন: এই Item-টাই এডিট হয়ে "'+_esc(sugItem.name)+'" হয়েছে। যদি একটা Item ভেঙে দুটো করা হয়ে থাকে, তাহলে "🔗 রিপেয়ার" না চেপে "✂️ ভাগ" চাপুন।</div>' : '')
+      + '<select id="orphan-target-'+i+'" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;"><option value="">— বর্তমান কোন Item এর সাথে যুক্ত হবে? —</option>'+itemOptionsRow+'</select>'
       + '<button onclick="stnImRepairOrphan('+i+')" style="padding:6px 14px;background:#1a6b3a;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;">🔗 রিপেয়ার</button>'
       + '<button onclick="stnImSplitOrphan('+i+')" style="padding:6px 10px;background:#2980b9;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;" title="রেকর্ড আলাদা আলাদা Item-এ ভাগ করুন">✂️ ভাগ</button>'
       + '</div></div>';
@@ -33812,6 +33827,9 @@ function stnImSplitOrphan(rowIdx) {
   window._stnSplitRecs = recs;
   var opts = (DB.stnItems||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); })
     .map(function(it){ return '<option value="'+it.id+'">'+_esc(it.name)+'</option>'; }).join('');
+  // ডিফল্ট: সব রেকর্ড সাজেস্টেড (একই id-র) Item-এ বসানো থাকবে; যেগুলো অন্য Item-এর (যেমন 20 No) সেগুলো শুধু বদলে নিন
+  var _sugId = stnOrphanSuggestId(orphanName);
+  var optsSel = _sugId ? opts.replace('value="'+_sugId+'"', 'value="'+_sugId+'" selected') : opts;
   var rows = recs.map(function(x,i){
     var r = x.r, info = [r.chalan, r.slip, r.dept, r.department, r.supplier, r.remarks].filter(Boolean).join(' | ');
     return '<tr style="border-bottom:1px solid #eee;">'
@@ -33819,7 +33837,7 @@ function stnImSplitOrphan(rowIdx) {
       + '<td style="padding:5px;font-size:11px;white-space:nowrap;">'+_esc(r.date||'')+'</td>'
       + '<td style="padding:5px;font-size:11px;font-weight:700;">'+(Number(r.qty)||0)+'</td>'
       + '<td style="padding:5px;font-size:10px;color:#777;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_esc(info)+'</td>'
-      + '<td style="padding:5px;"><select id="split-t-'+i+'" style="width:100%;padding:4px;font-size:11px;border:1px solid #ddd;border-radius:4px;"><option value="">— অপরিবর্তিত —</option>'+opts+'</select></td></tr>';
+      + '<td style="padding:5px;"><select id="split-t-'+i+'" style="width:100%;padding:4px;font-size:11px;border:1px solid #ddd;border-radius:4px;"><option value="">— অপরিবর্তিত —</option>'+optsSel+'</select></td></tr>';
   }).join('');
   var ov = document.createElement('div');
   ov.id = 'stn-split-overlay';
