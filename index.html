@@ -33727,6 +33727,53 @@ function stnFindOrphanedStnItems() {
   return orphans;
 }
 
+// 🔒 স্থায়ী সুরক্ষা: যে Item-এর নাম বদলানোর ইতিহাস (prevNames) আছে, তার পুরনো নামে পড়ে থাকা রেকর্ড
+// নিজে থেকে নতুন নামে নিয়ে আসে। শুধু তখনই কাজ করে যখন ঠিক একটাই Item ওই পুরনো নামের দাবিদার।
+// কিছু মোছে না, শুধু রেকর্ডের item-নাম বদলায়। বাকি (ইতিহাস নেই এমন) হারানো নাম থাকলে সতর্কবার্তা দেখায়।
+window._stnHealBusy = false;
+function stnAutoHealOrphans() {
+  try {
+    if (window._stnHealBusy) return;
+    if (!window._stnItemsArr || !window._stnItemsArr.length) return;       // Item Master এখনো লোড হয়নি
+    if (!(DB.receives||[]).length && !(DB.issues||[]).length) return;      // রেকর্ড এখনো লোড হয়নি
+    if (!navigator.onLine) return;
+    var v3 = window.IGLV3 && window.IGLV3.kindEnabled && window.IGLV3.kindEnabled('rcv');
+    if (v3 && !window.IGLV3.ready) return;
+    var orphans = stnFindOrphanedStnItems(), names = Object.keys(orphans);
+    if (!names.length) return;
+    var fixes = [], left = [];
+    names.forEach(function(nm){
+      var claim = (DB.stnItems||[]).filter(function(it){ return (it.prevNames||[]).indexOf(nm) !== -1; });
+      if (claim.length === 1) fixes.push({from:nm, to:claim[0].name}); else left.push(nm);
+    });
+    if (fixes.length) {
+      window._stnHealBusy = true;
+      var done = function(){
+        window._stnHealBusy = false;
+        toast('🔧 '+fixes.length+'টি পুরনো নামের রেকর্ড নিজে থেকে ঠিক হয়েছে', 'success');
+        try { renderStationeryDashboard(); } catch(e){}
+        try { stnItemMasterRender(); } catch(e){}
+      };
+      var fail = function(e){ window._stnHealBusy = false; console.error('stnAutoHealOrphans', e); };
+      if (v3) {
+        fixes.reduce(function(pr, f){ return pr.then(function(){ return window.IGLV3.renameStn(f.from, f.to); }); }, Promise.resolve()).then(done).catch(fail);
+      } else {
+        fixes.forEach(function(f){
+          (DB.receives||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===f.from) r.item = f.to; });
+          (DB.issues||[]).forEach(function(r){ if (r.group==='Stationery' && r.item===f.from) r.item = f.to; });
+        });
+        try { stnFbSaveNow(); done(); } catch(e){ fail(e); }
+      }
+    }
+    if (left.length && !window._stnOrphanWarned) {
+      window._stnOrphanWarned = true;
+      toast('⚠️ '+left.length+'টি হারানো Item আছে (ব্যালেন্সে গরমিল দেখাবে) — Item Master → "🔧 হারানো Item রিপেয়ার" চাপুন', 'warning');
+    }
+  } catch(e) { console.error('stnAutoHealOrphans', e); }
+}
+setTimeout(stnAutoHealOrphans, 12000);
+setInterval(stnAutoHealOrphans, 90000);
+
 // 💡 পুরনো নাম → বর্তমান Item (একই id ধরে)। আগের preset তালিকায় যে id-তে পুরনো নাম ছিল,
 // এখন সেই একই id-র Item-টাই (নাম বদলানো/এডিট হওয়া) সাজেশন। শুধু পরামর্শ — নিজে থেকে কিছু বদলায় না।
 function stnOrphanSuggestId(orphanName) {
@@ -34127,6 +34174,13 @@ function stnImEdit(idx) {
     items[idx].name     = newName;
     items[idx].category = newCat;
     items[idx].unit     = newUnit || 'Pcs';
+    // 🔒 নামের ইতিহাস মনে রাখো — কোনো কারণে (অফলাইন/অন্য ডিভাইস) রেকর্ডের নাম বদলানো মিস হলেও
+    // stnAutoHealOrphans() এই ইতিহাস দেখে পরে নিজে থেকে ঠিক করে দেবে।
+    if (oldName !== newName) {
+      var _pn = (items[idx].prevNames || []).slice();
+      if (_pn.indexOf(oldName) === -1) _pn.push(oldName);
+      items[idx].prevNames = _pn;
+    }
 
     // Issue ও Receive রেকর্ডে নাম আপডেট করো
     if (oldName !== newName) {
@@ -34285,6 +34339,12 @@ async function stnImDelById(itemId) {
 
 async function stnImDel(idx) {
   var items=DB.stnItems; var item=items[idx]; if(!item) return;
+  var _usedN = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && r.item===item.name; }).length
+             + (DB.issues||[]).filter(function(r){ return r.group==='Stationery' && r.item===item.name; }).length;
+  if (_usedN > 0) {
+    toast('⛔ "'+item.name+'"-এর '+_usedN+'টি Receive/Issue রেকর্ড আছে — ডিলিট করলে ব্যালেন্স/স্লিপে গরমিল হবে। ডিলিটের বদলে Hide করুন।', 'error');
+    return;
+  }
   var ok=await igl_confirm('"'+item.name+'" ডিলিট করবেন?','Item Master থেকে সরে যাবে।','🗑️');
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+item.name);
@@ -35016,6 +35076,12 @@ async function stnMtDel(idx){
   var allItems = DB.stnItems;
   var item = allItems[idx];
   if(!item) return;
+  var _usedN = (DB.receives||[]).filter(function(r){ return r.group==='Stationery' && r.item===item.name; }).length
+             + (DB.issues||[]).filter(function(r){ return r.group==='Stationery' && r.item===item.name; }).length;
+  if (_usedN > 0) {
+    toast('⛔ "'+item.name+'"-এর '+_usedN+'টি Receive/Issue রেকর্ড আছে — ডিলিট করলে ব্যালেন্স/স্লিপে গরমিল হবে। ডিলিটের বদলে Hide করুন।', 'error');
+    return;
+  }
   var ok = await igl_confirm('"'+item.name+'" ডিলিট করবেন?','','🗑️');
   if(!ok) return;
   binAdd('stn_item', item, 'STN Item — '+(item.name||''));
@@ -42527,7 +42593,9 @@ async function stnSaveManualBF() {
     var it = items.find(function(x){return x.name===itemName;});
     if(it && it.bf !== newVal){ it.bf = newVal; updated++; }
   });
-  triggerAutoSave();
+  // 🔒 B/F বদলালে অবশ্যই setter দিয়ে লিখতে হবে (লোকাল-পরিবর্তন চিহ্নিত হয়) — নইলে সেভের সময়
+  // Firebase-এর পুরনো B/F লোকাল মানকে ওভাররাইট করে দেয় এবং বদল হারিয়ে যায়।
+  if (updated) { DB.stnItems = items; stnFbSaveNow(); } else { triggerAutoSave(); }
   document.getElementById('stnBFModal').style.display = 'none';
   if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
   toast('✅ '+updated+' টি item এর B/F Manual Save হয়েছে!', 'success');
@@ -42559,7 +42627,7 @@ async function stnSaveAllBF() {
     var it = items.find(function(x){return x.name===itemName;});
     if(it){ it.bf = newBF; updated++; }
   });
-  triggerAutoSave();
+  if (updated) { DB.stnItems = items; stnFbSaveNow(); } else { triggerAutoSave(); }
 
   document.getElementById('stnBFModal').style.display = 'none';
   if(typeof renderStationeryDashboard==='function') renderStationeryDashboard();
