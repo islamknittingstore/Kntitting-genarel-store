@@ -14974,6 +14974,18 @@ async function pkgMigrateApply(i) {
   renderPackagingDashboard();
 }
 
+// 🔧 Sharp Tools আইটেমের ইস্যুতে শুধু সংখ্যা (যেমন "01" বা "1") দিলে নিজে থেকে "ST-01" হবে।
+// অন্য ক্যাটাগরির আইটেমে বা আগে থেকেই অক্ষরসহ Slip (ST-01, SLP-... ইত্যাদি) থাকলে কিছুই বদলায় না।
+function stnSharpSlip(slip, itemName) {
+  try {
+    var sl = String(slip == null ? '' : slip).trim();
+    if (!/^\d{1,3}$/.test(sl)) return sl;
+    var it = (DB.stnItems || []).find(function(x){ return x.name === itemName; });
+    if (!it || it.category !== 'Sharp Tools') return sl;
+    return 'ST-' + (sl.length < 2 ? '0' + sl : sl);
+  } catch (e) { return slip; }
+}
+
 async function stnSaveIssue() {
   var date    = document.getElementById('stn-i-date').value;
   var slip    = document.getElementById('stn-i-slip').value.trim();
@@ -14995,6 +15007,10 @@ async function stnSaveIssue() {
   if (!item)  { toast('Please select an item!', 'warning'); return; }
   if (!qty || isNaN(qty) || qty <= 0) { toast('Please enter a valid quantity!', 'warning'); return; }
   if (!dept)  { toast('Please select a Department!', 'warning'); return; }
+
+  // Sharp Tools আইটেমে "01" লিখলেও "ST-01" হিসেবে সেভ হবে
+  var _slipFixed = stnSharpSlip(slip, item);
+  if (_slipFixed !== slip) { toast('ℹ️ Sharp Tools আইটেম — Slip No. "' + slip + '" → "' + _slipFixed + '" করা হয়েছে', 'info'); slip = _slipFixed; }
 
   // Duplicate check
   if (stnCheckDuplicateIssue(date, item, dept, qty, remarks, employeeId)) {
@@ -18760,7 +18776,12 @@ function stnEditTx(type, id) {
           date:      newDate,
           item:      newItem,
           qty:       newQty,
-          slip:      document.getElementById('stn-edit-slip').value.trim()  || r.slip,
+          slip:      (function(){
+            var _v = document.getElementById('stn-edit-slip').value.trim();
+            if (!_v) return r.slip;
+            // শুধু Slip নিজে বদলালে Sharp Tools নিয়ম খাটবে (পুরনো Slip অপরিবর্তিত থাকলে ছোঁয়া হবে না)
+            return _v === String(r.slip || '') ? _v : stnSharpSlip(_v, newItem);
+          })(),
           machineId: _newDept,
           // Employee বসানো হলে (এবং Remarks অপরিবর্তিত থাকলে) এই এন্ট্রির Remarks-ও খালি হবে
           remarks:   _propagate ? '' : _newRemarks,
@@ -19173,11 +19194,21 @@ function renderStationeryDashboard() {
           var issC = DB.issues.filter(function(r){ return r.item===itemName && r.date<dateFromIW; }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
           return bfC + rcvC - issC;
         })();
+        // BF = শুরুর তারিখের আগ পর্যন্ত (তারিখ না দিলে Item Master-এর BF); ইস্যু/রিসিভ = দেওয়া তারিখ-সীমার মধ্যে (না দিলে সব)
+        // ব্যালেন্স = BF + রিসিভ − ইস্যু  (search-box ফিল্টার নির্বিশেষে আসল হিসাব)
+        var _inRng = function(r){ return !(dateFromIW && r.date < dateFromIW) && !(dateToIW && r.date > dateToIW); };
+        var cardIss = DB.issues.filter(function(r){ return r.item===itemName && r.group==='Stationery' && _inRng(r); }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+        var cardRcv = DB.receives.filter(function(r){ return r.item===itemName && r.group==='Stationery' && _inRng(r); }).reduce(function(s,r){ return s+(Number(r.qty)||0); },0);
+        var cardBal = cardBf + cardRcv - cardIss;
         html += '<div class="stn-iw-card" style="background:#f5eef8;border-left:4px solid #8e44ad;border-radius:6px;padding:10px 14px;cursor:pointer;transition:all 0.15s;" data-item="'+itemName+'" onclick="stnIWToggle(this)">'+
           '<div style="font-size:10px;color:#6c3483;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+itemName+'">'+itemName+'</div>'+
-          '<div style="font-size:24px;font-weight:700;color:#6c3483;">'+d.totalIssue+'</div>'+
-          '<div style="font-size:10px;color:#117a65;font-weight:600;">BF: '+cardBf+'</div>'+
-          '<div style="font-size:10px;color:#888;">'+d.entries.length+' ইস্যু | <span style="color:#1a5276;text-decoration:underline;cursor:pointer;">বিস্তারিত ▼</span></div></div>';
+          '<div style="display:flex;gap:8px;align-items:flex-end;justify-content:space-between;">'+
+            '<div><div style="font-size:9px;color:#117a65;font-weight:700;">BF</div><div style="font-size:17px;font-weight:700;color:#117a65;">'+cardBf+'</div></div>'+
+            '<div><div style="font-size:9px;color:#c0392b;font-weight:700;">ইস্যু</div><div style="font-size:17px;font-weight:700;color:#c0392b;">'+cardIss+'</div></div>'+
+            '<div><div style="font-size:9px;color:'+(cardBal>0?'#1a5276':'#c0392b')+';font-weight:700;">ব্যালেন্স</div><div style="font-size:21px;font-weight:800;color:'+(cardBal>0?'#1a5276':'#c0392b')+';">'+cardBal+'</div></div>'+
+          '</div>'+
+          (cardRcv ? '<div style="font-size:10px;color:#0e6655;font-weight:600;margin-top:2px;">+ Receive: '+cardRcv+'</div>' : '')+
+          '<div style="font-size:10px;color:#888;margin-top:2px;">'+d.entries.length+' ইস্যু এন্ট্রি | <span style="color:#1a5276;text-decoration:underline;cursor:pointer;">বিস্তারিত ▼</span></div></div>';
       });
       html += '</div>';
 
