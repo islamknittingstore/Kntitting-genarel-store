@@ -14250,6 +14250,28 @@ function stnReqFillMeta(saved, year, month) {
   if (sp) sp.value = ((saved && saved.supplier) === 'আক্তার স্টোর' ? '' : (saved && saved.supplier)) || 'Akter Store(Accessories Store)';
   if (ch) ch.value = (saved && saved.chalan) || stnReqDefaultChalan(year, month);
 }
+// 🔗 Requisition ↔ Akter Store রিসিভ মিলানো: যে রিসিভের reqKey নেই (আগে সরাসরি Receive ফর্মে এন্ট্রি দেওয়া),
+// সেটা যদি Akter Store-এর হয় এবং Challan-এর মাস-বছর (যেমন "April-26", "June 26", "August -2026") ওই
+// Requisition-এর মাসের সাথে মেলে, তাহলে ওই মাসের Requisition-এর রিসিভ হিসেবে গণ্য হবে।
+// লোকাল থেকে কেনা মাল (অন্য সাপ্লায়ার) বা মাস-ছাড়া Challan (যেমন 3484) এতে ধরা হয় না। ডাটা বদলানো হয় না।
+var STN_RQR_MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+function stnRqrChalanMonth(ch) {
+  var s = String(ch == null ? '' : ch).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  var m = s.match(/^([a-z]{3})[a-z]*\s*(\d{4}|\d{2})$/);
+  if (!m) return null;
+  var mi = STN_RQR_MON.indexOf(m[1]); if (mi < 0) return null;
+  var y = Number(m[2]); if (y < 100) y += 2000;
+  return { y: y, m: mi + 1 };
+}
+function stnRqrIsAkter(r) { return /akter|আক্তার/i.test(String((r && r.supplier) || '')); }
+function stnRqrBelongs(r, key) {
+  if (!r || r.group !== 'Stationery') return false;
+  if (r.reqKey) return r.reqKey === key;
+  var req = (DB.stnRequisitions || {})[key];
+  if (!req || !stnRqrIsAkter(r)) return false;
+  var c = stnRqrChalanMonth(r.chalan);
+  return !!c && c.y === Number(req.year) && c.m === Number(req.month);
+}
 // Req vs Receive রিপোর্টে কোন রিছিভগুলো ধরা হবে (all = সব রিছিভ; req = শুধু Requisition Receive)
 function stnReqRcvPool(year, month) {
   var base = (DB.receives || []).filter(function(r){ return r.group === 'Stationery' && !r.excludeReqPrint; });
@@ -14258,10 +14280,10 @@ function stnReqRcvPool(year, month) {
   var key = stnReqFindKey(year, month);
   var mFrom = year + '-' + String(month).padStart(2, '0') + '-01';
   // রিছিভ পরের মাসে হলেও ওই রিকোজিশনের হিসাবে ধরার জন্য তারিখ মাসের শুরুতে ধরা হলো (শুধু রিপোর্টের হিসাবে; আসল রেকর্ড বদলায় না)
-  return base.filter(function(r){ return key && r.reqKey === key; }).map(function(r){ return Object.assign({}, r, { date: mFrom }); });
+  return base.filter(function(r){ return key && stnRqrBelongs(r, key); }).map(function(r){ return Object.assign({}, r, { date: mFrom }); });
 }
 function stnRqrRcvQty(key, name) {
-  return (DB.receives || []).filter(function(r){ return r.group === 'Stationery' && r.reqKey === key && r.item === name; })
+  return (DB.receives || []).filter(function(r){ return stnRqrBelongs(r, key) && r.item === name; })
     .reduce(function(s, r){ return s + (Number(r.qty) || 0); }, 0);
 }
 function stnRqrEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
